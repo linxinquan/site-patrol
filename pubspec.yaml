@@ -1,0 +1,27 @@
+name: gongdi_app
+description: 工地验收 App (Flutter) - 南方科技大学附属医院（校本部）
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.4.0
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.2.7
+  lucide_icons_flutter: ^3.1.15
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/drawings/
+    - assets/photos/
+    - assets/avatars/
