@@ -21,23 +21,30 @@ class DeviceFrame extends ConsumerWidget {
 
     final phoneMode = ref.watch(devicePhoneModeProvider);
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: phoneMode ? _buildPhoneShell(child) : _buildFullScreen(child),
-        ),
-        // 悬浮切换按钮（右上角，半透明小药丸）
-        Positioned(
-          top: 12,
-          right: 12,
-          child: _ToggleButton(
-            phoneMode: phoneMode,
-            onTap: () => ref
-                .read(devicePhoneModeProvider.notifier)
-                .state = !phoneMode,
+    // DeviceFrame 位于 MaterialApp 之外，需显式提供 Directionality，
+    // 否则 Stack 的默认 alignment（AlignmentDirectional）会报错：
+    // "No Directionality widget found."
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child:
+                phoneMode ? _buildPhoneShell(child) : _buildFullScreen(child),
           ),
-        ),
-      ],
+          // 悬浮切换按钮（右上角，半透明小药丸）
+          Positioned(
+            top: 12,
+            right: 12,
+            child: _ToggleButton(
+              phoneMode: phoneMode,
+              onTap: () => ref
+                  .read(devicePhoneModeProvider.notifier)
+                  .state = !phoneMode,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
