@@ -31,3 +31,9 @@ final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);
 final floorCacheProvider = StateProvider<Map<String, int>>((ref) => {
       for (final f in floors) f.key: f.cached ? 100 : f.progress,
     });
+
+/// Web 调试专用：标记当前是否为「手机尺寸模拟」模式。
+/// DeviceFrame 切换时写入；App 的 MaterialApp.router builder 读取后
+/// 显式注入 MediaQueryData(size: Size(390, 844))，避免 FittedBox 推断尺寸
+/// 触发 web release 下的边界问题。
+final devicePhoneModeProvider = StateProvider<bool>((ref) => false);

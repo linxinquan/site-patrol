@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/di/providers.dart';
+import 'shared/widgets/device_frame.dart';
 import 'features/home/home_page.dart';
 import 'features/projects/projects_page.dart';
 import 'features/projects/drawing_viewer_page.dart';
@@ -55,13 +58,29 @@ final router = GoRouter(
   ],
 );
 
-class App extends StatelessWidget {
+class App extends ConsumerWidget {
   const App({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-        title: '工地验收',
-        theme: lightTheme,
-        routerConfig: router,
-        debugShowCheckedModeBanner: false,
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    final phoneMode = ref.watch(devicePhoneModeProvider);
+    return MaterialApp.router(
+      title: '工地验收',
+      theme: lightTheme,
+      routerConfig: router,
+      debugShowCheckedModeBanner: false,
+      // Web 调试：当切到手机尺寸模拟时，显式注入 MediaQuery，避免 FittedBox/SizedBox
+      // 在 web release 下推断尺寸导致的边界问题（之前报错：`test inject(injectKey)!`）。
+      builder: (context, child) {
+        if (!phoneMode || child == null) return child ?? const SizedBox.shrink();
+        final base = MediaQuery.of(context);
+        return MediaQuery(
+          data: base.copyWith(
+            size: const Size(DeviceFrame.phoneWidth, DeviceFrame.phoneHeight),
+            padding: const EdgeInsets.only(top: 0, bottom: 0),
+          ),
+          child: child,
+        );
+      },
+    );
+  }
 }
