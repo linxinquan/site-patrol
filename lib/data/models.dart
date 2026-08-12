@@ -69,6 +69,18 @@ extension DefectSeverityX on DefectSeverity {
         return const Color(0xFFDC2626);
     }
   }
+
+  /// 软底色（用于徽标/卡片背景）。
+  Color get soft {
+    switch (this) {
+      case DefectSeverity.low:
+        return const Color(0xFFFEF3C7);
+      case DefectSeverity.mid:
+        return const Color(0xFFFFEDD5);
+      case DefectSeverity.high:
+        return const Color(0xFFFEE2E2);
+    }
+  }
 }
 
 class Project {
@@ -216,5 +228,31 @@ class TimelinePhoto {
     required this.state,
     required this.caption,
     required this.verified,
+  });
+}
+
+/// 拍照验收路由参数：楼层 + 预锚定部位 + 相对坐标（0~1）。
+class CaptureArgs {
+  final String floor;
+  final String anchorLabel;
+  final double x;
+  final double y;
+  const CaptureArgs({
+    this.floor = '西楼1F',
+    this.anchorLabel = '待选点',
+    this.x = 0.5,
+    this.y = 0.5,
+  });
+}
+
+/// VL 模拟识别的缺陷结果。
+class VlDefect {
+  final String name;
+  final DefectSeverity severity;
+  final double conf;
+  const VlDefect({
+    required this.name,
+    required this.severity,
+    required this.conf,
   });
 }

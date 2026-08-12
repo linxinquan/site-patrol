@@ -5,7 +5,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
-import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../data/models.dart';
@@ -135,54 +134,180 @@ class _DefectCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppCard(
         onTap: () => context.push('/defects/record/${d.id}'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space4, vertical: AppTokens.space3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                StatusBadge(
-                    text: d.status.label,
-                    color: d.status.color,
-                    bg: d.status.soft),
-                const SizedBox(width: 8),
-                StatusBadge(
-                    text: d.severity.label,
-                    color: d.severity.color,
-                    bg: d.severity.color.withValues(alpha: 0.12)),
-                const Spacer(),
-                Text(d.type,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTokens.muted)),
-              ],
+            // 左侧：红色三角警告图标（对齐原型 row__icon）
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTokens.dangerSoft,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              ),
+              child: const Icon(LucideIcons.alertTriangle,
+                  size: 16, color: AppTokens.danger),
             ),
-            const SizedBox(height: 10),
-            Text(d.part,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(LucideIcons.mapPin,
-                    size: 13, color: AppTokens.muted),
-                const SizedBox(width: 4),
-                Text(d.floor,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTokens.muted)),
-                const SizedBox(width: 12),
-                const Icon(LucideIcons.clock, size: 13, color: AppTokens.muted),
-                const SizedBox(width: 4),
-                Text(d.ts,
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTokens.muted)),
-              ],
+            const SizedBox(width: AppTokens.space3),
+            // 中部：标题 + 类型/严重度/部位 + 责任人备注
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    d.part,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppTokens.fg),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${d.type} · 严重度 ${d.severity.label} · ${d.anchor}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTokens.muted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${d.resp} · ${d.note}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTokens.mutedA11y),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Text('${d.resp} · ${d.note}',
-                style:
-                    const TextStyle(fontSize: 12, color: AppTokens.mutedA11y)),
+            const SizedBox(width: AppTokens.space3),
+            // 右侧：大尺寸状态胶囊（对齐原型 defectBadge）
+            StatusPill(status: d.status),
           ],
         ),
       );
+}
+
+/// 缺陷状态大胶囊：虚线圆 + 图标 + 文字，按状态着色。
+/// 对齐 prototype HTML 的 defectBadge():
+///   draft  → 待整改 (warning 黄)
+///   doing  → 整改中 (brand 蓝)
+///   done   → 已销项 (success 绿)
+///   reject → 已拒绝 (danger 红)
+class StatusPill extends StatelessWidget {
+  final DefectStatus status;
+  const StatusPill({super.key, required this.status});
+
+  Color get _color {
+    switch (status) {
+      case DefectStatus.draft:
+        return AppTokens.warning;
+      case DefectStatus.doing:
+        return AppTokens.brand;
+      case DefectStatus.done:
+        return AppTokens.success;
+      case DefectStatus.reject:
+        return AppTokens.danger;
+    }
+  }
+
+  Color get _soft {
+    switch (status) {
+      case DefectStatus.draft:
+        return AppTokens.warningSoft;
+      case DefectStatus.doing:
+        return AppTokens.brandSoft;
+      case DefectStatus.done:
+        return AppTokens.successSoft;
+      case DefectStatus.reject:
+        return AppTokens.dangerSoft;
+    }
+  }
+
+  IconData get _icon {
+    switch (status) {
+      case DefectStatus.draft:
+        return LucideIcons.refreshCcw; // 循环（与"待整改"对应）
+      case DefectStatus.doing:
+        return LucideIcons.refreshCcw; // 循环（与"整改中"对应）
+      case DefectStatus.done:
+        return LucideIcons.check;
+      case DefectStatus.reject:
+        return LucideIcons.x;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: _soft,
+          borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+          border: Border.all(
+              color: _color.withValues(alpha: 0.35), width: 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 虚线圆 + 中心图标
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(28, 28),
+                    painter: _DashedRingPainter(color: _color),
+                  ),
+                  Icon(_icon, size: 14, color: _color),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              status.label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _color),
+            ),
+          ],
+        ),
+      );
+}
+
+/// 虚线圆环 painter（圆 + 一段段短弧绘制）。
+class _DashedRingPainter extends CustomPainter {
+  final Color color;
+  _DashedRingPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke;
+    final r = (size.shortestSide - paint.strokeWidth) / 2;
+    final c = Offset(size.width / 2, size.height / 2);
+    final path = Path()..addOval(Rect.fromCircle(center: c, radius: r));
+    final metric = path.computeMetrics().first;
+    const dash = 4.0;
+    const gap = 2.0;
+    double dist = 0.0;
+    while (dist < metric.length) {
+      final next = (dist + dash).clamp(0.0, metric.length);
+      canvas.drawPath(metric.extractPath(dist, next), paint);
+      dist = next + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRingPainter old) => old.color != color;
 }

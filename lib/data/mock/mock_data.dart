@@ -107,7 +107,7 @@ const Map<String, List<PhotoAnchor>> photoAnchors = {
 };
 
 const List<Defect> defects = [
-  Defect(id: 'd1', part: '西楼1F门诊大厅墙面空鼓', type: '空鼓', severity: DefectSeverity.mid, status: DefectStatus.draft, anchor: '西楼1F-门诊大厅', floor: '西楼1F', ts: '2026-08-08 14:32', gps: '22.5936°N 113.9798°E', alt: '海拔 18.2m', resp: '深圳市建工集团 王工', note: '空鼓面积约 0.4㎡，需注浆处理', seed: 'a'),
+  Defect(id: 'd1', part: '西楼1F门诊大厅墙面空鼓', type: '空鼓', severity: DefectSeverity.mid, status: DefectStatus.draft, anchor: '西楼1F-左病房翼', floor: '西楼1F', ts: '2026-08-08 14:32', gps: '22.5936°N 113.9798°E', alt: '海拔 18.2m', resp: '深圳市建工集团 王工', note: '空鼓面积约 0.4㎡，需注浆处理', seed: 'a'),
   Defect(id: 'd2', part: '东楼4F标准层病房渗漏', type: '渗漏', severity: DefectSeverity.mid, status: DefectStatus.done, anchor: '东楼4F-住院部', floor: '东楼4F', ts: '2026-08-06 09:15', gps: '22.5938°N 113.9801°E', alt: '海拔 32.5m', resp: '深圳市建工集团 李工', note: '已注浆封堵，复查无渗水', seed: 'b'),
   Defect(id: 'd3', part: '感染楼1F 防火墙洞口偏差', type: '洞口偏差', severity: DefectSeverity.high, status: DefectStatus.reject, anchor: '感染楼1F-医辅区', floor: '感染楼1F', ts: '2026-08-05 16:40', gps: '22.5934°N 113.9803°E', alt: '海拔 16.8m', resp: '中海监理 张工', note: '经复核偏差在允许范围内，驳回', seed: 'c'),
   Defect(id: 'd4', part: '西楼B1地下车库顶棚裂缝', type: '裂缝', severity: DefectSeverity.low, status: DefectStatus.doing, anchor: '西楼B1-车库', floor: '西楼B1', ts: '2026-08-07 11:08', gps: '22.5936°N 113.9799°E', alt: '海拔 -4.2m', resp: '深圳市建工集团 王工', note: '已挂网处理，待复检', seed: 'd'),
@@ -122,3 +122,43 @@ const Map<String, List<TimelinePhoto>> timeline = {
     TimelinePhoto(date: '2026-08-08', state: 'after', caption: '注浆后复查无空鼓', verified: true),
   ],
 };
+
+/// VL 模拟识别：按锚点关键词返回缺陷列表（对齐原型 app.js vlPreset）。
+List<VlDefect> vlPreset(String anchor) {
+  final kw = anchor.toLowerCase();
+  if (kw.contains('渗漏') || kw.contains('b1') || kw.contains('b2')) {
+    return const [
+      VlDefect(name: '墙面渗漏', severity: DefectSeverity.high, conf: 0.96),
+      VlDefect(name: '湿渍返潮', severity: DefectSeverity.mid, conf: 0.88),
+    ];
+  }
+  if (kw.contains('裂缝') || kw.contains('顶棚')) {
+    return const [
+      VlDefect(name: '结构性裂缝', severity: DefectSeverity.mid, conf: 0.93),
+      VlDefect(name: '表面裂缝', severity: DefectSeverity.low, conf: 0.81),
+    ];
+  }
+  return const [
+    VlDefect(name: '墙面空鼓', severity: DefectSeverity.mid, conf: 0.91),
+    VlDefect(name: '表面裂缝', severity: DefectSeverity.low, conf: 0.79),
+  ];
+}
+
+/// 楼层名称 → 图纸 key（对齐原型 app.js floorToDrawingKey）。
+String floorToDrawingKey(String floor) {
+  switch (floor) {
+    case '东楼1F':
+      return 'nkf_east_1f';
+    case '总平面图':
+      return 'nkf_total';
+    default:
+      return 'nkf_west_1f';
+  }
+}
+
+/// 蓝图原稿清单（P4 蓝图预览页图纸切换用）。
+const List<Map<String, String>> blueprintDrawings = [
+  {'key': 'nkf_west_1f', 'label': '西楼1F', 'title': '西楼·一层平面图', 'src': 'assets/drawings/nkf_west_1f.png'},
+  {'key': 'nkf_east_1f', 'label': '东楼1F', 'title': '东楼·一层平面图', 'src': 'assets/drawings/nkf_east_1f.png'},
+  {'key': 'nkf_total', 'label': '总平面图', 'title': '总平面图', 'src': 'assets/drawings/nkf_total.png'},
+];

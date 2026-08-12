@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/di/providers.dart';
+import 'data/models.dart';
 import 'shared/widgets/device_frame.dart';
 import 'features/home/home_page.dart';
 import 'features/projects/projects_page.dart';
@@ -10,7 +11,9 @@ import 'features/projects/drawing_viewer_page.dart';
 import 'features/patrol/patrol_page.dart';
 import 'features/defects/defects_page.dart';
 import 'features/defects/record_detail_page.dart';
+import 'features/defects/timeline_compare_page.dart';
 import 'features/capture/capture_page.dart';
+import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 
 final router = GoRouter(
@@ -52,8 +55,18 @@ final router = GoRouter(
     GoRoute(
       path: '/capture',
       builder: (_, state) => CapturePage(
-        anchorLabel: state.extra as String?,
+        args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
       ),
+    ),
+    GoRoute(
+      path: '/timeline',
+      builder: (_, state) => TimelineComparePage(
+        anchor: state.extra is String ? state.extra as String : null,
+      ),
+    ),
+    GoRoute(
+      path: '/blueprint',
+      builder: (_, __) => const BlueprintViewerPage(),
     ),
   ],
 );

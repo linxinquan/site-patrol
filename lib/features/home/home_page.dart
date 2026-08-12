@@ -7,7 +7,6 @@ import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/async_state.dart';
-import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
@@ -26,13 +25,35 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 64,
+        titleSpacing: AppTokens.space4,
         title: project.maybeWhen(
-          data: (p) => Text(
-            '工作台 · ${p.client} · 建筑 ${p.floorArea} · ${p.beds} 床',
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.w600, color: AppTokens.fg),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          data: (p) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                p.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTokens.fg,
+                    height: 1.2),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${p.client} · 建筑 ${p.floorArea} · ${p.beds} 床',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTokens.muted,
+                    height: 1.2),
+              ),
+            ],
           ),
           orElse: () => const Text('工作台'),
         ),
@@ -44,7 +65,7 @@ class HomePage extends ConsumerWidget {
               padding: EdgeInsets.only(right: 12),
               child: CircleAvatar(
                 backgroundImage: AssetImage('assets/avatars/yang-gong.jpg'),
-                radius: 16,
+                radius: 18,
               ),
             ),
           ),
@@ -53,19 +74,17 @@ class HomePage extends ConsumerWidget {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTokens.accent,
         foregroundColor: AppTokens.onAccent,
-        onPressed: () =>
-            AppSnack.show(context, '拍照验收（P3 实现）', kind: AppSnackKind.accent),
+        onPressed: () => context.push('/capture'),
         child: const Icon(LucideIcons.camera, size: 26),
       ),
       body: ListView(
         padding: const EdgeInsets.all(AppTokens.space4),
         children: [
-          AsyncState(value: project, builder: _OverviewCard.new),
-          const SizedBox(height: AppTokens.space4),
           AsyncState(
               value: floors,
               builder: (fs) => AsyncState(
-                  value: defects, builder: (ds) => _StatTiles(fs, ds))),
+                  value: defects,
+                  builder: (ds) => _ProjectOverviewCard(floors: fs, defects: ds))),
           const SizedBox(height: AppTokens.space5),
           const SectionTitle(title: '快捷操作'),
           const SizedBox(height: AppTokens.space3),
@@ -88,123 +107,140 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  final Project p;
-  const _OverviewCard(this.p);
-  @override
-  Widget build(BuildContext context) => AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(p.name,
-                style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: AppTokens.fg)),
-            const SizedBox(height: 6),
-            Row(children: [
-              const Icon(LucideIcons.building2,
-                  size: 14, color: AppTokens.muted),
-              const SizedBox(width: 6),
-              Expanded(
-                  child: Text(p.client,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppTokens.muted))),
-            ]),
-            const SizedBox(height: 4),
-            Row(children: [
-              const Icon(LucideIcons.mapPin, size: 14, color: AppTokens.muted),
-              const SizedBox(width: 6),
-              Expanded(
-                  child: Text(p.location,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppTokens.muted))),
-            ]),
-            const SizedBox(height: 4),
-            Row(children: [
-              const Icon(LucideIcons.info, size: 14, color: AppTokens.accent),
-              const SizedBox(width: 6),
-              Expanded(
-                  child: Text(p.status,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTokens.accent))),
-            ]),
-            const SizedBox(height: AppTokens.space4),
-            Row(children: [
-              Expanded(child: _MiniStat('用地面积', p.siteArea)),
-              Expanded(child: _MiniStat('建筑面积', p.floorArea)),
-              Expanded(child: _MiniStat('规划床位', '${p.beds}')),
-            ]),
-          ],
-        ),
-      );
-}
-
-class _MiniStat extends StatelessWidget {
-  final String label;
-  final String value;
-  const _MiniStat(this.label, this.value);
-  @override
-  Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: AppTokens.fg)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
-        ],
-      );
-}
-
-/// 4 个统计磁贴：图纸 / 巡场 km / 缺陷 / 已整改（2×2 网格，对齐 HTML 语义）。
-class _StatTiles extends StatelessWidget {
+class _ProjectOverviewCard extends ConsumerWidget {
   final List<Floor> floors;
   final List<Defect> defects;
-  const _StatTiles(this.floors, this.defects);
+  const _ProjectOverviewCard({required this.floors, required this.defects});
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final project = ref.watch(projectProvider).maybeWhen(
+          data: (p) => p,
+          orElse: () => null,
+        );
+    if (project == null) return const SizedBox.shrink();
+
     final drawings = floors.length;
     final totalDefects = defects.length;
     final done = defects.where((d) => d.status == DefectStatus.done).length;
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: AppTokens.space3,
-      crossAxisSpacing: AppTokens.space3,
-      childAspectRatio: 2.4,
-      children: [
-        _StatTile(
-            icon: LucideIcons.fileText,
-            value: '$drawings',
-            label: '图纸',
-            bg: AppTokens.brandSoft,
-            fg: AppTokens.brand),
-        const _StatTile(
-            icon: LucideIcons.navigation,
-            value: '2.4',
-            label: '巡场 km',
-            bg: AppTokens.accentSoft,
-            fg: AppTokens.accent),
-        _StatTile(
-            icon: LucideIcons.alertTriangle,
-            value: '$totalDefects',
-            label: '缺陷',
-            bg: AppTokens.dangerSoft,
-            fg: AppTokens.danger),
-        _StatTile(
-            icon: LucideIcons.circleCheck,
-            value: '$done',
-            label: '已整改',
-            bg: AppTokens.successSoft,
-            fg: AppTokens.success),
-      ],
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        boxShadow: AppTokens.elevationRaised,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 左侧橙色竖条：用 Container 自带 fill 行为（无明确高度约束时 = 子项最大高度）
+          Container(
+            width: 4,
+            height: 132, // 与右侧内容的自然高度对齐（项目名 + 副标题 + 4 个磁贴两行 + 间距）
+            decoration: const BoxDecoration(
+              color: AppTokens.accent,
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space4, AppTokens.space4, AppTokens.space4, AppTokens.space3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              project.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTokens.fg,
+                                  height: 1.2),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${project.client} · 建筑 1…',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTokens.muted,
+                                  height: 1.2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTokens.warningSoft,
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusPill),
+                        ),
+                        child: const Text(
+                          '已封顶 · 预计 2027 年竣工',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppTokens.warning,
+                              height: 1.2),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTokens.space3),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: AppTokens.space2,
+                    crossAxisSpacing: AppTokens.space2,
+                    childAspectRatio: 1.85,
+                    children: [
+                      _StatTile(
+                          icon: LucideIcons.fileText,
+                          value: '$drawings',
+                          label: '图纸',
+                          bg: AppTokens.brandSoft,
+                          fg: AppTokens.brand),
+                      const _StatTile(
+                          icon: LucideIcons.navigation,
+                          value: '2.4',
+                          label: '巡场 km',
+                          bg: AppTokens.accentSoft,
+                          fg: AppTokens.accent),
+                      _StatTile(
+                          icon: LucideIcons.alertTriangle,
+                          value: '$totalDefects',
+                          label: '缺陷',
+                          bg: AppTokens.dangerSoft,
+                          fg: AppTokens.danger),
+                      _StatTile(
+                          icon: LucideIcons.circleCheck,
+                          value: '$done',
+                          label: '已整改',
+                          bg: AppTokens.successSoft,
+                          fg: AppTokens.success),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -223,9 +259,13 @@ class _StatTile extends StatelessWidget {
       required this.fg});
 
   @override
-  Widget build(BuildContext context) => AppCard(
+  Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space4, vertical: AppTokens.space3),
+            horizontal: AppTokens.space3, vertical: AppTokens.space3),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
         child: Row(
           children: [
             Container(
@@ -233,24 +273,29 @@ class _StatTile extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: bg,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
               ),
               child: Icon(icon, color: fg, size: 18),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
+                          height: 1.15,
                           fontWeight: FontWeight.w700,
                           color: AppTokens.fg)),
                   Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12, color: AppTokens.muted)),
+                          fontSize: 11, height: 1.15, color: AppTokens.muted)),
                 ],
               ),
             ),
@@ -291,8 +336,7 @@ class _QuickActions extends StatelessWidget {
             badge: '5 锚点',
             badgeKind: _BadgeKind.accent,
             foot: '点图锚定留证 · 支持自定义加点',
-            onTap: () => AppSnack.show(context, '拍照验收（P3 实现）',
-                kind: AppSnackKind.accent),
+            onTap: () => context.push('/capture'),
           ),
           _QuickCard(
             icon: LucideIcons.fileText,
@@ -438,38 +482,57 @@ class _TodoList extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: AppTokens.space3),
                 child: AppCard(
                   onTap: () => context.push('/defects/record/${d.id}'),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Row(children: [
-                        StatusBadge(
-                            text: d.status.label,
-                            color: d.status.color,
-                            bg: d.status.soft),
-                        const SizedBox(width: 8),
-                        StatusBadge(
-                            text: d.severity.label,
-                            color: d.severity.color,
-                            bg: d.severity.color.withValues(alpha: 0.12)),
-                        const Spacer(),
-                        Text(d.floor,
-                            style: const TextStyle(
-                                fontSize: 12, color: AppTokens.muted)),
-                      ]),
-                      const SizedBox(height: 10),
-                      Text(d.part,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppTokens.fg)),
-                      const SizedBox(height: 6),
-                      Text('${d.type} · ${d.resp}',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTokens.muted)),
-                      const SizedBox(height: 2),
-                      Text(d.ts,
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTokens.muted)),
+                      // 左侧：严重程度小圆点
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(top: 2),
+                        decoration: BoxDecoration(
+                          color: d.severity.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: AppTokens.space3),
+                      // 中部：标题 + 类型负责人 + 时间
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              d.part,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTokens.fg),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${d.type} · ${d.resp}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppTokens.muted),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              d.ts,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppTokens.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: AppTokens.space3),
+                      // 右侧：状态徽章（虚线圆 + 图标 + 文案）
+                      _StatusPill(
+                        status: d.status,
+                      ),
                     ],
                   ),
                 ),
@@ -477,4 +540,84 @@ class _TodoList extends StatelessWidget {
           .toList(),
     );
   }
+}
+
+/// 状态徽章：左侧圆形虚线图标 + 右侧文字（对齐原型"待整改/待复核/待销项"）。
+class _StatusPill extends StatelessWidget {
+  final DefectStatus status;
+  const _StatusPill({required this.status});
+
+  IconData get _icon {
+    switch (status) {
+      case DefectStatus.draft:
+        return LucideIcons.refreshCcw; // 待整改：循环箭头
+      case DefectStatus.doing:
+        return LucideIcons.refreshCcw; // 待复核：循环箭头
+      case DefectStatus.done:
+        return LucideIcons.check; // 已销项
+      case DefectStatus.reject:
+        return LucideIcons.x; // 已拒绝
+    }
+  }
+
+  String get _label => status.label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: status.soft,
+          borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CustomPaint(
+              size: const Size(16, 16),
+              painter: _DashedCirclePainter(color: status.color),
+            ),
+            const SizedBox(width: 4),
+            Icon(_icon, size: 11, color: status.color),
+            const SizedBox(width: 6),
+            Text(
+              _label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: status.color),
+            ),
+          ],
+        ),
+      );
+}
+
+/// 圆形虚线边框 painter。
+class _DashedCirclePainter extends CustomPainter {
+  final Color color;
+  _DashedCirclePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    const dash = 3.0;
+    const gap = 2.0;
+    final r = (size.shortestSide - paint.strokeWidth) / 2;
+    final c = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: c, radius: r);
+    final path = Path()..addOval(rect);
+    final metrics = path.computeMetrics().first;
+    double dist = 0.0;
+    while (dist < metrics.length) {
+      final next = dist + dash;
+      canvas.drawPath(
+          metrics.extractPath(dist, next.clamp(0, metrics.length)), paint);
+      dist = next + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedCirclePainter old) => old.color != color;
 }
