@@ -5,7 +5,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/async_state.dart';
-import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 
 /// 图纸查看器：缩放/平移/工具条 + 热点跳转确认 + 长按锚定。
@@ -82,7 +81,8 @@ class _ViewerState extends State<_Viewer> {
     final current = _controller.value.getMaxScaleOnAxis();
     final target = (current * factor).clamp(0.5, 4.0);
     if (target == current) return;
-    _controller.value = _controller.value.clone()..scale(target / current);
+    final f = target / current;
+    _controller.value = _controller.value.clone()..scaleByDouble(f, f, f, 1);
   }
 
   void _reset() => _controller.value = Matrix4.identity();
@@ -140,7 +140,15 @@ class _ViewerState extends State<_Viewer> {
   }
 
   void _anchor() {
-    context.push('/capture', extra: '${widget.d.crumb} 锚点');
+    context.push(
+      '/capture',
+      extra: CaptureArgs(
+        floor: widget.d.crumb.replaceAll(' ', ''),
+        anchorLabel: '${widget.d.title}·锚点',
+        x: 0.5,
+        y: 0.5,
+      ),
+    );
   }
 
   @override
@@ -154,45 +162,106 @@ class _ViewerState extends State<_Viewer> {
             minScale: 0.5,
             maxScale: 4,
             boundaryMargin: const EdgeInsets.all(20),
-            child: Stack(
-              children: [
-                Image.asset(d.src,
-                    width: d.w, height: d.h, fit: BoxFit.contain),
-                ...d.hotspots.map(
-                  (h) => Positioned(
-                    left: h.x * d.w - 14,
-                    top: h.y * d.h - 14,
-                    child: GestureDetector(
-                      onTap: () => _jumpConfirm(h),
-                      onLongPress: _anchor,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: AppTokens.accent,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                          boxShadow: AppTokens.elevationRaised,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // BoxFit.contain：按原始宽高比在可用空间内缩放图，
+                // 这里把图放进 FittedBox 让缩放自适应，hotspot 用同一坐标系。
+                final maxW = constraints.maxWidth;
+                final maxH = constraints.maxHeight;
+                final ar = d.w / d.h;
+                double dispW = maxW;
+                double dispH = dispW / ar;
+                if (dispH > maxH) {
+                  dispH = maxH;
+                  dispW = dispH * ar;
+                }
+                return Center(
+                  child: SizedBox(
+                    width: dispW,
+                    height: dispH,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // 底图：按 contain 自然尺寸显示
+                        Positioned.fill(
+                          child: Image.asset(
+                            d.src,
+                            fit: BoxFit.fill,
+                          ),
                         ),
-                        child: Center(
-                          child: Text('${h.num}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold)),
+                        // 热点：用 (x * dispW, y * dispH) 定位，与显示像素一致
+                        ...d.hotspots.map(
+                          (h) => Positioned(
+                            left: h.x * dispW - 50,
+                            top: h.y * dispH - 14,
+                            child: GestureDetector(
+                              onTap: () => _jumpConfirm(h),
+                              onLongPress: _anchor,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // 数字圆（白底 + 蓝色边框，对齐原型 dv__hotspot）
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: AppTokens.surface,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: AppTokens.brand, width: 2),
+                                      boxShadow: AppTokens.elevationRaised,
+                                    ),
+                                    child: Center(
+                                      child: Text('${h.num}',
+                                          style: const TextStyle(
+                                              color: AppTokens.brand,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // 文字标签（白底小药丸，对齐原型 dv__label）
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTokens.surface,
+                                        borderRadius: BorderRadius.circular(
+                                            AppTokens.radiusSm),
+                                        border: Border.all(
+                                            color: AppTokens.border),
+                                        boxShadow:
+                                            AppTokens.elevationRaised,
+                                      ),
+                                      child: Text(
+                                        h.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 10,
+                                            color: AppTokens.fg),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        // 长按底图任意处也可锚定
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onLongPress: _anchor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                // 长按底图任意处也可锚定
-                Positioned.fill(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onLongPress: _anchor,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -200,8 +269,7 @@ class _ViewerState extends State<_Viewer> {
           onZoomIn: () => _zoom(1.3),
           onZoomOut: () => _zoom(1 / 1.3),
           onReset: _reset,
-          onPdf: () => AppSnack.show(context, 'PDF 原稿（P4 实现）',
-              kind: AppSnackKind.accent),
+          onPdf: () => context.push('/blueprint'),
         ),
         if (d.hotspots.isNotEmpty) _IndexBar(d: d, onJump: _jumpConfirm),
       ],

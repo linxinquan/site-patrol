@@ -31,6 +31,12 @@ class MockRepository implements Repository {
       );
 
   @override
-  Future<List<TimelinePhoto>> getTimeline(String anchor) =>
-      _delay(timeline[anchor] ?? const []);
+  Future<List<TimelinePhoto>> getTimeline(String anchor) {
+    // 兼容：从缺陷详情页跳过来时传入的可能是 defect.part（缺陷描述），
+    // 而 timeline map 的 key 是 anchor（如"西楼1F-左病房翼"）。
+    // 先精确查；查不到时回退到默认 anchor（保证 demo 数据可见）。
+    final exact = timeline[anchor];
+    if (exact != null) return _delay(exact);
+    return _delay(timeline['西楼1F-左病房翼'] ?? const []);
+  }
 }

@@ -1,13 +1,165 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../data/models.dart';
 import '../../utils/path_metrics.dart';
 import '../../shared/widgets/app_snack.dart';
 
-/// 巡场页：深色沉浸（静态布局还原，轨迹动画 + 实时里程留 P5）。
+/// 巡场状态机。
+enum _PatrolStatus { idle, running, paused, finished }
+
+/// 巡场页：深色沉浸 + Ticker 轨迹动画（对齐 HTML startPatrol/tickPatrol/finishPatrol）。
 /// 底图：西楼一层平面图（nkf_west_1f.png）。
-class PatrolPage extends StatelessWidget {
+class PatrolPage extends StatefulWidget {
   const PatrolPage({super.key});
+
+  @override
+  State<PatrolPage> createState() => _PatrolPageState();
+}
+
+class _PatrolPageState extends State<PatrolPage>
+    with SingleTickerProviderStateMixin {
+  static const int _totalMs = 16000; // 全程 16s（对齐 HTML dt/16）
+  static const double _totalKm = 0.52; // 模拟里程
+  static const int _totalPts = 48; // 模拟点数
+
+  late final Ticker _ticker;
+  _PatrolStatus _status = _PatrolStatus.idle;
+  double _progress = 0;
+  Duration _elapsed = Duration.zero;
+  Duration _pausedTotal = Duration.zero;
+  DateTime? _startedAt;
+  DateTime? _pausedAt;
+  double _pulse = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick)..start();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration _) {
+    // 呼吸脉冲：所有状态都持续（idle/paused/finished 都要保持"当前位置"呼吸感）
+    final now = DateTime.now();
+    setState(() {
+      _pulse = (now.millisecondsSinceEpoch % 1600) / 1600;
+    });
+    if (_status != _PatrolStatus.running) return;
+    final elapsed = now.difference(_startedAt!) - _pausedTotal;
+    if (elapsed.inMilliseconds < 0) return;
+    setState(() {
+      _elapsed = elapsed;
+      _progress = (elapsed.inMilliseconds / _totalMs).clamp(0.0, 1.0);
+      if (_progress >= 1.0) {
+        _status = _PatrolStatus.finished;
+        _progress = 1.0;
+      }
+    });
+    if (_status == _PatrolStatus.finished) {
+      _showSummary();
+    }
+  }
+
+  // —— 状态机动作 ——
+  void _start() {
+    setState(() {
+      _status = _PatrolStatus.running;
+      _startedAt = DateTime.now();
+      _pausedTotal = Duration.zero;
+      _elapsed = Duration.zero;
+      _progress = 0;
+    });
+    AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点',
+        kind: AppSnackKind.brand);
+  }
+
+  void _pause() {
+    if (_status != _PatrolStatus.running) return;
+    setState(() {
+      _status = _PatrolStatus.paused;
+      _pausedAt = DateTime.now();
+    });
+    AppSnack.show(context, '巡场已暂停，当前位置已记录', kind: AppSnackKind.muted);
+  }
+
+  void _resume() {
+    if (_status != _PatrolStatus.paused) return;
+    setState(() {
+      _pausedTotal += DateTime.now().difference(_pausedAt!);
+      _pausedAt = null;
+      _status = _PatrolStatus.running;
+    });
+  }
+
+  void _finish({bool manual = true}) {
+    if (_status == _PatrolStatus.finished && !manual) return;
+    setState(() {
+      _status = _PatrolStatus.finished;
+      _progress = 1.0;
+      _pausedAt = null;
+    });
+    _showSummary();
+  }
+
+  void _restart() {
+    setState(() {
+      _status = _PatrolStatus.idle;
+      _progress = 0;
+      _elapsed = Duration.zero;
+      _pausedTotal = Duration.zero;
+      _startedAt = null;
+    });
+    AppSnack.show(context, '已重置巡场轨迹', kind: AppSnackKind.muted);
+  }
+
+  void _showSummary() {
+    AppSnack.show(
+      context,
+      '巡场完成：${_distKm.toStringAsFixed(2)} km · $_pointCount 点 · $_durationStr',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  // —— 实时统计 ——
+  double get _distKm => _progress * _totalKm;
+  int get _pointCount => (_progress * _totalPts).round();
+  String get _durationStr {
+    final s = _elapsed.inSeconds.clamp(0, 3599);
+    final mm = (s ~/ 60).toString().padLeft(2, '0');
+    final ss = (s % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
+  /// 当前位置（相对坐标 0~1，供标记问题点使用）。
+  Offset _currentRel() {
+    final raw = pointAtProgress(patrolPathPoints, _progress);
+    return Offset(raw.dx / 100, raw.dy / 100);
+  }
+
+  void _markIssue() {
+    final rel = _currentRel();
+    context.push(
+      '/capture',
+      extra: CaptureArgs(
+        floor: '西楼1F',
+        anchorLabel: '巡场中·当前位置',
+        x: rel.dx,
+        y: rel.dy,
+      ),
+    );
+  }
+
+  void _showHistory() {
+    AppSnack.show(context, '已加载 3 条历史巡场轨迹', kind: AppSnackKind.muted);
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -30,11 +182,12 @@ class PatrolPage extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppTokens.patrolSurface2,
-                      borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusPill),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -44,27 +197,31 @@ class PatrolPage extends StatelessWidget {
                         SizedBox(width: 5),
                         Text('离线 · 工地信号弱（GPS 仍记录）',
                             style: TextStyle(
-                                fontSize: 11, color: AppTokens.patrolMuted)),
+                                fontSize: 11,
+                                color: AppTokens.patrolMuted)),
                       ],
                     ),
                   ),
                   const Spacer(),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: AppTokens.dangerSoft,
-                      borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusPill),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _BlinkDot(),
-                        SizedBox(width: 5),
-                        Text('记录中',
+                        const _BlinkDot(active: true),
+                        const SizedBox(width: 5),
+                        Text(_status == _PatrolStatus.running ? '记录中' : '待机',
                             style: TextStyle(
                                 fontSize: 11,
-                                color: AppTokens.danger,
+                                color: _status == _PatrolStatus.running
+                                    ? AppTokens.danger
+                                    : AppTokens.patrolMuted,
                                 fontWeight: FontWeight.w600)),
                       ],
                     ),
@@ -73,8 +230,16 @@ class PatrolPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            // 统计 chips
-            const _StatChips(),
+            _StatChips(
+              distKm: _distKm,
+              pointCount: _pointCount,
+              duration: _durationStr,
+              mode: _status == _PatrolStatus.finished
+                  ? '完成'
+                  : _status == _PatrolStatus.running
+                      ? 'GPS'
+                      : '待命',
+            ),
             const SizedBox(height: 10),
             // 地图
             Expanded(
@@ -91,6 +256,13 @@ class PatrolPage extends StatelessWidget {
                   final pts = patrolPathPoints
                       .map((p) => Offset(p.dx * pw / 100, p.dy * ph / 100))
                       .toList();
+                  // idle 时把"当前位置"放在路径起点（与 prototype 一致）；
+                  // running/paused/finished 时跟随 _progress。
+                  final progressForCurrent =
+                      _status == _PatrolStatus.idle ? 0.0 : _progress;
+                  final cur = pointAtProgress(patrolPathPoints, progressForCurrent);
+                  final curPx =
+                      Offset(cur.dx * pw / 100, cur.dy * ph / 100);
                   return Center(
                     child: SizedBox(
                       width: pw,
@@ -106,6 +278,9 @@ class PatrolPage extends StatelessWidget {
                             painter: PatrolOverlayPainter(
                               pts: pts,
                               cpIdxs: patrolCheckpoints,
+                              progress: _progress,
+                              currentPos: curPx,
+                              pulse: _pulse,
                             ),
                           ),
                         ],
@@ -116,16 +291,25 @@ class PatrolPage extends StatelessWidget {
               ),
             ),
             // 控制面板
-            _PatrolPanel(onAction: (msg) {
-              AppSnack.show(context, msg, kind: AppSnackKind.muted);
-            }),
+            _PatrolPanel(
+              status: _status,
+              onStart: _start,
+              onPause: _pause,
+              onResume: _resume,
+              onFinish: _finish,
+              onRestart: _restart,
+              onHistory: _showHistory,
+              onMark: _markIssue,
+            ),
           ],
         ),
       );
 }
 
 class _BlinkDot extends StatefulWidget {
-  const _BlinkDot();
+  final bool active;
+  const _BlinkDot({this.active = false});
+
   @override
   State<_BlinkDot> createState() => _BlinkDotState();
 }
@@ -148,8 +332,8 @@ class _BlinkDotState extends State<_BlinkDot>
         child: Container(
           width: 8,
           height: 8,
-          decoration: const BoxDecoration(
-            color: AppTokens.danger,
+          decoration: BoxDecoration(
+            color: widget.active ? AppTokens.danger : AppTokens.patrolMuted,
             shape: BoxShape.circle,
           ),
         ),
@@ -157,19 +341,28 @@ class _BlinkDotState extends State<_BlinkDot>
 }
 
 class _StatChips extends StatelessWidget {
-  const _StatChips();
+  final double distKm;
+  final int pointCount;
+  final String duration;
+  final String mode;
+  const _StatChips({
+    required this.distKm,
+    required this.pointCount,
+    required this.duration,
+    required this.mode,
+  });
 
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _Chip(label: '楼层', value: '西楼 1F'),
-            _Chip(label: '里程', value: '0.00 km'),
-            _Chip(label: '点数', value: '0'),
-            _Chip(label: '时长', value: '00:00'),
-            _Chip(label: '模式', value: 'GPS'),
+            const _Chip(label: '楼层', value: '西楼 1F'),
+            _Chip(label: '里程', value: '${distKm.toStringAsFixed(2)} km'),
+            _Chip(label: '点数', value: '$pointCount'),
+            _Chip(label: '时长', value: duration),
+            _Chip(label: '模式', value: mode),
           ],
         ),
       );
@@ -190,79 +383,100 @@ class _Chip extends StatelessWidget {
                   color: AppTokens.patrolFg)),
           const SizedBox(height: 2),
           Text(label,
-              style:
-                  const TextStyle(fontSize: 10, color: AppTokens.patrolMuted)),
+              style: const TextStyle(
+                  fontSize: 10, color: AppTokens.patrolMuted)),
         ],
       );
 }
 
 class _PatrolPanel extends StatelessWidget {
-  final ValueChanged<String> onAction;
-  const _PatrolPanel({required this.onAction});
+  final _PatrolStatus status;
+  final VoidCallback onStart;
+  final VoidCallback onPause;
+  final VoidCallback onResume;
+  final VoidCallback onFinish;
+  final VoidCallback onRestart;
+  final VoidCallback onHistory;
+  final VoidCallback onMark;
+  const _PatrolPanel({
+    required this.status,
+    required this.onStart,
+    required this.onPause,
+    required this.onResume,
+    required this.onFinish,
+    required this.onRestart,
+    required this.onHistory,
+    required this.onMark,
+  });
 
   @override
-  Widget build(BuildContext context) => Container(
-        color: AppTokens.patrolSurface,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTokens.accent,
-                  foregroundColor: AppTokens.onAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                  ),
-                ),
-                onPressed: () => onAction('开始巡场（P5 实现轨迹动画）'),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(LucideIcons.play, size: 18),
-                    SizedBox(width: 6),
-                    Text('开始巡场',
-                        style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w700)),
-                  ],
+  Widget build(BuildContext context) {
+    final isRunning = status == _PatrolStatus.running;
+    final isPaused = status == _PatrolStatus.paused;
+    final isFinished = status == _PatrolStatus.finished;
+    final (IconData icon, String label, VoidCallback action) = switch (status) {
+      _PatrolStatus.idle => (LucideIcons.play, '开始巡场', onStart),
+      _PatrolStatus.running => (LucideIcons.pause, '暂停巡场', onPause),
+      _PatrolStatus.paused => (LucideIcons.play, '继续巡场', onResume),
+      _PatrolStatus.finished => (LucideIcons.rotateCcw, '重新巡场', onRestart),
+    };
+    return Container(
+      color: AppTokens.patrolSurface,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTokens.accent,
+                foregroundColor: AppTokens.onAccent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                 ),
               ),
+              onPressed: action,
+              icon: Icon(icon, size: 18),
+              label: Text(label,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _SubBtn(
-                    icon: LucideIcons.square,
-                    label: '暂停',
-                    enabled: false,
-                    onTap: () => onAction('巡场未开始'),
-                  ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _SubBtn(
+                  icon: LucideIcons.square,
+                  label: isFinished ? '已结束' : '结束巡场',
+                  enabled: isRunning || isPaused,
+                  onTap: onFinish,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SubBtn(
-                    icon: LucideIcons.history,
-                    label: '历史轨迹',
-                    onTap: () => onAction('已加载 3 条历史巡场轨迹'),
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SubBtn(
+                  icon: LucideIcons.history,
+                  label: '历史轨迹',
+                  onTap: onHistory,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SubBtn(
-                    icon: LucideIcons.map,
-                    label: '标记问题点',
-                    onTap: () => onAction('标记问题点（P3 拍照验收承接）'),
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _SubBtn(
+                  icon: LucideIcons.map,
+                  label: '标记问题点',
+                  onTap: onMark,
                 ),
-              ],
-            ),
-          ],
-        ),
-      );
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SubBtn extends StatelessWidget {

@@ -12,11 +12,55 @@ import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 
-class ProjectsPage extends ConsumerWidget {
+class ProjectsPage extends ConsumerStatefulWidget {
   const ProjectsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProjectsPage> createState() => _ProjectsPageState();
+}
+
+class _ProjectsPageState extends ConsumerState<ProjectsPage> {
+  /// 进行中的下载模拟 Timer，key 为楼层图纸 key；页面销毁时统一取消，避免泄漏。
+  final Map<String, Timer> _downloadTimers = {};
+
+  @override
+  void dispose() {
+    for (final t in _downloadTimers.values) {
+      t.cancel();
+    }
+    _downloadTimers.clear();
+    super.dispose();
+  }
+
+  /// 模拟下载：每 220ms 进度 +20，到 100 视为缓存完成（对齐 HTML 模拟逻辑）。
+  void _simulateDownload(String key) {
+    // 已有进行中的下载，忽略重复点击
+    if (_downloadTimers.containsKey(key)) return;
+    var p = ref.read(floorCacheProvider)[key] ?? 0;
+    final timer = Timer.periodic(const Duration(milliseconds: 220), (timer) {
+      p += 20;
+      final done = p >= 100;
+      if (done) {
+        p = 100;
+        timer.cancel();
+        _downloadTimers.remove(key);
+      }
+      // 页面已销毁则停止后续更新，避免跨异步使用 context / state
+      if (!mounted) return;
+      ref.read(floorCacheProvider.notifier).state = {
+        ...ref.read(floorCacheProvider),
+        key: p,
+      };
+      if (done) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('图纸已缓存，可离线查看')));
+      }
+    });
+    _downloadTimers[key] = timer;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final project = ref.watch(projectProvider);
     final floors = ref.watch(floorsProvider);
     final drawings = ref.watch(drawingsProvider);
@@ -102,7 +146,7 @@ class ProjectsPage extends ConsumerWidget {
                           } else {
                             AppSnack.show(context, '正在下载离线图纸…',
                                 kind: AppSnackKind.muted);
-                            _simulateDownload(context, ref, f.key);
+                            _simulateDownload(f.key);
                           }
                         },
                       ),
@@ -122,27 +166,6 @@ class ProjectsPage extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  /// 模拟下载：每 220ms 进度 +20，到 100 视为缓存完成（对齐 HTML 模拟逻辑）。
-  void _simulateDownload(BuildContext context, WidgetRef ref, String key) {
-    var p = ref.read(floorCacheProvider)[key] ?? 0;
-    Timer.periodic(const Duration(milliseconds: 220), (timer) {
-      p += 20;
-      if (p >= 100) {
-        p = 100;
-        timer.cancel();
-      }
-      ref.read(floorCacheProvider.notifier).state = {
-        ...ref.read(floorCacheProvider),
-        key: p,
-      };
-      if (p >= 100) {
-        // ignore: use_build_context_synchronously
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('图纸已缓存，可离线查看')));
-      }
-    });
   }
 }
 

@@ -36,4 +36,4 @@ final floorCacheProvider = StateProvider<Map<String, int>>((ref) => {
 /// DeviceFrame 切换时写入；App 的 MaterialApp.router builder 读取后
 /// 显式注入 MediaQueryData(size: Size(390, 844))，避免 FittedBox 推断尺寸
 /// 触发 web release 下的边界问题。
-final devicePhoneModeProvider = StateProvider<bool>((ref) => false);
+final devicePhoneModeProvider = StateProvider<bool>((ref) => true);

@@ -97,45 +97,145 @@ List<PatrolSegment> buildPatrolSegments(List<Offset> pts, List<int> cpIdxs) {
   return segs;
 }
 
-/// 巡场底图绘制（静态版）：路径 + 检查点 + 起终点。
+/// 沿路径按进度插值出当前位置（相对坐标，与 [patrolPathPoints] 同体系）。
+Offset pointAtProgress(List<Offset> pts, double progress) {
+  var total = 0.0;
+  for (var i = 1; i < pts.length; i++) {
+    total += (pts[i] - pts[i - 1]).distance;
+  }
+  if (total == 0) return pts.first;
+  var target = total * progress.clamp(0.0, 1.0);
+  for (var i = 1; i < pts.length; i++) {
+    final d = (pts[i] - pts[i - 1]).distance;
+    if (target <= d) {
+      final t = d == 0 ? 0.0 : target / d;
+      return pts[i - 1] + (pts[i] - pts[i - 1]) * t;
+    }
+    target -= d;
+  }
+  return pts.last;
+}
+
+/// 巡场底图绘制（轨迹动画版）：路径 + 检查点 + 起终点 + 脉冲当前位置。
 /// 输入尺寸为底图实际像素尺寸；坐标按 w/h 缩放。
+/// [progress] 0~1 控制路径逐段显现；[currentPos] 为像素坐标的当前位置；
+/// [pulse] 0~1 驱动脉冲扩散动画。
 class PatrolOverlayPainter extends CustomPainter {
   final List<Offset> pts; // 已按像素缩放的绝对坐标
   final List<int> cpIdxs;
-  const PatrolOverlayPainter({required this.pts, required this.cpIdxs});
+  final double progress;
+  final Offset? currentPos;
+  final double pulse;
+  const PatrolOverlayPainter({
+    required this.pts,
+    required this.cpIdxs,
+    this.progress = 1.0,
+    this.currentPos,
+    this.pulse = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 路径（圆角折线，accent 色）
-    final path = roundPolyline(pts, 2.5);
-    final pathPaint = Paint()
-      ..color = const Color(0xFFEA580C)
+    final p = progress.clamp(0.0, 1.0);
+    final full = roundPolyline(pts, 2.5);
+
+    // 1. 完整路径（蓝色细线，对齐原型：路径始终可见，仅颜色区分已走/未走）
+    final basePaint = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(path, pathPaint);
+    canvas.drawPath(full, basePaint);
 
-    // 起点（绿）/ 终点（红）
-    final startPaint = Paint()..color = const Color(0xFF16A34A);
-    final endPaint = Paint()..color = const Color(0xFFDC2626);
-    canvas.drawCircle(pts.first, 2.4, startPaint);
-    canvas.drawCircle(pts.last, 2.4, endPaint);
+    // 2. 已走路径（橙色高亮覆盖在蓝线之上，0 进度时不画）
+    if (p > 0.003) {
+      final metric = full.computeMetrics().first;
+      final walked = metric.extractPath(0, metric.length * p);
+      final walkedPaint = Paint()
+        ..color = const Color(0xFFEA580C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(walked, walkedPaint);
+    }
 
-    // 检查点（蓝）
-    final cpPaint = Paint()
-      ..color = const Color(0xFF1D4ED8)
-      ..style = PaintingStyle.fill;
+    // 3. 检查点（蓝色实心圆 + 白边）：始终显眼
+    final cpFill = Paint()..color = const Color(0xFF1D4ED8);
     final cpStroke = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.6;
+      ..strokeWidth = 1.0;
     for (final i in cpIdxs) {
-      canvas.drawCircle(pts[i], 1.6, cpStroke);
-      canvas.drawCircle(pts[i], 1.6, cpPaint);
+      canvas.drawCircle(pts[i], 2.6, cpStroke);
+      canvas.drawCircle(pts[i], 2.6, cpFill);
     }
+
+    // 4. 起点（绿）：常亮小圆
+    canvas.drawCircle(
+        pts.first, 2.4,
+        Paint()
+          ..color = const Color(0xFF16A34A)
+          ..style = PaintingStyle.fill);
+    canvas.drawCircle(
+        pts.first, 2.4,
+        Paint()
+          ..color = const Color(0xFFFFFFFF)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0);
+
+    // 5. 终点（红）：仅巡场结束高亮
+    final endPaint = Paint()
+      ..color = const Color(0xFFDC2626)
+      ..style = PaintingStyle.fill;
+    final endStroke = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawCircle(pts.last, 2.4, endStroke);
+    endPaint.color = endPaint.color.withValues(alpha: p >= 1 ? 1 : 0.35);
+    canvas.drawCircle(pts.last, 2.4, endPaint);
+
+    // 6. 当前位置：蓝色原点 + 双层呼吸扩散圈（pulse 0~1）
+    //    idle 时 currentPos == null → 默认在 pts.first
+    final pos = currentPos ?? pts.first;
+    final breathR1 = 6.0 + pulse * 10.0; // 外圈：扩张+渐隐
+    final breathA1 = (1 - pulse) * 0.45;
+    final breathR2 = 4.0 + pulse * 6.5; // 内圈：小一些
+    final breathA2 = (1 - pulse) * 0.7;
+    canvas.drawCircle(
+        pos,
+        breathR1,
+        Paint()
+          ..color = const Color(0xFF3B82F6).withValues(alpha: breathA1));
+    canvas.drawCircle(
+        pos,
+        breathR2,
+        Paint()
+          ..color = const Color(0xFF60A5FA).withValues(alpha: breathA2));
+    // 中心实心蓝点 + 白边
+    canvas.drawCircle(
+        pos, 2.8,
+        Paint()
+          ..color = const Color(0xFFFFFFFF)
+          ..style = PaintingStyle.fill);
+    canvas.drawCircle(
+        pos, 2.8,
+        Paint()
+          ..color = const Color(0xFF1D4ED8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2);
+    canvas.drawCircle(
+        pos, 1.6,
+        Paint()
+          ..color = const Color(0xFF1D4ED8)
+          ..style = PaintingStyle.fill);
   }
 
   @override
-  bool shouldRepaint(covariant PatrolOverlayPainter oldDelegate) => true;
+  bool shouldRepaint(covariant PatrolOverlayPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.currentPos != currentPos ||
+      oldDelegate.pulse != pulse;
 }
