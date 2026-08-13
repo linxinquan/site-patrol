@@ -11,8 +11,20 @@ final repositoryProvider = Provider<Repository>((ref) {
   return Env.isProd ? RemoteRepository() : MockRepository();
 });
 
-final projectProvider =
-    FutureProvider<Project>((ref) => ref.watch(repositoryProvider).getProject());
+/// 项目列表（多项目切换）。
+final projectsProvider = FutureProvider<List<Project>>(
+    (ref) => ref.watch(repositoryProvider).getProjects());
+
+/// 当前选中的项目 id。默认取项目列表第一个；切换时写入。
+final currentProjectIdProvider = StateProvider<String?>((ref) => null);
+
+/// 当前项目（依赖 currentProjectIdProvider 选择）。
+final projectProvider = FutureProvider<Project>((ref) async {
+  final projects = await ref.watch(projectsProvider.future);
+  final id = ref.watch(currentProjectIdProvider);
+  if (id == null) return projects.first;
+  return projects.firstWhere((p) => p.id == id, orElse: () => projects.first);
+});
 
 final floorsProvider =
     FutureProvider<List<Floor>>((ref) => ref.watch(repositoryProvider).getFloors());
@@ -37,3 +49,16 @@ final floorCacheProvider = StateProvider<Map<String, int>>((ref) => {
 /// 显式注入 MediaQueryData(size: Size(390, 844))，避免 FittedBox 推断尺寸
 /// 触发 web release 下的边界问题。
 final devicePhoneModeProvider = StateProvider<bool>((ref) => true);
+
+/// 用户列表（头像切换用）。
+final usersProvider = Provider<List<User>>((ref) => users);
+
+/// 当前登录用户 id。默认第一个；点击头像切换时写入。
+final currentUserIdProvider = StateProvider<String?>((ref) => null);
+
+/// 当前登录用户（依赖 currentUserIdProvider）。
+final currentUserProvider = Provider<User>((ref) {
+  final id = ref.watch(currentUserIdProvider);
+  if (id == null) return users.first;
+  return users.firstWhere((u) => u.id == id, orElse: () => users.first);
+});

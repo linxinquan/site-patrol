@@ -5,7 +5,11 @@ import 'repository.dart';
 /// 切换方式：用 `--dart-define=ENV=prod` 构建，DI 会自动注入本类。
 class RemoteRepository implements Repository {
   @override
-  Future<Project> getProject() =>
+  Future<List<Project>> getProjects() =>
+      throw UnimplementedError('RemoteRepository.getProjects 待实现');
+
+  @override
+  Future<Project> getProject(String id) =>
       throw UnimplementedError('RemoteRepository.getProject 待实现');
 
   @override

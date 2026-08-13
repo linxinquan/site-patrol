@@ -8,6 +8,6 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: App()));
     await tester.pumpAndSettle();
 
-    expect(find.text('南方科技大学附属医院（校本部）'), findsOneWidget);
+    expect(find.text('腾讯大铲湾 DY04 · 7栋'), findsOneWidget);
   });
 }

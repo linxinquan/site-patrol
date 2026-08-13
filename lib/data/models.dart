@@ -83,7 +83,38 @@ extension DefectSeverityX on DefectSeverity {
   }
 }
 
+/// 项目参与方（甲方 / 设计院 / 监理 / 咨询 / PMO 等）。
+class Party {
+  final String role; // 角色，如 "甲方（业主方）"、"设计院（LDI）" 等
+  final String org; // 单位全称，如 "腾讯科技（深圳）有限公司"
+  final String contact; // 代表/对接人，如 "林总"
+  final String title; // 代表职务，如 "业主代表"
+  const Party({
+    required this.role,
+    required this.org,
+    required this.contact,
+    required this.title,
+  });
+}
+
+/// 系统用户（参与方代表）。头像点击可切换当前用户。
+class User {
+  final String id;
+  final String name; // 姓名，如 "欧阳总"
+  final String org; // 单位，如 "Arcadis（凯迪思）"
+  final String role; // 角色，如 "全过程咨询 / PMO"
+  final String avatar; // assets 头像路径
+  const User({
+    required this.id,
+    required this.name,
+    required this.org,
+    required this.role,
+    required this.avatar,
+  });
+}
+
 class Project {
+  final String id; // 项目唯一标识（多项目切换用）
   final String name;
   final String client;
   final String location;
@@ -92,7 +123,10 @@ class Project {
   final String floorArea;
   final int beds;
   final String concept;
+  /// 参与方列表（甲方 / 设计院 / 监理 / 咨询 / PMO）。
+  final List<Party> parties;
   const Project({
+    required this.id,
     required this.name,
     required this.client,
     required this.location,
@@ -101,6 +135,7 @@ class Project {
     required this.floorArea,
     required this.beds,
     required this.concept,
+    this.parties = const [],
   });
 }
 
