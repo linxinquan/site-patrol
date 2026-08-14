@@ -15,71 +15,93 @@ import 'features/defects/timeline_compare_page.dart';
 import 'features/capture/capture_page.dart';
 import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
+import 'features/auth/auth_controller.dart';
+import 'features/auth/login_page.dart';
 
-final router = GoRouter(
-  initialLocation: '/home',
-  routes: [
-    ShellRoute(
-      builder: (context, state, child) {
-        int index = 0;
-        final loc = state.matchedLocation;
-        if (loc.startsWith('/projects')) {
-          index = 1;
-        } else if (loc.startsWith('/patrol')) {
-          index = 2;
-        } else if (loc.startsWith('/defects')) {
-          index = 3;
-        }
-        return Scaffold(
-          body: child,
-          bottomNavigationBar: AppBottomNav(currentIndex: index),
-        );
-      },
-      routes: [
-        GoRoute(path: '/home', builder: (_, __) => const HomePage()),
-        GoRoute(path: '/projects', builder: (_, __) => const ProjectsPage()),
-        GoRoute(path: '/patrol', builder: (_, __) => const PatrolPage()),
-        GoRoute(path: '/defects', builder: (_, __) => const DefectsPage()),
-      ],
-    ),
-    GoRoute(
-      path: '/projects/drawing/:key',
-      builder: (_, state) =>
-          DrawingViewerPage(drawingKey: state.pathParameters['key']!),
-    ),
-    GoRoute(
-      path: '/defects/record/:id',
-      builder: (_, state) =>
-          RecordDetailPage(defectId: state.pathParameters['id']!),
-    ),
-    GoRoute(
-      path: '/capture',
-      builder: (_, state) => CapturePage(
-        args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
+/// 全局路由（单例，含登录守卫）。登录状态变化时自动刷新并重定向。
+final routerProvider = Provider<GoRouter>((ref) {
+  // 登录状态变化时触发路由重算。
+  final refresh = ValueNotifier<Object?>(null);
+  ref.onDispose(() => refresh.dispose());
+  ref.listen<Object?>(authStateProvider, (_, __) => refresh.value = Object());
+
+  return GoRouter(
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final loggedIn = ref.read(authStateProvider) != null;
+      final onLogin = state.matchedLocation == '/login';
+      if (!loggedIn && !onLogin) return '/login';
+      if (loggedIn && onLogin) return '/home';
+      return null;
+    },
+    routes: [
+      GoRoute(
+        path: '/login',
+        builder: (_, __) => const LoginPage(),
       ),
-    ),
-    GoRoute(
-      path: '/timeline',
-      builder: (_, state) => TimelineComparePage(
-        anchor: state.extra is String ? state.extra as String : null,
+      ShellRoute(
+        builder: (context, state, child) {
+          int index = 0;
+          final loc = state.matchedLocation;
+          if (loc.startsWith('/projects')) {
+            index = 1;
+          } else if (loc.startsWith('/patrol')) {
+            index = 2;
+          } else if (loc.startsWith('/defects')) {
+            index = 3;
+          }
+          return Scaffold(
+            body: child,
+            bottomNavigationBar: AppBottomNav(currentIndex: index),
+          );
+        },
+        routes: [
+          GoRoute(path: '/home', builder: (_, __) => const HomePage()),
+          GoRoute(path: '/projects', builder: (_, __) => const ProjectsPage()),
+          GoRoute(path: '/patrol', builder: (_, __) => const PatrolPage()),
+          GoRoute(path: '/defects', builder: (_, __) => const DefectsPage()),
+        ],
       ),
-    ),
-    GoRoute(
-      path: '/blueprint',
-      builder: (_, __) => const BlueprintViewerPage(),
-    ),
-  ],
-);
+      GoRoute(
+        path: '/projects/drawing/:key',
+        builder: (_, state) =>
+            DrawingViewerPage(drawingKey: state.pathParameters['key']!),
+      ),
+      GoRoute(
+        path: '/defects/record/:id',
+        builder: (_, state) =>
+            RecordDetailPage(defectId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/capture',
+        builder: (_, state) => CapturePage(
+          args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
+        ),
+      ),
+      GoRoute(
+        path: '/timeline',
+        builder: (_, state) => TimelineComparePage(
+          anchor: state.extra is String ? state.extra as String : null,
+        ),
+      ),
+      GoRoute(
+        path: '/blueprint',
+        builder: (_, __) => const BlueprintViewerPage(),
+      ),
+    ],
+  );
+});
 
 class App extends ConsumerWidget {
   const App({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final phoneMode = ref.watch(devicePhoneModeProvider);
     return MaterialApp.router(
       title: '工地验收',
       theme: lightTheme,
-      routerConfig: router,
+      routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
       // Web 调试：当切到手机尺寸模拟时，显式注入 MediaQuery，避免 FittedBox/SizedBox
       // 在 web release 下推断尺寸导致的边界问题（之前报错：`test inject(injectKey)!`）。

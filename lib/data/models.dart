@@ -245,14 +245,17 @@ class CaptureArgs {
   });
 }
 
-/// VL 模拟识别的缺陷结果。
+/// VL 识别的缺陷结果。
 class VlDefect {
   final String name;
   final DefectSeverity severity;
   final double conf;
+  /// 缺陷描述（真实模型返回；mock 阶段为空）。
+  final String? desc;
   const VlDefect({
     required this.name,
     required this.severity,
     required this.conf,
+    this.desc,
   });
 }

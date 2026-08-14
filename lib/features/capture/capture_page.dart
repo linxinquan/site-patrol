@@ -1,12 +1,18 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/design_tokens.dart';
+import '../../core/utils/image_compress.dart';
+import '../../core/utils/web_storage.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
+import '../../data/vision_service.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 拍照验收页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
@@ -20,18 +26,39 @@ class CapturePage extends StatefulWidget {
   State<CapturePage> createState() => _CapturePageState();
 }
 
+/// 置信度档位（低/中/高）对应的配色与文案。
+class _ConfBucket {
+  final String label; // 低 / 中 / 高
+  final Color fg;     // 文字色
+  final Color bg;     // 背景色
+  const _ConfBucket(this.label, this.fg, this.bg);
+}
+
 class _CapturePageState extends State<CapturePage> {
   late String _floor;
   late String _anchorLabel;
   late double _x;
   late double _y;
 
-  /// 模拟照片：从最近锚点的历史照片里随机取一张（对齐原型 capState.shotPhoto）。
-  AnchorPhoto? _shotPhoto;
+  /// 拍摄照片的压缩字节数据（Image.memory 展示）。
+  Uint8List? _shotPhoto;
+  /// 拍摄来源描述（文件名，不含文件大小）。
+  String _shotCaption = '';
   bool _scanning = false;
   List<VlDefect> _defects = const [];
+  /// 识别失败的原因（null = 未失败或进行中）。UI 据此展示错误提示。
+  String? _scanError;
   Timer? _scanTimer;
   bool _saved = false;
+
+  /// 暂存的 vision 识别结果列表（Web localStorage 持久化，刷新后仍可见）。
+  /// 每项：{ts, anchor, floor, count, defects:[{name, desc}]}
+  List<Map<String, dynamic>> _storedResults = [];
+  static const String _storageKey = 'stored_vision_results';
+
+  /// Mock 开关：true 走 vlPreset（秒级，不消耗模型配额，便于验证 UI）；
+  /// false 调真实 /api/vision。
+  bool _useMock = true;
 
   List<PhotoAnchor> get _anchors => photoAnchors[_floor] ?? const [];
 
@@ -44,6 +71,16 @@ class _CapturePageState extends State<CapturePage> {
     _y = widget.args.y;
     // 初始坐标下尝试关联最近锚点（兼容"待选点"默认值）。
     _snapToNearestAnchor(force: true);
+    _loadStoredResults();
+  }
+
+  /// 启动时从 Web localStorage 恢复暂存的识别结果。
+  void _loadStoredResults() {
+    final list = WebStorage.getList(_storageKey);
+    if (list.isEmpty) return;
+    setState(() {
+      _storedResults = list.whereType<Map<String, dynamic>>().toList();
+    });
   }
 
   @override
@@ -88,104 +125,125 @@ class _CapturePageState extends State<CapturePage> {
   }
 
   // —— 快门 / 扫描 / 识别 ——
-  // 模拟拍照：从最近锚点的历史照片里取一张（对齐原型 openCapture → doCapture）。
-  // 真实相机代码已注释（见文件底部），当前用模拟照片替代。
+  final ImagePicker _picker = ImagePicker();
+
+  /// 按平台分流取图：
+  /// - Web：相册选图（桌面浏览器无法直接调相机，走文件上传）。
+  /// - Android/iOS：真实相机，并做原生压缩（maxWidth / imageQuality）。
+  Future<XFile?> _pickImage() async {
+    const source = kIsWeb ? ImageSource.gallery : ImageSource.camera;
+    try {
+      return await _picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 82,
+      );
+    } catch (_) {
+      if (mounted) {
+        AppSnack.show(context, '无法调用相机/相册，请检查权限',
+            kind: AppSnackKind.danger);
+      }
+      return null;
+    }
+  }
+
   Future<void> _doCapture() async {
     if (_scanning) return;
 
-    // 找最近锚点，取它的历史照片；无锚点或锚点无照片时，取本楼层任意一张。
-    final near = _nearestAnchor();
-    AnchorPhoto? photo;
-    if (near != null && near.photos.isNotEmpty) {
-      photo = near.photos[_rand(near.photos.length)];
-    } else {
-      final any = _anchors.where((a) => a.photos.isNotEmpty).toList();
-      if (any.isNotEmpty) {
-        photo = any[_rand(any.length)].photos.first;
-      }
-    }
-    if (photo == null) {
-      if (mounted) {
-        AppSnack.show(context, '该部位暂无历史照片，请换一个锚点',
-            kind: AppSnackKind.danger);
-      }
+    final shot = await _pickImage();
+    if (shot == null) {
+      if (mounted) AppSnack.show(context, '已取消拍摄');
       return;
     }
 
-    // 关联最近锚点（若尚未吸附，拍下时锁定）
-    if (near != null) _anchorLabel = near.label;
+    // 读取图片字节 → 简单压缩（压缩后的字节用于展示）。
+    final rawBytes = await shot.readAsBytes();
+    final compressed = compressImage(rawBytes);
 
-    setState(() {
-      _shotPhoto = photo;
-      _defects = const [];
-    });
     if (mounted) {
-      AppSnack.show(context, '已拍摄：${photo.caption}（${photo.date}）',
-          kind: AppSnackKind.accent);
+      setState(() {
+        _shotPhoto = compressed;
+        _shotCaption = shot.name;
+        _defects = const [];
+      });
+      AppSnack.show(context, '已拍摄：${shot.name}', kind: AppSnackKind.accent);
     }
     await _runScan();
   }
 
-  /// 当前准星最近的照片锚点（用于模拟拍照取图 + 吸附标签）。
-  PhotoAnchor? _nearestAnchor() {
-    if (_anchors.isEmpty) return null;
-    PhotoAnchor? best;
-    var bestDist = double.infinity;
-    for (final a in _anchors) {
-      final d = math.sqrt(math.pow(a.x - _x, 2) + math.pow(a.y - _y, 2));
-      if (d < bestDist) {
-        bestDist = d;
-        best = a;
-      }
-    }
-    return best;
-  }
-
-  int _rand(int max) => max <= 0 ? 0 : math.Random().nextInt(max);
-
-  // /// 真实相机快门（保留参考，Web 阶段不可用）：
-  // /// 用 image_picker 打开相机拍摄后走 1.5s 扫描。接真机时恢复。
-  // final ImagePicker _picker = ImagePicker();
-  // Future<void> _doCaptureReal() async {
-  //   if (_scanning) return;
-  //   final XFile? shot;
-  //   try {
-  //     shot = await _picker.pickImage(
-  //       source: ImageSource.camera,
-  //       maxWidth: 1280,
-  //       imageQuality: 82,
-  //     );
-  //   } catch (_) {
-  //     if (mounted) {
-  //       AppSnack.show(context, '无法调用相机，请检查相机权限',
-  //           kind: AppSnackKind.danger);
-  //     }
-  //     return;
-  //   }
-  //   if (shot == null) {
-  //     if (mounted) AppSnack.show(context, '已取消拍摄');
-  //     return;
-  //   }
-  //   final path = shot.path;
-  //   setState(() {
-  //     _shotPhoto = null;
-  //     _defects = const [];
-  //   });
-  //   await _runScan();
-  // }
-
   Future<void> _runScan() async {
     if (_scanning) return;
-    setState(() => _scanning = true);
-    _scanTimer?.cancel();
-    // 1.5s 扫描动画后出 VL 识别结果（对齐 HTML doCapture → runVL）。
-    _scanTimer = Timer(const Duration(milliseconds: 1500), () {
-      if (!mounted) return;
-      setState(() {
-        _scanning = false;
-        _defects = vlPreset(_anchorLabel);
-      });
+    setState(() {
+      _scanning = true;
+      _scanError = null;
     });
+    _scanTimer?.cancel();
+
+    // 先展示至少 800ms 扫描动画，避免一闪而过。
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+
+    List<VlDefect> result = const [];
+    // Mock 开关开启：秒级返回「上次真实模型返回」还原数据，便于验证 UI。
+    if (_useMock) {
+      result = vlPreset(_anchorLabel, replayReal: true);
+    } else if (_shotPhoto != null) {
+      try {
+        final vision = await VisionService().recognizeDefects(_shotPhoto!);
+        result = vision.defects
+            .map((d) => VlDefect(
+                  name: d.name,
+                  severity: DefectSeverity.mid,
+                  conf: 1.0,
+                  desc: d.desc,
+                ))
+            .toList();
+        // 只要有返回就暂存（刷新页面仍可见），不依赖当前页 UI 状态。
+        if (vision.defects.isNotEmpty) {
+          _persistResult(vision);
+        }
+      } on TimeoutException catch (e) {
+        if (mounted) {
+          setState(() => _scanError = '识别超时（${e.duration?.inSeconds ?? 180}s）：模型响应过慢，可重试');
+        }
+        debugPrint('[runScan] vision timeout: $e');
+      } catch (e) {
+        if (mounted) {
+          setState(() => _scanError = '识别失败：$e');
+        }
+        debugPrint('[runScan] vision error: $e');
+      }
+    } else {
+      result = vlPreset(_anchorLabel);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _scanning = false;
+      _defects = result;
+    });
+  }
+
+  /// 把一条 vision 识别结果追加到暂存列表并持久化（Web localStorage）。
+  void _persistResult(VisionResult vision) {
+    final now = DateTime.now();
+    final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
+        '${_two(now.hour)}:${_two(now.minute)}:${_two(now.second)}';
+    final entry = <String, dynamic>{
+      'ts': ts,
+      'anchor': _anchorLabel,
+      'floor': _floor,
+      'count': vision.count,
+      'defects': vision.defects.map((d) => d.toJson()).toList(),
+    };
+    setState(() {
+      _storedResults = [entry, ..._storedResults];
+    });
+    WebStorage.setList(_storageKey, _storedResults);
+    if (mounted) {
+      AppSnack.show(context, '识别结果已暂存（刷新页面仍可查看）',
+          kind: AppSnackKind.brand);
+    }
   }
 
   void _retake() {
@@ -193,6 +251,7 @@ class _CapturePageState extends State<CapturePage> {
     setState(() {
       _shotPhoto = null;
       _defects = const [];
+      _scanError = null;
       _scanning = false;
     });
     AppSnack.show(context, '已重拍，请再次按下快门');
@@ -240,6 +299,28 @@ class _CapturePageState extends State<CapturePage> {
           backgroundColor: AppTokens.surface,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: AppTokens.space3),
+              child: Row(
+                children: [
+                  Text('Mock',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _useMock
+                              ? AppTokens.accent
+                              : AppTokens.muted)),
+                  const SizedBox(width: 4),
+                  Switch(
+                    value: _useMock,
+                    onChanged: (v) => setState(() => _useMock = v),
+                    activeThumbColor: AppTokens.accent,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         body: Column(
           children: [
@@ -256,6 +337,10 @@ class _CapturePageState extends State<CapturePage> {
                     _buildWatermark(),
                     const SizedBox(height: AppTokens.space4),
                     _buildResultPanel(),
+                    if (_defects.isNotEmpty) ...[
+                      const SizedBox(height: AppTokens.space4),
+                      _buildDefectSection(),
+                    ],
                     const SizedBox(height: AppTokens.space4),
                     _buildControls(),
                     const SizedBox(height: AppTokens.space6),
@@ -376,8 +461,6 @@ class _CapturePageState extends State<CapturePage> {
                 ),
                 // 扫描动画
                 if (_scanning) _buildScanOverlay(),
-                // 识别结果（浮于图纸上，与 HTML runVL 一致）
-                if (_defects.isNotEmpty) _buildDefectOverlay(),
               ],
             ),
           );
@@ -588,86 +671,117 @@ class _CapturePageState extends State<CapturePage> {
     );
   }
 
-  /// VL 识别缺陷卡片浮层（对齐 HTML runVL 渲染）。
-  Widget _buildDefectOverlay() {
-    return Positioned(
-      left: AppTokens.space3,
-      right: AppTokens.space3,
-      bottom: AppTokens.space3,
-      child: Container(
-        padding: const EdgeInsets.all(AppTokens.space3),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          boxShadow: AppTokens.elevationOverlay,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(LucideIcons.scanSearch,
-                    size: 14, color: AppTokens.accent),
-                SizedBox(width: 6),
-                Text('视觉识别结果',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTokens.fg)),
-                Spacer(),
-                Text('AI · VL',
-                    style:
-                        TextStyle(fontSize: 10, color: AppTokens.muted)),
-              ],
-            ),
-            const SizedBox(height: AppTokens.space2),
-            ..._defects.map(_buildDefectCard),
-          ],
-        ),
+  /// VL 识别缺陷卡片区块（独立放在页面 Column 内，突破图纸 Stack 边界，
+/// 避免缺陷卡片被图纸裁剪/遮挡）。
+  Widget _buildDefectSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.border),
+        boxShadow: AppTokens.elevationOverlay,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.scanSearch,
+                  size: 14, color: AppTokens.accent),
+              const SizedBox(width: 6),
+              const Text('视觉识别结果',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.fg)),
+              const Spacer(),
+              Text('AI · VL · ${_defects.length} 处',
+                  style:
+                      const TextStyle(fontSize: 10, color: AppTokens.muted)),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space2),
+          ..._defects.map(_buildDefectCard),
+        ],
       ),
     );
   }
 
   Widget _buildDefectCard(VlDefect d) {
-    final sev = d.severity;
+    final bucket = _confBucket(d.conf);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              color: sev.soft,
+              color: bucket.bg,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
             child: Icon(LucideIcons.alertTriangle,
-                size: 16, color: sev.color),
+                size: 16, color: bucket.fg),
           ),
           const SizedBox(width: AppTokens.space3),
           Expanded(
-            child: Text(d.name,
-                style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: sev.soft,
-              borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(d.name,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppTokens.fg)),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: bucket.bg,
+                        borderRadius:
+                            BorderRadius.circular(AppTokens.radiusPill),
+                      ),
+                      child: Text(
+                          '${bucket.label} · ${(d.conf * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: bucket.fg)),
+                    ),
+                  ],
+                ),
+                if (d.desc != null && d.desc!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(d.desc!,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppTokens.muted)),
+                ],
+              ],
             ),
-            child: Text('${sev.label} · ${(d.conf * 100).toStringAsFixed(0)}%',
-                style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: sev.color)),
           ),
         ],
       ),
     );
+  }
+
+  /// 置信度档位：<0.5 低（红）、0.5~0.8 中（橙）、>0.8 高（绿）。
+  _ConfBucket _confBucket(double conf) {
+    if (conf >= 0.8) {
+      return const _ConfBucket('高', Color(0xFF16A34A), Color(0xFFDCFCE7));
+    }
+    if (conf >= 0.5) {
+      return const _ConfBucket('中', Color(0xFFEA580C), Color(0xFFFFEDD5));
+    }
+    return const _ConfBucket('低', Color(0xFFDC2626), Color(0xFFFEE2E2));
   }
 
   /// 拍照水印条：时间戳 / GPS / 海拔 / 楼层部位。
@@ -716,9 +830,10 @@ class _CapturePageState extends State<CapturePage> {
 
   String _two(int v) => v.toString().padLeft(2, '0');
 
-  /// 结果/照片面板。
+  /// 结果面板：缩略图 + 识别状态（不含文件大小与置信度数字）。
   Widget _buildResultPanel() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppTokens.space3),
       decoration: BoxDecoration(
         color: AppTokens.surface,
@@ -742,8 +857,8 @@ class _CapturePageState extends State<CapturePage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                  child: Image.asset(
-                    'assets/photos/${_shotPhoto!.file}',
+                  child: Image.memory(
+                    _shotPhoto!,
                     width: 56,
                     height: 56,
                     fit: BoxFit.cover,
@@ -755,17 +870,22 @@ class _CapturePageState extends State<CapturePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _defects.isEmpty ? '已拍摄，等待识别…' : '已识别 ${_defects.length} 处缺陷',
-                        style: const TextStyle(
+                        _scanError ??
+                            (_defects.isEmpty
+                                ? '已拍摄，等待识别…'
+                                : '已识别 ${_defects.length} 处缺陷'),
+                        style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: AppTokens.fg),
+                            color: _scanError != null
+                                ? const Color(0xFFDC2626)
+                                : AppTokens.fg),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        _defects.isEmpty
-                            ? '识别结果将叠加在图纸上'
-                            : '$_anchorLabel · 置信度 ${(_defects.map((d) => d.conf).reduce((a, b) => (a + b) / 2) * 100).toStringAsFixed(0)}%',
+                        '$_anchorLabel · $_floor · $_shotCaption',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 11, color: AppTokens.muted),
                       ),
@@ -811,7 +931,99 @@ class _CapturePageState extends State<CapturePage> {
                     fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),
+        if (_storedResults.isNotEmpty) ...[
+          const SizedBox(height: AppTokens.space4),
+          _buildStoredResults(),
+        ],
       ],
+    );
+  }
+
+  /// 暂存识别结果列表（测试用，置于保存按钮下方）。
+  Widget _buildStoredResults() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.border),
+      ),
+      padding: const EdgeInsets.all(AppTokens.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.history, size: 15, color: AppTokens.accent),
+              const SizedBox(width: 6),
+              const Text('暂存识别结果',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.fg)),
+              const Spacer(),
+              Text('${_storedResults.length} 条',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTokens.muted)),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space2),
+          ..._storedResults.map((e) => _buildStoredResultTile(e)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoredResultTile(Map<String, dynamic> e) {
+    final defects = (e['defects'] as List? ?? const [])
+        .map((d) => d is Map<String, dynamic> ? d : const <String, dynamic>{})
+        .toList();
+    final count = e['count'] as int? ?? defects.length;
+    final names = defects
+        .map((d) => d['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty)
+        .join('、');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(top: 5),
+            decoration: const BoxDecoration(
+              color: AppTokens.accent,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: AppTokens.space2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('${e['anchor']} · ${e['floor']}',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppTokens.fg)),
+                    const Spacer(),
+                    Text('${e['ts']}',
+                        style: const TextStyle(
+                            fontSize: 10, color: AppTokens.muted)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text('识别 $count 处缺陷 · $names',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTokens.muted)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

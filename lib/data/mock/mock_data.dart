@@ -123,8 +123,27 @@ const Map<String, List<TimelinePhoto>> timeline = {
   ],
 };
 
+/// 「上次真实模型返回」的还原数据（钢筋锈蚀 / 斜置散置钢筋）。
+/// 供 mock 模式拍照后展示，用于还原真实接口效果。
+const List<VlDefect> realSteelDefects = [
+  VlDefect(
+    name: '钢筋锈蚀',
+    severity: DefectSeverity.high,
+    conf: 1.0,
+    desc: '柱筋上部箍筋及部分竖向钢筋表面锈蚀明显，呈黄褐色，超出正常浮锈范围，绑扎前未进行除锈处理，需除锈并复验后方可浇筑。',
+  ),
+  VlDefect(
+    name: '斜置散置钢筋（支撑固定不规范）',
+    severity: DefectSeverity.mid,
+    conf: 1.0,
+    desc: '一根钢筋斜搭于柱钢筋笼上，仅中部一处用扎丝简单绑扎，两端均未与柱笼或板面钢筋网有效锚固固定，不能起到定尺撑稳固作用，属散置乱摆钢筋，应清除或按防倾倒措施要求重新固定。',
+  ),
+];
+
 /// VL 模拟识别：按锚点关键词返回缺陷列表（对齐原型 app.js vlPreset）。
-List<VlDefect> vlPreset(String anchor) {
+/// [replayReal] 为 true 时固定返回「上次真实模型返回」还原数据（拍照后 mock 展示）。
+List<VlDefect> vlPreset(String anchor, {bool replayReal = false}) {
+  if (replayReal) return realSteelDefects;
   final kw = anchor.toLowerCase();
   if (kw.contains('渗漏') || kw.contains('b1') || kw.contains('b2')) {
     return const [
