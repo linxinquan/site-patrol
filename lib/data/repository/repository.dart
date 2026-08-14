@@ -3,7 +3,8 @@ import '../models.dart';
 /// 数据仓库抽象接口。UI 只依赖此接口。
 /// 当前实现：MockRepository（dev）。后端就绪后实现 RemoteRepository（prod）。
 abstract class Repository {
-  Future<Project> getProject();
+  Future<List<Project>> getProjects();
+  Future<Project> getProject(String id);
   Future<List<Floor>> getFloors();
   Future<Map<String, Drawing>> getDrawings();
   Future<Drawing?> getDrawing(String key);

@@ -8,7 +8,12 @@ class MockRepository implements Repository {
       Future.delayed(const Duration(milliseconds: 350), () => value);
 
   @override
-  Future<Project> getProject() => _delay(project);
+  Future<List<Project>> getProjects() => _delay(allProjects);
+
+  @override
+  Future<Project> getProject(String id) =>
+      _delay(allProjects.firstWhere((p) => p.id == id,
+          orElse: () => allProjects.first));
 
   @override
   Future<List<Floor>> getFloors() => _delay(floors);

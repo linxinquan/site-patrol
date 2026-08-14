@@ -8,7 +8,8 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
-import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/project_switcher.dart';
+import '../../shared/widgets/user_switcher.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
 
@@ -33,16 +34,7 @@ class HomePage extends ConsumerWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                p.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppTokens.fg,
-                    height: 1.2),
-              ),
+              const ProjectSwitcher(),
               const SizedBox(height: 2),
               Text(
                 '${p.client} · 建筑 ${p.floorArea} · ${p.beds} 床',
@@ -57,17 +49,10 @@ class HomePage extends ConsumerWidget {
           ),
           orElse: () => const Text('工作台'),
         ),
-        actions: [
-          GestureDetector(
-            onTap: () => AppSnack.show(context, '当前账号：杨工（上海同济咨询-设计管理工程师）',
-                kind: AppSnackKind.muted),
-            child: const Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: CircleAvatar(
-                backgroundImage: AssetImage('assets/avatars/yang-gong.jpg'),
-                radius: 18,
-              ),
-            ),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: UserSwitcher(),
           ),
         ],
       ),
@@ -131,13 +116,13 @@ class _ProjectOverviewCard extends ConsumerWidget {
         boxShadow: AppTokens.elevationRaised,
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 左侧橙色竖条：用 Container 自带 fill 行为（无明确高度约束时 = 子项最大高度）
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+          // 左侧橙色竖条：贯穿整卡高度（自适应右侧内容）
           Container(
             width: 4,
-            height: 132, // 与右侧内容的自然高度对齐（项目名 + 副标题 + 4 个磁贴两行 + 间距）
             decoration: const BoxDecoration(
               color: AppTokens.accent,
             ),
@@ -168,7 +153,7 @@ class _ProjectOverviewCard extends ConsumerWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '${project.client} · 建筑 1…',
+                              '${project.client} · 建筑 ${project.floorArea}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -189,9 +174,9 @@ class _ProjectOverviewCard extends ConsumerWidget {
                           borderRadius:
                               BorderRadius.circular(AppTokens.radiusPill),
                         ),
-                        child: const Text(
-                          '已封顶 · 预计 2027 年竣工',
-                          style: TextStyle(
+                        child: Text(
+                          project.status,
+                          style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: AppTokens.warning,
@@ -235,14 +220,101 @@ class _ProjectOverviewCard extends ConsumerWidget {
                           fg: AppTokens.success),
                     ],
                   ),
+                  if (project.parties.isNotEmpty) ...[
+                    const SizedBox(height: AppTokens.space3),
+                    _PartyList(parties: project.parties),
+                  ],
                 ],
               ),
             ),
           ),
         ],
+        ),
       ),
     );
   }
+}
+
+/// 项目参与方列表（甲方 / 设计院 / 监理 / 咨询 / PMO）。
+class _PartyList extends StatelessWidget {
+  final List<Party> parties;
+  const _PartyList({required this.parties});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '参与单位',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTokens.muted,
+                height: 1.2),
+          ),
+          const SizedBox(height: AppTokens.space2),
+          for (final party in parties)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppTokens.space2),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppTokens.space3, vertical: AppTokens.space2),
+                decoration: BoxDecoration(
+                  color: AppTokens.surface2,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: AppTokens.brandSoft,
+                        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                      ),
+                      child: const Icon(LucideIcons.building2,
+                          size: 15, color: AppTokens.brand),
+                    ),
+                    const SizedBox(width: AppTokens.space3),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            party.role,
+                            style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTokens.accent,
+                                height: 1.3),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            party.org,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTokens.fg,
+                                height: 1.3),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${party.title} · ${party.contact}',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTokens.muted,
+                                height: 1.3),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+      ],
+    );
 }
 
 class _StatTile extends StatelessWidget {

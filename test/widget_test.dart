@@ -64,7 +64,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 主页可能多处展示项目名，用 findsWidgets。
-    expect(find.text('南方科技大学附属医院（校本部）'), findsWidgets);
+    expect(find.text('腾讯大铲湾 DY04 · 7栋'), findsWidgets);
   });
 
   test('已存在有效会话时 initAuthProvider 恢复会话', () async {
@@ -104,7 +104,7 @@ void main() {
     await storage.writeKV(
       'session',
       '{"userId":"u1","username":"yang","displayName":"杨工",'
-      '"loginAt":"2026-01-01T00:00:00","expiresAt":"2026-01-02T00:00:00"}',
+          '"loginAt":"2026-01-01T00:00:00","expiresAt":"2026-01-02T00:00:00"}',
     );
     final store = SessionStore(storage: storage);
 

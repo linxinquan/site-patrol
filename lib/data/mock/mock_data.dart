@@ -2,7 +2,36 @@ import '../models.dart';
 
 /// 由原型 app.js 常量移植。src 统一用 PNG（避开 16MB SVG 卡顿）。
 
+/// 项目参与方定义（腾讯大铲湾 DY04 · 7栋）。
+const List<Party> tencentDachanwanParties = [
+  Party(
+    role: '甲方（业主方）',
+    org: '腾讯科技（深圳）有限公司',
+    contact: '林总',
+    title: '业主代表',
+  ),
+  Party(
+    role: '设计院（LDI）',
+    org: '深圳市建筑设计研究总院（深总院）',
+    contact: '朱工',
+    title: '设计管理',
+  ),
+  Party(
+    role: '第三方监理 / 全过程咨询',
+    org: '深圳华西建设工程管理有限公司',
+    contact: '杨工',
+    title: '施工监理',
+  ),
+  Party(
+    role: 'Arcadis（凯迪思）全过程咨询 / PMO',
+    org: 'Arcadis（凯迪思）',
+    contact: '欧阳工',
+    title: '全过程咨询 / PMO',
+  ),
+];
+
 const Project project = Project(
+  id: 'nkf',
   name: '南方科技大学附属医院（校本部）',
   client: '深圳市建筑工务署',
   location: '深圳市南山区西丽大学城南方科技大学校内东侧',
@@ -12,6 +41,55 @@ const Project project = Project(
   beds: 800,
   concept: '山水动脉',
 );
+
+/// 腾讯大铲湾 DY04 · 7栋（多项目切换目标项目）。
+const Project tencentProject = Project(
+  id: 'tencent-dy04-7',
+  name: '腾讯大铲湾 DY04 · 7栋',
+  client: '腾讯科技（深圳）有限公司',
+  location: '深圳市宝安区大铲湾',
+  status: '在建 · 施工中',
+  siteArea: '—',
+  floorArea: '—',
+  beds: 0,
+  concept: '大铲湾科技园区',
+  parties: tencentDachanwanParties,
+);
+
+/// 所有项目列表（多项目切换用）。默认第一个为当前选中项目。
+const List<Project> allProjects = [tencentProject, project];
+
+/// 系统用户列表（参与方代表，头像切换用）。默认第一个为当前登录用户。
+const List<User> users = [
+  User(
+    id: 'ouyang',
+    name: '欧阳总',
+    org: 'Arcadis（凯迪思）',
+    role: '全过程咨询 / PMO',
+    avatar: 'assets/avatars/ouyang-zong.jpg',
+  ),
+  User(
+    id: 'lin',
+    name: '林总',
+    org: '腾讯科技（深圳）有限公司',
+    role: '业主代表',
+    avatar: 'assets/avatars/lin-zong.jpg',
+  ),
+  User(
+    id: 'zhu',
+    name: '朱工',
+    org: '深圳市建筑设计研究总院（深总院）',
+    role: '设计管理',
+    avatar: 'assets/avatars/zhu-gong.jpg',
+  ),
+  User(
+    id: 'yang',
+    name: '杨工',
+    org: '深圳华西建设工程管理有限公司',
+    role: '施工监理',
+    avatar: 'assets/avatars/yang-gong.jpg',
+  ),
+];
 
 const List<Floor> floors = [
   Floor(key: 'nkf_total', name: '总平面图', index: 2, cached: true, progress: 100, building: '总图', floor: '总图'),

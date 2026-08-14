@@ -176,45 +176,111 @@ class _ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppCard(
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTokens.brandSoft,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              ),
-              child: const Icon(LucideIcons.folder, color: AppTokens.brand),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(p.name,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTokens.fg),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${p.client} · ${p.floorArea} · ${p.status}',
-                    style:
-                        const TextStyle(fontSize: 12, color: AppTokens.muted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppTokens.brandSoft,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                   ),
-                ],
-              ),
+                  child:
+                      const Icon(LucideIcons.folder, color: AppTokens.brand),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p.name,
+                          style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTokens.fg),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${p.client} · ${p.floorArea} · ${p.status}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTokens.muted),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (p.beds > 0)
+                  StatusBadge(
+                      text: '${p.beds} 床',
+                      color: AppTokens.brand,
+                      bg: AppTokens.brandSoft),
+              ],
             ),
-            const SizedBox(width: 8),
-            StatusBadge(
-                text: '${p.beds} 床',
-                color: AppTokens.brand,
-                bg: AppTokens.brandSoft),
+            if (p.parties.isNotEmpty) ...[
+              const SizedBox(height: AppTokens.space3),
+              const Divider(height: 1, color: AppTokens.surface2),
+              const SizedBox(height: AppTokens.space3),
+              for (final party in p.parties)
+                Padding(
+                  padding:
+                      const EdgeInsets.only(bottom: AppTokens.space2),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: AppTokens.brandSoft,
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusSm),
+                        ),
+                        child: const Icon(LucideIcons.building2,
+                            size: 15, color: AppTokens.brand),
+                      ),
+                      const SizedBox(width: AppTokens.space3),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              party.role,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTokens.accent,
+                                  height: 1.3),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              party.org,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTokens.fg,
+                                  height: 1.3),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${party.title} · ${party.contact}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTokens.muted,
+                                  height: 1.3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
         ),
       );
