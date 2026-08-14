@@ -10,5 +10,7 @@ abstract class Repository {
   Future<Drawing?> getDrawing(String key);
   Future<List<PhotoAnchor>> getAnchors(String floor);
   Future<List<Defect>> getDefects({DefectStatus? status});
+  /// 新增一条缺陷工单（拍照识别后由 CapturePage 调用）。
+  Future<void> addDefect(Defect defect);
   Future<List<TimelinePhoto>> getTimeline(String anchor);
 }

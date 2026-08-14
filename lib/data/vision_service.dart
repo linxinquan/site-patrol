@@ -67,11 +67,11 @@ class DefectItem {
 }
 
 /// 缺陷识别服务：调本地/云端视觉代理后端，再转千问视觉模型。
-/// 本地开发默认 http://localhost:3000，上云后改 --dart-define=VISION_HOST=https://xxx
+/// 默认指向已部署的云服务器；本地调试可覆盖：--dart-define=VISION_HOST=http://localhost:3000
 class VisionService {
   static const String host = String.fromEnvironment(
     'VISION_HOST',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: 'http://120.24.240.129:3000',
   );
 
   /// 识别图片中的施工缺陷。

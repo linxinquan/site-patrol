@@ -13,28 +13,30 @@ import '../../core/utils/web_storage.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
 import '../../data/vision_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/di/providers.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 拍照验收页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
 /// → 1.5s 扫描 → VL 识别 → 保存记录。
 /// 注：真实相机（image_picker）代码已注释，改走"关联历史照片"的模拟拍照。
-class CapturePage extends StatefulWidget {
+class CapturePage extends ConsumerStatefulWidget {
   final CaptureArgs args;
   const CapturePage({super.key, this.args = const CaptureArgs()});
 
   @override
-  State<CapturePage> createState() => _CapturePageState();
+  ConsumerState<CapturePage> createState() => _CapturePageState();
 }
 
 /// 置信度档位（低/中/高）对应的配色与文案。
 class _ConfBucket {
   final String label; // 低 / 中 / 高
-  final Color fg;     // 文字色
-  final Color bg;     // 背景色
+  final Color fg; // 文字色
+  final Color bg; // 背景色
   const _ConfBucket(this.label, this.fg, this.bg);
 }
 
-class _CapturePageState extends State<CapturePage> {
+class _CapturePageState extends ConsumerState<CapturePage> {
   late String _floor;
   late String _anchorLabel;
   late double _x;
@@ -42,10 +44,12 @@ class _CapturePageState extends State<CapturePage> {
 
   /// 拍摄照片的压缩字节数据（Image.memory 展示）。
   Uint8List? _shotPhoto;
+
   /// 拍摄来源描述（文件名，不含文件大小）。
   String _shotCaption = '';
   bool _scanning = false;
   List<VlDefect> _defects = const [];
+
   /// 识别失败的原因（null = 未失败或进行中）。UI 据此展示错误提示。
   String? _scanError;
   Timer? _scanTimer;
@@ -58,7 +62,7 @@ class _CapturePageState extends State<CapturePage> {
 
   /// Mock 开关：true 走 vlPreset（秒级，不消耗模型配额，便于验证 UI）；
   /// false 调真实 /api/vision。
-  bool _useMock = true;
+  bool _useMock = false;
 
   List<PhotoAnchor> get _anchors => photoAnchors[_floor] ?? const [];
 
@@ -140,8 +144,7 @@ class _CapturePageState extends State<CapturePage> {
       );
     } catch (_) {
       if (mounted) {
-        AppSnack.show(context, '无法调用相机/相册，请检查权限',
-            kind: AppSnackKind.danger);
+        AppSnack.show(context, '无法调用相机/相册，请检查权限', kind: AppSnackKind.danger);
       }
       return null;
     }
@@ -193,8 +196,10 @@ class _CapturePageState extends State<CapturePage> {
         result = vision.defects
             .map((d) => VlDefect(
                   name: d.name,
+                  // severity 模型尚未返回，暂默认 mid；后端补返回严重程度后再映射
                   severity: DefectSeverity.mid,
-                  conf: 1.0,
+                  // A 修复：传真实置信度，低 conf 会在卡片/工单中提示人工复核
+                  conf: d.conf,
                   desc: d.desc,
                 ))
             .toList();
@@ -204,7 +209,8 @@ class _CapturePageState extends State<CapturePage> {
         }
       } on TimeoutException catch (e) {
         if (mounted) {
-          setState(() => _scanError = '识别超时（${e.duration?.inSeconds ?? 180}s）：模型响应过慢，可重试');
+          setState(() =>
+              _scanError = '识别超时（${e.duration?.inSeconds ?? 180}s）：模型响应过慢，可重试');
         }
         debugPrint('[runScan] vision timeout: $e');
       } catch (e) {
@@ -241,8 +247,7 @@ class _CapturePageState extends State<CapturePage> {
     });
     WebStorage.setList(_storageKey, _storedResults);
     if (mounted) {
-      AppSnack.show(context, '识别结果已暂存（刷新页面仍可查看）',
-          kind: AppSnackKind.brand);
+      AppSnack.show(context, '识别结果已暂存（刷新页面仍可查看）', kind: AppSnackKind.brand);
     }
   }
 
@@ -258,30 +263,60 @@ class _CapturePageState extends State<CapturePage> {
   }
 
   void _addPoint() {
-    AppSnack.show(context, '加点：已在该位置临时标记部位（可拖拽准星微调）',
-        kind: AppSnackKind.brand);
+    AppSnack.show(context, '加点：已在该位置临时标记部位（可拖拽准星微调）', kind: AppSnackKind.brand);
   }
 
   void _annotate() {
-    AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注',
-        kind: AppSnackKind.brand);
+    AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注', kind: AppSnackKind.brand);
   }
 
   void _saveRecord() {
     if (_scanning) return;
     if (_shotPhoto == null) {
-      AppSnack.show(context, '请先按下快门拍摄现场照片',
-          kind: AppSnackKind.danger);
+      AppSnack.show(context, '请先按下快门拍摄现场照片', kind: AppSnackKind.danger);
       return;
     }
     if (_saved) return;
-    _saved = true;
-    final part =
-        _defects.isEmpty ? '未识别缺陷' : _defects.map((d) => d.name).join('、');
-    AppSnack.show(
-        context,
-        '验收记录已保存：$_anchorLabel（$part）已关联历史照片',
+
+    final repo = ref.read(repositoryProvider);
+
+    // 未识别到缺陷：仅提示，不生成空工单污染列表
+    if (_defects.isEmpty) {
+      AppSnack.show(context, '未识别到缺陷，验收记录已留痕', kind: AppSnackKind.success);
+      _saved = true;
+      Navigator.of(context).pop();
+      return;
+    }
+
+    // 将每条识别结果转为缺陷工单写入仓库
+    final now = DateTime.now();
+    final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
+        '${_two(now.hour)}:${_two(now.minute)}';
+    for (var i = 0; i < _defects.length; i++) {
+      final vl = _defects[i];
+      repo.addDefect(Defect(
+        id: 'v${now.millisecondsSinceEpoch}_$i',
+        part: '$_floor · $_anchorLabel · ${vl.name}',
+        type: vl.name,
+        severity: vl.severity,
+        status: DefectStatus.draft,
+        anchor: _anchorLabel,
+        floor: _floor,
+        ts: ts,
+        gps: '未获取',
+        alt: '未获取',
+        resp: '待指派',
+        note: vl.desc ?? '',
+        seed: String.fromCharCode(97 + (i % 6)), // a~f 轮替，水印配色多样
+      ));
+    }
+
+    // 刷新缺陷列表，使新工单在 DefectsPage 立即可见
+    ref.invalidate(defectsProvider);
+
+    AppSnack.show(context, '已生成 ${_defects.length} 条缺陷工单（$_anchorLabel）',
         kind: AppSnackKind.success);
+    _saved = true;
     Navigator.of(context).pop();
   }
 
@@ -308,9 +343,8 @@ class _CapturePageState extends State<CapturePage> {
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: _useMock
-                              ? AppTokens.accent
-                              : AppTokens.muted)),
+                          color:
+                              _useMock ? AppTokens.accent : AppTokens.muted)),
                   const SizedBox(width: 4),
                   Switch(
                     value: _useMock,
@@ -372,8 +406,7 @@ class _CapturePageState extends State<CapturePage> {
               child: Text.rich(
                 TextSpan(
                   text: '锚定部位：',
-                  style: const TextStyle(
-                      fontSize: 13, color: AppTokens.muted),
+                  style: const TextStyle(fontSize: 13, color: AppTokens.muted),
                   children: [
                     TextSpan(
                       text: _anchorLabel,
@@ -384,8 +417,8 @@ class _CapturePageState extends State<CapturePage> {
                     ),
                     TextSpan(
                       text: ' · $_floor',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTokens.muted),
+                      style:
+                          const TextStyle(fontSize: 12, color: AppTokens.muted),
                     ),
                   ],
                 ),
@@ -453,8 +486,8 @@ class _CapturePageState extends State<CapturePage> {
                             size: 12, color: Colors.white),
                         SizedBox(width: 6),
                         Text('点击图纸选点，将自动吸附最近锚点',
-                            style: TextStyle(
-                                fontSize: 11, color: Colors.white)),
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white)),
                       ],
                     ),
                   ),
@@ -480,8 +513,7 @@ class _CapturePageState extends State<CapturePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(AppTokens.radiusPill),
@@ -518,8 +550,7 @@ class _CapturePageState extends State<CapturePage> {
   /// 点击图钉查看该锚点历史照片（对齐原型 cap__pin 点开照片）。
   void _showAnchorPhotos(PhotoAnchor a) {
     if (a.photos.isEmpty) {
-      AppSnack.show(context, '「${a.label}」暂无历史照片',
-          kind: AppSnackKind.muted);
+      AppSnack.show(context, '「${a.label}」暂无历史照片', kind: AppSnackKind.muted);
       return;
     }
     showModalBottomSheet<void>(
@@ -598,7 +629,8 @@ class _CapturePageState extends State<CapturePage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: AppTokens.accent.withValues(alpha: 0.8), width: 1.5),
+                      color: AppTokens.accent.withValues(alpha: 0.8),
+                      width: 1.5),
                 ),
               ),
               Container(
@@ -662,8 +694,7 @@ class _CapturePageState extends State<CapturePage> {
                       color: Colors.white)),
               SizedBox(height: 4),
               Text('正在分析缺陷特征',
-                  style:
-                      TextStyle(fontSize: 12, color: Colors.white70)),
+                  style: TextStyle(fontSize: 12, color: Colors.white70)),
             ],
           ),
         ),
@@ -672,7 +703,7 @@ class _CapturePageState extends State<CapturePage> {
   }
 
   /// VL 识别缺陷卡片区块（独立放在页面 Column 内，突破图纸 Stack 边界，
-/// 避免缺陷卡片被图纸裁剪/遮挡）。
+  /// 避免缺陷卡片被图纸裁剪/遮挡）。
   Widget _buildDefectSection() {
     return Container(
       width: double.infinity,
@@ -698,8 +729,7 @@ class _CapturePageState extends State<CapturePage> {
                       color: AppTokens.fg)),
               const Spacer(),
               Text('AI · VL · ${_defects.length} 处',
-                  style:
-                      const TextStyle(fontSize: 10, color: AppTokens.muted)),
+                  style: const TextStyle(fontSize: 10, color: AppTokens.muted)),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
@@ -723,8 +753,7 @@ class _CapturePageState extends State<CapturePage> {
               color: bucket.bg,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
-            child: Icon(LucideIcons.alertTriangle,
-                size: 16, color: bucket.fg),
+            child: Icon(LucideIcons.alertTriangle, size: 16, color: bucket.fg),
           ),
           const SizedBox(width: AppTokens.space3),
           Expanded(
@@ -761,9 +790,7 @@ class _CapturePageState extends State<CapturePage> {
                   const SizedBox(height: 2),
                   Text(d.desc!,
                       style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.4,
-                          color: AppTokens.muted)),
+                          fontSize: 12, height: 1.4, color: AppTokens.muted)),
                 ],
               ],
             ),
@@ -811,8 +838,7 @@ class _CapturePageState extends State<CapturePage> {
             ),
           ),
           const SizedBox(width: AppTokens.space3),
-          Text(ts,
-              style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          Text(ts, style: const TextStyle(fontSize: 10, color: Colors.white70)),
           const SizedBox(width: AppTokens.space3),
           const Icon(LucideIcons.satellite, size: 12, color: Colors.white70),
           const SizedBox(width: 4),
@@ -843,13 +869,11 @@ class _CapturePageState extends State<CapturePage> {
       child: _shotPhoto == null
           ? const Row(
               children: [
-                Icon(LucideIcons.image,
-                    size: 16, color: AppTokens.muted),
+                Icon(LucideIcons.image, size: 16, color: AppTokens.muted),
                 SizedBox(width: AppTokens.space2),
                 Expanded(
                   child: Text('尚未拍摄：按下快门拍摄现场照片后自动识别',
-                      style: TextStyle(
-                          fontSize: 13, color: AppTokens.muted)),
+                      style: TextStyle(fontSize: 13, color: AppTokens.muted)),
                 ),
               ],
             )
@@ -927,8 +951,7 @@ class _CapturePageState extends State<CapturePage> {
             ),
             icon: const Icon(LucideIcons.save, size: 18),
             label: const Text('保存验收记录',
-                style: TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700)),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),
         if (_storedResults.isNotEmpty) ...[
@@ -954,7 +977,8 @@ class _CapturePageState extends State<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.history, size: 15, color: AppTokens.accent),
+              const Icon(LucideIcons.history,
+                  size: 15, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('暂存识别结果',
                   style: TextStyle(
@@ -963,8 +987,7 @@ class _CapturePageState extends State<CapturePage> {
                       color: AppTokens.fg)),
               const Spacer(),
               Text('${_storedResults.length} 条',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTokens.muted)),
+                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
@@ -1017,8 +1040,8 @@ class _CapturePageState extends State<CapturePage> {
                 ),
                 const SizedBox(height: 2),
                 Text('识别 $count 处缺陷 · $names',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTokens.muted)),
+                    style:
+                        const TextStyle(fontSize: 11, color: AppTokens.muted)),
               ],
             ),
           ),
@@ -1040,8 +1063,8 @@ class _CapturePageState extends State<CapturePage> {
             Icon(icon, size: 20, color: AppTokens.mutedA11y),
             const SizedBox(height: 2),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: AppTokens.mutedA11y)),
+                style:
+                    const TextStyle(fontSize: 11, color: AppTokens.mutedA11y)),
           ],
         ),
       ),
