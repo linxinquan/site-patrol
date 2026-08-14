@@ -7,25 +7,25 @@ const List<Party> tencentDachanwanParties = [
   Party(
     role: '甲方（业主方）',
     org: '腾讯科技（深圳）有限公司',
-    contact: '林总',
+    contact: '林心荃',
     title: '业主代表',
   ),
   Party(
     role: '设计院（LDI）',
     org: '深圳市建筑设计研究总院（深总院）',
-    contact: '朱工',
+    contact: '朱伟',
     title: '设计管理',
   ),
   Party(
     role: '第三方监理 / 全过程咨询',
     org: '深圳华西建设工程管理有限公司',
-    contact: '杨工',
+    contact: '杨玉婷',
     title: '施工监理',
   ),
   Party(
     role: 'Arcadis（凯迪思）全过程咨询 / PMO',
     org: 'Arcadis（凯迪思）',
-    contact: '欧阳工',
+    contact: '欧阳嘉',
     title: '全过程咨询 / PMO',
   ),
 ];
@@ -43,16 +43,17 @@ const Project project = Project(
 );
 
 /// 腾讯大铲湾 DY04 · 7栋（多项目切换目标项目）。
+/// 数据来源：深圳市前海管理局官方规划公示 / project_info.html（2026-08-14 联网核实）
 const Project tencentProject = Project(
   id: 'tencent-dy04-7',
   name: '腾讯大铲湾 DY04 · 7栋',
   client: '腾讯科技（深圳）有限公司',
   location: '深圳市宝安区大铲湾',
-  status: '在建 · 施工中',
-  siteArea: '—',
-  floorArea: '—',
+  status: '在建 · 施工中（2026年内计划整体完工）',
+  siteArea: '12.62万㎡',
+  floorArea: '64057㎡',
   beds: 0,
-  concept: '大铲湾科技园区',
+  concept: '云楼 · 产业研发及配套',
   parties: tencentDachanwanParties,
 );
 
@@ -63,28 +64,28 @@ const List<Project> allProjects = [tencentProject, project];
 const List<User> users = [
   User(
     id: 'ouyang',
-    name: '欧阳总',
+    name: '欧阳嘉',
     org: 'Arcadis（凯迪思）',
     role: '全过程咨询 / PMO',
     avatar: 'assets/avatars/ouyang-zong.jpg',
   ),
   User(
     id: 'lin',
-    name: '林总',
+    name: '林心荃',
     org: '腾讯科技（深圳）有限公司',
     role: '业主代表',
     avatar: 'assets/avatars/lin-zong.jpg',
   ),
   User(
     id: 'zhu',
-    name: '朱工',
+    name: '朱伟',
     org: '深圳市建筑设计研究总院（深总院）',
     role: '设计管理',
     avatar: 'assets/avatars/zhu-gong.jpg',
   ),
   User(
     id: 'yang',
-    name: '杨工',
+    name: '杨玉婷',
     org: '深圳华西建设工程管理有限公司',
     role: '施工监理',
     avatar: 'assets/avatars/yang-gong.jpg',

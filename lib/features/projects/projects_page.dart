@@ -10,6 +10,7 @@ import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/maskable_name.dart';
 import '../../data/models.dart';
 
 class ProjectsPage extends ConsumerStatefulWidget {
@@ -267,12 +268,27 @@ class _ProjectCard extends StatelessWidget {
                                   height: 1.3),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              '${party.title} · ${party.contact}',
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTokens.muted,
-                                  height: 1.3),
+                            Text.rich(
+                              TextSpan(
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppTokens.muted,
+                                    height: 1.3),
+                                children: [
+                                  TextSpan(text: '${party.title} · '),
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.baseline,
+                                    baseline: TextBaseline.alphabetic,
+                                    child: MaskableName(
+                                      name: party.contact,
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTokens.muted,
+                                          height: 1.3),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),

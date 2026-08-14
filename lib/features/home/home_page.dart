@@ -10,6 +10,7 @@ import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/project_switcher.dart';
 import '../../shared/widgets/user_switcher.dart';
+import '../../shared/widgets/maskable_name.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
 
@@ -37,7 +38,9 @@ class HomePage extends ConsumerWidget {
               const ProjectSwitcher(),
               const SizedBox(height: 2),
               Text(
-                '${p.client} · 建筑 ${p.floorArea} · ${p.beds} 床',
+                p.beds > 0
+                    ? '${p.client} · 建筑 ${p.floorArea} · ${p.beds} 床'
+                    : '${p.client} · ${p.floorArea} · ${p.concept}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -299,12 +302,27 @@ class _PartyList extends StatelessWidget {
                                 height: 1.3),
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            '${party.title} · ${party.contact}',
-                            style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTokens.muted,
-                                height: 1.3),
+                          Text.rich(
+                            TextSpan(
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTokens.muted,
+                                  height: 1.3),
+                              children: [
+                                TextSpan(text: '${party.title} · '),
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.baseline,
+                                  baseline: TextBaseline.alphabetic,
+                                  child: MaskableName(
+                                    name: party.contact,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTokens.muted,
+                                        height: 1.3),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),

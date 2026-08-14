@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
+import 'maskable_name.dart';
 
 /// 用户切换器：点击头像弹出用户列表，选择后切换当前登录用户。
 class UserSwitcher extends ConsumerWidget {
@@ -119,8 +120,8 @@ class UserSwitcher extends ConsumerWidget {
                                     children: [
                                       Row(
                                         children: [
-                                          Text(
-                                            u.name,
+                                          MaskableName(
+                                            name: u.name,
                                             style: const TextStyle(
                                                 fontSize: 15,
                                                 fontWeight: FontWeight.w700,

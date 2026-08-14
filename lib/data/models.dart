@@ -87,7 +87,7 @@ extension DefectSeverityX on DefectSeverity {
 class Party {
   final String role; // 角色，如 "甲方（业主方）"、"设计院（LDI）" 等
   final String org; // 单位全称，如 "腾讯科技（深圳）有限公司"
-  final String contact; // 代表/对接人，如 "林总"
+  final String contact; // 代表/对接人，如 "林心荃"
   final String title; // 代表职务，如 "业主代表"
   const Party({
     required this.role,
@@ -100,7 +100,7 @@ class Party {
 /// 系统用户（参与方代表）。头像点击可切换当前用户。
 class User {
   final String id;
-  final String name; // 姓名，如 "欧阳总"
+  final String name; // 姓名，如 "欧阳嘉"
   final String org; // 单位，如 "Arcadis（凯迪思）"
   final String role; // 角色，如 "全过程咨询 / PMO"
   final String avatar; // assets 头像路径
