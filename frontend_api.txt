@@ -1,0 +1,870 @@
+
+===== PAGE 1 =====
+安装
+静态页面引用
+script标签引入即可
+html
+<script src="GStarSDK.js"></script>
+单页面webpack开发引用(vue为例)
+1. 首先设置webpack.externals,配置GStarSDK不从 bundle 中引用依赖
+使用webpack如下配置
+js
+module.exports = {
+...
+output: {
+...
+},
+externals : {
+'GStarSDK': 'GStarSDK',
+}
+...
+}
+使用vue-cli，如下配置：vue.config.js中
+js
+module.exports = {
+configureWebpack: config => {
+config.externals = {
+'GStarSDK': 'GStarSDK',
+}
+},
+}
+
+===== PAGE 2 =====
+2. 单页面入口HTML文件中,srcpit标签引入GStarSDK
+html
+<script src="./GStarSDK.js"></script>
+3. 需使用GStarSDK的vue单文件中,进行引用
+js
+import GStarSDK from 'GStarSDK'
+使用
+1. 创建容器标签，作为SDK容器
+html
+<div id="GStarSDK-container"></div>
+2. 实例化SDK
+js
+const gstarSDK = new GStarSDK({
+wrapId: 'GStarSDK-container', // SDK容器ID
+switchLayoutCB: switchLayout, // 切换布局回调函数
+})
+3. 实例调用render方法渲染图纸
+js
+// ocfData 为图纸数据的buffer
+// fileId 为图纸对应的fileId，部分功能需要
+gstarSDK.render('ocf', ocfData, fileId)
+属性
+version
+
+===== PAGE 3 =====
+说明: 获取SDK版本号
+类型: String
+用法:
+js
+const version = gstarSDK.version
+layoutInfo
+说明: 获取当前布局信息
+类型: Object({ nickName: '布局显示名称', globalName: '布局全局名称', m_Handle: '布局句柄' })
+用法:
+js
+const currentLayoutInfo = gstarSDK.layoutInfo
+layouts
+说明: 获取布局列表
+类型: [{ nickName: '布局显示名称', globalName: '布局全局名称', m_Handle: '布局句柄' }]
+用法:
+js
+const LayoutList = gstarSDK.layouts
+layers
+说明: 获取图层列表
+类型: [{id: '图层id', name: '图层名称', color: '图层颜色', status: '图层当前状态 true为显示，false 为隐藏'}]
+用法:
+js
+const LayerList = gstarSDK.layers
+zoom
+说明: 获取当前视口的缩放比例
+类型: Number
+
+===== PAGE 4 =====
+用法:
+js
+const currentZoom = gstarSDK.zoom
+Tips.defaultTime
+说明: 设置Tips默认存在时间(ms)，默认3000 ms
+类型: Number
+用法:
+js
+gstarSDK.Tips.defaultTime = 5000
+notes.data
+SDK支持批注功能的情况下可用
+说明: 获取全量批注数据对象
+类型: [Object]
+用法:
+js
+const notesData = gstarSDK.notes.data
+notes.cbIsSelectNote
+SDK支持批注功能的情况下可用
+说明: 批注点击回调, 不设置默认批注都可选中，设置后callback返回为真则批注会选中，返回为假则无视批注选中
+类型: [Function]
+用法:
+js
+gstarSDK.notes.cbIsSelectNote = function(noteData) {
+// 例：localId为偶数的批注才能选中
+return noteData.localId % 2 == 0
+}
+
+===== PAGE 5 =====
+notes.customColor
+SDK支持批注功能的情况下可用
+说明: 批注颜色是否使用自定义调色板， 默认false
+类型: Boolean
+用法:
+js
+gstarSDK.notes.customColor = true
+marks.list
+SDK支持书签功能的情况下可用
+说明: 获取全量书签数据/设置初始化书签数据
+类型: [Object]
+用法:
+js
+const markList = gstarSDK.marks.list
+gstarSDK.marks.list = markList
+measures.enableWordNote
+SDK同时支持测量与批注文字功能的情况下可用
+说明: 设置是否开启 测量结果留存文字批注功能,默认关闭
+类型: Boolean
+用法:
+js
+// 开启
+gstarSDK.measures.enableWordNote = true
+// 关闭
+gstarSDK.measures.enableWordNote = false
+measures.accuracy
+SDK同时支持测量的情况下可用
+
+===== PAGE 6 =====
+说明: 测量结果数值的精度设置,默认 2
+类型: Number
+用法:
+js
+gstarSDK.measures.accuracy = 2
+apiRename
+说明: 重命名相应API的请求路径
+类型: Object
+用法:
+js
+gstarSDK.apiRename.checkTaskStatus = '/CheckTaskStatus.do' // 检测任务状态接口
+gstarSDK.apiRename.saveAs = '/saveAs.do' // 另存为接口
+gstarSDK.apiRename.saveAsPdf = '/saveAsPdf.do' // 另存pdf接口
+gstarSDK.apiRename.cutImage = '/cutimage.ashx' // 截图接口
+API
+constructor(实例化)
+参数
+参数 类型 必填 默认值 说明
+wrapId String 是 无 SDK容器的DOM ID（容器需要设置宽和高）
+mode String 否 'default' 绘图模式，"default":默认值，文字不填充，需要填充元素正常填充；"line":所有元素不填充；"fill":所有需要填充元素都填充
+apiHost String 否 无 SDK配套远程API的域名,未配置将无法正常使用“另存为”“另存PDF”“打印”功能
+mobileSizeLimit Number 否 5242880 移动端可打开图纸数据的最大限制（字节数），默认5242880(5M)
+pcSizeLimit Number 否 12582912 PC端可打开图纸数据的最大限制（字节数），默认12582912(12M)
+language String 否 'zh' SDK显示语言设置,类型string，值可选'zh'（简中）/'zh-hk'（繁中）/'en'(英语)/'ko'(韩语),默认'zh'
+hideToolbar Boolean 否 false 是否隐藏整个工具栏
+toolbarHideItems Object 否 {} 设置需要隐藏的菜单项: 可隐藏的菜单结构
+
+===== PAGE 7 =====
+返回值：SDK实例对象
+用法
+使用new运算符初始化sdk实例对象，进行后续功能的调用
+js
+const gstarSDK = new GStarSDK({
+wrapId: 'GStarSDK-container', // DOM容器ID
+})
+render(渲染图纸)
+参数
+参数 类型 必填 默认值 说明
+type String 是 无 渲染数据的格式，现仅支持'ocf'
+bufferData ArrayBuffer 是 无 arraybuffer格式 图纸二进制数据对象
+fileId String 是 无 此图纸对应的fileId（上传dwg等图纸后会返回对应fileId）
+defaultViewport Boolean 否 false 默认false:打开图纸时为视口为全图；true:打开图纸为图纸保存时默认视口
+返回值：Promise
+用法
+渲染图纸( 异步渲染 )
+js
+gstarSDK.render('ocf', drawData, '118554')
+// 由于是异步方法，返回一个Promise，支持async函数中可使用await
+await gstarSDK.render('ocf', drawData, '118554')
+on(事件监听)
+参数
+参数 类型 必填 默认值 说明
+eventName String 是 无 监听的事件名称, 事件列表
+
+===== PAGE 8 =====
+参数 类型 必填 默认值 说明
+callback Function 是 无 事件触发响应的回调函数
+返回值：无
+用法
+监听相应事件，进行对应处理
+js
+gstarSDK.on('switchLayout', (eventName, layout) => console.log('布局信息:', layout))
+off(取消事件监听)
+参数
+参数 类型 必填 默认值 说明
+eventName String 是 无 监听的事件名称, 事件列表
+返回值：无
+用法
+解绑之前的事件，绑定的callback不再触发
+js
+gstarSDK.off('switchLayout')
+destroy(销毁实例)
+参数
+无
+返回值：无
+用法
+销毁实例,实例调用destroy方法
+
+===== PAGE 9 =====
+js
+gstarSDK.destroy()
+gstarSDK = null
+clearDraw(清除绘制)
+参数
+无
+返回值：无
+用法
+清除当前场景所有绘制
+js
+gstarSDK.clearDraw()
+enableZoom(开启缩放)
+参数
+参数 类型 必填 默认值 说明
+speed Number 否 1.5 设置缩放速度,默认为1.5
+返回值：true | false
+布尔值，设置成功与否
+用法
+开始图纸缩放功能
+js
+gstarSDK.enableZoom(1.5)
+disableZoom(禁用缩放)
+参数
+
+===== PAGE 10 =====
+无
+返回值：true | false
+布尔值，设置成功与否
+用法
+禁用图纸缩放功能
+js
+gstarSDK.disableZoom()
+enablePan(开启平移拖动)
+参数
+参数 类型 必填 默认值 说明
+speed Number 否 1.0 设置平移速度,默认为1.0
+返回值：true | false
+布尔值，设置成功与否
+用法
+开启平移拖动功能
+js
+gstarSDK.enablePan(1.0)
+disablePan(禁用平移拖动)
+参数
+无
+返回值：true | false
+布尔值，设置成功与否
+用法
+
+===== PAGE 11 =====
+禁用平移拖动功能
+js
+gstarSDK.disablePan()
+enableMap(开启鸟瞰图)
+参数
+无
+返回值
+无
+用法
+打开鸟瞰图功能
+js
+gstarSDK.enableMap()
+disableMap(关闭鸟瞰图)
+参数
+无
+返回值
+无
+用法
+关闭鸟瞰图
+js
+gstarSDK.disableMap()
+setLayer(设置图层状态)
+
+===== PAGE 12 =====
+参数
+参数 类型 必填 默认值 说明
+layerId Number 是 无 需要设置的图层id
+status Boolean 是 无 待设置图层状态true为显示，false关闭
+返回值
+参数 类型 说明
+status Boolean 图层状态,true为显示，false关闭
+用法
+关闭鸟瞰图
+js
+gstarSDK.setLayer(6, false)
+notes.show(批注显示)
+参数
+参数 类型 必填 默认值 说明
+notesData [Object] 是 [] 批注数据对象
+返回值：无
+用法
+显示批注
+js
+gstarSDK.notes.show(notesData)
+notes.clear(批注清除)
+参数
+无
+
+===== PAGE 13 =====
+返回值：无
+用法
+清空批注数据与显示
+js
+gstarSDK.notes.clear()
+marks.clear(书签清除)
+参数
+无
+返回值：无
+用法
+清空书签数据与列表
+js
+gstarSDK.marks.clear()
+marks.create(创建书签)
+参数
+参数 类型 必填 默认值 说明
+name String 是 无 书签名,不可为空
+返回值：Object(书签对象)
+用法
+输入书签名，返回当前视图的书签对象
+js
+const mark = gstarSDK.marks.create('test')
+
+===== PAGE 14 =====
+marks.apply(应用书签)
+参数
+参数 类型 必填 默认值 说明
+mark Object 是 无 书签对象，由create创建
+返回值：无
+用法
+传入书签对象,将视口聚焦至书签保存的视口
+js
+const mark = gstarSDK.marks.create('test')
+gstarSDK.marks.apply(mark)
+screenToWorld(屏幕坐标转图纸坐标)
+参数
+参数 类型 必填 默认值 说明
+position Object({x:number, y:number}) 是 无 屏幕上位置点
+返回值：Object({x, y})
+用法
+传入屏幕上的位置点，返回当前视口下此位置的图纸坐标
+js
+const worldPos = gstarSDK.screenToWorld({x:100, y: 100})
+screenShot(按指定屏幕范围截图)
+参数
+参数 类型 必填 默认值 说明
+p1 Object({x:number, y:number}) 是 无 屏幕上位置点,截图范围矩形左上角位置
+
+===== PAGE 15 =====
+参数 类型 必填 默认值 说明
+p2 Object({x:number, y:number}) 是 无 屏幕上位置点,截图范围矩形右下角位置
+返回值：Promise
+用法
+异步方法,返回Promise,resolve回调中接收结果。根据传入两屏幕点位置确定矩形范围,base64字符串形式返回矩形范围内位图
+js
+gstarSDK.screenShot({x:100, y: 100}, {x: 200, y: 200}).then((img) => {
+// ...img为base64图片字符串
+}).catch(() => {
+// 获取失败
+})
+在线预览
+
+===== PAGE 16 =====
+图层 布局
+显示全图
+窗口缩放
+全屏显示
+demo代码下载
+HTML版
+VUE版
+附录
+书签联调逻辑
+书签数据格式
+js
+[
+{
+
+===== PAGE 17 =====
+id: 's6s66s7s89', // 随机id
+name: '书签1', // 书签名
+center: { x: 100, y: 100 }, // 书签视口的中心点
+scale: 0.001 // 书签的缩放比例值
+},
+......
+]
+初始化图纸的书签列表
+1. 从数据源获取当前图纸的书签数据
+2. 图纸 render 完后(由于render是异步方法返回Promise对象，需要在.then回调或者使用async await等待render完后)，给属性 marks.list 赋值传入书签列表数据,完后打开书签面
+板即可显示初始化的书签列表进行操作
+js
+// async 函数中
+await gstarSDK.render('ocf', layoutOcf, fileId)
+// 获取的图纸书签数据，如果是所有布局书签都在一起存储--
+// 则拿当前布局信息从中格式化出当前布局的书签列表，赋予 `gstarSDK.marks.list`
+const currentLayoutInfo = gstarSDK.layoutInfo
+// 格式化当前布局的书签列表 markList 如上 书签数据格式 所述
+gstarSDK.marks.list = markList
+书签变动后，通过书签变动回调处理
+书签变动（新增、编辑、删除）后，会回调 constructor 时传入的 marksChangeCB 方法传递书签变动的操作类型及变动书签对象,上层可根据相应变动进行书签数据的处理、存储等
+也可使用 marks.list 获取当前布局全量最新的书签列表数据，进行处理
+切换布局时，书签处理
+切换布局时，完成新布局 render 后(由于render是异步方法返回Promise对象，需要在.then回调或者使用async await等待render完后),调用API marks.clear 清除之前的书签数据,再
+给属性 marks.list 赋值传入当前布局的书签列表数据以在新布局中显示书签列表
+js
+async function switchLayout() { // 布局切换回调函数
+... 获取新布局图纸数据 layoutOcf
+... 获取新布局书签数据 markList
+await gstarSDK.render('ocf', layoutOcf, fileId) // 渲染新布局
+gstarSDK.marks.clear() // 清除上个布局的书签
+gstarSDK.marks.list = markList // 重新传入当前布局的书签列表
+}
+
+===== PAGE 18 =====
+自定义书签交互
+隐藏原有书签交互： constructor 实例化中设置属性 isHideMarks 为 true
+API创建书签: marks.create 可创建书签对象，自行保存显示
+API书签视口还原: marks.apply 可将当前显示还原至某个书签保存的视口
+批注联调逻辑
+获取批注，并显示
+1. 从服务端获取当前图纸的批注数据
+2. 适配含有附件的批注（图片，音频），下面详解原因规则
+3. 图纸 render 完后(由于render是异步方法返回Promise对象，需要在.then回调或者使用async await等待render完后)，调用API notes.show 传入格式化后的批注数据对象
+批注变动后，通过批注变动回调处理
+用户操作（新增、编辑、删除）批注后，会回调 constructor 时传入的 notesChangeCB 方法传递批注变动的操作类型及变动批注对象,上层可根据相应变动进行批注数据的处理、存
+储等
+也可使用 notes.data 获取全量最新的批注数据，进行处理
+切换布局时，批注处理
+切换布局时，完成新布局 render 后(由于render是异步方法返回Promise对象，需要在.then回调或者使用async await等待render完后),调用API notes.clear 清除之前的批注显示,再
+次调用API notes.show 传入最新的批注数据对象以在新布局中显示最新批注信息
+js
+async function switchLayout() { // 布局切换回调函数
+... 获取新布局图纸数据 layoutOcf
+... 获取新布局的批注 currentNotes
+await gstarSDK.render('ocf', layoutOcf, fileId) // 渲染新布局
+gstarSDK.notes.clear() // 清除上个布局显示的批注与数据
+gstarSDK.notes.show(currentNotes) // 重新显示最新的批注数据
+}
+批注数据的适配
+原因说明：
+本SDK的批注格式基本与之前协议批注数据格式一样，但是由于浏览器限制不能读取本地磁盘文件的原因，图片批注和音频批注的附件文件不能获取到，需要上层将这两种批注数据做
+适配
+适配规则：
+传入SDK批注数据
+
+===== PAGE 19 =====
+添加 data 的位置，参考批注数据对象
+图片
+给相应图片批注位置添加 data 属性，上层根据之前批注相关协议拿到图片，进行base64编码，给到 data 属性
+音频
+给相应音频批注位置添加 data 属性，上层根据之前批注相关协议拿到音频，转为MP3个的 arraybuffer ，给到 data 属性
+从SDK获取批注数据
+从SDK属性 notes.data 获取的数据中，除音频、图片中新增的 data 数据其他数据均与之前协议一致，与服务端同步时需要 上层 将相应的data属性转换为对应格式并上传至服务
+端，并补全相应批注附件的 附件大小、路径 等附件参数，从而保持多端同步兼容
+批注数据对象
+js
+[{ // 如果附件大小不为0，需要在对应的content中拆出来文件路径
+"noteType":"批注类型 HCNoteLeader(引线)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"drawbackground" : 1,
+"hatchcolor" : 6,
+"linecolor" : 3,
+"linetype" : "ByLayer",
+"lineweight" : 2,
+"ptstart" : "55.4549,11.7304,0.0000",
+"text" : "多说多错",
+"textcolor" : 4,
+"textposition" : "71.4591,6.0643,0.0000",
+"textsize" : 1.4910727081071236
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+
+===== PAGE 20 =====
+"noteType":"批注类型 HCNoteText(文字)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"drawbackground" : 1,
+"hatchcolor" : 5,
+"linecolor" : 256,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"rotation" : 0,
+"text" : "我要吃法",
+"textcolor" : 6,
+"textposition" : "77.6222,38.7685,0.0000",
+"textsize" : 1.4910727081071236
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNoteEllipse(椭圆)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"drawbackground" : 1,
+"hatchcolor" : 4,
+"linecolor" : 2,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"ptend" : "79.4115,-7.7530,0.0000",
+"ptstart" : "72.7514,-3.1804,0.0000",
+"rotation" : 0
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+
+===== PAGE 21 =====
+},
+{
+"noteType":"批注类型 HCNoteRect(矩形)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"drawbackground" : 0,
+"hatchcolor" : 0,
+"linecolor" : 256,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"ptend" : "83.8847,17.9929,0.0000",
+"ptstart" : "55.7532,24.5536,0.0000",
+"rotation" : 0
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNoteCloudLine(云线)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"closed" : 0,
+"linecolor" : 6,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"ptlist" : [
+"19.3710,-3.2798,0.0000",
+"20.7286,-6.4175,0.0000",
+"18.0135,-5.1840,0.0000"
+]
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+
+===== PAGE 22 =====
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNoteHandDrawLine(手绘线)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"closed" : 0,
+"linecolor" : 256,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"ptlist" : [
+"41.5383,-4.6714,0.0000",
+"41.8365,-3.5780,0.0000",
+"42.6317,-2.7828,0.0000",
+"50.8823,-7.4548,0.0000"
+]
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNoteArrow(箭头)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"linecolor" : 4,
+"linetype" : "ByLayer",
+"lineweight" : 10,
+"ptend" : "46.2400,32.3200,0.0000",
+"ptstart" : "26.4287,38.1720,0.0000"
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+
+===== PAGE 23 =====
+},
+{
+"noteType":"批注类型 HCNoteLine(直线)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"linecolor" : 256,
+"linetype" : "ByLayer",
+"lineweight" : 1.3,
+"ptend" : "75.5347,37.4762,0.0000", //终点
+"ptstart" : "49.9877,37.9732,0.0000"
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNoteVoice(音频)",
+"attachSize":"批注附件 单位byte",
+"content":{
+"linecolor" : 50, // 音频批注颜色
+"position" : "75.5347,37.4762,0.0000" //声音位置
+"content" : [{ //内容
+"path":"1111111",
+"data": ArrayBuffer, // 原数据没有此属性，需要格式化时补全,MP3格式音频 ArrayBuffer
+"second":2.56
+}]
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+},
+{
+"noteType":"批注类型 HCNotePicture(图片)",
+"attachSize":"批注附件 单位byte",
+
+===== PAGE 24 =====
+"content":{
+"linecolor" : 50, // 图片批注的颜色
+"position" : "75.5347,37.4762,0.0000" //图片位置
+"content" : [{ //内容
+"path":"11111",//路径
+"data": "图片文件base64串", // 原数据没有此属性，需要格式化时补全,图片文件base64串
+"comment":"aaaaa"//备注
+},
+{
+"path":"22222"
+"comment":"bbbbb"
+}]
+},
+"fileId":"dwg文件id",
+"changeCount":"批注被更改次数",
+"createDate":"创建时间",
+"lastModifyDate":"最后修改时间",
+"id":"0表示新增 修改或删除有值",
+"state":"状态 0正常 1新增 2修改 3删除",
+"localId":"客户端本地ID，客户端用来做新增的id关联",
+"userId":"创建者id",
+"userName":"创建者名称"
+}]
+自定义工具栏
+隐藏原有工具栏
+初始化插件将 hideToolbar 属性值设为 true
+各功能点入口调用方法
+注：SDK版本支持相应功能才能正常调用
+图层
+打开--func.layer.main()
+关闭--func.layer.close()
+布局
+打开--func.layout.main()
+关闭--func.layout.close()
+保存
+另存dwg
+打开--func.save.saveAs.main()
+关闭--func.save.saveAs.close()
+
+===== PAGE 25 =====
+另存pdf
+打开--func.save.savePdf.main()
+关闭--func.save.savePdf.close()
+打印
+打开--func.save.print.main()
+关闭--func.save.print.close()
+截图
+打开--func.save.saveImg.main()
+关闭--func.save.saveImg.close()
+视口
+zoom E--func.viewport.zoomE.main()
+全屏--func.viewport.fullScreen.main()
+自定义区域缩放
+打开--func.viewport.custom.main()
+关闭--func.viewport.custom.close()
+测量
+测量角度
+打开--func.measures.measureAngle.main()
+关闭--func.measures.measureAngle.close()
+测量弧长
+打开--func.measures.measureArc.main()
+关闭--func.measures.measureArc.close()
+测量面积
+打开--func.measures.measureArea.main()
+关闭--func.measures.measureArea.close()
+测量坐标
+打开--func.measures.measureCoordinate.main()
+关闭--func.measures.measureCoordinate.close()
+测量长度
+打开--func.measures.measureLength.main()
+关闭--func.measures.measureLength.close()
+测量设比例
+打开--func.measures.measureSetProportion.main()
+关闭--func.measures.measureSetProportion.close()
+批注
+手绘线
+打开--func.notes.noteCustomizeLine.main()
+关闭--func.notes.noteCustomizeLine.close()
+箭头
+打开--func.notes.noteArrow.main()
+关闭--func.notes.noteArrow.close()
+文字
+打开--func.notes.noteWord.main()
+关闭--func.notes.noteWord.close()
+
+===== PAGE 26 =====
+云线
+打开--func.notes.noteCloudLine.main()
+关闭--func.notes.noteCloudLine.close()
+图片
+打开--func.notes.noteImage.main()
+关闭--func.notes.noteImage.close()
+引线
+打开--func.notes.noteGuideLine.main()
+关闭--func.notes.noteGuideLine.close()
+直线
+打开--func.notes.noteStraightLine.main()
+关闭--func.notes.noteStraightLine.close()
+矩形
+打开--func.notes.noteRectangle.main()
+关闭--func.notes.noteRectangle.close()
+椭圆
+打开--func.notes.noteOval.main()
+关闭--func.notes.noteOval.close()
+书签
+打开--func.marks.main()
+关闭--func.marks.close()
+示例代码
+js
+const gstarSDK = new GStarSDK({
+wrapId: 'GStarSDK-container', // SDK容器ID
+switchLayoutCB: switchLayout, // 切换布局回调函数
+hideToolbar: true // 隐藏默认工具栏
+})
+// 打开测量角度
+btnOpenMeasureAngle.onclick = function() {
+gstarSDK.func.measures.measureAngle.main()
+}
+btnCloseMeasureAngle.onclick = function() {
+gstarSDK.func.measures.measureAngle.close()
+}
+事件列表
+注：所有callback返回两个参数，第一个固定为 eventName, 表格中说明第二个形参的结构
+
+===== PAGE 27 =====
+事事件件名名 说说明明 ccaallllbbaacckk形形参参
+switchLayout 布局切换事件 Object: { nickName: 即将切换的布局显示名, globalName: 即将切换的布局全局标志名 }
+ocfSizeOverLimit ocf大小超上限事件 Object: { ocfSize: ocf字节数, limitSize: 当前限制最大字节数 }
+noteChange 批注数据变动事件 Object: { action: 批注新增、删除或修改, data: 变动的批注数据 }
+functionTrigger 功能触发事件 String: 功能名
+markChange 书签变动事件 Object: { action: 书签新增、删除或修改, data: 变动的书签数据 }
+可隐藏的菜单结构
+js
+// 所有可隐藏菜单结构
+const allFunction = {
+notes: [ // 批注
+'noteCustomizeLine', // 手绘线
+'noteArrow', // 箭头
+'noteWord', // 文字
+'noteCloudLine', // 云线
+'noteImage', // 图片
+'noteGuideLine', // 引线
+'noteStraightLine', // 直线
+'noteRectangle', // 矩形
+'noteOval', // 椭圆
+'noteCheckView', // 审图
+'noteStamp' // 图章
+],
+marks: [], // 书签
+save: [ // 保存
+'saveAs', // 另存为
+'savePDF', // 另存PDF
+'saveImg', // 截图
+'print' // 打印
+],
+measures: [ // 测量
+'measureLength', // 长度
+'measureArea', // 面积
+'measureCoordinate', // 坐标
+'measureArc', // 弧长
+'measureAngle', // 角度
+'measureSetProportion' // 设比例
+],
+viewport: [ // 视口相关
+'zoomE', // 显示全图
+'custom', // 窗口缩放
+
+===== PAGE 28 =====
+'fullScreen' // 全屏
+]
+}
+const gstarSDK = new GStarSDK({
+wrapId: 'GStarSDK-container', // SDK容器ID
+toolbarHideItems: allFunction // 隐藏所有, 部分隐藏根据需要删除隐藏列表项
+})
