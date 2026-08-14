@@ -4,6 +4,9 @@ import 'repository.dart';
 
 /// Mock 实现：直接读本地常量 + assets。带小延迟以演示 loading 态。
 class MockRepository implements Repository {
+  /// 可变缺陷列表（从 mock 常量浅拷贝），addDefect 写入此处，getDefects 读此处。
+  final List<Defect> _defects = List.from(defects);
+
   Future<T> _delay<T>(T value) =>
       Future.delayed(const Duration(milliseconds: 350), () => value);
 
@@ -31,9 +34,15 @@ class MockRepository implements Repository {
   @override
   Future<List<Defect>> getDefects({DefectStatus? status}) => _delay(
         status == null
-            ? defects
-            : defects.where((d) => d.status == status).toList(),
+            ? _defects
+            : _defects.where((d) => d.status == status).toList(),
       );
+
+  @override
+  Future<void> addDefect(Defect defect) {
+    _defects.add(defect);
+    return Future.value();
+  }
 
   @override
   Future<List<TimelinePhoto>> getTimeline(String anchor) {
