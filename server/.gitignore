@@ -1,0 +1,8 @@
+# 凭证与缓存不提交
+config.py
+cos_config.py
+.env
+ocf_cache/
+*.log
+__pycache__/
+*.pyc

@@ -1,4 +1,4 @@
-$root = "d:\code\gongdi\flutter_app\build\web"
+$root = "f:\GitHub\site-patrol\build\web"
 $port = 8000
 $mime = @{
     ".html" = "text/html; charset=utf-8"

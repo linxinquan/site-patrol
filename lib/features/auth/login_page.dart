@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/theme/design_tokens.dart';
 import '../../core/storage/session_store.dart';
-import 'auth_controller.dart';
+import '../auth/auth_controller.dart';
 
-/// 登录页（S2 占位实现）。
-///
-/// 当前仅提供「直接进入」以便登录守卫闭环可测；S3 将替换为
-/// 预置 3 用户（yang/liu/zhao）表单校验 → 生成本地会话 → 跳转 /home。
+/// 登录页（Ins 风扁平化）：白底 + 大留白 + 单一主色 + 极简。
 class LoginPage extends ConsumerWidget {
   const LoginPage({super.key});
 
@@ -26,52 +22,92 @@ class LoginPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppTokens.bg,
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.engineering,
-                  size: 64,
-                  color: AppTokens.accent,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  '工地验收',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AppTokens.fg,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 380),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 上方留白
+                  const Spacer(flex: 3),
+                  // Logo（扁平圆形橙底）
+                  Container(
+                    width: 84,
+                    height: 84,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF0E6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.engineering,
+                      size: 42,
+                      color: Color(0xFFEA580C),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '南方科技大学附属医院（校本部）',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 32),
-                FilledButton(
-                  onPressed: () => _login(ref),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  const SizedBox(height: 28),
+                  // APP 名称（大字号细字重）
+                  const Text(
+                    '工地巡检',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 2,
+                      color: Color(0xFF1A1A1A),
+                    ),
                   ),
-                  child: const Text('进入应用'),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '登录校验功能将在后续版本加入',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+                  const SizedBox(height: 10),
+                  const Text(
+                    '让施工现场更透明、更高效',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      letterSpacing: 0.3,
+                      color: Color(0xFF8E8E93),
+                    ),
+                  ),
+                  // 中部留白
+                  const Spacer(flex: 4),
+                  // 进入应用按钮（纯橙胶囊）
+                  FilledButton(
+                    onPressed: () => _login(ref),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFEA580C),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: const Text(
+                      '进入应用',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const Text(
+                    '工地巡检 · 施工现场质量巡检助手',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFFC7C7CC),
+                    ),
+                  ),
+                  const Spacer(flex: 2),
+                ],
+              ),
             ),
           ),
         ),

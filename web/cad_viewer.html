@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <title>工地巡检 · CAD 专业看图</title>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F2F2F7;
+    }
+
+    .toolbar {
+      height: 52px;
+      background: #ffffff;
+      border-bottom: 1px solid #E5E5EA;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+
+    .toolbar button {
+      padding: 7px 12px;
+      border: 1px solid #E5E5EA;
+      border-radius: 999px;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .toolbar button.primary {
+      background: #0A5AFF;
+      color: white;
+      border-color: #0A5AFF;
+    }
+
+    .toolbar .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1A1A1A;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #webcad {
+      width: 100%;
+      height: calc(100% - 52px);
+      background: #ffffff;
+    }
+
+    #coord-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      padding: 8px 14px;
+      background: rgba(0, 0, 0, .72);
+      color: white;
+      font-size: 12px;
+      border-radius: 999px;
+      text-align: center;
+      display: none;
+      pointer-events: none;
+      z-index: 9;
+      word-break: break-all;
+    }
+  </style>
+</head>
+
+<body>
+  <script src="./GStarSDK.js"></script>
+
+  <div class="toolbar">
+    <button id="back-btn" onclick="goBack()">← 返回</button>
+    <span class="title" id="title">图纸</span>
+    <button id="clean-btn" onclick="toggleCleanView()" title="隐藏标注/文字，只看建筑主体">清爽视图</button>
+    <button id="pick-btn" onclick="togglePick()">定位</button>
+    <button onclick="dumpLayers()" title="查看 OCF 全部图层">图层列表</button>
+    <button onclick="zoomToFit()" title="缩放到全图">全图</button>
+    <button class="primary" onclick="loadCad()">重新加载</button>
+  </div>
+
+  <div id="webcad"></div>
+  <div id="coord-bar"></div>
+
+  <script>
+    // ---- 从 URL 读取图纸 key（Flutter 跳转时 ?key=xxx）----
+    function getParam(name) {
+      var q = new URLSearchParams(location.search);
+      return q.get(name) || '';
+    }
+    var DRAWING_KEY = getParam('key') || 'dy04_7_B01';
+    // 渲染用的动态密钥（课题测试用途，仅本地部署）
+    var CAD_SECRET = 'fldXImCGIwhP8ZQO4qecFY4ir2JxCc8bQUQ1ORrusA70H26qenVFScQPm3tMVFJ5';
+    // OCF 缓存由本地服务提供（0 消耗浩辰次数）
+    var OCF_BASE = 'http://localhost:8800';
+    var PICK_MODE = false;
+    var CLEAN_MODE = true;   // 默认开启清爽视图
+    var CLEAN_KEYWORDS = [
+      // === 引线/索引符号类（最大的噪音来源） ===
+      '引线', 'leader', '索引', 'callout', '详图索引',
+      '引出', '详图符号', '圈', '标注符号', '详图编号',
+      '气泡', 'bubble', '符号',
+      // === 文字/注释类 ===
+      'text', 'txt', '文字', '注释', 'note', 'label',
+      '图名', '说明', '材料', '材料表', '图例',
+      // === 尺寸标注类 ===
+      '尺寸', 'dim', 'dimension', 'dim标注', '尺寸标注',
+      // === 图框/标题栏类 ===
+      '图框', '标题', 'title', 'titleblock', '边框',
+      // === 默认/辅助图层（DWG 系统层）===
+      'defpoints', '公共', '0', '默认', 'default',
+      '虚线', 'dashed', 'hidden', '辅助', '辅助线', 'guide',
+      '细线', 'thin', 'center', '中心线',
+      // === 表格类 ===
+      'legend', 'table', '表格'
+    ];
+
+    // ---- 初始化 GStarSDK ----
+    var gstarSDK = new GStarSDK({
+      wrapId: 'webcad',
+      language: 'zh',
+    });
+    gstarSDK.enableZoom(5);
+    gstarSDK.enablePan();
+    gstarSDK.disableMap();
+    gstarSDK.measures.accuracy = 3;
+    gstarSDK.apiHost = OCF_BASE;
+
+    var titleEl = document.getElementById('title');
+    var coordEl = document.getElementById('coord-bar');
+    var pickBtn = document.getElementById('pick-btn');
+
+    function goBack() {
+      // 若是 Flutter Web 内嵌/独立页，返回上一页
+      if (history.length > 1) { history.back(); }
+      else { location.href = '/'; }
+    }
+
+    function setCoord(text, show) {
+      coordEl.style.display = (show && text) ? 'block' : 'none';
+      coordEl.textContent = text;
+    }
+
+    function togglePick() {
+      PICK_MODE = !PICK_MODE;
+      pickBtn.textContent = PICK_MODE ? '退出定位' : '定位';
+      pickBtn.style.background = PICK_MODE ? '#EA580C' : '';
+      pickBtn.style.color = PICK_MODE ? '#fff' : '';
+      pickBtn.style.borderColor = PICK_MODE ? '#EA580C' : '';
+      setCoord(PICK_MODE ? '定位模式：点击图纸获取真实坐标' : '', PICK_MODE);
+    }
+
+    function loadCad() {
+      var url = OCF_BASE + '/api/ocf/' + DRAWING_KEY;
+      setCoord('正在加载 ' + DRAWING_KEY + '...', true);
+      showCad(url);
+    }
+
+    function showCad(ocfurl) {
+      gstarSDK.setDynamicPW(CAD_SECRET);
+      getDrawSheet(ocfurl, function (arraybuffer) {
+        // 第4参 defaultViewport=true：使用图纸保存时的默认视口
+        // —— 通常就是 AutoCAD 默认打开的视图（图纸空间的"所见即所得"）。
+        gstarSDK.render('ocf', arraybuffer, '111', true).then(function () {
+          var sizeKb = (arraybuffer.byteLength / 1024).toFixed(1);
+          setCoord('渲染完成 ' + sizeKb + ' KB · 显示默认视口', true);
+          bindPick();
+          // 渲染完成后：若开启清爽视图则隐藏标注图层
+          setTimeout(function () {
+            if (CLEAN_MODE) { applyCleanView(); }
+            // 图层切换后几何范围变化，重新 fit 一次
+            setTimeout(zoomToFit, 300);
+          }, 100);
+        }).catch(function (err) {
+          console.error('渲染失败:', err);
+          setCoord('渲染失败：' + (err && err.message ? err.message : err), true);
+        });
+      });
+    }
+
+    // ---- 视图：缩放到全图（多次重试，等图层切换完成后再 fit） ----
+    function zoomToFit() {
+      try {
+        if (gstarSDK && gstarSDK.func && gstarSDK.func.viewport && gstarSDK.func.viewport.zoomE) {
+          gstarSDK.func.viewport.zoomE.main();
+        }
+      } catch (err) {}
+      try {
+        if (gstarSDK && gstarSDK.zoom) {
+          gstarSDK.zoom('all');
+        }
+      } catch (err) {}
+      // 二次 fit：图层切换后几何范围变化，需重新计算
+      setTimeout(function () {
+        try {
+          if (gstarSDK && gstarSDK.func && gstarSDK.func.viewport && gstarSDK.func.viewport.zoomE) {
+            gstarSDK.func.viewport.zoomE.main();
+          }
+        } catch (err) {}
+      }, 400);
+    }
+
+    // ---- 图层：纯黑名单（只关掉真正的注释噪音，其它全显示，对齐 CAD 原始界面）----
+    function applyCleanView() {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      var hidden = 0, kept = 0;
+      var allNames = [];
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        arr.forEach(function (ly) {
+          var id = ly && ly.id;
+          var name = (ly && ly.name) || '';
+          if (id == null) return;
+          allNames.push(name || String(id));
+          var low = String(name).toLowerCase();
+          // 黑名单命中 → 隐藏；其它一律显示（与 CAD 原始界面一致）
+          var isNoise = CLEAN_KEYWORDS.some(function (kw) {
+            return low.indexOf(kw.toLowerCase()) >= 0;
+          });
+          try {
+            gstarSDK.setLayer(id, !isNoise);
+            isNoise ? hidden++ : kept++;
+          } catch (e) {}
+        });
+      } catch (err) {
+        console.error('applyCleanView 失败:', err);
+      }
+      console.log('[CAD] 全部图层：', allNames);
+      console.log('[CAD] 隐藏噪音', hidden, '个，保留显示', kept, '个');
+      setCoord('保留显示 ' + kept + ' 个图层，隐藏噪音 ' + hidden + ' 个', true);
+    }
+
+    // ---- 列出全部图层（按钮：调试用）----
+    function dumpLayers() {
+      if (!gstarSDK || !gstarSDK.layers) {
+        setCoord('layers 不可用', true); return;
+      }
+      var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      var text = arr.map(function (ly) {
+        return (ly.name || ('id=' + ly.id)) + (ly.status === false ? '(关)' : '');
+      }).join('\n');
+      console.log('[CAD] ALL LAYERS:\n' + text);
+      // 也尝试导出到屏幕上
+      var win = window.open('', '_blank');
+      if (win) { win.document.write('<pre>' + text + '</pre>'); }
+      setCoord('共 ' + arr.length + ' 个图层，已在新窗口打开', true);
+    }
+
+    // ---- 清爽视图开关 ----
+    function toggleCleanView() {
+      CLEAN_MODE = !CLEAN_MODE;
+      var btn = document.getElementById('clean-btn');
+      if (CLEAN_MODE) {
+        applyCleanView();
+        btn.textContent = '清爽视图';
+        btn.style.background = '#0A5AFF';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#0A5AFF';
+      } else {
+        // 恢复全部图层：把隐藏的图层重新打开（简化：不精确恢复，提示用户重载）
+        btn.textContent = '显示标注';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        setCoord('已显示全部图层（如需看全请点“重新加载”）', true);
+      }
+    }
+
+    function getDrawSheet(url, cb) {
+      var req = new XMLHttpRequest();
+      req.open('GET', url, true);
+      req.responseType = 'arraybuffer';
+      req.send(null);
+      req.onload = function () {
+        if ((req.status >= 200 && req.status < 300) || req.status === 304) {
+          cb(req.response);
+        } else {
+          setCoord('下载失败 HTTP ' + req.status, true);
+        }
+      };
+      req.onerror = function () {
+        setCoord('请求失败 (可能是 CORS 或未启动本地服务)', true);
+      };
+    }
+
+    // ---- 坐标拾取：点击图纸 -> screenToWorld 真图纸坐标 ----
+    function bindPick() {
+      var wrap = document.getElementById('webcad');
+      // GStarSDK 渲染后在其容器监听点击
+      wrap.onclick = function (e) {
+        if (!PICK_MODE) return;
+        var rect = wrap.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        // 尝试用 SDK 的 screenToWorld 拿真图纸坐标（部分版本走 canvas 坐标系）
+        var world = null;
+        try { world = gstarSDK.screenToWorld({ x: x, y: y }); } catch (err) { world = null; }
+        var text;
+        if (world) {
+          text = '图纸坐标 X=' + world.x.toFixed(1) + '  Y=' + world.y.toFixed(1) + ' (mm)';
+        } else {
+          text = '屏幕坐标 X=' + Math.round(x) + '  Y=' + Math.round(y) + ' px';
+        }
+        setCoord(text, true);
+        // 回传 Flutter：window.parent.postMessage
+        try {
+          window.parent.postMessage({
+            type: 'cad-pick',
+            key: DRAWING_KEY,
+            screenX: x, screenY: y,
+            worldX: world ? world.x : null,
+            worldY: world ? world.y : null,
+            text: text
+          }, '*');
+        } catch (err) { /* 独立页时忽略 */ }
+      };
+    }
+
+    // 自动加载
+    window.addEventListener('load', function () {
+      titleEl.textContent = '7栋 · ' + DRAWING_KEY;
+      setTimeout(loadCad, 200);
+    });
+  </script>
+</body>
+</html>
