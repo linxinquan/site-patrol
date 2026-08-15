@@ -293,7 +293,7 @@ const List<Map<String, String>> blueprintDrawings = [
 // src 为空（无 PNG），由 CAD 服务提供。
 
 const List<Floor> dy7Floors = [
-  Floor(key: 'dy04_7_B01', name: '地下一层顶板组合平面图', index: 0, cached: true, progress: 100, building: '7栋', floor: 'B1'),
+  Floor(key: 'dy04_7_B05', name: '地下室夹层组合平面图', index: 0, cached: true, progress: 100, building: '7栋', floor: 'B1'),
   Floor(key: 'dy04_7_B02', name: '地下一层顶板分区平面图(一)', index: 1, cached: true, progress: 100, building: '7栋', floor: 'B1'),
   Floor(key: 'dy04_7_D01', name: 'A座 1-1 剖面图', index: 2, cached: true, progress: 100, building: '7栋', floor: '剖面'),
   Floor(key: 'dy04_7_D03', name: 'B座 剖面图绑定版', index: 3, cached: true, progress: 100, building: '7栋', floor: '剖面'),
@@ -306,9 +306,9 @@ const List<Floor> dy7Floors = [
 ];
 
 const Map<String, Drawing> dy7Drawings = {
-  'dy04_7_B01': Drawing(
-      key: 'dy04_7_B01', title: '地下一层顶板组合平面图', crumb: '7栋 B1', variant: 'plan',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B01'),
+  'dy04_7_B05': Drawing(
+      key: 'dy04_7_B05', title: '地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
+      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B05'),
   'dy04_7_B02': Drawing(
       key: 'dy04_7_B02', title: '地下一层顶板分区平面图(一)', crumb: '7栋 B1', variant: 'plan',
       src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B02'),

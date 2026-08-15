@@ -1,42 +1,62 @@
-"""临时脚本：用 Python 起 build/web 静态服务（8000），并验证 cad_viewer.html 可访问。"""
-import http.server
-import socketserver
-import threading
-import urllib.request
-import os
-import sys
+# -*- coding: utf-8 -*-
+import os, sys, http.server, socketserver, urllib.parse, posixpath
 
-ROOT = r"f:\GitHub\site-patrol\build\web"
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
 PORT = 8000
 
-
-class Handler(http.server.SimpleHTTPRequestHandler):
-    def __init__(self, *a, **kw):
-        super().__init__(*a, directory=ROOT, **kw)
-
-    def log_message(self, *a):
-        pass
-
-
-def start():
-    os.chdir(ROOT)
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        t = threading.Thread(target=httpd.serve_forever, daemon=True)
-        t.start()
-        print(f"Serving {ROOT} at http://localhost:{PORT}/")
-        # 验证关键资源
-        for path in ("/cad_viewer.html", "/GStarSDK.js", "/index.html"):
-            try:
-                r = urllib.request.urlopen(f"http://localhost:{PORT}{path}", timeout=5)
-                print(f"  OK  {path}  -> HTTP {r.status}, {len(r.read())} bytes")
-            except Exception as e:
-                print(f"  ERR {path}  -> {e}")
-        # 保持服务
-        while True:
-            import time
-            time.sleep(60)
+CONTENT_TYPES = {
+    '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8', '.js': 'application/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8', '.png': 'image/png',
+    '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+    '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
+    '.ocf': 'application/octet-stream',
+}
 
 
-if __name__ == "__main__":
-    start()
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        sys.stderr.write(f"[static] {self.command} {self.path}\n")
+
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-store')
+        super().end_headers()
+
+    def do_GET(self):
+        parsed = urllib.parse.urlparse(self.path)
+        rel = parsed.path
+        # 修正：把空路径指向 index.html
+        if rel in ('', '/'):
+            rel = '/index.html'
+        rel = rel.lstrip('/')
+        rel = posixpath.normpath(rel)
+        if rel == '.':
+            rel = 'index.html'
+        if rel.startswith('..'):
+            self.send_error(403)
+            return
+        full = os.path.join(ROOT, rel.replace('/', os.sep))
+        sys.stderr.write(f"  rel={rel!r} full={full!r} exists={os.path.exists(full)}\n")
+        if not os.path.exists(full):
+            self.send_error(404, f"not found: {rel}")
+            return
+        if os.path.isdir(full):
+            full = os.path.join(full, 'index.html')
+            if not os.path.exists(full):
+                self.send_error(404, f"dir no index: {rel}")
+                return
+        ext = os.path.splitext(full)[1].lower()
+        ctype = CONTENT_TYPES.get(ext, 'application/octet-stream')
+        with open(full, 'rb') as f:
+            data = f.read()
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+
+socketserver.TCPServer.allow_reuse_address = True
+with socketserver.TCPServer(("0.0.0.0", PORT), H) as httpd:
+    print(f"static server on :{PORT}  root={ROOT}", flush=True)
+    httpd.serve_forever()

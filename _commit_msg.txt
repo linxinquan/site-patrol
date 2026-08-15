@@ -1,0 +1,7 @@
+fix: 楼层图纸更新为地下室夹层组合平面图 + CAD 渲染优化与密钥脱敏
+
+- 楼层图纸：7栋第一项 dy04_7_B01(地下一层顶板组合平面图) 替换为 dy04_7_B05(地下室夹层组合平面图)，对应 OCF 已本地缓存
+- CAD 渲染：cad_viewer.html 加"全开验证"按钮、清爽视图精确恢复、支持 DWG 元数据(ezdxf)按 AutoCAD 原始图层显隐
+- 安全：CAD 动态密钥从 web/cad_viewer.html 硬编码改为 URL 参数/本地 cad_secret.txt(.gitignore 排除)，避免明文入库
+- 静态服务：_start_server.py 修复 query string 与 web/ 根目录，解决预览 404
+- 新增 DWG 元数据服务 cad_meta_server.py / cad_meta_build.py（ezdxf 解析图层/布局）

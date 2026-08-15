@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>工地巡检 · CAD 专业看图</title>
   <style>
     html,
@@ -85,6 +88,7 @@
     <button id="clean-btn" onclick="toggleCleanView()" title="隐藏标注/文字，只看建筑主体">清爽视图</button>
     <button id="pick-btn" onclick="togglePick()">定位</button>
     <button onclick="dumpLayers()" title="查看 OCF 全部图层">图层列表</button>
+    <button onclick="forceAllOn()" title="把所有图层强制 setLayer(true)，验证 OCF 是否能恢复显示" style="background:#FBBF24;border-color:#FBBF24;color:#000">全开验证</button>
     <button onclick="zoomToFit()" title="缩放到全图">全图</button>
     <button class="primary" onclick="loadCad()">重新加载</button>
   </div>
@@ -100,30 +104,26 @@
     }
     var DRAWING_KEY = getParam('key') || 'dy04_7_B01';
     // 渲染用的动态密钥（课题测试用途，仅本地部署）
-    var CAD_SECRET = 'fldXImCGIwhP8ZQO4qecFY4ir2JxCc8bQUQ1ORrusA70H26qenVFScQPm3tMVFJ5';
+    // 从 URL ?cadSecret= 读取；未传则从本地 /config/cad_secret.txt（.gitignore 排除）读取
+    var CAD_SECRET = getParam('cadSecret') || '';
     // OCF 缓存由本地服务提供（0 消耗浩辰次数）
     var OCF_BASE = 'http://localhost:8800';
+    // DWG 元数据服务（用 ezdxf 解析原 DWG 输出的 JSON，含图层开关/布局）
+    var CAD_META_BASE = 'http://localhost:8810';
     var PICK_MODE = false;
-    var CLEAN_MODE = true;   // 默认开启清爽视图
+    var CLEAN_MODE = false;   // 默认关闭：直接用 OCF 原始图层状态（与 AutoCAD 打开一致）
+    var CAD_META = null;      // 缓存当前图纸的元数据 JSON
+    var USE_META = true;      // 是否有元数据就按元数据显隐（AutoCAD 原始状态）
+    // ---- 默认关闭的图层：仅严格命中 DWG 系统噪音层，保留所有项目自定义图层 ----
+    // 原因：项目自定义图层命名规律各异（AD-LIML/AD-UMLT/A-floor-H/A-Dote-T 等），
+    // 关键词命中率低且容易误伤。最稳妥的做法是"默认全开"，由用户手动点「清爽视图」过滤。
     var CLEAN_KEYWORDS = [
-      // === 引线/索引符号类（最大的噪音来源） ===
-      '引线', 'leader', '索引', 'callout', '详图索引',
-      '引出', '详图符号', '圈', '标注符号', '详图编号',
-      '气泡', 'bubble', '符号',
-      // === 文字/注释类 ===
-      'text', 'txt', '文字', '注释', 'note', 'label',
-      '图名', '说明', '材料', '材料表', '图例',
-      // === 尺寸标注类 ===
-      '尺寸', 'dim', 'dimension', 'dim标注', '尺寸标注',
-      // === 图框/标题栏类 ===
-      '图框', '标题', 'title', 'titleblock', '边框',
-      // === 默认/辅助图层（DWG 系统层）===
-      'defpoints', '公共', '0', '默认', 'default',
-      '虚线', 'dashed', 'hidden', '辅助', '辅助线', 'guide',
-      '细线', 'thin', 'center', '中心线',
-      // === 表格类 ===
-      'legend', 'table', '表格'
+          // === DWG 系统层（几乎所有图都有）===
+          'defpoints', 'DEFPOINTS',
+          // === AutoCAD 默认图层 0 ===
+          '细线', 'thin', '中心线', 'center',
     ];
+    var HIDE_EXACT = ['0', 'Defpoints', 'DEFPOINTS'];
 
     // ---- 初始化 GStarSDK ----
     var gstarSDK = new GStarSDK({
@@ -167,25 +167,47 @@
     }
 
     function showCad(ocfurl) {
-      gstarSDK.setDynamicPW(CAD_SECRET);
-      getDrawSheet(ocfurl, function (arraybuffer) {
+      // 密钥为空时尝试从本地 /cad_secret.txt 读取（该文件被 .gitignore 排除，不入库）
+      var doRender = function () {
+        gstarSDK.setDynamicPW(CAD_SECRET);
+        getDrawSheet(ocfurl, function (arraybuffer) {
         // 第4参 defaultViewport=true：使用图纸保存时的默认视口
         // —— 通常就是 AutoCAD 默认打开的视图（图纸空间的"所见即所得"）。
-        gstarSDK.render('ocf', arraybuffer, '111', true).then(function () {
+        // defaultViewport=false：让 SDK 自动 fit 整个图纸内容，避免图层过滤后视口错位
+        gstarSDK.render('ocf', arraybuffer, '111', false).then(function () {
           var sizeKb = (arraybuffer.byteLength / 1024).toFixed(1);
-          setCoord('渲染完成 ' + sizeKb + ' KB · 显示默认视口', true);
+          setCoord('渲染完成 ' + sizeKb + ' KB · 视图自适应', true);
           bindPick();
-          // 渲染完成后：若开启清爽视图则隐藏标注图层
+          // 渲染完成后：保存原始图层状态 → fetch DWG 元数据 → 按元数据显隐
           setTimeout(function () {
-            if (CLEAN_MODE) { applyCleanView(); }
-            // 图层切换后几何范围变化，重新 fit 一次
-            setTimeout(zoomToFit, 300);
-          }, 100);
+            saveLayerStatus();
+            if (USE_META) {
+              fetchMetaThenApply();
+            } else if (CLEAN_MODE) {
+              applyCleanView();
+            }
+            setTimeout(zoomToFit, 400);
+          }, 150);
         }).catch(function (err) {
           console.error('渲染失败:', err);
           setCoord('渲染失败：' + (err && err.message ? err.message : err), true);
         });
       });
+      };
+      // 密钥为空 → 尝试从本地 cad_secret.txt 读取
+      if (CAD_SECRET) {
+        doRender();
+      } else {
+        fetch('/cad_secret.txt', { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('no secret file');
+          return r.text();
+        }).then(function (txt) {
+          CAD_SECRET = txt.trim();
+          doRender();
+        }).catch(function () {
+          setCoord('未配置 CAD 动态密钥（?cadSecret= 或 web/cad_secret.txt）', true);
+        });
+      }
     }
 
     // ---- 视图：缩放到全图（多次重试，等图层切换完成后再 fit） ----
@@ -223,10 +245,13 @@
           if (id == null) return;
           allNames.push(name || String(id));
           var low = String(name).toLowerCase();
-          // 黑名单命中 → 隐藏；其它一律显示（与 CAD 原始界面一致）
+          // 命中黑名单（关键词/精确名）→ 隐藏；其它一律显示（与 CAD 原始界面一致）
           var isNoise = CLEAN_KEYWORDS.some(function (kw) {
             return low.indexOf(kw.toLowerCase()) >= 0;
           });
+          if (!isNoise && HIDE_EXACT.indexOf(String(name)) >= 0) {
+            isNoise = true;
+          }
           try {
             gstarSDK.setLayer(id, !isNoise);
             isNoise ? hidden++ : kept++;
@@ -256,24 +281,147 @@
       setCoord('共 ' + arr.length + ' 个图层，已在新窗口打开', true);
     }
 
+    // ---- 验证：把所有图层强制 setLayer(true)，看 OCF 是否能恢复显示 ----
+    function forceAllOn() {
+      if (!gstarSDK || !gstarSDK.layers) {
+        setCoord('layers 不可用', true); return;
+      }
+      var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      // 统计调用前
+      var before = arr.filter(function (ly) { return ly.status !== false; }).length;
+      // 全部强制打开
+      var ok = 0, fail = 0;
+      arr.forEach(function (ly) {
+        try {
+          gstarSDK.setLayer(ly.id, true);
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+      });
+      // 等 SDK 重绘
+      setTimeout(function () {
+        var arr2 = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        var after = arr2.filter(function (ly) { return ly.status !== false; }).length;
+        var changed = after - before;
+        var msg = '全开验证：调用前 ' + before + ' 个开 / 调用后 ' + after + ' 个开';
+        if (changed > 0) {
+          msg += ' ✓ 增加 ' + changed + ' 个！OCF 数据是全的，只是 SDK 默认隐藏';
+        } else if (changed === 0) {
+          msg += ' ✗ 数量未变：setLayer(true) 对 OCF 无效（OCF 转换时就剥离了图元数据）';
+        } else {
+          msg += ' ? 减少了';
+        }
+        msg += ' | setLayer 成功 ' + ok + ' 失败 ' + fail;
+        setCoord(msg, true);
+        console.log('[CAD] ' + msg);
+        // 重新 fit 一次让画面更新
+        setTimeout(zoomToFit, 200);
+      }, 300);
+    }
+
+    // ---- fetch DWG 元数据（ezdxf 离线解析结果），按 JSON 显隐图层 ----
+    function fetchMetaThenApply() {
+      var url = CAD_META_BASE + '/api/cad-meta/' + DRAWING_KEY + '.json';
+      setCoord('正在加载 DWG 元数据（AutoCAD 原始图层状态）...', true);
+      fetch(url, { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) {
+          setCoord('DWG 元数据未生成（HTTP ' + r.status + '），回退 OCF 原始状态。后端：python server\\cad_meta_server.py', true);
+          return null;
+        }
+        return r.json();
+      }).then(function (meta) {
+        if (!meta || !meta.ok) return;
+        CAD_META = meta;
+        applyMetaView(meta);
+      }).catch(function (e) {
+        setCoord('元数据 fetch 失败：' + e + '（请确认 8810 服务已启动）', true);
+      });
+    }
+
+    // ---- 应用元数据：先强制全开，再按 JSON 把 on=false 关掉 ----
+    function applyMetaView(meta) {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      var sdkLayers = Array.isArray(gstarSDK.layers) ? gstarSDK.layers
+                       : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      var idByName = {};
+      sdkLayers.forEach(function (ly) {
+        if (ly && ly.name) idByName[String(ly.name).toLowerCase()] = ly.id;
+      });
+      var opened = 0, hidden = 0, noData = 0;
+      meta.layers.forEach(function (ly) {
+        var id = idByName[String(ly.name).toLowerCase()];
+        if (id == null) { noData++; return; }
+        try {
+          gstarSDK.setLayer(id, true);
+          if (ly.on && !ly.frozen) { opened++; }
+          else { gstarSDK.setLayer(id, false); hidden++; }
+        } catch (e) { noData++; }
+      });
+      var total = meta.layers.length;
+      var sdkTotal = sdkLayers.length;
+      setCoord(
+        '元数据已应用：JSON 共 ' + total + ' 图层（开 ' + opened + ' / 关 ' + hidden + '），SDK 可见 ' + sdkTotal + ' / 未匹配 ' + noData + ' | ' +
+        (hidden + noData === 0 ? '✅ 全图层恢复' : '⚠ 部分图层在 OCF 中无数据（转换时已剥离）'),
+        true
+      );
+      console.log('[CAD] 元数据应用完成', meta);
+      setTimeout(zoomToFit, 300);
+    }
+
     // ---- 清爽视图开关 ----
+    // ---- 清爽视图开关 ----
+    // 保存"清爽视图"开启前的图层显隐状态，"显示全部"时精确恢复
+    var SAVED_LAYER_STATUS = null;
+    function saveLayerStatus() {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        SAVED_LAYER_STATUS = arr.map(function (ly) {
+          return { id: ly.id, status: ly.status !== false };
+        });
+      } catch (e) { SAVED_LAYER_STATUS = null; }
+    }
+    function restoreLayerStatus() {
+      if (!SAVED_LAYER_STATUS) { loadCad(); return; }
+      SAVED_LAYER_STATUS.forEach(function (s) {
+        try { gstarSDK.setLayer(s.id, s.status); } catch (e) {}
+      });
+      setCoord('已恢复原始图层状态', true);
+    }
+    function applyAllLayersVisible() {
+      // 强制打开所有图层（最彻底的"显示全部"）
+      if (!gstarSDK || !gstarSDK.layers) return;
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        arr.forEach(function (ly) {
+          try { gstarSDK.setLayer(ly.id, true); } catch (e) {}
+        });
+        setCoord('全部图层已打开（共 ' + arr.length + ' 个）', true);
+      } catch (e) {}
+    }
+
     function toggleCleanView() {
       CLEAN_MODE = !CLEAN_MODE;
       var btn = document.getElementById('clean-btn');
       if (CLEAN_MODE) {
+        // 切回清爽视图前先存原始状态（让再切回去能恢复）
+        if (!SAVED_LAYER_STATUS) saveLayerStatus();
         applyCleanView();
         btn.textContent = '清爽视图';
         btn.style.background = '#0A5AFF';
         btn.style.color = '#fff';
         btn.style.borderColor = '#0A5AFF';
       } else {
-        // 恢复全部图层：把隐藏的图层重新打开（简化：不精确恢复，提示用户重载）
-        btn.textContent = '显示标注';
+        // 全部图层打开：优先精确恢复，状态不可用时强制全开
+        if (SAVED_LAYER_STATUS) { restoreLayerStatus(); }
+        else { applyAllLayersVisible(); }
+        btn.textContent = '显示全部';
         btn.style.background = '';
         btn.style.color = '';
         btn.style.borderColor = '';
-        setCoord('已显示全部图层（如需看全请点“重新加载”）', true);
       }
+      setTimeout(zoomToFit, 200);
     }
 
     function getDrawSheet(url, cb) {
@@ -328,7 +476,8 @@
 
     // 自动加载
     window.addEventListener('load', function () {
-      titleEl.textContent = '7栋 · ' + DRAWING_KEY;
+      titleEl.textContent = '7栋 · ' + DRAWING_KEY + ' (v3-clean)';
+      setCoord('页面已加载 v3-clean (CLEAN_MODE=false · defaultViewport=false)', true);
       setTimeout(loadCad, 200);
     });
   </script>
