@@ -1,0 +1,9556 @@
+{
+  "layers": [
+    {
+      "name": "0",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "PUB_WINDW",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$AUDIT-BAD-LAYER",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "Defpoints",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "A-floor-HATCH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-Dote-BF$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 16
+    },
+    {
+      "name": "AD-Dote-BF$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-Dote-BF$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-Dote-TF$0$A-AXIS-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-Dote-TF$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-Dote-TF$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-Dote-TF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-Dote-TF$0$A-AXIS-100",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-B1Mdote$0$A-AXIS-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-B1Mdote$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-B1Mdote$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-Dote-BF$0$DIM_COOR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-Dote-BF$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-Dote-BF$0$LINE-RED",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-Dote-BF$0$DM-坐标",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "AD-Dote-BF$0$A-Dims-COOK",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-Dote-BF$0$0-XREF",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-Dote-BF$0$PUB-DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-Dote-BF$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-DOTE$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-11#-DOTE$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-DOTE$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11#-DOTE$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-DOTE$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-DOTE$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-win-FHJL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-win-text-F",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$A-Text-350",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHJL-B1M-XF$0$X-temp-REV-2022-822",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-JSK-B1M$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-JSK-B1M$0$CR-建-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-JSK-B1M$0$CR-建-detl-METL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-JSK-B1M$0$20220529",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-JSK-B1M$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-JSK-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-JSK-B1M$0$X-temp-REV-2022-714",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-JSK-B1M$0$X-temp-REV-2022-719",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-JSK-B1M$0$X-temp-REV-2022-727",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-JSK-B1M$0$X-temp-REV-2022-81",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-JSK-B1M$0$X-temp-REV-2022-811",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LT-B1M$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LT-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LT-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$0L_Edge Contour",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LT-B1M$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Text-350",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LT-B1M$0$0L_PAVE_WATER STAIR DT",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LT-B1M$0$Slab",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LT-B1M$0$LAND",
+      "flags": 0,
+      "color": 107
+    },
+    {
+      "name": "AD-LT-B1M$0$0L_PAVE_01",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LT-B1M$0$0L_PAVE_04",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LT-B1M$0$A-FLOR-HRAL扶手栏杆",
+      "flags": 0,
+      "color": 132
+    },
+    {
+      "name": "AD-LT-B1M$0$ELEVATION1",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$Make2D$Annotation$EXT_CARPET$Grotto_开洞$New Edge_新板边$New_Stairs",
+      "flags": 0,
+      "color": 123
+    },
+    {
+      "name": "AD-LT-B1M$0$A-detl-MEDM",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "AD-LT-B1M$0$0L_STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$A-wall-COL",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-LT-B1M$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LT-B1M$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Text-NUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$X-temp-REV-2022-725",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LT-B1M$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$A-floor-HRAL2",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LT-B1M$0$A-EVTR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LT-B1M$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-LT-B1M$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$HOVE-B1M$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$HOVE-B1M$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-LT-B1M$0$HOVE-B1M$0$A-FLOR-DRAIN",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-LT-B1M$0$B1M-楼梯$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LT-B1M$0$B1M-楼梯$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$B1M-楼梯$0$S-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LT-B1M$0$A-FLOR-SLOP",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-LT-B1M$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-WALL-B1M$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-WALL-B1M$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-WALL-B1M$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-B1M$0$$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$$0$$0$$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$$0$$0$$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-WALL-B1M$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-win-FHJL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-win-text-F",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-int-BATH",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-wall-GLAZ",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-WALL-B1M$0$$1$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$$7$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$$3$DOOR_FIRE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-WALL-B1M$0$$3$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$$3$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-WALL-B1M$0$$5$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$$5$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-WALL-B1M$0$A Annotate",
+      "flags": 0,
+      "color": 131
+    },
+    {
+      "name": "AD-WALL-B1M$0$A Fixture Sanitary",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$ID-INDE-SANI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$WALL",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-WALL-B1M$0$WB-卫生间平面",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-B1M$0$$5$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$$6$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$WINDOW_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-wall-GLAZG",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-523",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$0-XREF",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Text-350",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM_ELEV-350",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-525",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-530",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-526",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-61",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-65",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-floor-HATCH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-68",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-69",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM-MODI-20220618",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM_MODI",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-B1M$0$$2$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-B1M$0$$3$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-detl-MEDM",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-detl-METL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-win-FIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-628",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-629",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-71",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-AREA-J",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-74",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-75",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-76",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$chenqing202207",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-77",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-78",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-711",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-712",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-714",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-716",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-721",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-B1M$0$风井面积",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-728",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-82",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-wall-metl",
+      "flags": 0,
+      "color": 211
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-B1M$0$板边_标注_220810",
+      "flags": 0,
+      "color": 210
+    },
+    {
+      "name": "AD-WALL-B1M$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-WALL-B1M$0$X-temp-REV-2022-821",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-B1M$0$0L_CALL",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-B1M$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-1",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-0",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-2",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-4",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-3",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$AUDIT_I_220106172915-19",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-wall-BASE",
+      "flags": 0,
+      "color": 60
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-win-FIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-wall-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$防火分区",
+      "flags": 2,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$20220518",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$20220606",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$chenqing202207",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$WALL",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$X-temp-REV-2022-722",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$20220811",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$$0$$0$$0$$0$$0$$0$$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-WALL-RF-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_text",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_lean_dash",
+      "flags": 0,
+      "color": 190
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-ridge",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_lean",
+      "flags": 0,
+      "color": 190
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_lean_H",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu-楼梯下柱",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_beam",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COLU-STEEL",
+      "flags": 0,
+      "color": 104
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$S-beam_wa_text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$S-colu_steel",
+      "flags": 0,
+      "color": 104
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$S-hatch",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$S-WALL-TEXT-1F",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$S-colu_steel-text-B1MF",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$0712",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$0725",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "S-C1~C03（地下室B1MF）-colu$0$0728",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0115",
+      "flags": 1,
+      "color": 255
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0120",
+      "flags": 1,
+      "color": 51
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0225",
+      "flags": 1,
+      "color": 40
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0320",
+      "flags": 1,
+      "color": 131
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0331",
+      "flags": 1,
+      "color": 61
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0407",
+      "flags": 1,
+      "color": 181
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0412",
+      "flags": 1,
+      "color": 181
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0427",
+      "flags": 1,
+      "color": 181
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0515",
+      "flags": 1,
+      "color": 131
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-wall_Dw",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-wall_DW_H",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$砼柱墙填充",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$N-GRID建筑轴线",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$-S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$-S-colu",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$-S-wall_text_DD",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$-S-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$单形心",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$群形心",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$合力",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-8#-COLU-B1MF$0$-S_subline1212_(结改05)综合变更",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "S-8#-WALL-B1MF$0$砼柱墙填充",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "S-8#-WALL-B1MF$0$N-GRID建筑轴线",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "S-8#-WALL-B1MF$0$-S-wall_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-8#-WALL-B1MF$0$-S-wall",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "S-8#-WALL-B1MF$0$水平筋标注",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-T5-WALL-B1MF$0$-S-wall",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "S-T5-WALL-B1MF$0$-S-wall_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-colu_lean",
+      "flags": 0,
+      "color": 190
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-colu",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-colu_text_DD",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$S-colu_lean_H_dash_top",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$S-colu_lean_dash_top",
+      "flags": 0,
+      "color": 190
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$S-ridge",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$-S-colu_lean_H",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$S-colu_stair_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-T5-COUL-B1MF$0$S-colu_stair",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0622",
+      "flags": 1,
+      "color": 111
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-6栋-BIM$0$S-PLAN-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-6栋-BIM$0$S-PLAN-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（5栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（5栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（5栋）$0$S-COLS-HOLE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（5栋）$0$S-ANNO-TEMP",
+      "flags": 0,
+      "color": 12
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（3栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1F（3栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-标准层核心筒（3栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-标准层核心筒（3栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-1F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-1F$0$S-COLS-CNTJ-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-1F$0$S-COL-1A-12F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-核心筒-1F-5F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-核心筒-1F-5F$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-核心筒-1F-5F$0$S-COL-1A-12F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-1F$0$S-TEMP-20220519",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "SD-COLU-M1F$0$1F层墙柱$0$修改-20220129",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "SD-COLU-M1F$0$1F层墙柱$0$修改-20220216",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "SD-COLU-M1F$0$1F层墙柱$0$TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-COLU-M1F$0$1F层墙柱$0$修改-20220301",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "SD-COLU-M1F$0$1F层墙柱$0$修改-20220307",
+      "flags": 1,
+      "color": 5
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-2F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-2F$0$S-COLS-CNTJ-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-2F$0$S-COL-1A-12F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-1A-2F$0$S-TEMP-20220519",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "SD-COLU-M1F$0$斜柱定位辅助$0$斜柱定位辅助线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（3栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（3栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$斜柱辅助定位$0$斜柱定位辅助线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（5栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（5栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-WALL-1F~9F（5栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-WALL-1F~9F（5栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-WALL-1F~9F（5栋）$0$S-COLS-HOLE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-WALL-1F~9F（5栋）$0$S-ANNO-TEMP",
+      "flags": 0,
+      "color": 12
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（5栋）$0$S-COLS-HOLE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-2F（5栋）$0$S-ANNO-TEMP",
+      "flags": 0,
+      "color": 12
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-6栋-1F$0$S-PLAN-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-COL-6栋-1F$0$S-PLAN-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0725",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "S-COLU-B1MF-11#$0$S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-COLU-B1MF-11#$0$S-colu",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "S-COLU-B1MF-11#$0$对比上一版图纸修改内容",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "S-COLU-B1MF-11#$0$20220716提资修改",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0730",
+      "flags": 1,
+      "color": 41
+    },
+    {
+      "name": "SD-COLU-M1F$0$修改0828",
+      "flags": 1,
+      "color": 140
+    },
+    {
+      "name": "SD-COLU-M1F$0$LINE-RED",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-wall_DW_H_down",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "SD-COLU-M1F$0$S-colu_SRC",
+      "flags": 0,
+      "color": 61
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211020 50%DD后修改",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211025 50%DD后修改",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211030 50%后修改",
+      "flags": 1,
+      "color": 211
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211103 50%DD后修改",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211104 50%后修改",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211106 50%后修改",
+      "flags": 1,
+      "color": 120
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211109 50%DD后修改",
+      "flags": 1,
+      "color": 120
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1115",
+      "flags": 1,
+      "color": 255
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1124",
+      "flags": 1,
+      "color": 40
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211129 90%DD后修改1",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1203",
+      "flags": 1,
+      "color": 130
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-wall_DW_H",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$20211212 合模型后修改",
+      "flags": 1,
+      "color": 11
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1209",
+      "flags": 1,
+      "color": 50
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1217",
+      "flags": 1,
+      "color": 230
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1221",
+      "flags": 1,
+      "color": 51
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1226",
+      "flags": 1,
+      "color": 131
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1229",
+      "flags": 1,
+      "color": 131
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改1231",
+      "flags": 1,
+      "color": 200
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改0115",
+      "flags": 1,
+      "color": 255
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改0120",
+      "flags": 1,
+      "color": 51
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改0209",
+      "flags": 1,
+      "color": 40
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_stair_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_stair_dash",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_beam",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_beam_H",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$S-colu_beam_dash",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "SD-COLU-LT-B1MF$0$修改0821",
+      "flags": 1,
+      "color": 210
+    },
+    {
+      "name": "P-D-M1F$0$P-COM-消防箱",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-D-M1F$0$PTW－XHZ消火栓立管定位",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "P-D-M1F$0$PTA－XH消火栓箱留槽",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "P-D-M1F$0$PTE－QT气体灭火设备",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "P-D-M1F$0$PTA－QT气体灭火泄压阀留洞",
+      "flags": 0,
+      "color": 200
+    },
+    {
+      "name": "P-D-M1F$0$PTP－PS压力废水立管编号",
+      "flags": 0,
+      "color": 165
+    },
+    {
+      "name": "P-D-M1F$0$PTA－GG公共设备及附件",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "P-D-M1F$0$PTE－ZP自喷用电设备",
+      "flags": 0,
+      "color": 141
+    },
+    {
+      "name": "P-D-M1F$0$PTA－PS排水地漏",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-D-M1F$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-D-M1F$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-D-M1F$0$PTP－QT气体灭火立管编号",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "P-D-M1F$0$PTA－XH灭火器",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-D-M1F$0$PTA－TZ水提建筑条件20220727",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-D-M1F$0$PTE－TZ水提电气条件20220727",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "P-D-M1F$0$PTE－TZ水提电气条件20220808",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "E-X-LDLC-M1$0$EL-DBLD",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "E-X-LDLC-M1$0$EL-DBLD-TEXT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220705修改",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220715修改",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220805电气修改",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220728省院智能化留洞提结构",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "E-X-LDLC-M1$0$EL-QTLD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "E-X-LDLC-M1$0$EL-LDLC-TEXT",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220804云楼剪力墙上开洞标高调整",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "E-X-LDLC-M1$0$EL-TG",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220809增加出室外穿梁套管",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "E-X-LDLC-M1$0$X-temp-REV-2022-81",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "E-X-LDLC-M1$0$20220819出室外穿梁套管移位",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_B_LD",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS--mj",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS-EQU",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS-yfG-防烟分区编号",
+      "flags": 0,
+      "color": 71
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_DLJ_SBBZ",
+      "flags": 1,
+      "color": 31
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_KT_LG",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_KT_LH",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_KT_LP",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_KT_BZ",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$H-JG-B-LD",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_COM_BZ",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_PFG_F2",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_PFG_FRZX",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_B_D",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JFG_YL",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$20220520  暖通提资",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_KT_LN",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_Q_LD",
+      "flags": 0,
+      "color": 123
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_JC",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_JC_BZ",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_Q_LD_BZ",
+      "flags": 0,
+      "color": 53
+    },
+    {
+      "name": "H-TJ-B1M$0$20220613  暖通提资",
+      "flags": 1,
+      "color": 5
+    },
+    {
+      "name": "H-TJ-B1M$0$H-JG-Q-LD-BZ",
+      "flags": 0,
+      "color": 53
+    },
+    {
+      "name": "H-TJ-B1M$0$20220630  暖通提资",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_COM",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "H-TJ-B1M$0$20220704  暖通提资",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "H-TJ-B1M$0$20220707  暖通提资",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_DLJ_SNJ",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$20220711  暖通提资",
+      "flags": 1,
+      "color": 31
+    },
+    {
+      "name": "H-TJ-B1M$0$20220712  暖通提资",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "H-TJ-B1M$0$20220715  暖通提资",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS-百叶面积",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JG_B_LD BZ",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "H-TJ-B1M$0$20220725  暖通提资",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$20220729  暖通修改",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$20220730  暖通提资",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_JFG_FK",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_PFG_FK",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_YFG_FK",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_PFG_BZ",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$ACS_YFG_BZ",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-TJ-B1M$0$20220818 暖通提资百叶",
+      "flags": 3,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M$0$20220823  暖通提资",
+      "flags": 0,
+      "color": -1
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$WINDOW",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$WINDOW_TEXT",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$WALL",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$X-temp-CHECK",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-WALL-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$AD-P-M1$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$AD-P-M1$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$AD-P-M1$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$STAIR",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$X-temp-CHECK",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$修改",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$HANDRAIL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$RAIL",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$A-Text-NUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$A-Text-DTNUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$X-temp-CHECK",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-11-STAIR-B1MF$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11#-B1MF-DOTE$0$Xsy-220825",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$非出图范围",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$LINE-RED",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-1",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-0",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-detl-MEDM",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-2",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-4",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-D",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-5",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-6",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-8",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-9",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-10",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-win-TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-16",
+      "flags": 1,
+      "color": 191
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-19",
+      "flags": 1,
+      "color": 20
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-15",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-12",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-20",
+      "flags": 1,
+      "color": 20
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20211229",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220104",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220105",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-21",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$AUDIT_I_220225151948-22",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-18",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-39",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$202201011",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-110",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$202201014",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220727",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220118",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220121",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220124",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-211",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220218",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220224",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-33",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220304",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-38",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220315",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-316",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220323",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220324",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220329",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220401",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220402",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220406",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$Window",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-420",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220421",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-425",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220506",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-59",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-510",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220511",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$风井面积",
+      "flags": 1,
+      "color": 152
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-511",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-524",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-525",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220527",
+      "flags": 1,
+      "color": 80
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-530",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-531",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-61",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220606",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-68",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-610",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-611",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-616",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$0-XREF",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220617",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-71",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-74",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220701",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220704",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-78",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220707",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220709",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-711",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220713",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-713",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-714",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-715",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-716",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-718",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220720",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-722",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-726",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-728",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-730",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$2022.7.30修改",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220730",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220805",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-81",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220808",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220811",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$20220815",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-816",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-817",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$X-temp-REV-2022-825",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LIMLT-BM1$0$DIM_MODI",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$X-AREA-J",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "BIM层$0$FIRE-WORK1",
+      "flags": 0,
+      "color": 243
+    },
+    {
+      "name": "BIM层$0$FIRE-SAVE",
+      "flags": 0,
+      "color": 250
+    },
+    {
+      "name": "BIM层$0$LINE-BLDG-MULTI",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "BIM层$0$Fire",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "BIM层$0$LINE-RED1",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "BIM层$0$LINE-RED",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "BIM层$0$ELVT-ROAD",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "BIM层$0$ELVT-SLOPE",
+      "flags": 1,
+      "color": 150
+    },
+    {
+      "name": "BIM层$0$A-ELVT-ROAD1",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "BIM层$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "BIM层$0$---绿带-K",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "BIM层$0$A-1",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "BIM层$0$0L_WALL",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "BIM层$0$0-文字标注",
+      "flags": 0,
+      "color": 100
+    },
+    {
+      "name": "BIM层$0$gyx",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "BIM层$0$HW",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "BIM层$0$FIRE-ROAD1",
+      "flags": 1,
+      "color": 250
+    },
+    {
+      "name": "BIM层$0$FIE-ROAD2",
+      "flags": 1,
+      "color": 252
+    },
+    {
+      "name": "BIM层$0$X-temp-REV-2022-624",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "BIM层$0$X-temp-REV-2022-71",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "BIM层$0$ROAD-CENT",
+      "flags": 0,
+      "color": 210
+    },
+    {
+      "name": "BIM层$0$X-temp-REV-2022-725",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "BIM层$0$AD-分界线0",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "BIM层$0$A-LVHUA",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "BIM层$0$20220822",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-win-FIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-win-TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "AD-LTD-B1M$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-LTD-B1M$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-LTD-B1M$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$DOOR_FIRE_TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$1$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$1$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$A-WALL-COL",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wall-stru",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$HANDRAIL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$RAIL",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-LTD-B1M$0$20211206",
+      "flags": 1,
+      "color": 20
+    },
+    {
+      "name": "AD-LTD-B1M$0$20211207",
+      "flags": 1,
+      "color": 20
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Text-NUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-DETL-FINISH",
+      "flags": 0,
+      "color": 201
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-win-text-F",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "AD-LTD-B1M$0$20211216",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220307153836-1",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220307153836-0",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$20211222",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$A-win-FIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-win-TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$20211227",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220104",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220105",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220121",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$1$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220224",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220218",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-LTD-B1M$0$X-temp-REV-2022-218",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220228",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LTD-B1M$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220302",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220216155245-6",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220216155245-5",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220216155245-15",
+      "flags": 0,
+      "color": 201
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220309164353-0",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220312",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wall-stru",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$A-WALL-COL",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220325",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$排水沟",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220523",
+      "flags": 1,
+      "color": 80
+    },
+    {
+      "name": "AD-LTD-B1M$0$WINDOW",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LTD-B1M$0$X-temp-REV-2022-714",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LTD-B1M$0$DIM_MODI",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$X-temp-REV-2022-719",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220727",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220730",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$X-temp-REV-2022-82",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-LTD-B1M$0$WINDOW_TEXT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$WALL",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220801",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$-S-colu_steel",
+      "flags": 0,
+      "color": 104
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-LTD-B1M$0$20220808",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-LTD-B1M$0$AUDIT_I_220216155245-9",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-LTD-B1M$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-LTD-B1M$0$$0$$0$$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$S_A-FLOOR-ST",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$Xsy-220822",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "A-11-EDGE-B1MF$0$A-WALL-JGBX",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "A-11-PMDT-B1MF$0$Xsy-220825",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-FLOOR-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-DIMS-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-TEXT-DESC",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-WIN",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-WIN-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$S-BEAM-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-DETL-FINISH",
+      "flags": 0,
+      "color": 201
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-dims-150",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AX-C01-LT-M1F$0$A-电梯文字",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-DOOR",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-text-DESC",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$PUB_HATCH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-detl-FINISH",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$$1$PUB_HATCH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$$1$A-detl-FINISH",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-Win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AX-C01-Wall-M1F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C2-LT-M1F$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-C2-LT-M1F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C2-LT-M1F$0$DOOR_FIRE_TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "A-C2-LT-M1F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-C2-LT-M1F$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-C2-LT-M1F$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$HANDRAIL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$RAIL",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-C2-LT-M1F$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C2-LT-M1F$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-dims-50",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-Text-50",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-win-TEXT",
+      "flags": 2,
+      "color": 212
+    },
+    {
+      "name": "A-C2-LT-M1F$0$X-temp-REV-2022-511",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-C2-LT-M1F$0$WIRE-动力",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "A-C2-LT-M1F$0$DIM_ELEV-50",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$X-temp-REV-2022-711",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-C2-LT-M1F$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-Text-NUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-dims-100",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-C2-LT-M1F$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C2-LT-M1F$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C2-LT-M1F$0$X-temp-REV-2022-816",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "A-C2-LT-M1F$0$Xsy-220819",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "P-C2-BM1F$0$PTP－XH消火栓立管编号1区",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－XH灭火器",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－XH消火栓箱留槽",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－XH消火栓立管",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "P-C2-BM1F$0$PTP－JS给水立管编号1区",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "P-C2-BM1F$0$Defpoints0",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "P-C2-BM1F$0$PTP－RS热给水立管编号1区",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－ZP自喷用电设备",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－JS给水立管1区",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－ZP自喷立管1区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－RS热给水立管1区",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－ZY直饮水立管1区",
+      "flags": 0,
+      "color": 62
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－ZY直饮水立管3区",
+      "flags": 0,
+      "color": 200
+    },
+    {
+      "name": "P-C2-BM1F$0$PTP－ZP自喷立管编号1区",
+      "flags": 0,
+      "color": 141
+    },
+    {
+      "name": "P-C2-BM1F$0$修改示意-水",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－PS重力废水立管",
+      "flags": 0,
+      "color": 33
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－TZ水提电气条件20220721",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－PS废水用电设备",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－TZ水提建筑条件20220722",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－TZ水提电气条件20220727",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－TZ水提电气条件20220822",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "P-C2-BM1F$0$PTP－PS压力废水管",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－PS排水地漏",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-C2-BM1F$0$PTE－TZ水提电气条件20220828",
+      "flags": 1,
+      "color": 4
+    },
+    {
+      "name": "P-C2-BM1F$0$PTA－TZ水提建筑条件20220828",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C3-B1MF$0$ASHADE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS重力废水立管编号",
+      "flags": 1,
+      "color": 34
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS压力废水管",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS压力废水立管编号",
+      "flags": 0,
+      "color": 165
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－GG公共设备及附件",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZP自喷立管编号",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZP自喷标注",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZP自喷立管编号1区",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZY直饮水立管编号1区",
+      "flags": 1,
+      "color": 62
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－JS给水阀门",
+      "flags": 0,
+      "color": -85
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－JS给水立管编号",
+      "flags": 0,
+      "color": -85
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－JS给水设备",
+      "flags": 0,
+      "color": -85
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZP高空水炮立管编号",
+      "flags": 1,
+      "color": 80
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－XH消火栓阀门",
+      "flags": 1,
+      "color": 31
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－XH消火栓立管编号1区",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－ZY直饮回水立管编号1区",
+      "flags": 1,
+      "color": 73
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS通气立管编号",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－JS给水立管编号0区",
+      "flags": 1,
+      "color": 80
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－RS热水设备",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－RS热水阀门",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS重力污水立管编号",
+      "flags": 0,
+      "color": 57
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS压力废水设备",
+      "flags": 0,
+      "color": 165
+    },
+    {
+      "name": "P-C3-B1MF$0$PTP－PS重力废水阀门",
+      "flags": 1,
+      "color": 34
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－PS重力废水立管",
+      "flags": 1,
+      "color": 33
+    },
+    {
+      "name": "P-C3-B1MF$0$PTE－PS废水用电设备",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－PS压力废水立管",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－PS排水地漏",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-C3-B1MF$0$PTW－PSZ重力废水立管定位",
+      "flags": 0,
+      "color": 34
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－TZ水提建筑条件20220829",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－XH灭火器",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-C3-B1MF$0$PTE－ZP自喷用电设备",
+      "flags": 1,
+      "color": 141
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－ZP自喷立管1区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－ZY直饮水立管1区",
+      "flags": 0,
+      "color": 203
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－JS给水立管",
+      "flags": 0,
+      "color": 90
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－ZP高空水炮立管",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－PS通气立管",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "P-C3-B1MF$0$PTA－PS重力污水立管",
+      "flags": 0,
+      "color": 56
+    },
+    {
+      "name": "P-C1-B1M消火栓$0$PTW－XHZ消火栓立管定位",
+      "flags": 1,
+      "color": 31
+    },
+    {
+      "name": "P-C1-B1M消火栓$0$PTA－XH消火栓箱留槽",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "P-C1-B1M消火栓$0$PTA－TZ水提建筑条件20220818",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "P-C1-B1M消火栓$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-C1-B1M消火栓$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$A-floor-HATCH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$0-XREF",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$LINE-RED",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$0L_WALL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$修改_楼梯",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$$6$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$$3$PUB_HATCH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$WALL",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$0-业主需求-不打印图层",
+      "flags": 1,
+      "color": 152
+    },
+    {
+      "name": "AD-P-M1$0$$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$$1$A-DOOR",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$$3$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "AD-P-M1$0$$4$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$$1$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$Area",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$1$PUB_HATCH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$A-detl-XH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$审图",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$卫生间优化辅助线",
+      "flags": 0,
+      "color": 131
+    },
+    {
+      "name": "AD-P-M1$0$A Furniture System",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$T-SIS-卫生间悬浮洁具五金",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$A-int-BATH",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "AD-P-M1$0$WB-卫生间平面",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$A02-S2-G-MAIN-3F(南区)_设计区$0$A_EQPM_TACC(洁具)",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$A-TextG",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-110",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$$4$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$$2$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$修改_幕墙分格",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$AUDIT_I_220330092636-0",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$AUDIT_I_220330092636-1",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$AUDIT_I_220330092636-2",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$$1$$0$$0$$0$$0$$0$$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$$1$$0$$0$$0$$0$$0$$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$防火喷涂示意",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-33",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-P-M1$0$风井面积",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$1$A-wall-GLAZ",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$A-wall-GLAZG",
+      "flags": 1,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-wall-GLAZG",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$$3$A-wall-GLAZ",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$$1$A-wall-GLAZG",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$$3$A-wall-GLAZG",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$安全出口",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$PTP－SW室外消火栓标注",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "AD-P-M1$0$PTP－SW室外雨水标注",
+      "flags": 0,
+      "color": 201
+    },
+    {
+      "name": "AD-P-M1$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$X-AREA-J",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-TEXT-DESC",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$防火分区线",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$X-AREA-FH",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-PATT-252图案填充252",
+      "flags": 1,
+      "color": 252
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$X-temp-REV-2021-1018",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-wall-GLAZ",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-detl-XH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-floor-HATCH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$DOOR-FIREG",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$0-业主需求-不打印图层",
+      "flags": 1,
+      "color": 152
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-int-FUR",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$X-temp-REV-2021-1129",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-wall-GLAZG",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$0-XREF",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-elev-WIN",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$X-temp-REV-2022-511",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-WALL-COL",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$安全出口",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-AXIS-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-FHFQ-B1M$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$chenqing202206",
+      "flags": 1,
+      "color": 2
+    },
+    {
+      "name": "AD-PD-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$AUDIT_I_220228173720-0",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$A-floor-park-NOTE",
+      "flags": 0,
+      "color": 33
+    },
+    {
+      "name": "AD-PD-B1M$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "AD-PD-B1M$0$减速带",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-PD-B1M$0$DIM_IDEN",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$1$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-PD-B1M$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-PD-B1M$0$GP-车行线",
+      "flags": 2,
+      "color": 15
+    },
+    {
+      "name": "AD-PD-B1M$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-PD-B1M$0$A-Win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-PD-B1M$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "AD-PD-B1M$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-PD-B1M$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-PD-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-PD-B1M$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "AD-P-M1$0$X-AREA-J",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$0-XREF",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-DETL-1　细部1",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$X-TEMP 临时图层",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-GLAZ-MULL玻璃框",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$20024_Tower_BP_F$0$20024_Tower_BP$0$A-GLAZ玻璃",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-PMDT-1F$0$A-GLAZ玻璃",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$MAD COMMENT",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$修改_幕墙分格",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$A-win-deTl",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-填充",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$2D$2D_FIN_520",
+      "flags": 0,
+      "color": 125
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-SGT-铝型材剖面",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$2D$2D_Glass",
+      "flags": 0,
+      "color": 172
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$2D$2D_Fin_Lobby",
+      "flags": 0,
+      "color": 202
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$Center",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$2",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$7",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$8",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$DIM",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$Hidden",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$6",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$3",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$Phantom",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-标注",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-SGT-填充",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-钢结构",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$2D$2D_MullionLobby",
+      "flags": 0,
+      "color": 85
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$00-铝板剖面",
+      "flags": 0,
+      "color": 71
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-MQ-B1MF$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Sect-FINE",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Dims",
+      "flags": 1,
+      "color": 140
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$房间",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$0-业主需求-不打印图层",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$夹层",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Sect-FINE",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-floor-HATCH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$SPACE_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$SPACE_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-T5-Wall-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-Wall-3、5、7F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$A-win-deTl",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T5-Wall-B1MF$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-Stair-3~7F$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-T5-Stair-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-T5-Stair-B1MF$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-Stair-3~7F$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-T5-Wall-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-Stair-B1MF$0$A-T5-Stair-B1MF$0$A-T5-Stair-B1MF$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$$0$房间",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$PUB_HATCH",
+      "flags": 1,
+      "color": 8
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-text",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$DIM_LEAD",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$$0$A-T5-Wall-B1MF$1$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$用地红线",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T5-Iden-B1MF$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T5-Iden-B1MF$0$A-XX-iden-2F$0$A-L-Iden-1~RF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-WALL",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-DOOR-FIRE-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$太平金融地块-白",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M层墙柱(123)$1$S-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M层墙柱(123)$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M幕墙分隔1200$0$A-GENM",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M幕墙分隔1200$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M幕墙分隔1200$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M幕墙分隔1200$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$B1M-楼梯$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$0-业主需求-不打印图层",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-floor-HATCH",
+      "flags": 1,
+      "color": 9
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-floor-DASH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$ROAD",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-WALL-GLAZ",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$tnline",
+      "flags": 0,
+      "color": 81
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$A-消防救援窗",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_JG_B_LD",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_风井百叶",
+      "flags": 0,
+      "color": 60
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_JZ_KCYQ",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_JG_JC(空调)",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_JG_JC_BZ(空调)",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_SFG_FK",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "H-9#-TJ-BIMF$0$ACS_SBG_BZ",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－XHZ消火栓立管定位",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－XH消火栓箱留槽",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "P-9#-B1MF$0$PTP－XH灭火器",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－YSG重力雨水立管定位",
+      "flags": 0,
+      "color": 231
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－PSZ重力废水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－XHG消火栓立管定位",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮水立管2区",
+      "flags": 0,
+      "color": 62
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－JSZ给水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－PSG重力废水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－ZPG自喷立管定位",
+      "flags": 0,
+      "color": 141
+    },
+    {
+      "name": "P-9#-B1MF$0$PTW－PSZ重力污水立管定位",
+      "flags": 0,
+      "color": 57
+    },
+    {
+      "name": "P-9#-B1MF$0$P-ANNO-标注",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－PS沉箱排水地漏",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "P-9#-B1MF$0$超细干粉自动灭火",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－PS重力废水立管",
+      "flags": 0,
+      "color": 33
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－PS通气立管",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZP自喷立管1区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－PS重力污水立管",
+      "flags": 0,
+      "color": 56
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－PS排水地漏",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－YS重力雨水立管",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－XH消火栓立管",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮水立管1区",
+      "flags": 0,
+      "color": 62
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－JS给水立管1区",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮回水立管4区",
+      "flags": 0,
+      "color": 200
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮回水立管3区",
+      "flags": 0,
+      "color": 200
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮回水立管2区",
+      "flags": 0,
+      "color": 200
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZY直饮水立管4区",
+      "flags": 0,
+      "color": 62
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZP自喷立管2区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－ZP自喷立管",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－JS给水立管3区",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "P-9#-B1MF$0$PTA－JS给水立管2区",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "A-T5-PMDT-B1MF$0$$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "E-T5-LDLC-B1MF$0$EL-TEXT",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "E-T5-LDLC-B1MF$0$EL-YD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "E-T5-LDLC-B1MF$0$EL-DBLD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "S-T5-TZ-B1MF$0$S-colu_stair_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-T5-TZ-B1MF$0$S-colu_stair",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-site-REDL",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$WALL",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-int-FUR",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-Flor",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-6F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-Sect-FINE",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$P-FURN-MOVE",
+      "flags": 0,
+      "color": 155
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-01F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-01F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-01F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-01F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-WALL-B1F$0$A-T6-WALL-01F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$ACS_风井百叶",
+      "flags": 0,
+      "color": 60
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Sect-FINE",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-land-GREEN",
+      "flags": 0,
+      "color": 96
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$$1$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-T6-WALL-B1F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-int-BATH",
+      "flags": 0,
+      "color": 151
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$修改_幕墙分格",
+      "flags": 0,
+      "color": 160
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-GLAZ玻璃",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Dims",
+      "flags": 1,
+      "color": 140
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A02-D-MAIN-B1F_设计区$0$引线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-int-BATH",
+      "flags": 0,
+      "color": 151
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-Sect-FINE",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-land-GREEN",
+      "flags": 0,
+      "color": 96
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-WALL-CONC 结构墙",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-floor-HRAL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-floor-EDGE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-elev-WIN",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-GLAZ玻璃",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-win-deTl",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-T6-PMDT-B1MF$0$$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A Furniture System",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-win-FHJL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$修改_幕墙分格",
+      "flags": 0,
+      "color": 160
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-floor-DRAIN",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-detl-MEDM",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$Center",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$2",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$7",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$8",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$DIM",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$Hidden",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$6",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$3",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$Phantom",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$00-标注",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$00-SGT-填充",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$00-钢结构",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-T6-MQ-B1MF$0$0L_OBJECT",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-win-deTl",
+      "flags": 0,
+      "color": 134
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$AUDIT_I_220809143637-0",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "E-T6-LDLC-B1MF$0$EL-YD",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "E-T6-LDLC-B1MF$0$EL-TEXT",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "E-T6-LDLC-B1MF$0$EL-DBLD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "E-T6-LDLC-B1MF$0$EL-DBLD2",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Wal-stru-h",
+      "flags": 0,
+      "color": 253
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-detl-MEDM",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$AUDIT_I_220225151948-2",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "H-T6-TJ-BIMF$0$ACS_JG_B_LD",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "H-T6-TJ-BIMF$0$ACS-暖通终提20220723",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-win-FHJL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－XH消火栓箱",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "P-T6-B1MF$0$PTP－XH灭火器",
+      "flags": 0,
+      "color": -7
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－XH消火栓箱留槽",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－XH消火栓立管",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－XHZ消火栓立管定位",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－JSG给水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－ZPG自喷立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－GG公共设备及附件",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "P-T6-B1MF$0$PTP－ZP自喷设备",
+      "flags": 0,
+      "color": -141
+    },
+    {
+      "name": "P-T6-B1MF$0$25水炮",
+      "flags": 0,
+      "color": 141
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－PS排水地漏",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－PSZ重力污水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－PSG重力废水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－XHG消火栓立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTW－YSG重力雨水立管定位",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－YS雨水斗",
+      "flags": 0,
+      "color": 223
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－XH消火栓立管1区",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－ZY直饮水立管1区",
+      "flags": 2,
+      "color": 62
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－ZP自喷立管低区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－PS重力废水立管",
+      "flags": 2,
+      "color": 33
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－XH消火栓立管2区",
+      "flags": 0,
+      "color": 33
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－ZP自喷立管2区",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－ZY直饮水立管3区",
+      "flags": 2,
+      "color": 62
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－ZY直饮水立管2区",
+      "flags": 2,
+      "color": 62
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－PS重力污水立管",
+      "flags": 2,
+      "color": 56
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－PS通气立管",
+      "flags": 2,
+      "color": 73
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－JS给水立管",
+      "flags": 2,
+      "color": 90
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－LN空调冷凝立管",
+      "flags": 0,
+      "color": 150
+    },
+    {
+      "name": "P-T6-B1MF$0$PTA－YS重力雨水立管",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "A-T6-DT-B1M$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-DT-B1M$0$EVER-1",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-DT-B1M$0$A-T6-LT-05F~10F$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-DT-B1M$0$EVTR-1",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-floor-HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Axis-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-B1Mdote-150$0$A-AXIS-GRID",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "A-T6-B1Mdote-150$0$A-Axis",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-B1Mdote-150$0$A-Axis-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "G-10-B1MF$0$地下室",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "G-10-B1MF$0$ACS_GAS_BZ",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "G-10-B1MF$0$ACS_GAS_BJQ",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "G-10-B1MF$0$ACS_GAS_LG",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "G-10-B1MF$0$燃气提资",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "G-10-B1MF$0$ACS_GAS_TZ",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "G-10-B1MF$0$ACS_GAS",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "G-10-B1MF$0$调压-RJ100$0$GAS_SB",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "G-10-B1MF$0$调压-RJ100$0$SS",
+      "flags": 2,
+      "color": 4
+    },
+    {
+      "name": "A-T6-LT-B1M$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-LT-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-floor-STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-floor-STAI",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-land-GREEN",
+      "flags": 0,
+      "color": 96
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-roof",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A-T6-LT-B1M$0$A-Dims-ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-LT-B1M$0$AUDIT_I_220804105857-4",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-T6-LT-B1M$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-elev-WIN",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$A-Wall-stru",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "A-T6-Iden-B1MF$0$A-Dims-IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-T6-Iden-B1MF$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-10#-TZ-B1MF$0$S-10#-TZ-B1MF$0$S-colu_stair_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "S-10#-TZ-B1MF$0$S-10#-TZ-B1MF$0$S-colu_stair_dash",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "S-10#-TZ-B1MF$0$S-colu_text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-10#-TZ-B1MF$0$1",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "S-10#-TZ-B1MF$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-T6-PMDT-B1MF$0$20220822",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$A-Wall-arch",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "SD-BEAM-M1F$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-slab_dash",
+      "flags": 0,
+      "color": 160
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-beam_dash",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "SD-BEAM-M1F$0$砼梁",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-hole",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-BEAM-M1F$0$-S-hole",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "SD-BEAM-M1F$0$PLAN-NOTE",
+      "flags": 0,
+      "color": 41
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-hatch-塔楼",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-hatch-一期",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-GCX",
+      "flags": 0,
+      "color": 181
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-text_elev",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-grid",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-beam_SRC",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "SD-BEAM-M1F$0$$3$S-dim",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-beam_text_DD",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-beam_steel",
+      "flags": 0,
+      "color": 81
+    },
+    {
+      "name": "SD-BEAM-M1F$0$A-win-RF",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-dim",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-wall",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-cap_dash",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "SD-BEAM-M1F$0$分界线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-BEAM-M1F$0$AUDIT_I_220225151948-2",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-XGB",
+      "flags": 0,
+      "color": 160
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0523",
+      "flags": 1,
+      "color": 211
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0606",
+      "flags": 1,
+      "color": 71
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0613",
+      "flags": 1,
+      "color": 41
+    },
+    {
+      "name": "SD-BEAM-M1F$0$LINE-RED",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-W-LINE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-W-BEAMLINE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0628",
+      "flags": 0,
+      "color": 211
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0712",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "SD-BEAM-M1F$0$A-wall-BASE",
+      "flags": 0,
+      "color": 60
+    },
+    {
+      "name": "SD-BEAM-M1F$0$S-wall_RF_H",
+      "flags": 0,
+      "color": 210
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0717",
+      "flags": 0,
+      "color": 141
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0724",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0725",
+      "flags": 0,
+      "color": 80
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0730",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0804",
+      "flags": 0,
+      "color": 231
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0808",
+      "flags": 0,
+      "color": 121
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0814",
+      "flags": 0,
+      "color": 41
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0821",
+      "flags": 0,
+      "color": 210
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0825",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0828",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "SD-BEAM-M1F$0$修改0829",
+      "flags": 0,
+      "color": 61
+    },
+    {
+      "name": "AD-P-M1$0$SPACE_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$chenqing202207",
+      "flags": 1,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-77",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$H-TJ-GJBY$0$ACS_SB_SFK",
+      "flags": 0,
+      "color": 201
+    },
+    {
+      "name": "AD-P-M1$0$H-TJ-GJBY$0$ACS_COM",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$ACS_COM",
+      "flags": 1,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$20220601  暖通提资",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$20220610  暖通提资",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-P-M1$0$RC-灯具",
+      "flags": 0,
+      "color": 22
+    },
+    {
+      "name": "AD-P-M1$0$FC-通用",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-P-M1$0$DS-固定家具（落地不到顶）",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "AD-P-M1$0$BS-完成面",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-714",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-74",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "H-TJ-B1M(JF)$0$ACS_JG_B(J)_LD",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-727",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$PTA－TZ水提建筑条件",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-Iden-B1M$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-Iden-B1M$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$X-AREA-FH",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$分界线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-wall-GLAZ",
+      "flags": 0,
+      "color": 111
+    },
+    {
+      "name": "AD-P-M1$0$WINDOW_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$A-WALL",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$A-DOOR-FIRE-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$2021.09-柱子问题",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$$1$z-dl-道路",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-EVTR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-NAME",
+      "flags": 2,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$G_YX（云线）202110.08",
+      "flags": 0,
+      "color": -2
+    },
+    {
+      "name": "AD-P-M1$0$z-dl-道路",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-OVHD",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$$1$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$A-wall-metl",
+      "flags": 0,
+      "color": 211
+    },
+    {
+      "name": "AD-P-M1$0$A-ELEV-HATH2",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$A-HATH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$A_SIGN_CAR(车流线)",
+      "flags": 0,
+      "color": 40
+    },
+    {
+      "name": "AD-P-M1$0$裙房一层平面图$0$text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-SPCL",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-SHAD",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$A-SHET-NAME",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$裙房一层平面图$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$G_YX（云线）2021.11.27",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$裙房一层平面图$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$16 NEW SIMPLE LANDSCAPE$16 PAVING",
+      "flags": 0,
+      "color": 18
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-DRAIN",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$太平金融地块-白",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "AD-P-M1$0$Area_hatch",
+      "flags": 0,
+      "color": 151
+    },
+    {
+      "name": "AD-P-M1$0$ROAD",
+      "flags": 0,
+      "color": 60
+    },
+    {
+      "name": "AD-P-M1$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$裙房一层平面图$0$L1框架模块$0$A-FLOR-BALC",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$标注",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$！地下室范围",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$2022.01.24-地铁顶棚以及冷站轮廓调整",
+      "flags": 0,
+      "color": -6
+    },
+    {
+      "name": "AD-P-M1$0$1栋A座1F-20F平面图$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-AZH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$COLUMN",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$AT-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$C-PRKG",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-PARK",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$$AUDIT-BAD-LAYER",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-HATH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$AUDIT_D_220121183236-12",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$AUDIT_D_220121183236-16",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-FLOR-SPCL",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$PUB_SYMB",
+      "flags": 0,
+      "color": 62
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$AUDIT_D_220121183236-15",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-WALL-METL",
+      "flags": 0,
+      "color": 157
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-标注-标高",
+      "flags": 0,
+      "color": 151
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-ROAD-CENT",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-DOOR-FIRE-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-EVTR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$不打印图层",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$S-COL-AZH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$COLUMN",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$平面图$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$公交地上轴网$0$A-ANNO-GRID",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$公交地上轴网$0$A-ANNO-GRID-",
+      "flags": 0,
+      "color": 117
+    },
+    {
+      "name": "AD-P-M1$0$公交地上轴网$0$A-SHET-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$公交地上轴网$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-AREA-HATH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-BALC",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$A-PARK",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$A Fixture Sanitary",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$$3$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$$4$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$$0$z-dl-道路",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$B1M$0$A-ELEV-HATH2",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$$2$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M结构降板$0$A-FLOR-SHAD",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-FLOR-OVHD",
+      "flags": 0,
+      "color": 70
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-FLOR-DRAIN",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-FLOR-WELL",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-P-M1$0$HOVE-B1M$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$太平金融地块-白",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$$1$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$KIT-WALL",
+      "flags": 0,
+      "color": -14
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$厨房顾问提资$0$KIT-WALL",
+      "flags": 0,
+      "color": -14
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$裙房一层平面图$0$L1框架模块$0$A-FLOR-BALC",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$厨房顾问提资$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-FLOR-UNDR",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$厨房提资$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$LINE-BLDG-TALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-FURN",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A 冷站参考线",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$Z-0-ROAD(车行道路）",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$Z-0-ROAD-FIRE(消防车道)",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$00粗实线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$z-dl-道路",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-WALL-GLAZ",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$SI-LAND-PLNT",
+      "flags": 0,
+      "color": 72
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$Z-0-ROAD-CENT(道路中心线)",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$BLDG-TEXT",
+      "flags": 0,
+      "color": 120
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$20024_BASE SITEPLAN$0$L-PWLK-PATT铺地图案",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$20024_BASE SITEPLAN$0$--敞口段",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$20024_BASE SITEPLAN$0$C-EXST-ROAD",
+      "flags": 0,
+      "color": 152
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$20024_BASE SITEPLAN$0$绿化",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$20024_BASE SITEPLAN$0$fire road_hatch",
+      "flags": 0,
+      "color": 210
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$--M0_K",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$Z-0-市政道路-其它",
+      "flags": 0,
+      "color": 93
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$2022.06.27-工规暂时不打印图层",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$DOTE",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$WALL",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$DIM_LEAD",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$Z-0-市政道路边线",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$DIMS-LINE",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$0-隧道",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$构造",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$冷站+变电站$0$标注",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-PARK",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$S-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$$AUDIT-BAD-LAYER",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$平面图$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$AT-WALL-METL",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-WALL-GLAZ",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$！地下室范围",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$裙房一层平面图$0$L1框架模块$0$A-FLOR-BALC",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$B1M-地铁出入口$0$AUDIT_D_220121183236-12",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$1-开孔（楼板）",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$1-车站轮廓",
+      "flags": 0,
+      "color": 31
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$1-砌体隔墙",
+      "flags": 0,
+      "color": 173
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$WALL",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$WINDOW",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$WINDOW_TEXT",
+      "flags": 0,
+      "color": -7
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$离璧墙",
+      "flags": 0,
+      "color": 171
+    },
+    {
+      "name": "AD-P-M1$0$地铁出入口楼梯$0$HANDRAIL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-圆心定位$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-圆心定位$0$A-ANNO-RVCL",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "AD-P-M1$0$B1M-圆心定位$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-圆心定位$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-圆心定位$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-DOOR-FIRE",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-cos",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$核心筒B2$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$楼梯大样$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-WIND",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$AT-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-EVTR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-ANNO-NAME",
+      "flags": 2,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-DOOR-FIRE-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$A-DOOR-FIRE",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$5栋-1F$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$5栋-1F$1$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$5栋-1F$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$5栋核心筒图元$0$5栋-1F$0$A-DOOR",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$1栋A座1F-20F平面图$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$1栋A座1F-20F平面图$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$A-FLOR-DRAIN",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$B1M核心筒$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$B1M核心筒$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$B1M核心筒$0$EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$B1M核心筒$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$B1M核心筒$0$A-DOOR-FIRE",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$AREA",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$GDAD",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$B1M-核心筒$0$6栋IT布线间布置图",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$1$S-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$2022.05.27-XFYJYX",
+      "flags": 0,
+      "color": -6
+    },
+    {
+      "name": "AD-P-M1$0$B1M-景观绿化$0$A-FLOR-OVHDTC",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$-装修线",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$1$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-AIRD-WALL-SHER",
+      "flags": 0,
+      "color": 96
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-EVTR",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$1$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$1$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-HATH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$太平金融地块-白",
+      "flags": 0,
+      "color": 254
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$S-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-WALL-METL",
+      "flags": 0,
+      "color": 157
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-ELEV-HATH2",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-OVHD",
+      "flags": 0,
+      "color": 70
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$$0$A-WALL-METL",
+      "flags": 0,
+      "color": 157
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-DOOR-FIRE",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-WALL-GLAZ",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$ROAD",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-DRAIN",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-FLOR-HRAL",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-AIRD-HATH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$$1$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$SPACE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M-楼梯$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$A-AIRD-WALL-SHER",
+      "flags": 0,
+      "color": 96
+    },
+    {
+      "name": "AD-P-M1$0$A-AIRD-HATH",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1$0$$5$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$工规不显示图元$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$工规不显示图元$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$尺寸标注$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$A Wall Partition",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-ASHADE",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$9-20211103",
+      "flags": 1,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-LG",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-LG辅助线",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-地漏",
+      "flags": 0,
+      "color": 50
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$S",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-XFLG辅助线",
+      "flags": 4,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-XFLG",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-FG",
+      "flags": 0,
+      "color": 91
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-TEXT",
+      "flags": 1,
+      "color": 50
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-XFTEXT",
+      "flags": 1,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$p-废水立管",
+      "flags": 0,
+      "color": 92
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$00",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-消火栓",
+      "flags": 0,
+      "color": 10
+    },
+    {
+      "name": "AD-P-M1$0$裙房消火栓$0$P-LG上空",
+      "flags": 1,
+      "color": 75
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-GENM",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-DOOR",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-DOOR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-FLOR-UNDR",
+      "flags": 2,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$AT-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$2022.05.27-XFYJYX",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$A-HATH",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1$0$幕墙分隔（1200）$0$$3$A-WALL",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$TYL-闸机",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$2022.07.14-",
+      "flags": 0,
+      "color": -1
+    },
+    {
+      "name": "AD-P-M1$0$A-GENM",
+      "flags": 0,
+      "color": 142
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$A-ANNO-BREA",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$A-HOLE",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$A-ANNO-TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M墙体留洞$0$A-COND-IDEN-TEXT",
+      "flags": 0,
+      "color": 11
+    },
+    {
+      "name": "AD-P-M1$0$061-洁具",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-ANNO-LEVL",
+      "flags": 0,
+      "color": 130
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-EVTR-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$5栋-1F$0$A-ROOM-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-DOOR-FIRE-IDEN",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-FLOR-STRS",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "AD-P-M1$0$塔楼核心筒文字$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$1$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（5栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（5栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（5栋）$0$S-ANNO-TEMP",
+      "flags": 0,
+      "color": 12
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（5栋）$0$S-COLS-HOLE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（3栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-B1MF（3栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-标准层核心筒（3栋）$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-标准层核心筒（3栋）$0$S-PUB-COL",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-B1M$0$S-COL-1A-12F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-B1M$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-B1M$0$S-COLS-CNTJ-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-B2-B1M$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-B2-B1M$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-B2-B1M$0$S-TEMP-20220723",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-B2-B1M$0$COL WALL_STEEL",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-6栋-BIM$0$S-PLAN-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-6栋-BIM$0$S-PLAN-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-1F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-1F$0$S-COLS-CNTJ-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-1F$0$S-COL-1A-12F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-1F-5F$0$S-COLS",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-1F-5F$0$S-PUB-COLHATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-核心筒-1F-5F$0$S-TEMP-20220723",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$S-COL-1A-1F$0$S-TEMP-20220519",
+      "flags": 0,
+      "color": 20
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$2$S-COLS-PATT",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$0$分界线max",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "AD-P-M1$0$B1M层墙柱(123)$0$S-W-BEAMLINE",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-SYMB",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-COND-IDEN-INDH",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "AD-P-M1$0$A-ANNO-DIMS",
+      "flags": 0,
+      "color": 73
+    },
+    {
+      "name": "AD-P-M1$0$A-FLOR-SLOP",
+      "flags": 0,
+      "color": 74
+    },
+    {
+      "name": "AD-P-M1$0$A-FIRE",
+      "flags": 0,
+      "color": 220
+    },
+    {
+      "name": "AD-P-M1$0$AD-P-B1$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-811",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$X-temp-REV-2022-821",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$DIM_ELEV",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$DOOR_FIRE",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$3T_WOOD",
+      "flags": 0,
+      "color": 21
+    },
+    {
+      "name": "A-C3-LT-M1F$0$3T_BAR",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C3-LT-M1F$0$DOOR_FIRE_TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-C3-LT-M1F$0$3T_GLASS",
+      "flags": 0,
+      "color": 5
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-wall-ARCH",
+      "flags": 0,
+      "color": 255
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-win-FIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-win-TEXT",
+      "flags": 0,
+      "color": 212
+    },
+    {
+      "name": "A-C3-LT-M1F$0$PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-Dims",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-win",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-wall-metl",
+      "flags": 0,
+      "color": 211
+    },
+    {
+      "name": "A-C3-LT-M1F$0$SURFACE",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "A-C3-LT-M1F$0$STAIR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$HANDRAIL",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$RAIL",
+      "flags": 0,
+      "color": 163
+    },
+    {
+      "name": "A-C3-LT-M1F$0$PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-C3-LT-M1F$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$AUDIT_I_220216155245-9",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-Text-NUMB",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$AUDIT_I_220216155245-18",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-Dims-SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$150比例标注",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$EVTR",
+      "flags": 0,
+      "color": 2
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-floor-LIMIT",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-dims-150",
+      "flags": 0,
+      "color": 140
+    },
+    {
+      "name": "A-C3-LT-M1F$0$A-Dims_IDEN",
+      "flags": 0,
+      "color": 13
+    },
+    {
+      "name": "A-C3-LT-M1F$0$X-temp-REV-2022-824",
+      "flags": 1,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1$0$0L_BUILDING",
+      "flags": 0,
+      "color": 6
+    },
+    {
+      "name": "AD-P-M1$0$PUB_DIM",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "X-AREA-FH",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "A-floor-HATCH-西区",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-floor-HATCH-一期",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "A-floor-HATCH-11栋",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "视口",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AD-P-M1 - GG$0$S-colu_hatch1",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "LINE-RED",
+      "flags": 0,
+      "color": 1
+    },
+    {
+      "name": "AD-P-M1 - GG$0$S-colu",
+      "flags": 0,
+      "color": 30
+    },
+    {
+      "name": "AD-P-M1 - GG$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "AD-P-M1 - GG$0$S-colu_beam",
+      "flags": 0,
+      "color": 240
+    },
+    {
+      "name": "DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "S-colu_hatch",
+      "flags": 0,
+      "color": 251
+    },
+    {
+      "name": "A-text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "A-P-B1$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "安全出口",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "PUB_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "DXSM$0$DIM_SYMB",
+      "flags": 0,
+      "color": 3
+    },
+    {
+      "name": "DXSM$0$N-Text",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "DXSM$0$A-WALL-COL-H",
+      "flags": 0,
+      "color": 252
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK充电车位",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK无障碍车位",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK充电无障碍车位",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK-微型车位",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "DXSM$0$A-FLOOR-PARK微型充电车位",
+      "flags": 0,
+      "color": 47
+    },
+    {
+      "name": "A0+1分4TK$0$TK",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A0+1分4TK$0$VHBoundary",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "A0+1分4TK$0$VHBarcode",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "TK",
+      "flags": 0,
+      "color": 4
+    },
+    {
+      "name": "PUB_WALL",
+      "flags": 0,
+      "color": 9
+    },
+    {
+      "name": "AXIS_TEXT",
+      "flags": 0,
+      "color": 7
+    },
+    {
+      "name": "PUB_HATCH",
+      "flags": 0,
+      "color": 8
+    }
+  ],
+  "frozen_names": [
+    "Defpoints",
+    "AD-Dote-BF$0$DM-坐标",
+    "AD-FHJL-B1M-XF$0$X-temp-REV-2022-822",
+    "AD-JSK-B1M$0$20220529",
+    "AD-JSK-B1M$0$X-temp-REV-2022-714",
+    "AD-JSK-B1M$0$X-temp-REV-2022-719",
+    "AD-JSK-B1M$0$X-temp-REV-2022-727",
+    "AD-JSK-B1M$0$X-temp-REV-2022-81",
+    "AD-JSK-B1M$0$X-temp-REV-2022-811",
+    "AD-LT-B1M$0$Slab",
+    "AD-LT-B1M$0$X-temp-REV-2022-725",
+    "AD-WALL-B1M$0$X-temp-REV-2022-523",
+    "AD-WALL-B1M$0$X-temp-REV-2022-525",
+    "AD-WALL-B1M$0$X-temp-REV-2022-530",
+    "AD-WALL-B1M$0$X-temp-REV-2022-526",
+    "AD-WALL-B1M$0$X-temp-REV-2022-61",
+    "AD-WALL-B1M$0$X-temp-REV-2022-65",
+    "AD-WALL-B1M$0$X-temp-REV-2022-68",
+    "AD-WALL-B1M$0$X-temp-REV-2022-69",
+    "AD-WALL-B1M$0$DIM-MODI-20220618",
+    "AD-WALL-B1M$0$DIM_MODI",
+    "AD-WALL-B1M$0$X-temp-REV-2022-628",
+    "AD-WALL-B1M$0$X-temp-REV-2022-629",
+    "AD-WALL-B1M$0$X-temp-REV-2022-71",
+    "AD-WALL-B1M$0$X-temp-REV-2022-74",
+    "AD-WALL-B1M$0$X-temp-REV-2022-75",
+    "AD-WALL-B1M$0$X-temp-REV-2022-76",
+    "AD-WALL-B1M$0$chenqing202207",
+    "AD-WALL-B1M$0$X-temp-REV-2022-77",
+    "AD-WALL-B1M$0$X-temp-REV-2022-78",
+    "AD-WALL-B1M$0$X-temp-REV-2022-711",
+    "AD-WALL-B1M$0$X-temp-REV-2022-712",
+    "AD-WALL-B1M$0$X-temp-REV-2022-714",
+    "AD-WALL-B1M$0$X-temp-REV-2022-716",
+    "AD-WALL-B1M$0$X-temp-REV-2022-721",
+    "AD-WALL-B1M$0$X-temp-REV-2022-728",
+    "AD-WALL-B1M$0$X-temp-REV-2022-82",
+    "AD-WALL-B1M$0$0L_CALL",
+    "AD-WALL-RF-B1M$0$20220518",
+    "AD-WALL-RF-B1M$0$20220606",
+    "AD-WALL-RF-B1M$0$chenqing202207",
+    "AD-WALL-RF-B1M$0$X-temp-REV-2022-722",
+    "AD-WALL-RF-B1M$0$20220811",
+    "SD-COLU-M1F$0$S-colu_text",
+    "S-C1~C03（地下室B1MF）-colu$0$S-colu_steel-text-B1MF",
+    "S-C1~C03（地下室B1MF）-colu$0$0725",
+    "S-C1~C03（地下室B1MF）-colu$0$0728",
+    "SD-COLU-M1F$0$修改0115",
+    "SD-COLU-M1F$0$修改0120",
+    "SD-COLU-M1F$0$修改0225",
+    "SD-COLU-M1F$0$修改0320",
+    "SD-COLU-M1F$0$修改0331",
+    "SD-COLU-M1F$0$修改0407",
+    "SD-COLU-M1F$0$修改0412",
+    "SD-COLU-M1F$0$修改0427",
+    "SD-COLU-M1F$0$修改0515",
+    "S-8#-COLU-B1MF$0$-S-wall_text_DD",
+    "S-8#-COLU-B1MF$0$-S_subline1212_(结改05)综合变更",
+    "SD-COLU-M1F$0$修改0622",
+    "SD-COLU-M1F$0$1F层墙柱$0$修改-20220129",
+    "SD-COLU-M1F$0$1F层墙柱$0$修改-20220216",
+    "SD-COLU-M1F$0$1F层墙柱$0$修改-20220301",
+    "SD-COLU-M1F$0$1F层墙柱$0$修改-20220307",
+    "SD-COLU-M1F$0$修改0725",
+    "S-COLU-B1MF-11#$0$对比上一版图纸修改内容",
+    "SD-COLU-M1F$0$修改0730",
+    "SD-COLU-M1F$0$修改0828",
+    "SD-COLU-LT-B1MF$0$20211020 50%DD后修改",
+    "SD-COLU-LT-B1MF$0$20211025 50%DD后修改",
+    "SD-COLU-LT-B1MF$0$20211030 50%后修改",
+    "SD-COLU-LT-B1MF$0$20211103 50%DD后修改",
+    "SD-COLU-LT-B1MF$0$20211104 50%后修改",
+    "SD-COLU-LT-B1MF$0$20211106 50%后修改",
+    "SD-COLU-LT-B1MF$0$20211109 50%DD后修改",
+    "SD-COLU-LT-B1MF$0$修改1115",
+    "SD-COLU-LT-B1MF$0$修改1124",
+    "SD-COLU-LT-B1MF$0$20211129 90%DD后修改1",
+    "SD-COLU-LT-B1MF$0$修改1203",
+    "SD-COLU-LT-B1MF$0$20211212 合模型后修改",
+    "SD-COLU-LT-B1MF$0$修改1209",
+    "SD-COLU-LT-B1MF$0$修改1217",
+    "SD-COLU-LT-B1MF$0$修改1221",
+    "SD-COLU-LT-B1MF$0$修改1226",
+    "SD-COLU-LT-B1MF$0$修改1229",
+    "SD-COLU-LT-B1MF$0$修改1231",
+    "SD-COLU-LT-B1MF$0$修改0115",
+    "SD-COLU-LT-B1MF$0$修改0120",
+    "SD-COLU-LT-B1MF$0$修改0209",
+    "SD-COLU-LT-B1MF$0$修改0821",
+    "P-D-M1F$0$PTA－TZ水提建筑条件20220727",
+    "P-D-M1F$0$PTE－TZ水提电气条件20220727",
+    "P-D-M1F$0$PTE－TZ水提电气条件20220808",
+    "E-X-LDLC-M1$0$20220705修改",
+    "E-X-LDLC-M1$0$20220715修改",
+    "E-X-LDLC-M1$0$20220805电气修改",
+    "E-X-LDLC-M1$0$20220728省院智能化留洞提结构",
+    "E-X-LDLC-M1$0$20220804云楼剪力墙上开洞标高调整",
+    "E-X-LDLC-M1$0$EL-TG",
+    "E-X-LDLC-M1$0$20220809增加出室外穿梁套管",
+    "E-X-LDLC-M1$0$X-temp-REV-2022-81",
+    "E-X-LDLC-M1$0$20220819出室外穿梁套管移位",
+    "H-TJ-B1M$0$ACS_DLJ_SBBZ",
+    "H-TJ-B1M$0$ACS_KT_BZ",
+    "H-TJ-B1M$0$20220520  暖通提资",
+    "H-TJ-B1M$0$20220613  暖通提资",
+    "H-TJ-B1M$0$20220630  暖通提资",
+    "H-TJ-B1M$0$20220704  暖通提资",
+    "H-TJ-B1M$0$ACS_DLJ_SNJ",
+    "H-TJ-B1M$0$20220711  暖通提资",
+    "H-TJ-B1M$0$20220712  暖通提资",
+    "H-TJ-B1M$0$20220715  暖通提资",
+    "H-TJ-B1M$0$ACS-百叶面积",
+    "H-TJ-B1M$0$20220725  暖通提资",
+    "H-TJ-B1M$0$20220729  暖通修改",
+    "H-TJ-B1M$0$20220730  暖通提资",
+    "H-TJ-B1M$0$20220818 暖通提资百叶",
+    "A-11-PMDT-B1MF$0$X-temp-CHECK",
+    "A-11#-B1MF-DOTE$0$Xsy-220825",
+    "A-11-PMDT-B1MF$0$非出图范围",
+    "AD-LIMLT-BM1$0$AUDIT_I_220225151948-16",
+    "AD-LIMLT-BM1$0$AUDIT_I_220225151948-19",
+    "AD-LIMLT-BM1$0$AUDIT_I_220225151948-20",
+    "AD-LIMLT-BM1$0$20211229",
+    "AD-LIMLT-BM1$0$20220104",
+    "AD-LIMLT-BM1$0$20220105",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-18",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-39",
+    "AD-LIMLT-BM1$0$202201011",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-110",
+    "AD-LIMLT-BM1$0$202201014",
+    "AD-LIMLT-BM1$0$20220727",
+    "AD-LIMLT-BM1$0$20220118",
+    "AD-LIMLT-BM1$0$20220121",
+    "AD-LIMLT-BM1$0$20220124",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-211",
+    "AD-LIMLT-BM1$0$20220218",
+    "AD-LIMLT-BM1$0$20220224",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-33",
+    "AD-LIMLT-BM1$0$20220304",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-38",
+    "AD-LIMLT-BM1$0$20220315",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-316",
+    "AD-LIMLT-BM1$0$20220323",
+    "AD-LIMLT-BM1$0$20220324",
+    "AD-LIMLT-BM1$0$20220329",
+    "AD-LIMLT-BM1$0$20220401",
+    "AD-LIMLT-BM1$0$20220402",
+    "AD-LIMLT-BM1$0$20220406",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-420",
+    "AD-LIMLT-BM1$0$20220421",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-425",
+    "AD-LIMLT-BM1$0$20220506",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-59",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-510",
+    "AD-LIMLT-BM1$0$20220511",
+    "AD-LIMLT-BM1$0$风井面积",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-511",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-524",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-525",
+    "AD-LIMLT-BM1$0$20220527",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-530",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-531",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-61",
+    "AD-LIMLT-BM1$0$20220606",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-68",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-610",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-611",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-616",
+    "AD-LIMLT-BM1$0$20220617",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-71",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-74",
+    "AD-LIMLT-BM1$0$20220701",
+    "AD-LIMLT-BM1$0$20220704",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-78",
+    "AD-LIMLT-BM1$0$20220707",
+    "AD-LIMLT-BM1$0$20220709",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-711",
+    "AD-LIMLT-BM1$0$20220713",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-713",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-714",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-715",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-716",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-718",
+    "AD-LIMLT-BM1$0$20220720",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-722",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-726",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-728",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-730",
+    "AD-LIMLT-BM1$0$2022.7.30修改",
+    "AD-LIMLT-BM1$0$20220805",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-81",
+    "AD-LIMLT-BM1$0$20220808",
+    "AD-LIMLT-BM1$0$20220811",
+    "AD-LIMLT-BM1$0$20220815",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-816",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-817",
+    "AD-LIMLT-BM1$0$X-temp-REV-2022-825",
+    "BIM层$0$LINE-BLDG-MULTI",
+    "BIM层$0$LINE-RED1",
+    "BIM层$0$LINE-RED",
+    "BIM层$0$ELVT-ROAD",
+    "BIM层$0$ELVT-SLOPE",
+    "BIM层$0$A-ELVT-ROAD1",
+    "BIM层$0$---绿带-K",
+    "BIM层$0$FIRE-ROAD1",
+    "BIM层$0$FIE-ROAD2",
+    "BIM层$0$X-temp-REV-2022-624",
+    "BIM层$0$X-temp-REV-2022-71",
+    "BIM层$0$X-temp-REV-2022-725",
+    "BIM层$0$20220822",
+    "AD-LTD-B1M$0$20211206",
+    "AD-LTD-B1M$0$20211207",
+    "AD-LTD-B1M$0$20211216",
+    "AD-LTD-B1M$0$20211222",
+    "AD-LTD-B1M$0$20211227",
+    "AD-LTD-B1M$0$20220104",
+    "AD-LTD-B1M$0$20220105",
+    "AD-LTD-B1M$0$20220121",
+    "AD-LTD-B1M$0$20220224",
+    "AD-LTD-B1M$0$20220218",
+    "AD-LTD-B1M$0$X-temp-REV-2022-218",
+    "AD-LTD-B1M$0$20220228",
+    "AD-LTD-B1M$0$20220302",
+    "AD-LTD-B1M$0$20220312",
+    "AD-LTD-B1M$0$20220325",
+    "AD-LTD-B1M$0$20220523",
+    "AD-LTD-B1M$0$X-temp-REV-2022-714",
+    "AD-LTD-B1M$0$DIM_MODI",
+    "AD-LTD-B1M$0$X-temp-REV-2022-719",
+    "AD-LTD-B1M$0$20220727",
+    "AD-LTD-B1M$0$X-temp-REV-2022-82",
+    "AD-LTD-B1M$0$20220801",
+    "AD-LTD-B1M$0$20220808",
+    "A-11-PMDT-B1MF$0$Xsy-220822",
+    "A-11-PMDT-B1MF$0$Xsy-220825",
+    "A-C2-LT-M1F$0$X-temp-REV-2022-711",
+    "A-C2-LT-M1F$0$X-temp-REV-2022-816",
+    "A-C2-LT-M1F$0$Xsy-220819",
+    "P-C2-BM1F$0$PTE－ZP自喷用电设备",
+    "P-C2-BM1F$0$修改示意-水",
+    "P-C2-BM1F$0$PTE－TZ水提电气条件20220721",
+    "P-C2-BM1F$0$PTA－TZ水提建筑条件20220722",
+    "P-C2-BM1F$0$PTE－TZ水提电气条件20220727",
+    "P-C2-BM1F$0$PTE－TZ水提电气条件20220822",
+    "P-C2-BM1F$0$PTE－TZ水提电气条件20220828",
+    "P-C2-BM1F$0$PTA－TZ水提建筑条件20220828",
+    "P-C3-B1MF$0$PTP－PS重力废水立管编号",
+    "P-C3-B1MF$0$PTP－ZP自喷立管编号",
+    "P-C3-B1MF$0$PTP－ZP自喷标注",
+    "P-C3-B1MF$0$PTP－ZP自喷立管编号1区",
+    "P-C3-B1MF$0$PTP－ZY直饮水立管编号1区",
+    "P-C3-B1MF$0$PTP－ZP高空水炮立管编号",
+    "P-C3-B1MF$0$PTP－XH消火栓阀门",
+    "P-C3-B1MF$0$PTP－XH消火栓立管编号1区",
+    "P-C3-B1MF$0$PTP－ZY直饮回水立管编号1区",
+    "P-C3-B1MF$0$PTP－JS给水立管编号0区",
+    "P-C3-B1MF$0$PTP－PS重力废水阀门",
+    "P-C3-B1MF$0$PTA－PS重力废水立管",
+    "P-C3-B1MF$0$PTA－TZ水提建筑条件20220829",
+    "P-C3-B1MF$0$PTE－ZP自喷用电设备",
+    "P-C1-B1M消火栓$0$PTW－XHZ消火栓立管定位",
+    "P-C1-B1M消火栓$0$PTA－TZ水提建筑条件20220818",
+    "AD-P-M1$0$0-业主需求-不打印图层",
+    "AD-P-M1$0$X-temp-REV-2022-110",
+    "AD-P-M1$0$X-temp-REV-2022-33",
+    "AD-P-M1$0$风井面积",
+    "AD-P-M1$0$A-wall-GLAZG",
+    "AD-FHFQ-B1M$0$X-AREA-J",
+    "AD-FHFQ-B1M$0$A-PATT-252图案填充252",
+    "AD-FHFQ-B1M$0$X-temp-REV-2021-1018",
+    "AD-FHFQ-B1M$0$0-业主需求-不打印图层",
+    "AD-P-M1$0$chenqing202206",
+    "A-T5-Wall-B1MF$0$A-Dims",
+    "A-T5-PMDT-B1MF$0$PUB_HATCH",
+    "A-T5-PMDT-B1MF$0$A-text",
+    "A-T5-PMDT-B1MF$0$DIM_LEAD",
+    "A-T5-PMDT-B1MF$0$A-floor-HATCH",
+    "A-T6-PMDT-B1MF$0$A-Dims",
+    "G-10-B1MF$0$地下室",
+    "G-10-B1MF$0$ACS_GAS_BZ",
+    "G-10-B1MF$0$燃气提资",
+    "A-T6-PMDT-B1MF$0$20220822",
+    "SD-BEAM-M1F$0$修改0523",
+    "SD-BEAM-M1F$0$修改0606",
+    "SD-BEAM-M1F$0$修改0613",
+    "AD-P-M1$0$chenqing202207",
+    "AD-P-M1$0$X-temp-REV-2022-77",
+    "AD-P-M1$0$ACS_COM",
+    "AD-P-M1$0$20220601  暖通提资",
+    "AD-P-M1$0$X-temp-REV-2022-714",
+    "AD-P-M1$0$X-temp-REV-2022-74",
+    "AD-P-M1$0$裙房消火栓$0$9-20211103",
+    "AD-P-M1$0$裙房消火栓$0$P-TEXT",
+    "AD-P-M1$0$裙房消火栓$0$P-XFTEXT",
+    "AD-P-M1$0$裙房消火栓$0$P-LG上空",
+    "AD-P-M1$0$X-temp-REV-2022-811",
+    "A-C3-LT-M1F$0$X-temp-REV-2022-824"
+  ],
+  "off_names": [
+    "H-TJ-B1M$0$20220823  暖通提资",
+    "P-C3-B1MF$0$PTP－JS给水阀门",
+    "P-C3-B1MF$0$PTP－JS给水立管编号",
+    "P-C3-B1MF$0$PTP－JS给水设备",
+    "P-T6-B1MF$0$PTP－XH灭火器",
+    "P-T6-B1MF$0$PTP－ZP自喷设备",
+    "AD-P-M1$0$G_YX（云线）202110.08",
+    "AD-P-M1$0$2022.01.24-地铁顶棚以及冷站轮廓调整",
+    "AD-P-M1$0$厨房提资$0$KIT-WALL",
+    "AD-P-M1$0$厨房提资$0$厨房顾问提资$0$KIT-WALL",
+    "AD-P-M1$0$地铁出入口楼梯$0$WINDOW_TEXT",
+    "AD-P-M1$0$2022.05.27-XFYJYX",
+    "AD-P-M1$0$2022.07.14-"
+  ],
+  "layer_count": 1847,
+  "frozen_count": 297,
+  "off_count": 13
+}

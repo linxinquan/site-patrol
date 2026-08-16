@@ -426,6 +426,25 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(404, {"error": "OCF_NOT_FOUND", "key": key,
                                       "hint": "先调 POST /api/cad/dwgToOcf 生成，或放置到 ocf_cache/<key>.ocf"})
             return
+        if path.startswith("/api/ocf-meta/"):
+            key = path.split("/api/ocf-meta/", 1)[1]
+            meta_path = os.path.join(OCF_DIR, f"{key}_meta.json")
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        biz = json.load(f)
+                    # 只返回 layers 和 deflayout（避免传输 layout 列表过大）
+                    self._send_json(200, {
+                        "deflayout": biz.get("deflayout"),
+                        "layouts": biz.get("layouts", []),
+                        "layers": biz.get("layers", []),
+                    })
+                except Exception as e:
+                    self._send_json(500, {"error": "META_READ_FAIL", "msg": str(e)})
+            else:
+                self._send_json(404, {"error": "META_NOT_FOUND", "key": key,
+                                      "hint": "先调 POST /api/cad/getDwgInfo 生成元数据"})
+            return
         if path in ("/", "/health", "/api/cad/health"):
             self._send_json(200, {"status": "ok", "ocf_dir": OCF_DIR,
                                   "configured": is_configured(),
