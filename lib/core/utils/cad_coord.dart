@@ -32,6 +32,17 @@ class CadCoordMapper {
   /// 图纸坐标高度范围（mm）：worldTop - worldBottom
   final double worldHeight;
 
+  // ---- 仿射校准模式（截图底图 + 单点/两点校准生成 {a,b,c,d,e,f}）----
+  /// 是否使用仿射系数模式（而非视图范围模式）。
+  final bool useAffine;
+  /// 仿射系数：worldX = a*px + c ；worldY = d*py + f
+  final double a;
+  final double b;
+  final double c;
+  final double d;
+  final double e;
+  final double f;
+
   const CadCoordMapper({
     required this.viewWidth,
     required this.viewHeight,
@@ -39,7 +50,72 @@ class CadCoordMapper {
     required this.worldTop,
     required this.worldWidth,
     required this.worldHeight,
+    this.useAffine = false,
+    this.a = 0,
+    this.b = 0,
+    this.c = 0,
+    this.d = 0,
+    this.e = 0,
+    this.f = 0,
   });
+
+  /// 从仿射校准系数 {a,b,c,d,e,f} 构建（截图底图校准模式）。
+  /// 像素坐标 (px,py) → 世界坐标：X = a*px + b*py + c；Y = d*px + e*py + f。
+  /// 常规截图底图（无旋转、X 单向、Y 单向）时 b=e=0，即为：
+  ///   X = a*px + c；Y = d*py + f。
+  factory CadCoordMapper.fromAffine({
+    required double viewWidth,
+    required double viewHeight,
+    double a = 0,
+    double b = 0,
+    double c = 0,
+    double d = 0,
+    double e = 0,
+    double f = 0,
+  }) =>
+      CadCoordMapper(
+        viewWidth: viewWidth,
+        viewHeight: viewHeight,
+        worldLeft: 0,
+        worldTop: 0,
+        worldWidth: 0,
+        worldHeight: 0,
+        useAffine: true,
+        a: a,
+        b: b,
+        c: c,
+        d: d,
+        e: e,
+        f: f,
+      );
+
+  /// 从校准数据 JSON Map 构建（兼容 HTML 端 `cad_calib` / 分享链接 / 离线文件格式）。
+  /// 接受的 key：{a,b,c,d,e,f}（必），可带 imgW/imgH（可选，用于校验/提示）。
+  factory CadCoordMapper.fromCalibrationMap(Map<String, dynamic> m) {
+    num n(dynamic k, [num def = 0]) => (m[k] as num?) ?? def;
+    return CadCoordMapper.fromAffine(
+      viewWidth: n('imgW', 1).toDouble(),
+      viewHeight: n('imgH', 1).toDouble(),
+      a: n('a').toDouble(),
+      b: n('b').toDouble(),
+      c: n('c').toDouble(),
+      d: n('d').toDouble(),
+      e: n('e').toDouble(),
+      f: n('f').toDouble(),
+    );
+  }
+
+  /// 仿射系数序列化（用于本地持久化 / 导出 / 分享）。
+  Map<String, dynamic> toCalibrationMap() => {
+        'imgW': viewWidth,
+        'imgH': viewHeight,
+        'a': a,
+        'b': b,
+        'c': c,
+        'd': d,
+        'e': e,
+        'f': f,
+      };
 
   /// 从后端 getPixelImage 返回的 viewsize 构建换算器。
   ///
@@ -73,6 +149,12 @@ class CadCoordMapper {
   /// 屏幕像素坐标 -> 图纸坐标（未考虑平移/缩放变换）。
   /// [px]、[py] 为整图坐标系下的像素位置（0..viewWidth, 0..viewHeight）。
   Offset screenToWorld(double px, double py) {
+    if (useAffine) {
+      // 仿射校准：worldX = a*px + b*py + c；worldY = d*px + e*py + f
+      final wx = a * px + b * py + c;
+      final wy = d * px + e * py + f;
+      return Offset(wx, wy);
+    }
     final wx = worldLeft + px * scaleX;
     final wy = worldTop - py * scaleY; // Y 轴向下为屏幕正向，图纸 Y 向上
     return Offset(wx, wy);
@@ -80,6 +162,12 @@ class CadCoordMapper {
 
   /// 图纸坐标 -> 屏幕像素坐标（screenToWorld 的逆变换）。
   Offset worldToScreen(double wx, double wy) {
+    if (useAffine) {
+      // 仅支持无旋转情形（b=e=0）：px=(wx-c)/a；py=(wy-f)/d
+      final px = (a.abs() > 1e-9) ? (wx - c) / a : 0.0;
+      final py = (d.abs() > 1e-9) ? (wy - f) / d : 0.0;
+      return Offset(px, py);
+    }
     final px = (wx - worldLeft) / scaleX;
     final py = (worldTop - wy) / scaleY;
     return Offset(px, py);

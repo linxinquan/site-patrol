@@ -328,6 +328,22 @@
   </div>
 
   <div class="divider"></div>
+
+  <div class="field" style="margin-bottom:6px;">
+  <label>带去工地 · 携带方式</label>
+  <div class="btn-row" style="margin-top:0;">
+    <button class="btn" onclick="exportCalibration()">复制参数</button>
+    <button class="btn" onclick="copyCalibLink()">复制链接</button>
+    <button class="btn primary" onclick="downloadStandalone()">下载离线文件</button>
+  </div>
+  <div class="sub" style="margin-top:8px;font-size:11px;color:#9CA3AF;line-height:1.5;">
+    「复制链接」发微信即可（需服务器）。「下载离线文件」把底图+校准打成一个独立 HTML，双击即用、无需服务器，最适合工地无网电脑。
+  </div>
+    <textarea id="calib-text" rows="3" readonly placeholder="最省事：点「复制链接」→ 发微信/存书签；工地打开该链接自动校准。备选：复制参数文本或导入粘贴。"
+      style="width:100%;margin-top:8px;padding:8px 10px;background:#F5F6F8;border:1px solid transparent;border-radius:10px;font-size:12px;color:#6B7280;font-family:monospace;resize:vertical;outline:none;"></textarea>
+    <div class="status" id="calib-io-status" style="display:none;">已复制链接：发到微信/存书签，工地打开即自动校准。</div>
+  </div>
+
   <div class="btn-row">
     <button class="btn" onclick="resetCalibration()">重置校准</button>
     <button class="btn" onclick="loadBaseImage()">加载新底图</button>
@@ -563,7 +579,8 @@
     var e = -1 / scale, f = imgH / 2 / scale;
     var calcX = a * SINGLE_POINT_PT.px + c;
     var calcY = e * SINGLE_POINT_PT.py + f;
-    MAP = { a: a, b: 0, c: c + (wx - calcX), d: 0, e: e, f: f + (wy - calcY) };
+    // ★ 修复：imagePxToWorld 用 MAP.d 读 Y 系数，这里必须把 Y 系数存到 d（而不是 e）
+    MAP = { a: a, b: 0, c: c + (wx - calcX), d: e, e: 0, f: f + (wy - calcY) };
     SINGLE_POINT_MODE = false;
     svg.classList.remove('active');
     setBadge(true, '已校准');
@@ -638,6 +655,250 @@
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     try { localStorage.removeItem(calibStorageKey()); } catch (e) {}
     setCoord('已重置校准（并清除已保存的参数）', true);
+  }
+
+  // ============ 校准参数 导出 / 导入 ============
+  function calibExportText() {
+    if (!MAP) return null;
+    var payload = {
+      v: 1,                          // 版本号
+      key: DRAWING_KEY,              // 图纸 key
+      img: (imgEl.getAttribute('src') || '').split('/').pop(), // 底图文件名
+      imgW: imgEl.naturalWidth, imgH: imgEl.naturalHeight,     // 图片尺寸（用于导入校验）
+      paperW: 1489, paperH: 844,     // 物理页尺寸（可选信息）
+      m: { a: MAP.a, b: MAP.b, c: MAP.c, d: MAP.d, e: MAP.e, f: MAP.f },
+      time: Date.now()
+    };
+    return JSON.stringify(payload);
+  }
+  // URL-safe base64 编解码（把 JSON 塞进 URL 查询串）
+  function b64encodeUrl(str) {
+    // 先转 UTF-8 字节再 base64，避免中文乱码；再转 URL-safe（+ / = → - _ ''）
+    var bytes = new TextEncoder().encode(str);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64decodeUrl(str) {
+    var b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+  }
+  // 生成"带校准参数的分享链接"（参数编码进 URL）
+  function calibShareURL() {
+    if (!MAP) return null;
+    var text = calibExportText();
+    var encoded = b64encodeUrl(text);
+    var url = new URL(location.href);
+    url.searchParams.set('calib', encoded);
+    return url.toString();
+  }
+  function copyCalibLink() {
+    var url = calibShareURL();
+    var statusEl = $('calib-io-status');
+    var ta = $('calib-text');
+    if (!url) {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '当前还没有校准参数，请先做一次校准再复制链接。';
+      statusEl.style.display = 'block';
+      return;
+    }
+    ta.value = '分享链接（含校准参数）：' + url;
+    function done(ok) {
+      statusEl.className = 'status ok';
+      statusEl.textContent = ok;
+      statusEl.style.display = 'block';
+    }
+    function fallback() { done('链接已生成，请手动全选复制上方文本框内容。'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        done('链接已复制！发到微信/存书签，工地打开该链接即自动校准。');
+      }).catch(fallback);
+    } else {
+      ta.removeAttribute('readonly');
+      ta.focus(); ta.select();
+      fallback();
+    }
+  }
+  // 生成"自包含离线 HTML"：底图 base64 内嵌 + 校准参数内嵌，双击即用、无需服务器
+  function downloadStandalone() {
+    var statusEl = $('calib-io-status');
+    var imgSrc = imgEl.getAttribute('src') || '';
+    // 需要底图能跨域读取（本页与底图同源，file:// 或 http 均可）
+    var canvas = document.createElement('canvas');
+    var imgForData = new Image();
+    imgForData.crossOrigin = 'anonymous';
+    imgForData.onload = function () {
+      try {
+        canvas.width = imgForData.naturalWidth;
+        canvas.height = imgForData.naturalHeight;
+        canvas.getContext('2d').drawImage(imgForData, 0, 0);
+        var dataUri = canvas.toDataURL('image/png');
+        // 抓取本页完整 HTML 源码
+        fetch(location.href, { cache: 'no-store' })
+          .then(function (r) { return r.text(); })
+          .then(function (html) {
+            // 替换底图 src（原相对路径）为 data URI
+            var baseName = imgSrc.split('/').pop();
+            html = html.replace(new RegExp('(src=")([^"]*' + baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')(")', 'g'), '$1' + dataUri + '$3');
+            // 注入校准参数（若存在）
+            var calibJson = calibExportText() || '';
+            // 注入一个内嵌配置变量，供加载逻辑识别"离线自包含文件"
+            var inject = '\n  // <<<EMBEDDED_CALIB>>> 离线自包含文件内嵌数据\n  window.__EMBEDDED_CALIB__ = ' + (calibJson ? calibJson : 'null') + ';\n  // <<<EMBEDDED_CALIB_END>>>\n';
+            // 在 script 起始 (function(){ 之后注入
+            html = html.replace('(function () {\n  \'use strict\';', '(function () {\n  \'use strict\';' + inject);
+            var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (DRAWING_KEY || 'cad') + '_standalone.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 3000);
+            statusEl.className = 'status ok';
+            statusEl.textContent = '已生成离线文件「' + a.download + '」：双击即可使用，无需服务器。';
+            statusEl.style.display = 'block';
+          })
+          .catch(function (err) {
+            statusEl.className = 'status warn';
+            statusEl.textContent = '生成失败：无法读取页面源码（' + err.message + '）。请通过 http://localhost:8010 打开后重试。';
+            statusEl.style.display = 'block';
+          });
+      } catch (e) {
+        statusEl.className = 'status warn';
+        statusEl.textContent = '生成失败：底图转码出错（' + e.message + '）。';
+        statusEl.style.display = 'block';
+      }
+    };
+    imgForData.onerror = function () {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '生成失败：无法读取底图（跨域或文件缺失）。';
+      statusEl.style.display = 'block';
+    };
+    imgForData.src = imgSrc;
+  }
+  // 从"离线自包含文件"内嵌数据恢复校准（downloadStandalone 生成的文件）
+  function applyEmbeddedCalib() {
+    var payload = window.__EMBEDDED_CALIB__;
+    if (!payload) return false;
+    try {
+      if (!payload.m) return false;
+      var curW = imgEl.naturalWidth, curH = imgEl.naturalHeight;
+      var sizeOk = true;
+      if (payload.imgW && payload.imgH && (payload.imgW !== curW || payload.imgH !== curH)) sizeOk = false;
+      MAP = {
+        a: payload.m.a, b: payload.m.b, c: payload.m.c,
+        d: payload.m.d, e: payload.m.e, f: payload.m.f
+      };
+      saveCalibration();
+      drawCalibMarkers();
+      setBadge(true, '已校准 (离线文件)');
+      setCoord(sizeOk ? '已通过离线文件自动校准，点击「定位」使用' : '离线文件底图尺寸与当前不符，定位可能有偏差', true);
+      return true;
+    } catch (e) { console.warn('[CAD] 内嵌校准解析失败:', e); return false; }
+  }
+  // 从 URL 解析并应用校准参数（页面加载时调用，工地点开分享链接即自动校准）
+  function applyCalibFromURL() {
+    try {
+      var raw = new URLSearchParams(location.search).get('calib');
+      if (!raw) return false;
+      var json = b64decodeUrl(raw);
+      var payload = JSON.parse(json);
+      if (!payload || !payload.m) return false;
+      // 尺寸校验：不一致时给警告，但允许继续（分享链接主要用于同款底图）
+      var curW = imgEl.naturalWidth, curH = imgEl.naturalHeight;
+      var sizeOk = true;
+      if (payload.imgW && payload.imgH && (payload.imgW !== curW || payload.imgH !== curH)) sizeOk = false;
+      MAP = {
+        a: payload.m.a, b: payload.m.b, c: payload.m.c,
+        d: payload.m.d, e: payload.m.e, f: payload.m.f
+      };
+      saveCalibration();
+      drawCalibMarkers();
+      if (sizeOk) {
+        setBadge(true, '已校准 (链接导入)');
+        setCoord('已通过分享链接自动校准，点击「定位」使用', true);
+      } else {
+        setBadge(true, '已校准 (链接, 尺寸不符)');
+        setCoord('注意：底图尺寸与分享时不一致，定位可能有偏差', true);
+      }
+      // 清除 URL 里的 calib，避免刷新时重复提示
+      try { history.replaceState({}, '', location.pathname + location.search.replace(/(&|\?)calib=[^&]*/, '')); } catch (e) {}
+      return true;
+    } catch (e) { console.warn('[CAD] URL 校准参数解析失败:', e); return false; }
+  }
+  function exportCalibration() {
+    var text = calibExportText();
+    var statusEl = $('calib-io-status');
+    var ta = $('calib-text');
+    if (!text) {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '当前还没有校准参数，请先做一次校准再导出。';
+      statusEl.style.display = 'block';
+      return;
+    }
+    ta.value = text;
+    // 尝试写入剪贴板
+    function done(okMsg) {
+      statusEl.className = 'status ok';
+      statusEl.textContent = okMsg;
+      statusEl.style.display = 'block';
+    }
+    function fallback() { done('已生成参数（请手动全选复制文本框内容）'); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        done('已复制到剪贴板：可粘贴到记事本 / 微信 / 邮件保存。');
+      }).catch(fallback);
+    } else {
+      ta.removeAttribute('readonly');
+      ta.focus(); ta.select();
+      fallback();
+    }
+  }
+  function importCalibration() {
+    var ta = $('calib-text');
+    var statusEl = $('calib-io-status');
+    var raw = ta.value.trim();
+    if (!raw) {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '请先粘贴要导入的参数文本。';
+      statusEl.style.display = 'block';
+      return;
+    }
+    var payload;
+    try { payload = JSON.parse(raw); } catch (e) {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '参数格式无效：不是合法的 JSON。';
+      statusEl.style.display = 'block';
+      return;
+    }
+    if (!payload || !payload.m) {
+      statusEl.className = 'status warn';
+      statusEl.textContent = '参数缺少映射数据 (m 字段)。';
+      statusEl.style.display = 'block';
+      return;
+    }
+    // 校验图片尺寸是否匹配（防止导入到错误的底图）
+    var curW = imgEl.naturalWidth, curH = imgEl.naturalHeight;
+    if (payload.imgW && payload.imgH && (payload.imgW !== curW || payload.imgH !== curH)) {
+      if (!confirm('当前底图尺寸 (' + curW + '×' + curH + ') 与参数记录的 (' +
+          payload.imgW + '×' + payload.imgH + ') 不一致，导入后定位可能不准。仍要继续导入吗？')) return;
+    }
+    MAP = {
+      a: payload.m.a, b: payload.m.b, c: payload.m.c,
+      d: payload.m.d, e: payload.m.e, f: payload.m.f
+    };
+    setBadge(true, '已校准 (导入)');
+    drawCalibMarkers();
+    saveCalibration();
+    statusEl.className = 'status ok';
+    statusEl.textContent = '导入成功！已应用并保存。点击「定位」开始使用。';
+    statusEl.style.display = 'block';
+    setCoord('已导入校准参数 (' + (payload.key || DRAWING_KEY) + ')', true);
+    setTimeout(function () { setUIMode('pick'); }, 600);
   }
 
   // ============ 一键重置所有缓存 ============
@@ -799,7 +1060,8 @@
     fitToWindow();
     drawCalibMarkers();
     showLoader(false);
-    if (!loadSavedCalibration()) {
+    // 优先：①离线自包含内嵌参数 → ②分享链接带参 → ③本机 localStorage
+    if (!applyEmbeddedCalib() && !applyCalibFromURL() && !loadSavedCalibration()) {
       setBadge(false, '未校准');
       setCoord('底图已就绪，请到「校准」做一次坐标映射（单点最简单）', true);
     }
@@ -832,6 +1094,10 @@
   window.resetCalibration = resetCalibration;
   window.loadBaseImage = loadBaseImage;
   window.resetAll = resetAll;
+  window.exportCalibration = exportCalibration;
+  window.importCalibration = importCalibration;
+  window.copyCalibLink = copyCalibLink;
+  window.downloadStandalone = downloadStandalone;
 
 })();
 </script>

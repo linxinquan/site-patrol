@@ -2,7 +2,7 @@
 import os, sys, http.server, socketserver, urllib.parse, posixpath
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'web')
-PORT = 8000
+PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
 
 CONTENT_TYPES = {
     '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',

@@ -8,6 +8,9 @@ import '../../data/repository/mock_repository.dart';
 import '../../data/repository/remote_repository.dart';
 import '../../data/cad_service.dart';
 import '../../core/env/env.dart';
+import '../../core/cad/cad_calibration.dart';
+import '../../core/utils/cad_coord.dart';
+import '../../core/storage/local_storage.dart';
 
 /// 数据仓库：dev 用 Mock，prod 用 Remote（后端就绪后实现）。UI 只依赖此 Provider。
 final repositoryProvider = Provider<Repository>((ref) {
@@ -71,13 +74,59 @@ final cadAnnotationsProvider =
 /// 当前是否处于「坐标标注」拾取模式（点击图纸打点）。
 final cadPickModeProvider = StateProvider<bool>((ref) => false);
 
-/// 当前项目的缺陷列表（按项目区分）。
+/// 校准参数本地存储服务（离线持久化）。
+final cadCalibrationStoreProvider = Provider<CadCalibrationStore>((ref) {
+  return CadCalibrationStore(LocalStorage.instance);
+});
+
+/// 各图纸的坐标校准映射（内存缓存，key = drawingKey）。
+/// 由图纸页在加载时通过 [loadCadCalibration] 填充；校准后通过 [saveCadCalibration] 更新。
+final cadCalibrationMapProvider =
+    StateProvider<Map<String, CadCoordMapper>>((ref) => {});
+
+/// 加载指定图纸的校准映射（从本地存储读，供图纸页坐标换算）。
+/// 返回 null 表示该图纸尚未校准。
+Future<CadCoordMapper?> loadCadCalibration(WidgetRef ref, String drawingKey) async {
+  final store = ref.read(cadCalibrationStoreProvider);
+  final mapper = await store.readCalibration(drawingKey);
+  if (mapper != null) {
+    final map = {...ref.read(cadCalibrationMapProvider), drawingKey: mapper};
+    ref.read(cadCalibrationMapProvider.notifier).state = map;
+  }
+  return mapper;
+}
+
+/// 保存指定图纸的校准映射（内存 + 本地持久化）。
+Future<void> saveCadCalibration(
+    WidgetRef ref, String drawingKey, CadCoordMapper mapper) async {
+  final map = {...ref.read(cadCalibrationMapProvider), drawingKey: mapper};
+  ref.read(cadCalibrationMapProvider.notifier).state = map;
+  await ref.read(cadCalibrationStoreProvider).saveCalibration(drawingKey, mapper);
+}
+
+/// 删除指定图纸的校准映射。
+Future<void> deleteCadCalibration(WidgetRef ref, String drawingKey) async {
+  final map = {...ref.read(cadCalibrationMapProvider)}..remove(drawingKey);
+  ref.read(cadCalibrationMapProvider.notifier).state = map;
+  await ref.read(cadCalibrationStoreProvider).deleteCalibration(drawingKey);
+}
+
+/// 当前项目的缺陷列表（按项目区分，走 Repository 以支持新增）。
 /// 7栋项目 → dy7Defects（与 7栋图纸对应的真实巡检数据）；
 /// 南科大 → defects（原有 6 条）。
-final defectsProvider = FutureProvider<List<Defect>>((ref) {
+/// 打点新增缺陷后需调用 [refreshDefects]（invalidate）刷新。
+final defectsProvider = FutureProvider<List<Defect>>((ref) async {
   final is7 = ref.watch(is7DongProjectProvider);
-  return Future.value(is7 ? dy7Defects : defects);
+  // 让 MockRepository 按当前项目分组返回缺陷
+  final repo = ref.read(repositoryProvider);
+  if (repo is MockRepository) repo.currentIs7 = is7;
+  return repo.getDefects();
 });
+
+/// 刷新缺陷列表（打点/新增缺陷后调用）。
+void refreshDefects(Ref ref) {
+  ref.invalidate(defectsProvider);
+}
 
 /// 缺陷列表筛选状态（null = 全部）。
 final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);

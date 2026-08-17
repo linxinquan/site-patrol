@@ -294,7 +294,7 @@ const List<Map<String, String>> blueprintDrawings = [
 
 const List<Floor> dy7Floors = [
   Floor(key: 'dy04_7_B05', name: '地下室夹层组合平面图', index: 0, cached: true, progress: 100, building: '7栋', floor: 'B1'),
-  Floor(key: 'dy04_7_B02', name: '地下一层顶板分区平面图(一)', index: 1, cached: true, progress: 100, building: '7栋', floor: 'B1'),
+  Floor(key: 'dy04_7_B02', name: '地下室夹层组合平面图', index: 1, cached: true, progress: 100, building: '7栋', floor: 'B1'),
   Floor(key: 'dy04_7_D01', name: 'A座 1-1 剖面图', index: 2, cached: true, progress: 100, building: '7栋', floor: '剖面'),
   Floor(key: 'dy04_7_D03', name: 'B座 剖面图绑定版', index: 3, cached: true, progress: 100, building: '7栋', floor: '剖面'),
   Floor(key: 'dy04_7_K01', name: '墙身详图（一）', index: 4, cached: true, progress: 100, building: '7栋', floor: '详图'),
@@ -308,9 +308,12 @@ const List<Floor> dy7Floors = [
 const Map<String, Drawing> dy7Drawings = {
   'dy04_7_B05': Drawing(
       key: 'dy04_7_B05', title: '地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B05'),
+      // ★ B05 截图底图（PDF 布局空间，4500×2551，对应物理页 1489×844mm），
+      // 配合 cad_calib 校准系数实现真实图纸坐标定位（已验证 <2mm）。
+      src: 'assets/drawings/dy04_7_B05_paper_hybrid.png', w: 4500, h: 2551, hotspots: [],
+      cadOcfKey: 'dy04_7_B05'),
   'dy04_7_B02': Drawing(
-      key: 'dy04_7_B02', title: '地下一层顶板分区平面图(一)', crumb: '7栋 B1', variant: 'plan',
+      key: 'dy04_7_B02', title: '地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
       src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B02'),
   'dy04_7_D01': Drawing(
       key: 'dy04_7_D01', title: 'A座 1-1 剖面图', crumb: '7栋 剖面', variant: 'section',

@@ -1,3 +1,3 @@
 @echo off
-cd /d "f:\GitHub\site-patrol"
+cd /d "%~dp0"
 python _start_server.py > _server.log 2>&1

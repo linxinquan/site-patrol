@@ -315,6 +315,12 @@ class Defect {
   final List<String> tags;
   final String note;
   final String seed;
+  /// 所属图纸 key（CAD 打点来源，可为空）。
+  final String? drawingKey;
+  /// 图纸坐标 X（mm，CAD 打点换算，用于图纸上回溯定位）。
+  final double? worldX;
+  /// 图纸坐标 Y（mm，CAD 打点换算，用于图纸上回溯定位）。
+  final double? worldY;
   const Defect({
     required this.id,
     required this.part,
@@ -333,7 +339,17 @@ class Defect {
     this.tags = const [],
     required this.note,
     required this.seed,
+    this.drawingKey,
+    this.worldX,
+    this.worldY,
   });
+
+  /// 是否有 CAD 图纸坐标（可回溯定位）。
+  bool get hasCadCoord => drawingKey != null && worldX != null && worldY != null;
+
+  /// CAD 坐标文本（"X=… Y=…"），无坐标时返回 null。
+  String? get coordText =>
+      hasCadCoord ? 'X=${worldX!.toStringAsFixed(1)}  Y=${worldY!.toStringAsFixed(1)}' : null;
 }
 
 class TimelinePhoto {

@@ -4,8 +4,8 @@ import 'repository.dart';
 
 /// Mock 实现：直接读本地常量 + assets。带小延迟以演示 loading 态。
 class MockRepository implements Repository {
-  /// 可变缺陷列表（从 mock 常量浅拷贝），addDefect 写入此处，getDefects 读此处。
-  final List<Defect> _defects = List.from(defects);
+  /// 可变缺陷列表（从 mock 常量浅拷贝，含全部项目），addDefect 写入此处，getDefects 读此处。
+  final List<Defect> _defects = List.from([...defects, ...dy7Defects]);
 
   Future<T> _delay<T>(T value) =>
       Future.delayed(const Duration(milliseconds: 350), () => value);
@@ -32,11 +32,23 @@ class MockRepository implements Repository {
       _delay(photoAnchors[floor] ?? const []);
 
   @override
-  Future<List<Defect>> getDefects({DefectStatus? status}) => _delay(
-        status == null
-            ? _defects
-            : _defects.where((d) => d.status == status).toList(),
-      );
+  Future<List<Defect>> getDefects({DefectStatus? status}) {
+    // 按项目返回：7栋缺陷（dy7Defects + 新增）+ 南科大缺陷（defects + 新增）。
+    final is7 = _currentIs7;
+    final base = is7 ? dy7Defects : defects;
+    final baseIds = base.map((d) => d.id).toSet();
+    final list = [
+      ...base,
+      ..._defects.where((d) => !baseIds.contains(d.id)),
+    ];
+    final filtered =
+        status == null ? list : list.where((d) => d.status == status).toList();
+    return _delay(filtered);
+  }
+
+  /// 当前项目是否 7栋（由 UI 侧在写入前设置，影响 getDefects 的分组）。
+  bool _currentIs7 = false;
+  set currentIs7(bool v) => _currentIs7 = v;
 
   @override
   Future<void> addDefect(Defect defect) {
