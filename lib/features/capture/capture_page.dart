@@ -196,8 +196,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         result = vision.defects
             .map((d) => VlDefect(
                   name: d.name,
-                  // severity 模型尚未返回，暂默认 mid；后端补返回严重程度后再映射
-                  severity: DefectSeverity.mid,
+                  // severity 模型尚未返回，暂默认 orange；后端补返回严重程度后再映射
+                  severity: DefectSeverity.orange,
                   // A 修复：传真实置信度，低 conf 会在卡片/工单中提示人工复核
                   conf: d.conf,
                   desc: d.desc,
@@ -298,6 +298,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         id: 'v${now.millisecondsSinceEpoch}_$i',
         part: '$_floor · $_anchorLabel · ${vl.name}',
         type: vl.name,
+        category: _guessCategory(vl.name),
         severity: vl.severity,
         status: DefectStatus.draft,
         anchor: _anchorLabel,
@@ -306,6 +307,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         gps: '未获取',
         alt: '未获取',
         resp: '待指派',
+        respUnit: '待指派',
+        reporter: '现场拍照',
+        tags: const ['AI 识别'],
         note: vl.desc ?? '',
         seed: String.fromCharCode(97 + (i % 6)), // a~f 轮替，水印配色多样
       ));
@@ -318,6 +322,25 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         kind: AppSnackKind.success);
     _saved = true;
     Navigator.of(context).pop();
+  }
+
+  /// 根据 AI 识别的缺陷名粗略推断专业分类（无法判断时归为「其他」）。
+  DefectCategory _guessCategory(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('裂缝') || n.contains('钢筋') || n.contains('沉降') ||
+        n.contains('梁') || n.contains('柱') || n.contains('板')) {
+      return DefectCategory.structure;
+    }
+    if (n.contains('渗') || n.contains('水') || n.contains('漏')) {
+      return DefectCategory.water;
+    }
+    if (n.contains('电') || n.contains('线')) {
+      return DefectCategory.electric;
+    }
+    if (n.contains('空鼓') || n.contains('涂') || n.contains('砖')) {
+      return DefectCategory.decoration;
+    }
+    return DefectCategory.other;
   }
 
   // —— 渲染 ——

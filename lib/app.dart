@@ -17,6 +17,8 @@ import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_page.dart';
+import 'features/auth/onboard_page.dart';
+import 'features/auth/onboard_project_page.dart';
 
 /// 全局路由（单例，含登录守卫）。登录状态变化时自动刷新并重定向。
 final routerProvider = Provider<GoRouter>((ref) {
@@ -29,19 +31,37 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final loggedIn = ref.read(authStateProvider) != null;
-      final onLogin = state.matchedLocation == '/login';
+      final onboarded = ref.read(onboardedProvider);
+      final loc = state.matchedLocation;
+      final onLogin = loc == '/login';
+      final onOnboard = loc == "/onboard" || loc.startsWith("/onboard/");
       // 根路径未匹配任何路由：交给守卫决定去向
-      if (state.matchedLocation == '/') {
-        return loggedIn ? '/home' : '/login';
+      if (loc == '/') {
+        if (!loggedIn) return '/login';
+        return onboarded ? '/home' : '/onboard';
       }
+      // 未登录只能去 login
       if (!loggedIn && !onLogin) return '/login';
-      if (loggedIn && onLogin) return '/home';
+      // 已登录且正在 login：去引导或首页
+      if (loggedIn && onLogin) return onboarded ? '/home' : '/onboard';
+      // 已登录但未引导，且不在 onboard：强制去 onboard
+      if (loggedIn && !onboarded && !onOnboard) return '/onboard';
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/onboard',
+        builder: (_, __) => const OnboardPage(),
+        routes: [
+          GoRoute(
+            path: 'project',
+            builder: (_, __) => const OnboardProjectPage(),
+          ),
+        ],
       ),
       ShellRoute(
         builder: (context, state, child) {

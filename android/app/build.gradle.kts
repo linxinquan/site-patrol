@@ -7,7 +7,8 @@ plugins {
 android {
     namespace = "com.example.gongdi_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // NDK 已注释：本项目为纯 Dart 项目，无原生代码，避免 Windows 下 NDK 路径过长导致下载/解压失败
+    // ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

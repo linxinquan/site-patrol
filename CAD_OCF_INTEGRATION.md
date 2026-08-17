@@ -1,15 +1,28 @@
 # DWG/OCF 前端览图集成（第二步）上下文文档
 
 > 本文档记录「CAD 转 OCF 轻量化 → 前端 JS SDK 渲染」第二步的完整进展、关键技术结论与待办，供后续续接时直接参考，避免重复调研与积分消耗。
+<<<<<<< HEAD
 > 上次更新：2026-08-14（周五）
+=======
+> 上次更新：2026-08-15（周六）
+>>>>>>> 6370f31da2db71c19c520854e93cae9c6807ac0e
 
 ---
 
 ## 0. 一句话现状
 
+<<<<<<< HEAD
 - **第一步（后端转换）已完成**：DWG → OCF 轻量化已打通，能拿到 `ocfUrl` 和 `fileId`。
 - **第二步（前端 SDK 渲染）**：SDK 接入方式已从官方文档完全摸清（`GStarSDK`），**但 `GStarSDK.js` 脚本本体尚未拿到**，正在向服务商浩辰技术邮件索取中。
 - **核心卡点**：只差一个 `GStarSDK.js` 文件，其余技术方案已全部落地为可执行计划。
+=======
+- **第一步（后端转换）已完成**：DWG → OCF 轻量化已打通，10 张 7栋图纸 OCF **已本地缓存于 `server/ocf_cache/`**（转换一次，永久复用，前端渲染 0 消耗浩辰次数）。
+- **第二步（前端 SDK 渲染）已完成打通**：
+  - `web/GStarSDK.js`（2.54MB，浩辰提供）已就位 `web/` 与 `build/web/`。
+  - 独立页 `web/cad_viewer.html` 完成：加载 OCF 本地缓存 → GStarSDK 矢量渲染 → 坐标拾取（`screenToWorld` 真图纸坐标）→ postMessage 回传 Flutter。
+  - Flutter 端 `drawing_viewer_page.dart` 已加「专业看图」入口，`_Toolbar` 首个按钮跳转 `cad_viewer.html?key=xxx`。
+- **核心链路已全部跑通**：8000 静态服务 + 8800 OCF 服务，CORS 全放开，双服务联通。
+>>>>>>> 6370f31da2db71c19c520854e93cae9c6807ac0e
 
 ---
 
@@ -149,6 +162,7 @@ gstarSDK.func.viewport.zoomE.main() / .close()     // 全图
 
 ## 7. 待办清单（下次续接）
 
+<<<<<<< HEAD
 - [ ] **P0** 跟进服务商邮件回复，拿 `GStarSDK.js` + HTML demo（邮件已发，订单号 CS2608121457NG4KM）
 - [ ] **P1** 写后端 CAD 代理：`/api/cad/dwgToOcf` / `getDwgInfo` / `getTaskStatus`（AppKey 留服务端）
 - [ ] **P1** 写 `web/cad_viewer.html` 骨架（GStarSDK.js 路径占位 `gstar-sdk/GStarSDK.js`）
@@ -156,6 +170,18 @@ gstarSDK.func.viewport.zoomE.main() / .close()     // 全图
 - [ ] **P2** 确认网关域名 `gstarcadsdk` vs `2dviewer` 哪个为准（已邮件问）
 - [ ] **P3** 兜底路线（PDF/pdf.js）做 MVP，不等 SDK
 - [ ] **记录** 服务商回复后更新本文档，删除已完成的临时标记
+=======
+- [x] **P0** 拿到 `GStarSDK.js` + 样例包（已收彭工邮件回复 + 「二维行业版前装.zip」；`setDynamicPW` 密钥可用）
+- [x] **P0** 写 `web/cad_viewer.html`（GStarSDK 矢量渲染 + 坐标拾取 postMessage 回传）
+- [x] **P1** 改 `drawing_viewer_page.dart` 加「专业看图」入口（`_Toolbar` 首按钮 → `/cad_viewer.html?key=xxx`）
+- [x] **P1** 确认网关域名：`gstarcadsdk.apistore.huaweicloud.com` 免费（查任务/取文件），`2dviewer` 收费（转换）——本课题只走前者 `render()` 即可，不消耗转换次数
+- [x] **P1** OCF 本地缓存：10 张 7栋图纸已存 `server/ocf_cache/`，前端渲染读本地流 0 扣次
+- [ ] **P1** 后端 CAD 代理收尾：`/api/cad/dwgToOcf` / `getDwgInfo` / `getTaskStatus`（AppKey 留服务端，已部分实现于 `ocf_server.py`）
+- [ ] **P2** 坐标拾取回传 Flutter：`cad_viewer.html` 已 postMessage，Flutter 端监听 `cad-pick` 事件落库（为轨迹/巡检打点铺路）
+- [ ] **P2** `cad_viewer.html` 内嵌到 Flutter（HtmlElementView）或保持独立页跳转（当前为独立页跳转，最稳）
+- [ ] **P3** 兜底路线（PDF/pdf.js）做 MVP（当前矢量渲染已通，此路线降级备用）
+- [ ] **记录** 答辩前在 iPad/安卓平板实测移动端兼容性（GStarSDK pan/zoom/measure）
+>>>>>>> 6370f31da2db71c19c520854e93cae9c6807ac0e
 
 ---
 

@@ -21,3 +21,7 @@ final initAuthProvider = FutureProvider<void>((ref) async {
 final isLoggedInProvider = Provider<bool>(
   (ref) => ref.watch(authStateProvider) != null,
 );
+
+/// 是否已完成「选择用户 + 选择项目」引导。
+/// 登录后先进入 /onboard 完成引导，才放行到 /home。
+final onboardedProvider = StateProvider<bool>((ref) => false);

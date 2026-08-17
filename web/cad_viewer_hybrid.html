@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <title>工地巡检 · CAD 截图版</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%; margin: 0; padding: 0;
+      background: #F5F6F8; color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      font-size: 14px; -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* ===== 顶栏 ===== */
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 60px;
+      background: #FFFFFF;
+      border-bottom: 1px solid #E5E7EB;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0 16px;
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(17,24,39,.06);
+    }
+    #topbar .btn {
+      height: 38px; min-width: 38px; padding: 0 14px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      border: 1px solid #E5E7EB; border-radius: 10px;
+      background: #FFFFFF; color: #374151;
+      font-size: 14px; font-weight: 600;
+      transition: all .15s;
+    }
+    #topbar .btn:hover { background: #F3F4F6; color: #111827; }
+    #topbar .btn.primary { background: #111827; border-color: #111827; color: #FFFFFF; }
+    #topbar .btn.primary:hover { background: #000; }
+    #topbar .btn.icon { padding: 0 9px; }
+    #topbar .btn svg { display: block; }
+
+    #topbar .title {
+      flex: 1; font-size: 16px; font-weight: 700; color: #111827;
+      letter-spacing: .2px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    }
+    #topbar .title .sub {
+      font-size: 13px; color: #9CA3AF; font-weight: 500; margin-left: 8px;
+    }
+    #topbar .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 999px;
+      background: #F3F4F6; color: #6B7280;
+      font-size: 13px; font-weight: 700;
+    }
+    #topbar .pill.ok { background: rgba(22,163,74,.1); color: #16A34A; }
+    #topbar .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    #topbar .seg {
+      display: flex; padding: 3px;
+      background: #F3F4F6; border-radius: 10px; gap: 2px;
+    }
+    #topbar .seg button {
+      border: none; background: transparent;
+      padding: 7px 16px; border-radius: 8px;
+      font-size: 14px; font-weight: 700;
+      color: #6B7280;
+      transition: all .15s;
+    }
+    #topbar .seg button.on { background: #FFFFFF; color: #111827; box-shadow: 0 1px 2px rgba(17,24,39,.08); }
+
+    /* ===== 视图区 ===== */
+    #viewer {
+      position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+      overflow: auto; background: #1F2937;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+    }
+    #img-area {
+      position: relative;
+      display: block;
+      flex: none;
+      margin: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5);
+      align-self: center;   /* 关键：防止 flex 交叉轴 stretch 拉伸 */
+    }
+    #base-img {
+      display: block;
+      width: auto;
+      height: auto;
+      background: #fff;
+      user-select: none; -webkit-user-drag: none;
+    }
+    #overlay {
+      position: absolute; top: 0; left: 0;
+      pointer-events: none;
+    }
+    #overlay.active { pointer-events: auto; cursor: crosshair; }
+
+    /* ===== 加载遮罩 ===== */
+    #loader {
+      position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+      background: #1F2937;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 50;
+      transition: opacity .25s;
+    }
+    #loader.hide { opacity: 0; pointer-events: none; }
+    .loader-card {
+      background: #FFFFFF; padding: 24px 32px;
+      border-radius: 16px; min-width: 240px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25);
+      display: flex; flex-direction: column; gap: 12px; align-items: center;
+    }
+    .loader-card .spin {
+      width: 28px; height: 28px;
+      border: 3px solid #E5E7EB; border-top-color: #111827;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader-card .text { font-size: 13px; color: #6B7280; font-weight: 500; }
+
+    /* ===== 校准面板 ===== */
+    #calib-panel {
+      position: fixed; top: 76px; right: 16px;
+      width: 340px; max-height: calc(100vh - 92px);
+      background: #FFFFFF; border-radius: 16px;
+      box-shadow: 0 16px 48px rgba(17,24,39,.18), 0 0 0 1px #E5E7EB;
+      padding: 20px;
+      display: none;
+      z-index: 80;
+      overflow-y: auto;
+      font-size: 13px;
+    }
+    #calib-panel h3 {
+      margin: 0 0 4px; font-size: 15px; font-weight: 700; color: #111827;
+    }
+    #calib-panel .sub {
+      font-size: 12px; color: #6B7280;
+      margin-bottom: 14px; line-height: 1.55;
+    }
+    .tabs {
+      display: flex; gap: 4px;
+      background: #F3F4F6; border-radius: 10px; padding: 3px;
+      margin-bottom: 16px;
+    }
+    .tabs button {
+      flex: 1; border: none; background: transparent;
+      padding: 7px 8px; border-radius: 8px;
+      font-size: 12px; font-weight: 600; color: #6B7280;
+      transition: all .15s;
+    }
+    .tabs button.on { background: #FFFFFF; color: #111827; box-shadow: 0 1px 2px rgba(17,24,39,.08); }
+    .tabs .badge {
+      display: inline-block; margin-left: 3px; padding: 1px 6px;
+      background: #111827; color: #FFFFFF;
+      border-radius: 999px; font-size: 9px; font-weight: 700;
+    }
+    .mode { display: none; }
+    .mode.on { display: block; }
+    .field { margin-bottom: 12px; }
+    .field label {
+      display: block; font-size: 11px; color: #6B7280;
+      margin-bottom: 5px; letter-spacing: .3px;
+      text-transform: uppercase; font-weight: 700;
+    }
+    .field .row { display: flex; gap: 8px; }
+    .field input {
+      flex: 1; padding: 10px 12px;
+      background: #F5F6F8; border: 1px solid transparent;
+      border-radius: 10px; color: #111827;
+      font-size: 14px; font-family: inherit;
+      transition: all .15s; outline: none;
+    }
+    .field input:focus { border-color: #111827; background: #FFFFFF; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      flex: 1; padding: 10px;
+      border-radius: 10px;
+      font-size: 13px; font-weight: 600;
+      border: 1px solid #E5E7EB;
+      background: #FFFFFF; color: #111827;
+      transition: all .15s;
+    }
+    .btn:hover { background: #F3F4F6; }
+    .btn.primary { background: #111827; color: #FFFFFF; border-color: #111827; }
+    .btn.primary:hover { background: #000; }
+    .btn.full { width: 100%; }
+
+    .status {
+      margin-top: 12px; padding: 10px 12px;
+      background: #F5F6F8; border-radius: 10px;
+      font-size: 12px; color: #6B7280; line-height: 1.55;
+    }
+    .status.ok { background: rgba(22,163,74,.08); color: #15803D; }
+    .status.warn { background: rgba(234,88,12,.08); color: #C2410C; }
+
+    .divider { height: 1px; background: #E5E7EB; margin: 16px -20px; }
+
+    /* ===== 底部坐标栏 ===== */
+    #coord-bar {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      max-width: 520px; padding: 10px 20px;
+      background: rgba(17,24,39,.92);
+      color: #FFFFFF; border-radius: 999px;
+      font-size: 13px; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+      display: none; pointer-events: none; z-index: 70;
+      font-variant-numeric: tabular-nums;
+    }
+    #coord-bar .tag {
+      display: inline-block; margin-left: 8px;
+      padding: 1px 7px; background: rgba(252,211,77,.18); color: #FCD34D;
+      border-radius: 4px; font-size: 11px; font-weight: 700;
+    }
+
+    /* ===== 滚动条 ===== */
+    #viewer::-webkit-scrollbar { width: 8px; height: 8px; }
+    #viewer::-webkit-scrollbar-track { background: transparent; }
+    #viewer::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 4px; }
+    #viewer::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.32); }
+    #calib-panel::-webkit-scrollbar { width: 4px; }
+    #calib-panel::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <button class="btn icon" onclick="goBack()" title="返回">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  </button>
+
+  <div class="zoom-ctrl" style="display:flex;align-items:center;gap:2px;padding-right:10px;border-right:1px solid #E5E7EB;margin-right:4px;">
+    <button class="btn icon" onclick="zoomBy(-0.2)" title="缩小">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M8 11h6"/></svg>
+    </button>
+    <span id="zoom-label" style="min-width:42px;text-align:center;font-size:12px;font-weight:700;color:#6B7280;font-variant-numeric:tabular-nums;">100%</span>
+    <button class="btn icon" onclick="zoomBy(0.2)" title="放大">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+    </button>
+    <button class="btn icon" onclick="resetZoom()" title="适应窗口">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    </button>
+  </div>
+
+  <div class="title">CAD 截图视图<span class="sub" id="title-sub">· dy04_7_B05</span></div>
+
+  <span class="pill" id="calib-badge"><span class="dot"></span>未校准</span>
+
+  <div class="seg">
+    <button id="mode-view-btn" class="on" onclick="setUIMode('view')">查看</button>
+    <button id="mode-pick-btn" onclick="setUIMode('pick')">定位</button>
+    <button id="mode-calib-btn" onclick="setUIMode('calib')">校准</button>
+  </div>
+
+  <button class="btn" onclick="resetAll()" title="清除所有校准缓存并刷新页面" style="color:#DC2626;border-color:#FECACA;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+    重置
+  </button>
+</div>
+
+<div id="viewer">
+  <div id="img-area">
+    <img id="base-img" src="./dy04_7_B05_paper_hybrid.png" alt="底图">
+    <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<div id="loader">
+  <div class="loader-card">
+    <div class="spin"></div>
+    <div class="text" id="loader-text">正在加载图纸</div>
+  </div>
+</div>
+
+<div id="calib-panel">
+  <h3>坐标校准</h3>
+  <div class="sub">校准一次后该图纸永久保存，下次打开自动加载。</div>
+
+  <div class="tabs">
+    <button id="tab-single" class="on" onclick="switchTab('single')">单点 <span class="badge">推荐</span></button>
+    <button id="tab-two" onclick="switchTab('two')">两点</button>
+    <button id="tab-preset" onclick="switchTab('preset')">预设</button>
+  </div>
+
+  <div id="mode-single" class="mode on">
+    <div class="field">
+      <label>特征点真实坐标 (mm)</label>
+      <div class="row">
+        <input id="sp-x" type="number" step="0.1" placeholder="X">
+        <input id="sp-y" type="number" step="0.1" placeholder="Y">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="startSinglePoint()">标记点</button>
+      <button class="btn primary" onclick="applySinglePoint()">应用</button>
+    </div>
+    <div class="status" id="sp-status">在 AutoCAD 用 ID 命令查一个特征点 (X,Y)，点「标记点」后在截图上点击同一点。</div>
+  </div>
+
+  <div id="mode-two" class="mode">
+    <div class="field">
+      <label>校准点 1 真实坐标 (mm)</label>
+      <div class="row">
+        <input id="pt1-x" type="number" step="0.1" placeholder="X">
+        <input id="pt1-y" type="number" step="0.1" placeholder="Y">
+      </div>
+    </div>
+    <div class="field">
+      <label>校准点 2 真实坐标 (mm)</label>
+      <div class="row">
+        <input id="pt2-x" type="number" step="0.1" placeholder="X">
+        <input id="pt2-y" type="number" step="0.1" placeholder="Y">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" onclick="startCalibration()">开始选点</button>
+      <button class="btn primary" onclick="applyCalibration()">应用</button>
+    </div>
+    <div class="status" id="calib-status">填两点真实坐标，再点「开始选点」在截图上依次点击两个特征点。</div>
+  </div>
+
+  <div id="mode-preset" class="mode">
+    <div class="status">基于 DXF 解析的视口1数据自动填充校准参数。前提是 PDF 渲染尺寸标准 A0（1490×844mm）。</div>
+    <button class="btn primary full" onclick="setPresetViewport1()">应用预设视口1</button>
+  </div>
+
+  <div class="divider"></div>
+  <div class="btn-row">
+    <button class="btn" onclick="resetCalibration()">重置校准</button>
+    <button class="btn" onclick="loadBaseImage()">加载新底图</button>
+  </div>
+</div>
+
+<div id="coord-bar"></div>
+<input type="file" id="file-input" accept="image/png,image/jpeg" style="display:none">
+
+<script>
+(function () {
+  'use strict';
+
+  // ============ 基础状态 ============
+  var DRAWING_KEY = new URLSearchParams(location.search).get('key') || 'dy04_7_B05';
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var viewer = $('viewer');
+  var imgArea = $('img-area');
+  var imgEl = $('base-img');
+  var svg = $('overlay');
+  var fileInput = $('file-input');
+  var loader = $('loader');
+  var loaderText = $('loader-text');
+  var calibPanel = $('calib-panel');
+  var calibBadge = $('calib-badge');
+  var coordBar = $('coord-bar');
+
+  // ============ 校准状态 ============
+  var UI_MODE = 'view';
+  var CALIB_TAB = 'single';
+  var PICK_MODE = false;
+  var CALIB_MODE = false;
+  var SINGLE_POINT_MODE = false;
+  var CALIB_PTS = [];
+  var SINGLE_POINT_PT = null;
+  var MAP = null;
+  var lastPick = null;
+  var SNAP_ENABLED = true;
+
+  // 缩放状态
+  var ZOOM = 1;
+  var BASE_FIT_SCALE = 1;
+
+  // 捕捉 canvas
+  var snapCanvas = null, snapCtx = null, SNAP_SCALE = 1, SNAP_TARGET_W = 800;
+
+  // ============ 工具函数 ============
+  function setCoord(text, show, opts) {
+    if (!show || !text) { coordBar.style.display = 'none'; return; }
+    var html = text;
+    if (opts && opts.tag) html += '<span class="tag">' + opts.tag + '</span>';
+    coordBar.innerHTML = html;
+    coordBar.style.display = 'block';
+  }
+  function setBadge(ok, text) {
+    calibBadge.className = 'pill' + (ok ? ' ok' : '');
+    calibBadge.innerHTML = '<span class="dot"></span>' + text;
+  }
+  function showLoader(show, msg) {
+    if (show) { loaderText.textContent = msg || '正在加载'; loader.classList.remove('hide'); }
+    else loader.classList.add('hide');
+  }
+  function goBack() { if (history.length > 1) history.back(); else location.href = '/'; }
+
+  // 校准持久化
+  function calibStorageKey() {
+    // ★ 版本号：算法改动时改这里，自动让旧缓存失效
+    return 'cad_calib_v3_' + DRAWING_KEY + '_' + (imgEl.getAttribute('src') || '').split('/').pop();
+  }
+  function saveCalibration() {
+    if (!MAP) return;
+    try {
+      localStorage.setItem(calibStorageKey(), JSON.stringify({
+        a: MAP.a, b: MAP.b, c: MAP.c, d: MAP.d, e: MAP.e, f: MAP.f,
+        imgW: imgEl.naturalWidth, imgH: imgEl.naturalHeight, time: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function loadSavedCalibration() {
+    try {
+      var raw = localStorage.getItem(calibStorageKey());
+      if (!raw) return false;
+      var d = JSON.parse(raw);
+      if (d.imgW !== imgEl.naturalWidth || d.imgH !== imgEl.naturalHeight) return false;
+      MAP = { a: d.a, b: d.b, c: d.c, d: d.d, e: d.e, f: d.f };
+      setBadge(true, '已校准 (自动加载)');
+      setCoord('已加载上次校准，可直接点击「定位」', true);
+      drawCalibMarkers();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ============ 清掉所有版本号的旧缓存（防止重复加载错误数据） ============
+  function clearAllOldCalibCache() {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('cad_calib_') === 0) keys.push(k);
+      }
+      keys.forEach(function (k) { localStorage.removeItem(k); });
+      console.log('[CAD] 已清除旧缓存:', keys);
+    } catch (e) {}
+  }
+
+  // ============ 同步 SVG 与底图 ============
+  function syncSvg() {
+    var rect = imgEl.getBoundingClientRect();
+    var w = rect.width, h = rect.height;
+    if (w === 0 || h === 0) return;
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.style.width = w + 'px';
+    svg.style.height = h + 'px';
+    svg.style.left = '0px';
+    svg.style.top = '0px';
+  }
+  function fitToWindow() {
+    if (!imgEl.naturalWidth) return;
+    // 同时适配宽度和高度，取较小比例，保证整图在视口内
+    var maxW = viewer.clientWidth - 32;
+    var maxH = viewer.clientHeight - 32;
+    var scaleW = maxW / imgEl.naturalWidth;
+    var scaleH = maxH / imgEl.naturalHeight;
+    BASE_FIT_SCALE = Math.min(scaleW, scaleH);
+    ZOOM = 1;
+    applyZoom();
+  }
+  function applyZoom() {
+    var s = BASE_FIT_SCALE * ZOOM;
+    // 直接改图片 CSS 宽度（真实改变布局尺寸，缩放后能产生滚动条）
+    imgEl.style.width = Math.round(imgEl.naturalWidth * s) + 'px';
+    imgEl.style.height = 'auto';
+    $('zoom-label').textContent = Math.round(s * 100) + '%';
+    syncSvg();
+  }
+  function zoomBy(delta) {
+    ZOOM = Math.max(0.2, Math.min(8, ZOOM + delta));
+    applyZoom();
+  }
+  function resetZoom() { ZOOM = 1; applyZoom(); }
+
+  // ============ 屏幕坐标 → 图像像素 ============
+  function screenToImagePx(sx, sy) {
+    // 用 SVG 覆盖层的 getBoundingClientRect（SVG 与图片等大且精确对齐，无拉伸）
+    var rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) {
+      rect = imgEl.getBoundingClientRect();
+    }
+    return {
+      x: (sx - rect.left) * (imgEl.naturalWidth / rect.width),
+      y: (sy - rect.top) * (imgEl.naturalHeight / rect.height)
+    };
+  }
+
+  // ============ 捕捉 ============
+  function initSnapCanvas() {
+    if (snapCanvas || !imgEl.naturalWidth) return;
+    SNAP_SCALE = Math.min(1, SNAP_TARGET_W / imgEl.naturalWidth);
+    snapCanvas = document.createElement('canvas');
+    snapCanvas.width = Math.floor(imgEl.naturalWidth * SNAP_SCALE);
+    snapCanvas.height = Math.floor(imgEl.naturalHeight * SNAP_SCALE);
+    snapCtx = snapCanvas.getContext('2d', { willReadFrequently: true });
+    snapCtx.drawImage(imgEl, 0, 0, snapCanvas.width, snapCanvas.height);
+  }
+  function grayAt(data, w, h, px, py) {
+    if (px < 0 || py < 0 || px >= w || py >= h) return 255;
+    var idx = (py * w + px) * 4;
+    return 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+  }
+  function findSnapPoint(cx, cy) {
+    if (!snapCanvas) initSnapCanvas();
+    if (!snapCanvas) return null;
+    var w = snapCanvas.width, h = snapCanvas.height;
+    var data = snapCtx.getImageData(0, 0, w, h).data;
+    var r = Math.max(8, Math.ceil(20 * SNAP_SCALE));
+    var sx = cx * SNAP_SCALE, sy = cy * SNAP_SCALE;
+    var x0 = Math.max(0, Math.floor(sx - r)), x1 = Math.min(w - 1, Math.floor(sx + r));
+    var y0 = Math.max(0, Math.floor(sy - r)), y1 = Math.min(h - 1, Math.floor(sy + r));
+    var bestScore = -1, bestX = sx, bestY = sy;
+    for (var py = y0; py <= y1; py++) {
+      for (var px = x0; px <= x1; px++) {
+        var g = grayAt(data, w, h, px, py);
+        if (g > 160) continue;
+        var gx = grayAt(data, w, h, px + 1, py) - grayAt(data, w, h, px - 1, py);
+        var gy = grayAt(data, w, h, px, py + 1) - grayAt(data, w, h, px, py - 1);
+        if (gx * gx + gy * gy < 20) continue;
+        var gxx = grayAt(data, w, h, px + 1, py) - 2 * g + grayAt(data, w, h, px - 1, py);
+        var gyy = grayAt(data, w, h, px, py + 1) - 2 * g + grayAt(data, w, h, px, py - 1);
+        var gxy = (grayAt(data, w, h, px + 1, py + 1) - grayAt(data, w, h, px + 1, py - 1)
+                - grayAt(data, w, h, px - 1, py + 1) + grayAt(data, w, h, px - 1, py - 1)) / 4;
+        var det = gxx * gyy - gxy * gxy;
+        var trace = gxx + gyy;
+        var score = det - 0.04 * trace * trace;
+        var dist = Math.sqrt((px - sx) * (px - sx) + (py - sy) * (py - sy));
+        var wgt = score * (1 - dist / (r + 1));
+        if (wgt > bestScore) { bestScore = wgt; bestX = px; bestY = py; }
+      }
+    }
+    if (bestScore < 10) return null;
+    return { x: bestX / SNAP_SCALE, y: bestY / SNAP_SCALE };
+  }
+
+  function imagePxToWorld(px, py) {
+    if (!MAP) return null;
+    return { x: MAP.a * px + MAP.c, y: MAP.d * py + MAP.f };
+  }
+
+  // ============ 校准：单点 ============
+  function startSinglePoint() {
+    SINGLE_POINT_PT = null;
+    SINGLE_POINT_MODE = true;
+    svg.classList.add('active');
+    $('sp-status').className = 'status warn';
+    $('sp-status').textContent = '请在截图上点击一个特征点位置';
+    setCoord('点击截图上的特征点', true);
+  }
+  function applySinglePoint() {
+    if (!SINGLE_POINT_PT) { setCoord('请先点击截图上的特征点', true); return; }
+    var wx = parseFloat($('sp-x').value);
+    var wy = parseFloat($('sp-y').value);
+    if (!isFinite(wx) || !isFinite(wy)) { setCoord('请输入有效的真实坐标', true); return; }
+    var imgW = imgEl.naturalWidth, imgH = imgEl.naturalHeight;
+    // B05 PDF 物理页 1489×844 mm
+    var PAPER_W = 1489, PAPER_H = 844;
+    // ★ 用 X 方向比例作为唯一 scale（X 是直接测量的，更可靠）
+    var scale = imgW / PAPER_W;   // = 4500/1489 = 3.022 px/mm
+    // X 正向，Y 负向（PDF Y 向上）
+    var a = 1 / scale, c = -imgW / 2 * a;
+    var e = -1 / scale, f = imgH / 2 / scale;
+    var calcX = a * SINGLE_POINT_PT.px + c;
+    var calcY = e * SINGLE_POINT_PT.py + f;
+    MAP = { a: a, b: 0, c: c + (wx - calcX), d: 0, e: e, f: f + (wy - calcY) };
+    SINGLE_POINT_MODE = false;
+    svg.classList.remove('active');
+    setBadge(true, '已校准');
+    $('sp-status').className = 'status ok';
+    $('sp-status').textContent = '校准完成：' + scale.toFixed(2) + ' px/mm · ' + (1/scale).toFixed(3) + ' mm/px';
+    drawCalibMarkers();
+    saveCalibration();
+    setTimeout(function () { setUIMode('pick'); }, 600);
+  }
+
+  // ============ 校准：两点 ============
+  function startCalibration() {
+    CALIB_PTS = [];
+    SINGLE_POINT_MODE = false;
+    svg.classList.add('active');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    $('calib-status').className = 'status warn';
+    $('calib-status').textContent = '请依次点击截图上两个参考点（X、Y 都要有明显差异）';
+    setCoord('校准模式：依次点击两个参考点', true);
+  }
+  function applyCalibration() {
+    if (CALIB_PTS.length < 2) { setCoord('请先点击两个校准点', true); return; }
+    var p1 = CALIB_PTS[0], p2 = CALIB_PTS[1];
+    var w1x = parseFloat($('pt1-x').value);
+    var w1y = parseFloat($('pt1-y').value);
+    var w2x = parseFloat($('pt2-x').value);
+    var w2y = parseFloat($('pt2-y').value);
+    if (!isFinite(w1x) || !isFinite(w1y) || !isFinite(w2x) || !isFinite(w2y)) { setCoord('请输入有效的真实坐标', true); return; }
+    var det = p2.px - p1.px, det2 = p2.py - p1.py;
+    if (Math.abs(det) < 30 && Math.abs(det2) < 30) { setCoord('两点位置过近', true); return; }
+    if (Math.abs(det) < 10) { setCoord('两点几乎在同一竖直线上', true); return; }
+    if (Math.abs(det2) < 10) { setCoord('两点几乎在同一水平线上', true); return; }
+    var a = (w2x - w1x) / det;
+    var d = (w2y - w1y) / det2;
+    if (!isFinite(a) || !isFinite(d)) { setCoord('校准点像素差过小导致系数异常', true); return; }
+    MAP = { a: a, b: 0, c: w1x - a * p1.px, d: d, e: 0, f: w1y - d * p1.py };
+    svg.classList.remove('active');
+    setBadge(true, '已校准');
+    $('calib-status').className = 'status ok';
+    $('calib-status').textContent = '校准完成：' + (1/Math.abs(a)).toFixed(3) + ' px/mm · X比例 ' + a.toFixed(4) + ' Y比例 ' + d.toFixed(4);
+    drawCalibMarkers();
+    saveCalibration();
+    setTimeout(function () { setUIMode('pick'); }, 600);
+  }
+
+  // ============ 校准：预设 ============
+  function setPresetViewport1() {
+    var imgW = imgEl.naturalWidth || 2400;
+    var imgH = imgEl.naturalHeight || 1600;
+    var sx = imgW / 1240, sy = imgH / 880;
+    var p1px = imgW / 2 - 63.105 * sx, p1py = imgH / 2 - 335.324 * sy;
+    var p2px = imgW / 2 + 183.368 * sx, p2py = imgH / 2 - 335.324 * sy;
+    MAP = {
+      a: (vp1rWX_unused(362.612) - 362.612) / (p2px - p1px),
+      b: 0, c: 362.612 - ((vp1rWX_unused(362.612) - 362.612) / (p2px - p1px)) * p1px,
+      d: 0, e: 0, f: 0
+    };
+    setBadge(true, '已校准 (预设)');
+    setCoord('已应用预设视口1。如不准确请用「单点」校准', true);
+    drawCalibMarkers();
+    saveCalibration();
+    setTimeout(function () { setUIMode('pick'); }, 600);
+  }
+  function vp1rWX_unused() { return 362.612 + 492.947 / 2 * (1771.482 / 220.090); }
+
+  // ============ 重置 ============
+  function resetCalibration() {
+    MAP = null; CALIB_PTS = []; lastPick = null;
+    SINGLE_POINT_PT = null; SINGLE_POINT_MODE = false;
+    svg.classList.remove('active');
+    setBadge(false, '未校准');
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    try { localStorage.removeItem(calibStorageKey()); } catch (e) {}
+    setCoord('已重置校准（并清除已保存的参数）', true);
+  }
+
+  // ============ 一键重置所有缓存 ============
+  function resetAll() {
+    if (!confirm('确定清除所有校准缓存并刷新页面吗？')) return;
+    try {
+      // 清除所有本页面产生的 cad_calib 缓存
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('cad_calib') === 0) keys.push(k);
+      }
+      keys.forEach(function (k) { localStorage.removeItem(k); });
+      console.log('[CAD] 已清除缓存:', keys);
+    } catch (e) {}
+    location.reload();
+  }
+
+  // ============ 调试信息：点击图片输出真实像素坐标和计算的坐标 ============
+  function debugPoint(px, py) {
+    var imgW = imgEl.naturalWidth, imgH = imgEl.naturalHeight;
+    var PAPER_W = 1489, PAPER_H = 844;
+    var scale = ((imgW/PAPER_W) + (imgH/PAPER_H)) / 2;
+    var calcX = px / scale - imgW/2/scale;
+    var calcY = -(py - imgH/2) / scale;
+    var msg = '像素 (' + px.toFixed(0) + ', ' + py.toFixed(0) + ') · PDF物理页 1489×844mm · scale=' + scale.toFixed(3) + ' px/mm · 算法计算坐标 X=' + calcX.toFixed(1) + ' mm, Y=' + calcY.toFixed(1) + ' mm';
+    console.log('[DEBUG]', msg);
+    setCoord(msg, true);
+    return msg;
+  }
+  // 暴露到 window 方便 console 调试
+  window.debugPoint = debugPoint;
+
+  // ============ 标记绘制 ============
+  function drawCalibMarkers() {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var rect = imgEl.getBoundingClientRect();
+    if (rect.width === 0) return;
+    var sx = imgEl.naturalWidth / rect.width;
+    var sy = imgEl.naturalHeight / rect.height;
+    function dot(px, py, color, label, filled) {
+      var dx = px / sx, dy = py / sy;
+      var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', dx); c.setAttribute('cy', dy); c.setAttribute('r', 9);
+      c.setAttribute('fill', filled ? color : 'none');
+      c.setAttribute('stroke', color); c.setAttribute('stroke-width', 2.5);
+      svg.appendChild(c);
+      if (label) {
+        var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', dx + 14); t.setAttribute('y', dy - 10);
+        t.setAttribute('fill', color); t.setAttribute('font-size', 12); t.setAttribute('font-weight', '600');
+        t.textContent = label;
+        svg.appendChild(t);
+      }
+    }
+    CALIB_PTS.forEach(function (p, i) { dot(p.px, p.py, '#F59E0B', '校准' + (i + 1), false); });
+    if (SINGLE_POINT_PT) dot(SINGLE_POINT_PT.px, SINGLE_POINT_PT.py, '#F59E0B', '标记点', false);
+    if (lastPick) dot(lastPick.px, lastPick.py, '#EF4444', null, true);
+  }
+
+  // ============ UI 模式切换 ============
+  function setUIMode(mode) {
+    UI_MODE = mode;
+    $('mode-view-btn').classList.toggle('on', mode === 'view');
+    $('mode-pick-btn').classList.toggle('on', mode === 'pick');
+    $('mode-calib-btn').classList.toggle('on', mode === 'calib');
+    calibPanel.style.display = (mode === 'calib') ? 'block' : 'none';
+    PICK_MODE = (mode === 'pick');
+    CALIB_MODE = (mode === 'calib');
+    svg.classList.toggle('active', mode !== 'view');
+    if (mode === 'pick') {
+      if (!MAP) {
+        setCoord('请先在「校准」中做一次坐标映射', true);
+        switchTab('single');
+        setUIMode('calib');
+        return;
+      }
+      setCoord('点击图纸任意位置获取真实坐标', true);
+    } else if (mode === 'calib') {
+      setCoord('选择上方 Tab：单点（推荐）/ 两点 / 预设', true);
+    } else {
+      coordBar.style.display = 'none';
+    }
+  }
+  function switchTab(tab) {
+    CALIB_TAB = tab;
+    $('tab-single').classList.toggle('on', tab === 'single');
+    $('tab-two').classList.toggle('on', tab === 'two');
+    $('tab-preset').classList.toggle('on', tab === 'preset');
+    $('mode-single').classList.toggle('on', tab === 'single');
+    $('mode-two').classList.toggle('on', tab === 'two');
+    $('mode-preset').classList.toggle('on', tab === 'preset');
+  }
+
+  // ============ SVG 点击 ============
+  svg.addEventListener('click', function (e) {
+    var ip = screenToImagePx(e.clientX, e.clientY);
+    if (SINGLE_POINT_MODE) {
+      SINGLE_POINT_PT = { px: ip.x, py: ip.y };
+      drawCalibMarkers();
+      $('sp-status').className = 'status warn';
+      $('sp-status').textContent = '已记录点（像素 ' + ip.x.toFixed(0) + ',' + ip.y.toFixed(0) + '），请填入真实坐标后点「应用」';
+      setCoord('特征点已记录', true);
+      return;
+    }
+    var snapped = null;
+    if (SNAP_ENABLED && !CALIB_MODE) {
+      var sp = findSnapPoint(ip.x, ip.y);
+      if (sp && Math.abs(sp.x - ip.x) < 40 && Math.abs(sp.y - ip.y) < 40) {
+        snapped = sp; ip = sp;
+      }
+    }
+    if (CALIB_MODE) {
+      if (CALIB_PTS.length >= 2) { setCoord('已点击两个点，请填入真实坐标后点「应用」', true); return; }
+      CALIB_PTS.push({ px: ip.x, py: ip.y });
+      drawCalibMarkers();
+      setCoord('校准点' + CALIB_PTS.length + ' 已记录' + (snapped ? '（已捕捉）' : ''), true);
+    } else if (PICK_MODE) {
+      // 调试：在控制台输出像素 → 计算坐标（含 scale 信息）
+      debugPoint(ip.x, ip.y);
+      var w = imagePxToWorld(ip.x, ip.y);
+      if (!w) return;
+      lastPick = { px: ip.x, py: ip.y };
+      var text = 'X = ' + w.x.toFixed(1) + ' mm    Y = ' + w.y.toFixed(1) + ' mm';
+      setCoord(text, true, { tag: snapped ? '已捕捉' : '' });
+      drawCalibMarkers();
+      try {
+        window.parent.postMessage({ type: 'cad-pick', key: DRAWING_KEY, worldX: w.x, worldY: w.y, text: text, snapped: !!snapped }, '*');
+      } catch (err) {}
+    }
+  });
+
+  // ============ 鼠标滚轮缩放 ============
+  viewer.addEventListener('wheel', function (e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    zoomBy(-e.deltaY * 0.0015);
+  }, { passive: false });
+
+  window.addEventListener('resize', function () {
+    if (imgEl.naturalWidth) fitToWindow();
+  });
+
+  // ============ 文件加载 ============
+  function loadBaseImage() { fileInput.click(); }
+  fileInput.addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    showLoader(true, '加载 ' + f.name);
+    MAP = null; CALIB_PTS = []; lastPick = null; SINGLE_POINT_PT = null;
+    snapCanvas = null; snapCtx = null;
+    setBadge(false, '未校准');
+    imgEl.src = URL.createObjectURL(f);
+  });
+
+  // ============ 底图加载完成 ============
+  imgEl.addEventListener('load', function () {
+    syncSvg();
+    fitToWindow();
+    drawCalibMarkers();
+    showLoader(false);
+    if (!loadSavedCalibration()) {
+      setBadge(false, '未校准');
+      setCoord('底图已就绪，请到「校准」做一次坐标映射（单点最简单）', true);
+    }
+    // 后台异步初始化 snap canvas（不阻塞 UI）
+    setTimeout(function () { try { initSnapCanvas(); } catch (e) { console.warn('snap 初始化失败:', e); } }, 200);
+  });
+  imgEl.addEventListener('error', function () {
+    showLoader(false);
+    setCoord('底图加载失败，请检查文件路径或刷新页面', true);
+  });
+
+  // ============ 初始化 ============
+  $('title-sub').textContent = '· ' + DRAWING_KEY;
+  showLoader(true, '加载底图');
+
+  // ★ 页面加载时自动清掉所有版本号的旧缓存（v1/v2 都被清）
+  clearAllOldCalibCache();
+
+  // ============ 暴露 onclick 需要的函数到 window ============
+  window.goBack = goBack;
+  window.zoomBy = zoomBy;
+  window.resetZoom = resetZoom;
+  window.setUIMode = setUIMode;
+  window.switchTab = switchTab;
+  window.startSinglePoint = startSinglePoint;
+  window.applySinglePoint = applySinglePoint;
+  window.startCalibration = startCalibration;
+  window.applyCalibration = applyCalibration;
+  window.setPresetViewport1 = setPresetViewport1;
+  window.resetCalibration = resetCalibration;
+  window.loadBaseImage = loadBaseImage;
+  window.resetAll = resetAll;
+
+})();
+</script>
+
+</body>
+</html>

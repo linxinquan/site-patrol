@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>工地巡检 · CAD 专业看图</title>
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F2F2F7;
+    }
+
+    .toolbar {
+      height: 52px;
+      background: #ffffff;
+      border-bottom: 1px solid #E5E5EA;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      flex-wrap: nowrap;
+    }
+
+    .toolbar button {
+      padding: 7px 12px;
+      border: 1px solid #E5E5EA;
+      border-radius: 999px;
+      background: white;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .toolbar button.primary {
+      background: #0A5AFF;
+      color: white;
+      border-color: #0A5AFF;
+    }
+
+    .toolbar .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1A1A1A;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #webcad {
+      width: 100%;
+      height: calc(100% - 52px);
+      background: #ffffff;
+    }
+
+    #coord-bar {
+      position: fixed;
+      bottom: 12px;
+      left: 12px;
+      right: 12px;
+      padding: 8px 14px;
+      background: rgba(0, 0, 0, .72);
+      color: white;
+      font-size: 12px;
+      border-radius: 999px;
+      text-align: center;
+      display: none;
+      pointer-events: none;
+      z-index: 9;
+      word-break: break-all;
+    }
+  </style>
+</head>
+
+<body>
+  <script src="./GStarSDK.js"></script>
+
+  <div class="toolbar">
+    <button id="back-btn" onclick="goBack()">← 返回</button>
+    <span class="title" id="title">图纸</span>
+    <button id="clean-btn" onclick="toggleCleanView()" title="隐藏标注/文字，只看建筑主体">清爽视图</button>
+    <button id="pick-btn" onclick="togglePick()">定位</button>
+    <button onclick="dumpLayers()" title="查看 OCF 全部图层">图层列表</button>
+    <button onclick="forceAllOn()" title="把所有图层强制 setLayer(true)，验证 OCF 是否能恢复显示" style="background:#FBBF24;border-color:#FBBF24;color:#000">全开验证</button>
+    <button onclick="zoomToFit()" title="缩放到全图">全图</button>
+    <button class="primary" onclick="loadCad()">重新加载</button>
+  </div>
+
+  <div id="webcad"></div>
+  <div id="coord-bar"></div>
+
+  <script>
+    // ---- 从 URL 读取图纸 key（Flutter 跳转时 ?key=xxx）----
+    function getParam(name) {
+      var q = new URLSearchParams(location.search);
+      return q.get(name) || '';
+    }
+    var DRAWING_KEY = getParam('key') || 'dy04_7_B05';
+    // 渲染用的动态密钥（课题测试用途，仅本地部署）
+    // 从 URL ?cadSecret= 读取；未传则从本地 /config/cad_secret.txt（.gitignore 排除）读取
+    var CAD_SECRET = getParam('cadSecret') || '';
+    // OCF 缓存由本地服务提供（0 消耗浩辰次数）
+    var OCF_BASE = 'http://localhost:8800';
+    // DWG 元数据服务（用 ezdxf 解析原 DWG 输出的 JSON，含图层开关/布局）
+    var CAD_META_BASE = 'http://localhost:8810';
+    var PICK_MODE = false;
+    var CLEAN_MODE = false;   // 默认关闭：直接用 OCF 原始图层状态（与 AutoCAD 打开一致）
+    var CAD_META = null;      // 缓存当前图纸的元数据 JSON
+    var USE_META = true;      // 是否有元数据就按元数据显隐（AutoCAD 原始状态）
+    // ★ CLEAN_KEYWORDS 已删除：关键词匹配会误杀正常建筑师图层（hatch/填充/dim/修改等）
+    // 现在完全依赖 DXF 解析出的真实 310 个冻结/关闭图层（精确 + 归一化匹配）
+    var HIDE_EXACT = ['0', 'Defpoints', 'DEFPOINTS'];
+    // ★ 用户指定的冻结图层（AutoCAD 布局中冻结的图层，直接隐藏）
+    // ★ 数据来源：ODA File Converter 把 DWG 转 DXF 后，从 TABLES/LAYER 表提取的真实 frozen/off 状态
+    var FROZEN_LAYERS = [
+      'Defpoints',
+      'AD-Dote-BF$0$DM-坐标',
+      'AD-FHJL-B1M-XF$0$X-temp-REV-2022-822',
+      'AD-JSK-B1M$0$20220529',
+      'AD-JSK-B1M$0$X-temp-REV-2022-714',
+      'AD-JSK-B1M$0$X-temp-REV-2022-719',
+      'AD-JSK-B1M$0$X-temp-REV-2022-727',
+      'AD-JSK-B1M$0$X-temp-REV-2022-81',
+      'AD-JSK-B1M$0$X-temp-REV-2022-811',
+      'AD-LT-B1M$0$Slab',
+      'AD-LT-B1M$0$X-temp-REV-2022-725',
+      'AD-WALL-B1M$0$X-temp-REV-2022-523',
+      'AD-WALL-B1M$0$X-temp-REV-2022-525',
+      'AD-WALL-B1M$0$X-temp-REV-2022-530',
+      'AD-WALL-B1M$0$X-temp-REV-2022-526',
+      'AD-WALL-B1M$0$X-temp-REV-2022-61',
+      'AD-WALL-B1M$0$X-temp-REV-2022-65',
+      'AD-WALL-B1M$0$X-temp-REV-2022-68',
+      'AD-WALL-B1M$0$X-temp-REV-2022-69',
+      'AD-WALL-B1M$0$DIM-MODI-20220618',
+      'AD-WALL-B1M$0$DIM_MODI',
+      'AD-WALL-B1M$0$X-temp-REV-2022-628',
+      'AD-WALL-B1M$0$X-temp-REV-2022-629',
+      'AD-WALL-B1M$0$X-temp-REV-2022-71',
+      'AD-WALL-B1M$0$X-temp-REV-2022-74',
+      'AD-WALL-B1M$0$X-temp-REV-2022-75',
+      'AD-WALL-B1M$0$X-temp-REV-2022-76',
+      'AD-WALL-B1M$0$chenqing202207',
+      'AD-WALL-B1M$0$X-temp-REV-2022-77',
+      'AD-WALL-B1M$0$X-temp-REV-2022-78',
+      'AD-WALL-B1M$0$X-temp-REV-2022-711',
+      'AD-WALL-B1M$0$X-temp-REV-2022-712',
+      'AD-WALL-B1M$0$X-temp-REV-2022-714',
+      'AD-WALL-B1M$0$X-temp-REV-2022-716',
+      'AD-WALL-B1M$0$X-temp-REV-2022-721',
+      'AD-WALL-B1M$0$X-temp-REV-2022-728',
+      'AD-WALL-B1M$0$X-temp-REV-2022-82',
+      'AD-WALL-B1M$0$0L_CALL',
+      'AD-WALL-RF-B1M$0$20220518',
+      'AD-WALL-RF-B1M$0$20220606',
+      'AD-WALL-RF-B1M$0$chenqing202207',
+      'AD-WALL-RF-B1M$0$X-temp-REV-2022-722',
+      'AD-WALL-RF-B1M$0$20220811',
+      'SD-COLU-M1F$0$S-colu_text',
+      'S-C1~C03（地下室B1MF）-colu$0$S-colu_steel-text-B1MF',
+      'S-C1~C03（地下室B1MF）-colu$0$0725',
+      'S-C1~C03（地下室B1MF）-colu$0$0728',
+      'SD-COLU-M1F$0$修改0115',
+      'SD-COLU-M1F$0$修改0120',
+      'SD-COLU-M1F$0$修改0225',
+      'SD-COLU-M1F$0$修改0320',
+      'SD-COLU-M1F$0$修改0331',
+      'SD-COLU-M1F$0$修改0407',
+      'SD-COLU-M1F$0$修改0412',
+      'SD-COLU-M1F$0$修改0427',
+      'SD-COLU-M1F$0$修改0515',
+      'S-8#-COLU-B1MF$0$-S-wall_text_DD',
+      'S-8#-COLU-B1MF$0$-S_subline1212_(结改05)综合变更',
+      'SD-COLU-M1F$0$修改0622',
+      'SD-COLU-M1F$0$1F层墙柱$0$修改-20220129',
+      'SD-COLU-M1F$0$1F层墙柱$0$修改-20220216',
+      'SD-COLU-M1F$0$1F层墙柱$0$修改-20220301',
+      'SD-COLU-M1F$0$1F层墙柱$0$修改-20220307',
+      'SD-COLU-M1F$0$修改0725',
+      'S-COLU-B1MF-11#$0$对比上一版图纸修改内容',
+      'SD-COLU-M1F$0$修改0730',
+      'SD-COLU-M1F$0$修改0828',
+      'SD-COLU-LT-B1MF$0$20211020 50%DD后修改',
+      'SD-COLU-LT-B1MF$0$20211025 50%DD后修改',
+      'SD-COLU-LT-B1MF$0$20211030 50%后修改',
+      'SD-COLU-LT-B1MF$0$20211103 50%DD后修改',
+      'SD-COLU-LT-B1MF$0$20211104 50%后修改',
+      'SD-COLU-LT-B1MF$0$20211106 50%后修改',
+      'SD-COLU-LT-B1MF$0$20211109 50%DD后修改',
+      'SD-COLU-LT-B1MF$0$修改1115',
+      'SD-COLU-LT-B1MF$0$修改1124',
+      'SD-COLU-LT-B1MF$0$20211129 90%DD后修改1',
+      'SD-COLU-LT-B1MF$0$修改1203',
+      'SD-COLU-LT-B1MF$0$20211212 合模型后修改',
+      'SD-COLU-LT-B1MF$0$修改1209',
+      'SD-COLU-LT-B1MF$0$修改1217',
+      'SD-COLU-LT-B1MF$0$修改1221',
+      'SD-COLU-LT-B1MF$0$修改1226',
+      'SD-COLU-LT-B1MF$0$修改1229',
+      'SD-COLU-LT-B1MF$0$修改1231',
+      'SD-COLU-LT-B1MF$0$修改0115',
+      'SD-COLU-LT-B1MF$0$修改0120',
+      'SD-COLU-LT-B1MF$0$修改0209',
+      'SD-COLU-LT-B1MF$0$修改0821',
+      'P-D-M1F$0$PTA－TZ水提建筑条件20220727',
+      'P-D-M1F$0$PTE－TZ水提电气条件20220727',
+      'P-D-M1F$0$PTE－TZ水提电气条件20220808',
+      'E-X-LDLC-M1$0$20220705修改',
+      'E-X-LDLC-M1$0$20220715修改',
+      'E-X-LDLC-M1$0$20220805电气修改',
+      'E-X-LDLC-M1$0$20220728省院智能化留洞提结构',
+      'E-X-LDLC-M1$0$20220804云楼剪力墙上开洞标高调整',
+      'E-X-LDLC-M1$0$EL-TG',
+      'E-X-LDLC-M1$0$20220809增加出室外穿梁套管',
+      'E-X-LDLC-M1$0$X-temp-REV-2022-81',
+      'E-X-LDLC-M1$0$20220819出室外穿梁套管移位',
+      'H-TJ-B1M$0$ACS_DLJ_SBBZ',
+      'H-TJ-B1M$0$ACS_KT_BZ',
+      'H-TJ-B1M$0$20220520  暖通提资',
+      'H-TJ-B1M$0$20220613  暖通提资',
+      'H-TJ-B1M$0$20220630  暖通提资',
+      'H-TJ-B1M$0$20220704  暖通提资',
+      'H-TJ-B1M$0$ACS_DLJ_SNJ',
+      'H-TJ-B1M$0$20220711  暖通提资',
+      'H-TJ-B1M$0$20220712  暖通提资',
+      'H-TJ-B1M$0$20220715  暖通提资',
+      'H-TJ-B1M$0$ACS-百叶面积',
+      'H-TJ-B1M$0$20220725  暖通提资',
+      'H-TJ-B1M$0$20220729  暖通修改',
+      'H-TJ-B1M$0$20220730  暖通提资',
+      'H-TJ-B1M$0$20220818 暖通提资百叶',
+      'A-11-PMDT-B1MF$0$X-temp-CHECK',
+      'A-11#-B1MF-DOTE$0$Xsy-220825',
+      'A-11-PMDT-B1MF$0$非出图范围',
+      'AD-LIMLT-BM1$0$AUDIT_I_220225151948-16',
+      'AD-LIMLT-BM1$0$AUDIT_I_220225151948-19',
+      'AD-LIMLT-BM1$0$AUDIT_I_220225151948-20',
+      'AD-LIMLT-BM1$0$20211229',
+      'AD-LIMLT-BM1$0$20220104',
+      'AD-LIMLT-BM1$0$20220105',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-18',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-39',
+      'AD-LIMLT-BM1$0$202201011',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-110',
+      'AD-LIMLT-BM1$0$202201014',
+      'AD-LIMLT-BM1$0$20220727',
+      'AD-LIMLT-BM1$0$20220118',
+      'AD-LIMLT-BM1$0$20220121',
+      'AD-LIMLT-BM1$0$20220124',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-211',
+      'AD-LIMLT-BM1$0$20220218',
+      'AD-LIMLT-BM1$0$20220224',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-33',
+      'AD-LIMLT-BM1$0$20220304',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-38',
+      'AD-LIMLT-BM1$0$20220315',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-316',
+      'AD-LIMLT-BM1$0$20220323',
+      'AD-LIMLT-BM1$0$20220324',
+      'AD-LIMLT-BM1$0$20220329',
+      'AD-LIMLT-BM1$0$20220401',
+      'AD-LIMLT-BM1$0$20220402',
+      'AD-LIMLT-BM1$0$20220406',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-420',
+      'AD-LIMLT-BM1$0$20220421',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-425',
+      'AD-LIMLT-BM1$0$20220506',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-59',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-510',
+      'AD-LIMLT-BM1$0$20220511',
+      'AD-LIMLT-BM1$0$风井面积',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-511',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-524',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-525',
+      'AD-LIMLT-BM1$0$20220527',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-530',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-531',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-61',
+      'AD-LIMLT-BM1$0$20220606',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-68',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-610',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-611',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-616',
+      'AD-LIMLT-BM1$0$20220617',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-71',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-74',
+      'AD-LIMLT-BM1$0$20220701',
+      'AD-LIMLT-BM1$0$20220704',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-78',
+      'AD-LIMLT-BM1$0$20220707',
+      'AD-LIMLT-BM1$0$20220709',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-711',
+      'AD-LIMLT-BM1$0$20220713',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-713',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-714',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-715',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-716',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-718',
+      'AD-LIMLT-BM1$0$20220720',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-722',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-726',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-728',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-730',
+      'AD-LIMLT-BM1$0$2022.7.30修改',
+      'AD-LIMLT-BM1$0$20220805',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-81',
+      'AD-LIMLT-BM1$0$20220808',
+      'AD-LIMLT-BM1$0$20220811',
+      'AD-LIMLT-BM1$0$20220815',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-816',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-817',
+      'AD-LIMLT-BM1$0$X-temp-REV-2022-825',
+      'BIM层$0$LINE-BLDG-MULTI',
+      'BIM层$0$LINE-RED1',
+      'BIM层$0$LINE-RED',
+      'BIM层$0$ELVT-ROAD',
+      'BIM层$0$ELVT-SLOPE',
+      'BIM层$0$A-ELVT-ROAD1',
+      'BIM层$0$---绿带-K',
+      'BIM层$0$FIRE-ROAD1',
+      'BIM层$0$FIE-ROAD2',
+      'BIM层$0$X-temp-REV-2022-624',
+      'BIM层$0$X-temp-REV-2022-71',
+      'BIM层$0$X-temp-REV-2022-725',
+      'BIM层$0$20220822',
+      'AD-LTD-B1M$0$20211206',
+      'AD-LTD-B1M$0$20211207',
+      'AD-LTD-B1M$0$20211216',
+      'AD-LTD-B1M$0$20211222',
+      'AD-LTD-B1M$0$20211227',
+      'AD-LTD-B1M$0$20220104',
+      'AD-LTD-B1M$0$20220105',
+      'AD-LTD-B1M$0$20220121',
+      'AD-LTD-B1M$0$20220224',
+      'AD-LTD-B1M$0$20220218',
+      'AD-LTD-B1M$0$X-temp-REV-2022-218',
+      'AD-LTD-B1M$0$20220228',
+      'AD-LTD-B1M$0$20220302',
+      'AD-LTD-B1M$0$20220312',
+      'AD-LTD-B1M$0$20220325',
+      'AD-LTD-B1M$0$20220523',
+      'AD-LTD-B1M$0$X-temp-REV-2022-714',
+      'AD-LTD-B1M$0$DIM_MODI',
+      'AD-LTD-B1M$0$X-temp-REV-2022-719',
+      'AD-LTD-B1M$0$20220727',
+      'AD-LTD-B1M$0$X-temp-REV-2022-82',
+      'AD-LTD-B1M$0$20220801',
+      'AD-LTD-B1M$0$20220808',
+      'A-11-PMDT-B1MF$0$Xsy-220822',
+      'A-11-PMDT-B1MF$0$Xsy-220825',
+      'A-C2-LT-M1F$0$X-temp-REV-2022-711',
+      'A-C2-LT-M1F$0$X-temp-REV-2022-816',
+      'A-C2-LT-M1F$0$Xsy-220819',
+      'P-C2-BM1F$0$PTE－ZP自喷用电设备',
+      'P-C2-BM1F$0$修改示意-水',
+      'P-C2-BM1F$0$PTE－TZ水提电气条件20220721',
+      'P-C2-BM1F$0$PTA－TZ水提建筑条件20220722',
+      'P-C2-BM1F$0$PTE－TZ水提电气条件20220727',
+      'P-C2-BM1F$0$PTE－TZ水提电气条件20220822',
+      'P-C2-BM1F$0$PTE－TZ水提电气条件20220828',
+      'P-C2-BM1F$0$PTA－TZ水提建筑条件20220828',
+      'P-C3-B1MF$0$PTP－PS重力废水立管编号',
+      'P-C3-B1MF$0$PTP－ZP自喷立管编号',
+      'P-C3-B1MF$0$PTP－ZP自喷标注',
+      'P-C3-B1MF$0$PTP－ZP自喷立管编号1区',
+      'P-C3-B1MF$0$PTP－ZY直饮水立管编号1区',
+      'P-C3-B1MF$0$PTP－ZP高空水炮立管编号',
+      'P-C3-B1MF$0$PTP－XH消火栓阀门',
+      'P-C3-B1MF$0$PTP－XH消火栓立管编号1区',
+      'P-C3-B1MF$0$PTP－ZY直饮回水立管编号1区',
+      'P-C3-B1MF$0$PTP－JS给水立管编号0区',
+      'P-C3-B1MF$0$PTP－PS重力废水阀门',
+      'P-C3-B1MF$0$PTA－PS重力废水立管',
+      'P-C3-B1MF$0$PTA－TZ水提建筑条件20220829',
+      'P-C3-B1MF$0$PTE－ZP自喷用电设备',
+      'P-C1-B1M消火栓$0$PTW－XHZ消火栓立管定位',
+      'P-C1-B1M消火栓$0$PTA－TZ水提建筑条件20220818',
+      'AD-P-M1$0$0-业主需求-不打印图层',
+      'AD-P-M1$0$X-temp-REV-2022-110',
+      'AD-P-M1$0$X-temp-REV-2022-33',
+      'AD-P-M1$0$风井面积',
+      'AD-P-M1$0$A-wall-GLAZG',
+      'AD-FHFQ-B1M$0$X-AREA-J',
+      'AD-FHFQ-B1M$0$A-PATT-252图案填充252',
+      'AD-FHFQ-B1M$0$X-temp-REV-2021-1018',
+      'AD-FHFQ-B1M$0$0-业主需求-不打印图层',
+      'AD-P-M1$0$chenqing202206',
+      'A-T5-Wall-B1MF$0$A-Dims',
+      'A-T5-PMDT-B1MF$0$PUB_HATCH',
+      'A-T5-PMDT-B1MF$0$A-text',
+      'A-T5-PMDT-B1MF$0$DIM_LEAD',
+      'A-T5-PMDT-B1MF$0$A-floor-HATCH',
+      'A-T6-PMDT-B1MF$0$A-Dims',
+      'G-10-B1MF$0$地下室',
+      'G-10-B1MF$0$ACS_GAS_BZ',
+      'G-10-B1MF$0$燃气提资',
+      'A-T6-PMDT-B1MF$0$20220822',
+      'SD-BEAM-M1F$0$修改0523',
+      'SD-BEAM-M1F$0$修改0606',
+      'SD-BEAM-M1F$0$修改0613',
+      'AD-P-M1$0$chenqing202207',
+      'AD-P-M1$0$X-temp-REV-2022-77',
+      'AD-P-M1$0$ACS_COM',
+      'AD-P-M1$0$20220601  暖通提资',
+      'AD-P-M1$0$X-temp-REV-2022-714',
+      'AD-P-M1$0$X-temp-REV-2022-74',
+      'AD-P-M1$0$裙房消火栓$0$9-20211103',
+      'AD-P-M1$0$裙房消火栓$0$P-TEXT',
+      'AD-P-M1$0$裙房消火栓$0$P-XFTEXT',
+      'AD-P-M1$0$裙房消火栓$0$P-LG上空',
+      'AD-P-M1$0$X-temp-REV-2022-811',
+      'A-C3-LT-M1F$0$X-temp-REV-2022-824',
+      'H-TJ-B1M$0$20220823  暖通提资',
+      'P-C3-B1MF$0$PTP－JS给水阀门',
+      'P-C3-B1MF$0$PTP－JS给水立管编号',
+      'P-C3-B1MF$0$PTP－JS给水设备',
+      'P-T6-B1MF$0$PTP－XH灭火器',
+      'P-T6-B1MF$0$PTP－ZP自喷设备',
+      'AD-P-M1$0$G_YX（云线）202110.08',
+      'AD-P-M1$0$2022.01.24-地铁顶棚以及冷站轮廓调整',
+      'AD-P-M1$0$厨房提资$0$KIT-WALL',
+      'AD-P-M1$0$厨房提资$0$厨房顾问提资$0$KIT-WALL',
+      'AD-P-M1$0$地铁出入口楼梯$0$WINDOW_TEXT',
+      'AD-P-M1$0$2022.05.27-XFYJYX',
+      'AD-P-M1$0$2022.07.14-',
+    ];
+
+    // ---- 初始化 GStarSDK ----
+    var gstarSDK = new GStarSDK({
+      wrapId: 'webcad',
+      language: 'zh',
+      // ★ 布局切换回调：切换完成后更新状态栏
+      switchLayoutCB: function(layoutObj) {
+        console.log('[CAD] 布局已切换:', JSON.stringify(layoutObj));
+        setCoord('布局: ' + (layoutObj.nickName || layoutObj.globalName || '未知'), true);
+      },
+    });
+    gstarSDK.enableZoom(5);
+    gstarSDK.enablePan();
+    gstarSDK.disableMap();
+    gstarSDK.measures.accuracy = 3;
+    gstarSDK.apiHost = OCF_BASE;
+
+    var titleEl = document.getElementById('title');
+    var coordEl = document.getElementById('coord-bar');
+    var pickBtn = document.getElementById('pick-btn');
+
+    function goBack() {
+      // 若是 Flutter Web 内嵌/独立页，返回上一页
+      if (history.length > 1) { history.back(); }
+      else { location.href = '/'; }
+    }
+
+    function setCoord(text, show) {
+      coordEl.style.display = (show && text) ? 'block' : 'none';
+      coordEl.textContent = text;
+    }
+
+    function togglePick() {
+      PICK_MODE = !PICK_MODE;
+      pickBtn.textContent = PICK_MODE ? '退出定位' : '定位';
+      pickBtn.style.background = PICK_MODE ? '#EA580C' : '';
+      pickBtn.style.color = PICK_MODE ? '#fff' : '';
+      pickBtn.style.borderColor = PICK_MODE ? '#EA580C' : '';
+      setCoord(PICK_MODE ? '定位模式：点击图纸获取真实坐标' : '', PICK_MODE);
+    }
+
+    // ★ 浩辰官方机制：一个CAD图纸有多个布局，每个布局对应一个独立OCF文件
+    // 布局名 → OCF 文件名（不含 .ocf 后缀）
+    // dy04_7_B05 (模型空间) → dy04_7_B05.ocf
+    // dy04_7_B05__PaperSpace (*Paper_Space / "7栋组合图") → dy04_7_B05__PaperSpace.ocf
+    var LAYOUT_OCF_MAP = {
+      '*Model_Space': DRAWING_KEY,                          // 模型空间用原始 OCF
+      '*Paper_Space': DRAWING_KEY + '__PaperSpace',         // 图纸空间(7栋组合图)
+      '7栋组合图': DRAWING_KEY + '__PaperSpace',
+    };
+
+    function ocKeyForLayout(globalName) {
+      return LAYOUT_OCF_MAP[globalName] || DRAWING_KEY;
+    }
+
+    function loadCad() {
+      var url = OCF_BASE + '/api/ocf/' + DRAWING_KEY;
+      setCoord('正在加载 ' + DRAWING_KEY + '...', true);
+      showCad(url);
+    }
+
+    function showCad(ocfurl) {
+      // 密钥为空时尝试从本地 /cad_secret.txt 读取（该文件被 .gitignore 排除，不入库）
+      var doRender = function () {
+        gstarSDK.setDynamicPW(CAD_SECRET);
+
+        // ★ 监听布局切换事件（浩辰官方机制）
+        // 用户点击工具栏「布局」按钮 → SDK 触发 changeLayout → 按 globalName 加载对应 OCF
+        gstarSDK.on('changeLayout', function (eventName, obj) {
+          console.log('[CAD] 切换布局事件:', eventName, JSON.stringify(obj));
+          var gname = (obj && obj.globalName) || '';
+          var nextKey = ocKeyForLayout(gname);
+          var nextUrl = OCF_BASE + '/api/ocf/' + nextKey;
+          console.log('[CAD] 加载布局 OCF:', nextKey);
+          setCoord('切换布局: ' + gname + ' ...', true);
+          if (nextUrl === ocfurl) {
+            setCoord('已是当前布局: ' + gname, true);
+            return;
+          }
+          // 加载新布局 OCF 并重新渲染
+          getDrawSheet(nextUrl, function (buff) {
+            var sizeMb = (buff && buff.byteLength ? buff.byteLength / 1024 / 1024 : 0).toFixed(1);
+            // ★ 图纸空间用 defaultViewport=true（使用 OCF 保存的默认视口/裁剪）
+            var useDefaultView = (gname && gname.indexOf('Paper') >= 0);
+            gstarSDK.render('ocf', buff, '111', useDefaultView).then(function () {
+              setCoord('布局: ' + gname + ' (' + sizeMb + ' MB)', true);
+              // ★ 渲染后关闭用户指定的冻结图层（模型/布局空间都生效）
+              setTimeout(function () {
+                saveLayerStatus();
+                applyFrozenLayers();
+                setTimeout(zoomToFit, 300);
+              }, 200);
+            }).catch(function (err) {
+              console.error('[CAD] 布局渲染失败:', err);
+              setCoord('布局渲染失败: ' + (err && err.message ? err.message : err), true);
+            });
+          });
+        });
+
+        getDrawSheet(ocfurl, function (arraybuffer) {
+        // 第4参 defaultViewport：false=全图自适应（模型空间），true=图纸保存时的默认视口
+        gstarSDK.render('ocf', arraybuffer, '111', false).then(function () {
+          var sizeKb = (arraybuffer.byteLength / 1024).toFixed(1);
+          setCoord('渲染完成 ' + sizeKb + ' KB · 点击右侧「布局」按钮切换图纸空间', true);
+
+          // 打印布局列表供调试
+          try {
+            var allLayouts = gstarSDK.layouts;
+            console.log('[CAD] 所有布局:', JSON.stringify(allLayouts));
+          } catch(e) {
+            console.warn('[CAD] 读取布局失败:', e);
+          }
+
+          bindPick();
+          // 渲染完成后：保存原始图层状态 → 关闭用户指定的冻结图层
+          setTimeout(function () {
+            saveLayerStatus();
+            applyFrozenLayers();
+            setTimeout(zoomToFit, 400);
+          }, 150);
+        }).catch(function (err) {
+          console.error('渲染失败:', err);
+          setCoord('渲染失败：' + (err && err.message ? err.message : err), true);
+        });
+      });
+      };
+      // 密钥为空 → 尝试从本地 cad_secret.txt 读取
+      if (CAD_SECRET) {
+        doRender();
+      } else {
+        fetch('/cad_secret.txt', { cache: 'no-store' }).then(function (r) {
+          if (!r.ok) throw new Error('no secret file');
+          return r.text();
+        }).then(function (txt) {
+          CAD_SECRET = txt.trim();
+          doRender();
+        }).catch(function () {
+          setCoord('未配置 CAD 动态密钥（?cadSecret= 或 web/cad_secret.txt）', true);
+        });
+      }
+    }
+
+    // ---- 视图：缩放到全图（多次重试，等图层切换完成后再 fit） ----
+    function zoomToFit() {
+      try {
+        if (gstarSDK && gstarSDK.func && gstarSDK.func.viewport && gstarSDK.func.viewport.zoomE) {
+          gstarSDK.func.viewport.zoomE.main();
+        }
+      } catch (err) {}
+      try {
+        if (gstarSDK && gstarSDK.zoom) {
+          gstarSDK.zoom('all');
+        }
+      } catch (err) {}
+      // 二次 fit：图层切换后几何范围变化，需重新计算
+      setTimeout(function () {
+        try {
+          if (gstarSDK && gstarSDK.func && gstarSDK.func.viewport && gstarSDK.func.viewport.zoomE) {
+            gstarSDK.func.viewport.zoomE.main();
+          }
+        } catch (err) {}
+      }, 400);
+    }
+
+    // ---- 图层：精确还原 DWG 原始状态（AutoCAD 中的 isoff/isfrozen）----
+    // 加载 DWG 时用 getDwgInfo API 提取 { name, isoff, isfrozen }
+    // 存为 ocf_cache/{key}_meta.json，前端拉取后按状态 setLayer
+    var LAYER_META = null;  // 缓存当前图的元数据 {name: {isoff, isfrozen}}
+
+    function loadLayerMeta(callback) {
+      if (LAYER_META) { callback(LAYER_META); return; }
+      var url = OCF_BASE + '/api/ocf-meta/' + DRAWING_KEY;
+      fetch(url).then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function (bizData) {
+        LAYER_META = {};
+        var layers = (bizData && bizData.layers) || [];
+        layers.forEach(function (l) {
+          LAYER_META[l.name] = { isoff: !!l.isoff, isfrozen: !!l.isfrozen };
+        });
+        console.log('[CAD] 已加载图层元数据，共 ' + layers.length + ' 个');
+        callback(LAYER_META);
+      }).catch(function (e) {
+        console.warn('[CAD] 加载图层元数据失败:', e);
+        callback(null);
+      });
+    }
+
+    // ---- 归一化图层名：全角->半角、去空格，消除 OCF 与 DXF 命名的细微差异 ----
+    function normalizeLayerName(s) {
+      s = String(s || '');
+      // 全角转半角（主要处理：－ -> -, （ -> (, ） -> ), ＿ -> _）
+      s = s.replace(/[\uFF01-\uFF5E]/g, function (ch) {
+        return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+      });
+      s = s.replace(/\u3000/g, ' '); // 全角空格 -> 半角
+      s = s.replace(/\s+/g, '');     // 去所有空白
+      return s;
+    }
+
+    // ---- 应用用户指定的冻结图层（不依赖任何外部服务，无条件隐藏）----
+    function applyFrozenLayers() {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        // 预构建归一化查找表（O(1) 查询）
+        var frozenNorm = {};
+        FROZEN_LAYERS.forEach(function (n) { frozenNorm[normalizeLayerName(n)] = true; });
+        var hidden = 0, hiddenByExact = 0;
+        arr.forEach(function (ly) {
+          var id = ly && ly.id;
+          var name = (ly && ly.name) || '';
+          if (id == null) return;
+          var isNoise = false;
+          // 1) 精确匹配 FROZEN_LAYERS（归一化后比较，兼容全角/半角差异）
+          if (FROZEN_LAYERS.indexOf(String(name)) >= 0 || frozenNorm[normalizeLayerName(name)]) {
+            isNoise = true;
+            hiddenByExact++;
+          } else if (HIDE_EXACT.indexOf(String(name)) >= 0) {
+            // 2) 系统层精确匹配
+            isNoise = true;
+            hiddenByExact++;
+          }
+          // ★ 不再使用关键词兜底（hatch/填充/修改等关键词会误杀正常建筑师图层）
+          // DXF 解析出的 310 个真实冻结层 + 归一化匹配已经 100% 覆盖了 CAD 关闭的图层
+          if (isNoise) {
+            try {
+              gstarSDK.setLayer(id, false);
+              hidden++;
+            } catch (e) {}
+          }
+        });
+        console.log('[CAD] 按 Isfrozen/IsOff 关闭 ' + hidden + ' 个图层（精确匹配，含归一化）');
+        setCoord('已关闭 ' + hidden + ' 个冻结/关闭图层（与 CAD 一致）', true);
+      } catch (err) {
+        console.error('applyFrozenLayers 失败:', err);
+      }
+    }
+
+    function applyCleanView() {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      loadLayerMeta(function (meta) {
+        var hidden = 0, kept = 0;
+        var allNames = [];
+        try {
+          var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+          arr.forEach(function (ly) {
+            var id = ly && ly.id;
+            var name = (ly && ly.name) || '';
+            if (id == null) return;
+            allNames.push(name || String(id));
+            var isNoise = false;
+            // ★ 优先匹配用户指定的冻结图层（精确匹配）
+            if (FROZEN_LAYERS.indexOf(String(name)) >= 0) {
+              isNoise = true;
+            } else if (meta && meta[name]) {
+              // 按 DWG 原始状态：isoff/isfrozen=true → 隐藏
+              isNoise = meta[name].isoff || meta[name].isfrozen;
+            } else {
+              // 没有元数据时退回黑名单
+              var low = String(name).toLowerCase();
+              isNoise = CLEAN_KEYWORDS.some(function (kw) {
+                return low.indexOf(kw.toLowerCase()) >= 0;
+              });
+              if (!isNoise && HIDE_EXACT.indexOf(String(name)) >= 0) isNoise = true;
+            }
+            try {
+              gstarSDK.setLayer(id, !isNoise);
+              isNoise ? hidden++ : kept++;
+            } catch (e) {}
+          });
+        } catch (err) {
+          console.error('applyCleanView 失败:', err);
+        }
+        var src = meta ? 'DWG原始状态' : '黑名单';
+        console.log('[CAD] 全部图层:', allNames.length, '个');
+        console.log('[CAD] 隐藏', hidden, '个，保留', kept, '个（依据:' + src + '）');
+        setCoord('按' + src + '过滤: 显示 ' + kept + ' / 隐藏 ' + hidden, true);
+        setTimeout(function () {
+          try { if (gstarSDK.zoom) gstarSDK.zoom('all'); } catch(e) {}
+        }, 200);
+      });
+    }
+
+    // ---- 列出全部图层（按钮：调试用）----
+    function dumpLayers() {
+      if (!gstarSDK || !gstarSDK.layers) {
+        setCoord('layers 不可用', true); return;
+      }
+      var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      var text = arr.map(function (ly) {
+        return (ly.name || ('id=' + ly.id)) + (ly.status === false ? '(关)' : '');
+      }).join('\n');
+      console.log('[CAD] ALL LAYERS:\n' + text);
+      // 也尝试导出到屏幕上
+      var win = window.open('', '_blank');
+      if (win) { win.document.write('<pre>' + text + '</pre>'); }
+      setCoord('共 ' + arr.length + ' 个图层，已在新窗口打开', true);
+    }
+
+    // ---- 验证：把所有图层强制 setLayer(true)，看 OCF 是否能恢复显示 ----
+    function forceAllOn() {
+      if (!gstarSDK || !gstarSDK.layers) {
+        setCoord('layers 不可用', true); return;
+      }
+      var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      // 统计调用前
+      var before = arr.filter(function (ly) { return ly.status !== false; }).length;
+      // 全部强制打开
+      var ok = 0, fail = 0;
+      arr.forEach(function (ly) {
+        try {
+          gstarSDK.setLayer(ly.id, true);
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+      });
+      // 等 SDK 重绘
+      setTimeout(function () {
+        var arr2 = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        var after = arr2.filter(function (ly) { return ly.status !== false; }).length;
+        var changed = after - before;
+        var msg = '全开验证：调用前 ' + before + ' 个开 / 调用后 ' + after + ' 个开';
+        if (changed > 0) {
+          msg += ' ✓ 增加 ' + changed + ' 个！OCF 数据是全的，只是 SDK 默认隐藏';
+        } else if (changed === 0) {
+          msg += ' ✗ 数量未变：setLayer(true) 对 OCF 无效（OCF 转换时就剥离了图元数据）';
+        } else {
+          msg += ' ? 减少了';
+        }
+        msg += ' | setLayer 成功 ' + ok + ' 失败 ' + fail;
+        setCoord(msg, true);
+        console.log('[CAD] ' + msg);
+        // 重新 fit 一次让画面更新
+        setTimeout(zoomToFit, 200);
+      }, 300);
+    }
+
+    // ---- fetch DWG 元数据（ezdxf 离线解析结果），按 JSON 显隐图层 ----
+    function fetchMetaThenApply() {
+      var url = CAD_META_BASE + '/api/cad-meta/' + DRAWING_KEY + '.json';
+      setCoord('正在加载 DWG 元数据（AutoCAD 原始图层状态）...', true);
+      fetch(url, { cache: 'no-store' }).then(function (r) {
+        if (!r.ok) {
+          setCoord('DWG 元数据未生成（HTTP ' + r.status + '），回退 OCF 原始状态。后端：python server\\cad_meta_server.py', true);
+          return null;
+        }
+        return r.json();
+      }).then(function (meta) {
+        if (!meta || !meta.ok) return;
+        CAD_META = meta;
+        applyMetaView(meta);
+      }).catch(function (e) {
+        setCoord('元数据 fetch 失败：' + e + '（请确认 8810 服务已启动）', true);
+      });
+    }
+
+    // ---- 应用元数据：先强制全开，再按 JSON 把 on=false 关掉 ----
+    function applyMetaView(meta) {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      var sdkLayers = Array.isArray(gstarSDK.layers) ? gstarSDK.layers
+                       : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+      var idByName = {};
+      sdkLayers.forEach(function (ly) {
+        if (ly && ly.name) idByName[String(ly.name).toLowerCase()] = ly.id;
+      });
+      var opened = 0, hidden = 0, noData = 0;
+      meta.layers.forEach(function (ly) {
+        var id = idByName[String(ly.name).toLowerCase()];
+        if (id == null) { noData++; return; }
+        try {
+          gstarSDK.setLayer(id, true);
+          if (ly.on && !ly.frozen) { opened++; }
+          else { gstarSDK.setLayer(id, false); hidden++; }
+        } catch (e) { noData++; }
+      });
+      var total = meta.layers.length;
+      var sdkTotal = sdkLayers.length;
+      setCoord(
+        '元数据已应用：JSON 共 ' + total + ' 图层（开 ' + opened + ' / 关 ' + hidden + '），SDK 可见 ' + sdkTotal + ' / 未匹配 ' + noData + ' | ' +
+        (hidden + noData === 0 ? '✅ 全图层恢复' : '⚠ 部分图层在 OCF 中无数据（转换时已剥离）'),
+        true
+      );
+      console.log('[CAD] 元数据应用完成', meta);
+      setTimeout(zoomToFit, 300);
+    }
+
+    // ---- 清爽视图开关 ----
+    // ---- 清爽视图开关 ----
+    // 保存"清爽视图"开启前的图层显隐状态，"显示全部"时精确恢复
+    var SAVED_LAYER_STATUS = null;
+    function saveLayerStatus() {
+      if (!gstarSDK || !gstarSDK.layers) return;
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        SAVED_LAYER_STATUS = arr.map(function (ly) {
+          return { id: ly.id, status: ly.status !== false };
+        });
+      } catch (e) { SAVED_LAYER_STATUS = null; }
+    }
+    function restoreLayerStatus() {
+      if (!SAVED_LAYER_STATUS) { loadCad(); return; }
+      SAVED_LAYER_STATUS.forEach(function (s) {
+        try { gstarSDK.setLayer(s.id, s.status); } catch (e) {}
+      });
+      setCoord('已恢复原始图层状态', true);
+    }
+    function applyAllLayersVisible() {
+      // 强制打开所有图层（最彻底的"显示全部"）
+      if (!gstarSDK || !gstarSDK.layers) return;
+      try {
+        var arr = Array.isArray(gstarSDK.layers) ? gstarSDK.layers : (gstarSDK.layers.list || gstarSDK.layers.data || []);
+        arr.forEach(function (ly) {
+          try { gstarSDK.setLayer(ly.id, true); } catch (e) {}
+        });
+        setCoord('全部图层已打开（共 ' + arr.length + ' 个）', true);
+      } catch (e) {}
+    }
+
+    function toggleCleanView() {
+      CLEAN_MODE = !CLEAN_MODE;
+      var btn = document.getElementById('clean-btn');
+      if (CLEAN_MODE) {
+        // 切回清爽视图前先存原始状态（让再切回去能恢复）
+        if (!SAVED_LAYER_STATUS) saveLayerStatus();
+        applyCleanView();
+        btn.textContent = '清爽视图';
+        btn.style.background = '#0A5AFF';
+        btn.style.color = '#fff';
+        btn.style.borderColor = '#0A5AFF';
+      } else {
+        // 全部图层打开：优先精确恢复，状态不可用时强制全开
+        if (SAVED_LAYER_STATUS) { restoreLayerStatus(); }
+        else { applyAllLayersVisible(); }
+        btn.textContent = '显示全部';
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+      }
+      setTimeout(zoomToFit, 200);
+    }
+
+    function getDrawSheet(url, cb) {
+      var req = new XMLHttpRequest();
+      req.open('GET', url, true);
+      req.responseType = 'arraybuffer';
+      req.send(null);
+      req.onload = function () {
+        if ((req.status >= 200 && req.status < 300) || req.status === 304) {
+          cb(req.response);
+        } else {
+          setCoord('下载失败 HTTP ' + req.status, true);
+        }
+      };
+      req.onerror = function () {
+        setCoord('请求失败 (可能是 CORS 或未启动本地服务)', true);
+      };
+    }
+
+    // ---- 坐标拾取：点击图纸 -> screenToWorld 真图纸坐标 ----
+    function bindPick() {
+      var wrap = document.getElementById('webcad');
+      // GStarSDK 渲染后在其容器监听点击
+      wrap.onclick = function (e) {
+        if (!PICK_MODE) return;
+        var rect = wrap.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        // 尝试用 SDK 的 screenToWorld 拿真图纸坐标（部分版本走 canvas 坐标系）
+        var world = null;
+        try { world = gstarSDK.screenToWorld({ x: x, y: y }); } catch (err) { world = null; }
+        var text;
+        if (world) {
+          text = '图纸坐标 X=' + world.x.toFixed(1) + '  Y=' + world.y.toFixed(1) + ' (mm)';
+        } else {
+          text = '屏幕坐标 X=' + Math.round(x) + '  Y=' + Math.round(y) + ' px';
+        }
+        setCoord(text, true);
+        // 回传 Flutter：window.parent.postMessage
+        try {
+          window.parent.postMessage({
+            type: 'cad-pick',
+            key: DRAWING_KEY,
+            screenX: x, screenY: y,
+            worldX: world ? world.x : null,
+            worldY: world ? world.y : null,
+            text: text
+          }, '*');
+        } catch (err) { /* 独立页时忽略 */ }
+      };
+    }
+
+    // 自动加载
+    window.addEventListener('load', function () {
+      titleEl.textContent = '7栋 · ' + DRAWING_KEY + ' (v3-clean)';
+      setCoord('页面已加载 v3-clean (CLEAN_MODE=false · defaultViewport=false)', true);
+      setTimeout(loadCad, 200);
+    });
+  </script>
+</body>
+</html>

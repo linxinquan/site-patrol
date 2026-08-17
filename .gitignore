@@ -44,3 +44,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Widget Preview related
+.widget_preview/
+
+# 本地 CAD 动态密钥 / 一次性工具脚本产物
+web/cad_secret.txt
+_server.log
+_flutter_run.log
+
+# CAD 转换中间产物（超大文件，不推送）
+server/dwg_cache/
+*.dxf

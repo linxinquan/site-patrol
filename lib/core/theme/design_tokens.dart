@@ -1,30 +1,51 @@
 import 'package:flutter/material.dart';
 
-/// 设计 Token：照搬原型 styles.css 的 :root 变量（临时主题，集中在此便于后续整体换皮）。
+/// 设计 Token：iOS 风格扁平化（浅色）。
+/// 配色对齐 iOS 系统色 + 原生原型主色，采用无重阴影、大圆角、浅灰分组背景。
 class AppTokens {
-  // —— 浅色主题（默认）——
-  static const Color accent = Color(0xFFEA580C);
+  // —— 主色（保留品牌识别）——
+  static const Color accent = Color(0xFFEA580C); // iOS 橙（原生主操作色）
   static const Color accentHover = Color(0xFFC2410C);
   static const Color accentActive = Color(0xFF9A3412);
   static const Color accentSoft = Color(0xFFFFEDD5);
-  static const Color brand = Color(0xFF1D4ED8);
-  static const Color brandHover = Color(0xFF1E40AF);
-  static const Color brandSoft = Color(0xFFDBEAFE);
-  static const Color bg = Color(0xFFF8FAFC);
-  static const Color surface = Color(0xFFFFFFFF);
-  static const Color surface2 = Color(0xFFF1F5F9);
-  static const Color fg = Color(0xFF0F172A);
-  static const Color muted = Color(0xFF64748B);
-  static const Color mutedA11y = Color(0xFF475569);
-  static const Color border = Color(0xFFE2E8F0);
-  static const Color borderStrong = Color(0xFFCBD5E1);
-  static const Color success = Color(0xFF16A34A);
-  static const Color successSoft = Color(0xFFDCFCE7);
-  static const Color warning = Color(0xFFCA8A04);
-  static const Color warningSoft = Color(0xFFFEF9C3);
-  static const Color danger = Color(0xFFDC2626);
-  static const Color dangerSoft = Color(0xFFFEE2E2);
+  static const Color brand = Color(0xFF007AFF); // iOS 系统蓝
+  static const Color brandHover = Color(0xFF0066CC);
+  static const Color brandSoft = Color(0xFFE5F1FF);
+
+  // —— iOS 系统色 ——
+  static const Color iosGreen = Color(0xFF34C759);
+  static const Color iosRed = Color(0xFFFF3B30);
+  static const Color iosOrange = Color(0xFFFF9500);
+  static const Color iosYellow = Color(0xFFFFCC00);
+  static const Color iosTeal = Color(0xFF5AC8FA);
+
+  // —— 语义色（映射 iOS）——
+  static const Color success = Color(0xFF34C759);
+  static const Color successSoft = Color(0xFFE6F8ED);
+  static const Color warning = Color(0xFFFF9500);
+  static const Color warningSoft = Color(0xFFFFF3E0);
+  static const Color danger = Color(0xFFFF3B30);
+  static const Color dangerSoft = Color(0xFFFFEBEA);
+
+  // —— 背景与表面（iOS 分组样式）——
+  static const Color bg = Color(0xFFF2F2F7); // iOS 系统分组背景
+  static const Color surface = Color(0xFFFFFFFF); // 卡片
+  static const Color surface2 = Color(0xFFF8F8FA); // 次级填充
+  static const Color surface3 = Color(0xFFEFEFF4); // 输入/嵌入底
+
+  // —— 文字 ——
+  static const Color fg = Color(0xFF000000); // iOS 主文字纯黑
+  static const Color fg2 = Color(0xFF3C3C43); // 次级文字
+  static const Color muted = Color(0xFF8E8E93); // iOS 系统灰
+  static const Color mutedA11y = Color(0xFF6C6C70); // 可访问灰
+
+  // —— 分割线/边框 ——
+  static const Color border = Color(0xFFE5E5EA); // iOS 分割线
+  static const Color borderStrong = Color(0xFFC7C7CC);
+
+  // —— 固定字色 ——
   static const Color onAccent = Color(0xFFFFFFFF);
+  static const Color onBrand = Color(0xFFFFFFFF);
 
   // —— 巡场深色沉浸主题（占位，P5 用）——
   static const Color patrolBg = Color(0xFF0B1220);
@@ -44,29 +65,29 @@ class AppTokens {
   static const double space7 = 32;
   static const double space8 = 40;
 
-  // —— 圆角 ——
-  static const double radiusSm = 8;
-  static const double radiusMd = 12;
-  static const double radiusLg = 16;
+  // —— 圆角（iOS 大圆角）——
+  static const double radiusSm = 10;
+  static const double radiusMd = 14;
+  static const double radiusLg = 18;
+  static const double radiusXl = 22;
   static const double radiusPill = 999;
 
-  // —— 阴影 ——
-  static List<BoxShadow> get elevationRaised => [
+  // —— 阴影（iOS 极轻扁平，几乎无投影）——
+  static List<BoxShadow> get elevationRaised => const [
         BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
-            blurRadius: 2,
-            offset: const Offset(0, 1)),
-        BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-            blurRadius: 3,
-            offset: const Offset(0, 1)),
+          color: Color(0x14000000), // 8% 黑
+          blurRadius: 8,
+          offset: Offset(0, 1),
+        ),
       ];
-  static List<BoxShadow> get elevationOverlay => [
+  static List<BoxShadow> get elevationOverlay => const [
         BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.12),
-            blurRadius: 30,
-            offset: const Offset(0, 10)),
+          color: Color(0x1F000000), // 12% 黑
+          blurRadius: 32,
+          offset: Offset(0, 10),
+        ),
       ];
+  static List<BoxShadow> get elevationNone => const [];
 
   // —— 结构尺寸 ——
   static const double tabbarH = 64;
