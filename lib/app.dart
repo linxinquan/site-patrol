@@ -30,6 +30,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggedIn = ref.read(authStateProvider) != null;
       final onLogin = state.matchedLocation == '/login';
+      // 根路径未匹配任何路由：交给守卫决定去向
+      if (state.matchedLocation == '/') {
+        return loggedIn ? '/home' : '/login';
+      }
       if (!loggedIn && !onLogin) return '/login';
       if (loggedIn && onLogin) return '/home';
       return null;

@@ -1,0 +1,1000 @@
+
+===== PAGE 1 =====
+华为云市场浩辰云图网页版软件后端 API 文
+档
+1. 产品介绍
+浩辰云图网页版软件，包括后端各种API能力+前端JS SDK，专门为企业量身定制的CAD
+在线看图产品，无需安装任何插件，可无缝集成到各类BS系统、APP软件、微信小程序
+中，实现企业图纸管理、协同办公等私有化。
+2. API 接口手册
+欢迎使用浩辰云图网页版软件。您可以使用本文档介绍的 API 接口对2D/3D图纸进行相
+关操作。
+所有转换任务请求都是异步方式，即先提交任务取得requestId，云服务执行，第三方根
+据requestId请求任务执行结果；也可以使用回调通知的方式，云服务端执行完成后推送
+任务结果。
+2.1. 提取 2D 图纸关键信息
+描述
+1、上传图纸，转换服务解析图纸并提取关键信息
+2、返回的JSON数据包括：默认布局、布局列表、图层状态、外部参照
+API 地址
+${华为云API网关域名}/openapi/v1/getDwgInfo
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称，必填",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"fileBase64": "文件流Base64：fileUrl、fileBase64必填一个",
+
+===== PAGE 2 =====
+"notifyUrl": "回调通知url，非必填"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678259866790,
+"bizData": {
+"requestId": "273ee0a8-2419-45d5-83b7-effbda4b8b0f"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：默认布局，图层，布局，图块
+名称，外部参照信息。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678259910790,
+"bizData": {
+"taskType": "GET_DWG_INFO",
+"requestId": "273ee0a8-2419-45d5-83b7-effbda4b8b0f",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 15:17:37",
+"transformEndTime": "2023-03-08 15:18:03",
+"deflayout": "*Model_Space",
+"layers": [
+{
+"name": "0",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+
+===== PAGE 3 =====
+},
+{
+"name": "Defpoints",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-墙-砖",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-轴",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-轴-标注",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-柱",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-扶手",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-窗",
+"isoff": false,
+"isfrozen": false,
+
+===== PAGE 4 =====
+"islock": false
+},
+{
+"name": "建-三维-楼梯",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-台阶",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-坡道",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-尺寸",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-电梯",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-箭头",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-房间",
+"isoff": false,
+
+===== PAGE 5 =====
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-标高",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-文字",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-图名",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-图框",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-指北针",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-阳台",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "建-表格",
+
+===== PAGE 6 =====
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "AXIS_TEXT",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+},
+{
+"name": "GstarFastview4.2-
+ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-note-layer-HCNoteLayer",
+"isoff": false,
+"isfrozen": false,
+"islock": false
+}
+],
+"layouts": [
+"31",
+"*Model_Space",
+"Model",
+"88",
+"*Paper_Space",
+"布局1",
+"93",
+"*Paper_Space0",
+"布局2"
+],
+"blocks": [
+"_ArchTick",
+"图框库$系统图库$00000141",
+"_AXISO",
+"二维门库$系统图库$00000127",
+"二维门库$系统图库$00000001",
+"二维窗库$系统图库$00000001",
+"二维门库$系统图库$00000011",
+"二维门库$系统图库$00000003",
+"二维门库$系统图库$00000022",
+"二维门库$系统图库$00000010"
+],
+
+===== PAGE 7 =====
+"xrefs": []
+}
+}
+失败返回示例
+{
+"rtnCode": "0000007",
+"msg": "请上传dwg文件",
+"ts": 1677630871836,
+"bizData": null
+}
+2.2. 提取 2D 图纸缩略图
+描述
+1、可以接受待转换的文件以下载链接或者文件流Base64的方式，判断该文件是否为
+DWG/OCF格式，如果不是DWG、OCF文件则返回错误码
+2、如果文件是DWG/OCF文件，则可以正常进行任务转换，生成转换服务，提取缩略图
+API 地址
+${华为云API网关域名}/openapi/v1/getThumb
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称，必填",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"fileBase64": "文件流Base64：fileUrl、fileBase64必填一个",
+"notifyUrl": "回调通知url，非必填"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+
+===== PAGE 8 =====
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "a9bf6a31-eb1c-4faa-b301-0a7a14f96f31"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：缩略图url（thumbUrl）。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261761501,
+"bizData": {
+"taskType": "GET_THUMB",
+"requestId": "a9bf6a31-eb1c-4faa-b301-0a7a14f96f31",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 15:46:35",
+"transformEndTime": "2023-03-08 15:46:38",
+"thumbUrl": "https://oss.abc.com/openapi/v1/download?fileId=1a962f2a-
+ac75-4d38-a125-951eb45bf500"
+}
+}
+2.3. DWG 转 Ocf
+描述
+1、可以接受待转换的文件以下载链接或者文件流Base64的方式，判断该文件是否为DWG
+格式，如果不是DWG文件则返回错误码
+2、如果文件是DWG文件，则可以正常进行任务转换，生成转换oc任务
+3、转换layout的布局ocf，如果layout为空，转换模型空间ocf
+API 地址
+
+===== PAGE 9 =====
+${华为云API网关域名}/openapi/v1/dwgToOcf
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称，必填",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"fileBase64": "文件流Base64：fileUrl、fileBase64必填一个",
+"layout": "布局名称，非必填",
+"ocfName": "生成的ocf文件名称，客户不自定义情况，采用系统默认规则",
+"notifyUrl": "回调通知url，非必填"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "5c79756f-41f2-4647-b9fd-583099cf38a2"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：ocf文件url（ocfUrl），ocf
+文件名称，布局数组。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678262682920,
+"bizData": {
+"taskType": "MAKEOCF",
+"requestId": "5c79756f-41f2-4647-b9fd-583099cf38a2",
+"status": 2,
+"resultCode": 0,
+
+===== PAGE 10 =====
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 16:03:57",
+"transformEndTime": "2023-03-08 16:04:00",
+"ocfUrl": "https://oss.abc.com/openapi/v1/download?fileId=b6492bb6-
+7d05-40aa-b4af-62d73d1accd3",
+"ocfName": "0000000009.2.ocf",
+"version": "1.06",
+"layout": "*Model_Space",
+"layouts": [
+"31",
+"*Model_Space",
+"Model",
+"88",
+"*Paper_Space",
+"布局1",
+"93",
+"*Paper_Space0",
+"布局2"
+]
+}
+}
+2.4. DWG 另存版本
+描述
+1、将dwg另存为其他版本
+API 地址
+${华为云API网关域名}/openapi/v1/dwgSaveAsVersion
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称，必填",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+
+===== PAGE 11 =====
+"fileBase64": "文件流Base64：fileUrl、fileBase64必填一个",
+"dwgVersion": "另存为dwg版本：0=2000,1=2004,2=2007,3=2010,4=2013,5=2018",
+"saveAsName": "另存为名称",
+"saveAsType": "另存为文件类型：dwg,dxf",
+"notifyUrl": "回调通知url，非必填"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "7d7404b6-b19e-4cf3-ab65-2e0929381ae5"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：dwg文件rl（dwgUrl），
+saveAsName。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678264097648,
+"bizData": {
+"taskType": "SAVEAS_VERSION",
+"requestId": "7d7404b6-b19e-4cf3-ab65-2e0929381ae5",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 16:27:32",
+"transformEndTime": "2023-03-08 16:27:32",
+"dwgUrl": "https://oss.abc.com/openapi/v1/download?fileId=ec36f384-
+d268-466b-8c54-0c8f7f0bd3b6",
+"saveAsName": "1.dwg"
+}
+}
+
+===== PAGE 12 =====
+2.5. OCF 另存为图片
+描述
+1、将ocf文件另存为图片
+API 地址
+${华为云API网关域名}/openapi/v1/ocfSaveAsImage
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"bkColor": "背景颜色类型",
+"colorType": "颜色类型",
+"imageWidth": "图片宽度",
+"imageHeight": "图片高度",
+"layerfilter": "层过滤",
+"pt1x": "第一个点的坐标x",
+"pt1y": "第一个点的坐标y",
+"pt2x": "第二个点的坐标x",
+"pt2y": "第二个点的坐标y",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "7d7404b6-b19e-4cf3-ab65-2e0929381ae5"
+
+===== PAGE 13 =====
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：图片文件url（imgUrl）。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678265084644,
+"bizData": {
+"taskType": "SAVE_AS_IMAGE",
+"requestId": "41bed9fe-98d6-4e72-80d0-f9ba6d576eb3",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 16:44:27",
+"transformEndTime": "2023-03-08 16:44:30",
+"imgUrl": "https://oss.abc.com/openapi/v1/download?fileId=f8000a8c-
+99fa-453e-9ab2-64a77d0c50da"
+}
+}
+2.6. OCF 另存 PDF
+描述
+1、将ocf文件另存为PDF
+API 地址
+${华为云API网关域名}/openapi/v1/ocfSaveAsPdf
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"haveColor": "颜色类型",
+"colorType": "颜色类型",
+
+===== PAGE 14 =====
+"paperWidth": "页面的宽度",
+"paperHeight": "页面的高度",
+"layoutname": "布局名称",
+"pt1x": "第一个点的坐标x",
+"pt1y": "第一个点的坐标y",
+"pt2x": "第二个点的坐标x",
+"pt2y": "第二个点的坐标y",
+"saveAsName": "另存文件名称",
+"scale": "缩放比例",
+"scaleType": "缩放方式",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "747c73c3-6254-4f8a-9de5-268729e2f838"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：PDF文件url（pdfUrl），
+saveAsName。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678265539829,
+"bizData": {
+"taskType": "SAVEAS_PDF",
+"requestId": "747c73c3-6254-4f8a-9de5-268729e2f838",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 16:51:51",
+
+===== PAGE 15 =====
+"transformEndTime": "2023-03-08 16:51:51",
+"pdfUrl": "https://oss.abc.com/openapi/v1/download?fileId=8662b8cf-
+693c-4dda-9af6-55a99ce9017c",
+"saveAsName": "0000000013.2.pdf"
+}
+}
+2.7. DWG/OCF 拆图
+描述
+1、解决大图显示问题，将ocf拆分成一个个小图片
+API 地址
+${华为云API网关域名}/openapi/v1/getPixelImage
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"row": "切分行数",
+"column": "切分列数",
+"width": "单个图片宽度",
+"height": "单个图片高度",
+"layout": "布局名，没有ocf时要生成ocf，需要传入布局",
+"trim": "是否裁剪空白区域，一般都是设置为true，目的是节省空间，图幅比例可能和
+给定行列不匹配，不裁剪会导致大量空白图片",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+
+===== PAGE 16 =====
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "3c648aa7-7295-4cd7-9b8c-a22edd8ee83a"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：布局数组（layouts），视图大
+小viewsize。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678265925781,
+"bizData": {
+"taskType": "GET_PIXEL_IMAGE",
+"requestId": "3c648aa7-7295-4cd7-9b8c-a22edd8ee83a",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 16:57:31",
+"transformEndTime": "2023-03-08 16:57:36",
+"viewsize": 62196.622222,
+"layouts": [
+"31",
+"*Model_Space",
+"Model",
+"88",
+"*Paper_Space",
+"布局1",
+"93",
+"*Paper_Space0",
+"布局2"
+]
+}
+}
+2.8. PDF 生成 DWG
+描述
+
+===== PAGE 17 =====
+1、根据pdf，生成对应的dwg列表，dwg没有缩略图
+API 地址
+${华为云API网关域名}/openapi/v1/pdfToDwg
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "3c648aa7-7295-4cd7-9b8c-a22edd8ee83a"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：dwg列表items。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678266793929,
+"bizData": {
+"taskType": "PDFTOCAD",
+"requestId": "31e86452-d3da-4b33-90f1-8690f4e3c171",
+"status": 2,
+
+===== PAGE 18 =====
+"resultCode": 0,
+"resultMsg": null,
+"transformStartTime": "2023-03-08 17:13:06",
+"transformEndTime": "2023-03-08 17:13:06",
+"items": [
+{
+"fileName": "0000000065-1.dwg",
+"url":
+"https://oss.abc.com/openapi/v1/download?fileId=2a6de494-b391-4e4f-a6c6-
+91110aeab24f"
+}，
+{
+"fileName": "0000000065-1.dwg",
+"url":
+"https://oss.abc.com/openapi/v1/download?fileId=2a6de494-b391-4e4f-a6c6-
+91110aeab24g"
+}
+]
+}
+}
+2.9. 提取 3D 图纸缩略图
+描述
+1、可以接受待转换的文件以下载链接或者文件流的方式，判断该文件是否为3D图纸
+/OCF3格式（配置），如果不是DWG文件则返回错误码
+2、如果文件是3D图纸/OCF3文件，则可以正常进行任务转换，生成转换服务，提取缩略
+图
+API 地址
+${华为云API网关域名}/openapi/v1/get3dThumb
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+
+===== PAGE 19 =====
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"renderDepth": "精细程度，取值范围[1-8]，越高越精细，默认5",
+"silhouettes": "是否输出轮廓线，默认false不输出",
+"width": "图片的宽度",
+"height": "图片的高度",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "7e3a4370-ffed-429d-a0f5-7565dc98c880"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：缩略图url（thumbUrl）。
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678267130018,
+"bizData": {
+"taskType": "GET_3D_THUMB",
+"requestId": "7e3a4370-ffed-429d-a0f5-7565dc98c880",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 17:18:28",
+"transformEndTime": "2023-03-08 17:18:46",
+"thumbUrl": "https://oss.abc.com/openapi/v1/download?fileId=a1042265-
+0936-44e4-97d5-aa77f72e90ed"
+}
+}
+
+===== PAGE 20 =====
+2.10. 3D 图纸转 OCF3
+描述
+1、可以接受待转换的文件以下载链接或者文件流的方式，判断该文件是否为3D图纸格式
+（配置），如果不是3D图纸文件则返回错误码
+2、如果文件是3D图纸文件，则可以正常进行任务转换，发起ocf3转换任务
+API 地址
+${华为云API网关域名}/openapi/v1/3DToOcf3
+调用方法
+POST
+请求参数（json body）
+{
+"fileName": "文件名称",
+"fileBase64": "文件流：fileUrl、fileBase64必填一个",
+"fileUrl": "文件下载的URL地址：fileUrl、fileBase64必填一个",
+"renderDepth": "精细程度，取值范围[1-8]，越高越精细，默认5",
+"silhouettes": "是否输出轮廓线，默认false不输出",
+"notifyUrl": "回调通知url"
+}
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678261595720,
+"bizData": {
+"requestId": "9e20058b-fa72-4036-a1ac-c90b54013456"
+}
+}
+根据requestId调用接口11：获取任务结果数据，返回：完整ocf3（ocf3Url）、分片
+ocf3列表items。
+
+===== PAGE 21 =====
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1678267314033,
+"bizData": {
+"taskType": "OCF3D",
+"requestId": "9e20058b-fa72-4036-a1ac-c90b54013456",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 17:21:34",
+"transformEndTime": "2023-03-08 17:21:47",
+"ocf3Url": "https://oss.abc.com/openapi/v1/download?fileId=4495c75c-
+4d6c-43ec-a5c2-8f3e47260c14",
+"items": [
+{
+"fileName": "0000000067-A.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=3f2aceb6-f87c-493a-bfa4-
+05f921d29481"
+},
+{
+"fileName": "0000000067-1.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=19449797-e26f-4026-8904-
+4861ae7ab957"
+},
+{
+"fileName": "0000000067-2.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=4b9c3225-8872-46f6-99a3-
+79f12d825ff3"
+},
+{
+"fileName": "0000000067-3.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=1c9a7970-b8f2-4b78-be72-
+a3b36ba796a0"
+},
+{
+"fileName": "0000000067-4.ocf3",
+
+===== PAGE 22 =====
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=800b57ef-ab4e-41e8-90f1-
+b563896123ea"
+},
+{
+"fileName": "0000000067-5.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=cb5a5cb6-f059-4bb3-a620-
+c512ffcfb70e"
+},
+{
+"fileName": "0000000067-6.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=35cd1f33-783c-4596-8e64-
+366bcf547882"
+},
+{
+"fileName": "0000000067-7.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=fd6b07e0-3c51-4e1d-b6ac-
+f29c0431a435"
+},
+{
+"fileName": "0000000067-8.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=f72ada1e-747d-424c-846e-
+7add85b2114e"
+},
+{
+"fileName": "0000000067-9.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=410f3a5f-ba54-4586-8ec7-
+1468e11c97ab"
+},
+{
+"fileName": "0000000067-10.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=c4798266-5dff-4509-b35b-
+bdb8a2c892ec"
+},
+{
+
+===== PAGE 23 =====
+"fileName": "0000000067-11.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=37d2515a-2a12-40bc-b0e1-
+0523045231f3"
+},
+{
+"fileName": "0000000067-12.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=c6dcb7ea-754b-43cb-8ccf-
+1e0cd4181b2e"
+},
+{
+"fileName": "0000000067-13.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=c22505f8-e393-4697-9f5a-
+2f5352be4706"
+},
+{
+"fileName": "0000000067-14.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=c7f7f5da-c366-4764-b828-
+c92a6f91e95c"
+},
+{
+"fileName": "0000000067-15.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=a269d987-f7f2-4ed8-a4a0-
+c853ae13237e"
+},
+{
+"fileName": "0000000067-16.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=42954981-58a6-42b0-910a-
+a06e8f7ac363"
+},
+{
+"fileName": "0000000067-17.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=d21894f7-126e-4230-a364-
+6e723fd19bb6"
+},
+
+===== PAGE 24 =====
+{
+"fileName": "0000000067-18.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=d50f38df-c68f-42df-bf8f-
+a7c7883bd5f7"
+},
+{
+"fileName": "0000000067-19.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=58c3191f-8fcb-423c-b196-
+b22c4372b447"
+},
+{
+"fileName": "0000000067-20.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=82cde396-3758-41b8-b529-
+0626e797a26a"
+},
+{
+"fileName": "0000000067-21.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=85b81f1e-322b-46d6-84d2-
+cc0f87556df5"
+},
+{
+"fileName": "0000000067-22.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=8e370cf2-533d-406a-9fb2-
+53870acf5d40"
+},
+{
+"fileName": "0000000067-23.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=a4c9c937-6fa5-435f-b096-
+23a16f6086be"
+},
+{
+"fileName": "0000000067-24.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=9f5d9328-0e0f-46dc-be24-
+3ca89d3d4d62"
+
+===== PAGE 25 =====
+},
+{
+"fileName": "0000000067-25.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=e03ebdd9-85db-4820-abc1-
+df1e7c57a98e"
+},
+{
+"fileName": "0000000067-26.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=dfd4d274-8ecb-440b-bc5a-
+09227b99fd97"
+},
+{
+"fileName": "0000000067-27.ocf3",
+"url":
+"https://oss.abc.com/openapi/v1/downloadSplit?fileId=321b7bd7-066c-4c27-9c6b-
+6d362c7875dc"
+}
+]
+}
+}
+2.11. 获取任务执行结果数据
+描述
+1、第三方系统可以主动向浩辰云图服务请求任务的执行状态
+2、根据任务请求唯一id查询任务，并返回任务执行，如果已执行完毕，将执行结果返
+回，否则仅返回对应的返回码即可
+API 地址
+${华为云API网关域名}/openapi/v1/getTaskStatus
+这里的“华为云API网关域名”固定使用
+https://gstarcadsdk.apistore.huaweicloud.com
+
+===== PAGE 26 =====
+调用方法
+POST
+请求参数
+requestId=xxx
+返回值
+status code为200表示请求已经成功对接云服务，rtnCode=0000000表示获取数据成
+功，返回下面的信息；其余值表示失败。
+成功返回示例
+{
+"rtnCode": "0000000",
+"msg": "success",
+"ts": 1677630741619,
+"bizData": {
+"taskType": "GET_DWG_INFO",
+"requestId": "273ee0a8-2419-45d5-83b7-effbda4b8b0f",
+"status": 2,
+"resultCode": 0,
+"resultMsg": "OK",
+"transformStartTime": "2023-03-08 15:17:37",
+"transformEndTime": "2023-03-08 15:18:03",
+...
+}
+}
+其中status取值为
+取值 说明
+0 未开始
+1 执行中
+2 已完成
+其中resultCode取值为：0为成功，其他为失败。
+失败返回示例
+
+===== PAGE 27 =====
+{
+"rtnCode": "0000006",
+"msg": "转换任务不存在",
+"ts": 1677630871836,
+"bizData": null
+}
+3. 错误码
+取值 说明
+0000000 成功
+0000001 您使用的功能没有被授权，请联系管理员
+0000002 服务器繁忙，请稍后重试
+0000003 参数异常
+0000004 文件名称不能为空
+0000005 文件不存在
+0000006 转换任务不存在
+0000007 请上传dwg文件
+0000008 请上传ocf文件
+0000009 请上传3D图纸文件
+0000010 请上传ocf3文件
+0000011 请上传dwg/ocf文件
+0000012 请上传rvt/stl/ifc/ocf3 文件
+0000013 另存为文件类型：仅支持 dwg/dxf
+0000014 另存为版本：0~5
+0000015 请上传pdf文件
