@@ -52,7 +52,7 @@ class LoginPage extends ConsumerWidget {
                   const SizedBox(height: 28),
                   // APP 名称（大字号细字重）
                   const Text(
-                    '工地巡检',
+                    '蓝图落地',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 30,
@@ -63,7 +63,7 @@ class LoginPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    '让施工现场更透明、更高效',
+                    '设计院视角的现场数据闭环',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -97,7 +97,7 @@ class LoginPage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 18),
                   const Text(
-                    '工地巡检 · 施工现场质量巡检助手',
+                    '蓝图落地 · 现场数据闭环与缺陷知识库',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,

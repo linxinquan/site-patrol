@@ -17,6 +17,7 @@ import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_page.dart';
+import 'features/auth/value_page.dart';
 import 'features/auth/onboard_page.dart';
 import 'features/auth/onboard_project_page.dart';
 
@@ -35,23 +36,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final onLogin = loc == '/login';
       final onOnboard = loc == "/onboard" || loc.startsWith("/onboard/");
+      final onValue = loc == '/value';
       // 根路径未匹配任何路由：交给守卫决定去向
       if (loc == '/') {
         if (!loggedIn) return '/login';
-        return onboarded ? '/home' : '/onboard';
+        return onboarded ? '/home' : '/value';
       }
       // 未登录只能去 login
       if (!loggedIn && !onLogin) return '/login';
-      // 已登录且正在 login：去引导或首页
-      if (loggedIn && onLogin) return onboarded ? '/home' : '/onboard';
-      // 已登录但未引导，且不在 onboard：强制去 onboard
-      if (loggedIn && !onboarded && !onOnboard) return '/onboard';
+      // 已登录且正在 login：去价值页或首页
+      if (loggedIn && onLogin) return onboarded ? '/home' : '/value';
+      // 已登录但未引导，且不在 value/onboard：强制去 value
+      if (loggedIn && !onboarded && !onValue && !onOnboard) return '/value';
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/value',
+        builder: (_, __) => const ValuePage(),
       ),
       GoRoute(
         path: '/onboard',
@@ -123,7 +129,7 @@ class App extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final phoneMode = ref.watch(devicePhoneModeProvider);
     return MaterialApp.router(
-      title: '工地验收',
+      title: '蓝图落地',
       theme: lightTheme,
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,

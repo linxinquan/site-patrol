@@ -141,6 +141,10 @@ class HomePage extends ConsumerWidget {
           ),
           const SizedBox(height: AppTokens.space3),
 
+          // —— 2.5 数据闭环价值条（弱化、不抢重点，展示产品定位）——
+          const _ValueStrip(),
+          const SizedBox(height: AppTokens.space3),
+
           // —— 4. 今日待办（标题改为具体日期）——
           SectionTitle(
             title: '${_dateLabel()} 待办',
@@ -779,6 +783,122 @@ class _QuickCard extends StatelessWidget {
             ),
           ),
         ),
+      );
+}
+
+// ==================== 数据闭环价值条（弱化、展示产品定位） ====================
+/// 设计院视角的四步数据闭环：现场拍照 → AI 分类关联图纸规范 → 责任判定 → 知识库。
+/// 弱化呈现（扁平、低对比），让「数据闭环」定位在首页持续可见但不抢重点。
+class _ValueStrip extends StatelessWidget {
+  const _ValueStrip();
+
+  static const _steps = [
+    _StripStep(icon: LucideIcons.camera, label: '现场拍照'),
+    _StripStep(icon: LucideIcons.brainCircuit, label: 'AI 分类关联'),
+    _StripStep(icon: LucideIcons.scale, label: '责任判定'),
+    _StripStep(icon: LucideIcons.database, label: '知识库'),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space4, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+          border: Border.all(color: AppTokens.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            // 左侧：闭环标题（竖排小字，弱化）
+            const Padding(
+              padding: EdgeInsets.only(right: AppTokens.space3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('数据',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color: AppTokens.fg)),
+                  Text('闭环',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                          color: AppTokens.accent)),
+                ],
+              ),
+            ),
+            // 四步：图标 + 名称 + 连接线（从顶部对齐，连接线对准图标中心）
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < _steps.length; i++) ...[
+                    _StripStepView(step: _steps[i]),
+                    if (i < _steps.length - 1) const _StripConnector(),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _StripStep {
+  final IconData icon;
+  final String label;
+  const _StripStep({required this.icon, required this.label});
+}
+
+class _StripStepView extends StatelessWidget {
+  final _StripStep step;
+  const _StripStepView({required this.step});
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: AppTokens.surface2,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(step.icon, size: 14, color: AppTokens.mutedA11y),
+            ),
+            const SizedBox(height: 4),
+            Text(step.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 9,
+                    color: AppTokens.muted,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+}
+
+class _StripConnector extends StatelessWidget {
+  const _StripConnector();
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          // 顶部留白 = 图标高度的一半（26/2），让连接线对齐图标中心
+          const SizedBox(height: 13),
+          Container(
+            width: 10,
+            height: 1.5,
+            color: AppTokens.border,
+          ),
+        ],
       );
 }
 

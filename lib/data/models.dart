@@ -335,7 +335,7 @@ class Defect {
     required this.alt,
     required this.resp,
     this.respUnit = '',
-    this.reporter = '现场巡查',
+    this.reporter = '现场记录',
     this.tags = const [],
     required this.note,
     required this.seed,

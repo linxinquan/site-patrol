@@ -67,7 +67,7 @@ class _OnboardProjectPageState extends ConsumerState<OnboardProjectPage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '选择要巡检的工地',
+                    '选择要落地的项目',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 13, color: AppTokens.muted),

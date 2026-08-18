@@ -52,7 +52,7 @@ class _OnboardPageState extends ConsumerState<OnboardPage> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '选择当前巡检账号',
+                    '选择当前账户',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 13, color: AppTokens.muted),

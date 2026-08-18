@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Gongdi App</string>
+	<string>蓝图落地</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -27,9 +27,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>用于工地拍照验收，记录现场缺陷影像</string>
+	<string>用于现场拍照，记录并识别设计缺陷与施工问题</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>用于读取验收照片进行识别与存档</string>
+	<string>用于读取现场照片进行 AI 分类与缺陷归档</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,6 +1,8 @@
-# gongdi_app
+# 蓝图落地
 
-A new Flutter project.
+设计院视角的现场数据闭环 App（Flutter，iOS / Android / Web 三端）。
+
+四步闭环：现场拍照 → AI 自动分类、关联图纸和规范 → 判断责任（设计缺陷 / 施工问题）→ 沉淀缺陷知识库，反哺设计。
 
 ## Getting Started
 

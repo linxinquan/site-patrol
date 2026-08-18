@@ -2,7 +2,7 @@
     <!-- 拍照验收：真实相机拍摄所需权限 -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <application
-        android:label="gongdi_app"
+        android:label="蓝图落地"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

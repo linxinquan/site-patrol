@@ -408,7 +408,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
       alt: '',
       resp: '待指派',
       respUnit: '',
-      reporter: '现场巡检',
+      reporter: '现场记录',
       tags: ['CAD定位'],
       note: '从图纸拾取定位，坐标 ${ann.coordText}',
       seed: 'cad_pick',
