@@ -86,6 +86,55 @@ const Project tencentProject = Project(
 /// 所有项目列表（多项目切换用）。默认第一个为当前选中项目。
 const List<Project> allProjects = [tencentProject, project];
 
+/// 附近定位点列表（工程水印相机「附近定位」选点）。
+/// 每项：项目/地标 + 地址 + GPS + 海拔。默认第一个为当前项目（腾讯大铲湾 DY04 · 7栋）。
+/// 坐标：腾讯大铲湾 113.9799°E, 22.5936°N（前海-大铲湾片区）；
+/// 南科大西丽 113.9699°E, 22.5906°N（南山区西丽大学城）。
+const List<SiteLocation> siteLocations = [
+  SiteLocation(
+    id: 'dy04-7',
+    name: '腾讯大铲湾 DY04 · 7栋',
+    address: '深圳市宝安区大铲湾',
+    lat: 22.5936,
+    lng: 113.9799,
+    altitude: 12.0,
+    projectId: 'tencent-dy04-7',
+  ),
+  SiteLocation(
+    id: 'qianhai',
+    name: '前海湾畔（大铲湾片区）',
+    address: '深圳市宝安区前海湾',
+    lat: 22.5406,
+    lng: 113.8891,
+    altitude: 8.0,
+  ),
+  SiteLocation(
+    id: 'bao-an-center',
+    name: '宝安中心区',
+    address: '深圳市宝安区创业一路',
+    lat: 22.5550,
+    lng: 113.8884,
+    altitude: 6.0,
+  ),
+  SiteLocation(
+    id: 'xili-university-town',
+    name: '南科大附属医院（校本部）',
+    address: '深圳市南山区西丽大学城南方科技大学校内东侧',
+    lat: 22.5906,
+    lng: 113.9699,
+    altitude: 15.0,
+    projectId: 'nkf',
+  ),
+  SiteLocation(
+    id: 'xiangmi-lake',
+    name: '香蜜湖公园（南山区）',
+    address: '深圳市南山区侨香路',
+    lat: 22.5536,
+    lng: 114.0059,
+    altitude: 9.0,
+  ),
+];
+
 /// 系统用户列表（参与方代表，头像切换用）。默认第一个为当前登录用户。
 const List<User> users = [
   User(

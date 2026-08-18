@@ -1,6 +1,10 @@
 # Miscellaneous
 *.class
 *.log
+*.err
+*.tmp
+*.bak
+*.orig
 *.pyc
 *.swp
 .DS_Store

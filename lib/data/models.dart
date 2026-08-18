@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// 数据模型（mock 阶段用纯 Dart 类；接真实 API 时再补 freezed / json_serializable）。
@@ -204,6 +206,70 @@ class Project {
   });
 }
 
+/// 附近定位点（工程水印相机风格）：项目 / 地标 + 地址 + GPS + 海拔。
+/// 用户在拍照前可从附近定位点列表中选择一个作为水印定位信息。
+class SiteLocation {
+  final String id;
+  /// 地点名称（如项目名 / 工地名）。
+  final String name;
+  /// 详细地址。
+  final String address;
+  /// 纬度（°N）。
+  final double lat;
+  /// 经度（°E）。
+  final double lng;
+  /// 海拔（m）。
+  final double altitude;
+  /// 关联项目 id（可空）。
+  final String? projectId;
+  const SiteLocation({
+    required this.id,
+    required this.name,
+    required this.address,
+    required this.lat,
+    required this.lng,
+    required this.altitude,
+    this.projectId,
+  });
+
+  /// 水印显示用的 GPS 文本（与 CAD/天气模块纬度在前一致）。
+  String get gpsText =>
+      '${lat.toStringAsFixed(4)}°N ${lng.toStringAsFixed(4)}°E';
+
+  /// 与另一个定位点的粗略距离（km，球面余弦）。用于"附近"排序/提示。
+  double distanceKmTo(SiteLocation other) {
+    const r = 6371.0;
+    final dLat = (other.lat - lat) * 3.141592653589793 / 180;
+    final dLng = (other.lng - lng) * 3.141592653589793 / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat * 3.141592653589793 / 180) *
+            math.cos(other.lat * 3.141592653589793 / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return 2 * r * math.asin(math.sqrt(a));
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'address': address,
+        'lat': lat,
+        'lng': lng,
+        'altitude': altitude,
+        'projectId': projectId,
+      };
+
+  factory SiteLocation.fromJson(Map<String, dynamic> j) => SiteLocation(
+        id: j['id'] as String? ?? '',
+        name: j['name'] as String? ?? '',
+        address: j['address'] as String? ?? '',
+        lat: (j['lat'] as num?)?.toDouble() ?? 0,
+        lng: (j['lng'] as num?)?.toDouble() ?? 0,
+        altitude: (j['altitude'] as num?)?.toDouble() ?? 0,
+        projectId: j['projectId'] as String?,
+      );
+}
+
 class Floor {
   final String key;
   final String name;
@@ -321,6 +387,10 @@ class Defect {
   final double? worldX;
   /// 图纸坐标 Y（mm，CAD 打点换算，用于图纸上回溯定位）。
   final double? worldY;
+  /// 照片 SHA-256 指纹（防篡改留痕：水印照片字节哈希，与原始记录比对）。
+  final String? photoHash;
+  /// 水印凭证号（拍摄流水，唯一）。
+  final String? watermarkSerial;
   const Defect({
     required this.id,
     required this.part,
@@ -342,6 +412,8 @@ class Defect {
     this.drawingKey,
     this.worldX,
     this.worldY,
+    this.photoHash,
+    this.watermarkSerial,
   });
 
   /// 是否有 CAD 图纸坐标（可回溯定位）。

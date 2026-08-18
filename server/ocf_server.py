@@ -34,8 +34,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-# 配置（config.py 或环境变量）
-import config as C
+# 配置（config.py 或环境变量；config.py 被 gitignore 排除，缺失时用环境变量+默认值兜底）
+try:
+    import config as C
+except ImportError:
+    class C:
+        API_GATEWAY = os.environ.get("GCAD_API_GATEWAY", "https://2dviewer.apistore.huaweicloud.com")
+        APP_CODE = os.environ.get("GCAD_APP_CODE", "")
+        APP_TOKEN = os.environ.get("GCAD_API_TOKEN", "")
+        APP_KEY = os.environ.get("GCAD_APP_KEY", "")
+        APP_SECRET = os.environ.get("GCAD_APP_SECRET", "")
+        OCF_DIR = os.environ.get("GCAD_OCF_DIR", os.path.join(HERE, "ocf_cache"))
+        POLL_INTERVAL = float(os.environ.get("GCAD_POLL_INTERVAL", "2"))
+        POLL_TIMEOUT = float(os.environ.get("GCAD_POLL_TIMEOUT", "180"))
+        PORT = int(os.environ.get("CAD_SERVER_PORT", "8800"))
+        QWEATHER_KEY = os.environ.get("QWEATHER_KEY", "")
+        QWEATHER_HOST = os.environ.get("QWEATHER_HOST", "")
 
 # 华为云 APIG APP 认证签名 SDK（AK/SK 签名）
 from apig_sdk import signer

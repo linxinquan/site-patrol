@@ -9,6 +9,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/image_compress.dart';
+import '../../core/utils/photo_watermark.dart';
 import '../../core/utils/web_storage.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
@@ -45,8 +46,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 拍摄照片的压缩字节数据（Image.memory 展示）。
   Uint8List? _shotPhoto;
 
+  /// 烧录水印后的照片字节（保存用）。
+  Uint8List? _watermarkedPhoto;
+
+  /// 水印元信息（时间/项目/部位/GPS/凭证号）。
+  WatermarkMeta? _watermarkMeta;
+
+  /// 烧录后图片 SHA-256 指纹（防篡改留痕）。
+  String? _photoHash;
+
   /// 拍摄来源描述（文件名，不含文件大小）。
   String _shotCaption = '';
+
+  /// 当前选择的附近定位（工程水印相机风格，用户可切换）。
+  SiteLocation _location = siteLocations.first;
+
   bool _scanning = false;
   List<VlDefect> _defects = const [];
 
@@ -159,19 +173,63 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       return;
     }
 
-    // 读取图片字节 → 简单压缩（压缩后的字节用于展示）。
+    // 读取图片字节 → 简单压缩（压缩后的字节用于展示与烧录水印）。
     final rawBytes = await shot.readAsBytes();
     final compressed = compressImage(rawBytes);
 
+    // 构造水印元信息（工程记录：时间 / 项目 / 部位 / GPS / 凭证号）。
+    // 定位信息来自用户选择的「附近定位点」（工程水印相机风格）。
+    final now = DateTime.now();
+    final meta = WatermarkMeta(
+      project: '${_location.name}',
+      anchor: '$_anchorLabel · $_floor',
+      time: '${now.year}-${_two(now.month)}-${_two(now.day)} '
+          '${_two(now.hour)}:${_two(now.minute)}',
+      gps: _location.gpsText,
+      altitude: '${_location.altitude.toStringAsFixed(1)}m',
+      reporter: _currentUser,
+      serial: '${now.millisecondsSinceEpoch}',
+      worldCoord: widget.args.drawPointWorldX != null &&
+              widget.args.drawPointWorldY != null
+          ? '图纸坐标 X=${widget.args.drawPointWorldX!.toStringAsFixed(1)} '
+              'Y=${widget.args.drawPointWorldY!.toStringAsFixed(1)}'
+          : null,
+    );
+
+    // 烧录水印（失败时回退原始压缩图，避免阻断拍照流程）。
+    Uint8List? watermarked;
+    try {
+      watermarked = await applyPhotoWatermark(compressed, meta);
+    } catch (e) {
+      debugPrint('[capture] watermark failed: $e');
+      watermarked = null;
+    }
+    final finalPhoto = watermarked ?? compressed;
+
     if (mounted) {
       setState(() {
-        _shotPhoto = compressed;
+        _shotPhoto = finalPhoto;
+        _watermarkedPhoto = watermarked;
+        _watermarkMeta = meta;
+        _photoHash = imageSha256(finalPhoto);
         _shotCaption = shot.name;
         _defects = const [];
       });
-      AppSnack.show(context, '已拍摄：${shot.name}', kind: AppSnackKind.accent);
+      AppSnack.show(
+        context,
+        watermarked != null
+            ? '已拍摄并烧录防篡改水印'
+            : '已拍摄（水印烧录失败，已保留原图）',
+        kind: watermarked != null ? AppSnackKind.success : AppSnackKind.danger,
+      );
     }
     await _runScan();
+  }
+
+  /// 当前拍摄人（复用登录用户姓名）。
+  String get _currentUser {
+    final u = ref.read(currentUserProvider);
+    return u.name;
   }
 
   Future<void> _runScan() async {
@@ -304,8 +362,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         anchor: _anchorLabel,
         floor: _floor,
         ts: ts,
-        gps: '未获取',
-        alt: '未获取',
+        gps: _location.gpsText,
+        alt: '${_location.altitude.toStringAsFixed(1)}m',
         resp: '待指派',
         respUnit: '待指派',
         reporter: '现场拍照',
@@ -316,6 +374,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         drawingKey: widget.args.drawingKey,
         worldX: widget.args.drawPointWorldX,
         worldY: widget.args.drawPointWorldY,
+        // 防篡改留痕：水印照片哈希 + 凭证号
+        photoHash: _photoHash,
+        watermarkSerial: _watermarkMeta?.serial,
       ));
     }
 
@@ -838,13 +899,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return const _ConfBucket('低', Color(0xFFDC2626), Color(0xFFFEE2E2));
   }
 
-  /// 拍照水印条：时间戳 / GPS / 海拔 / 楼层部位。
+  /// 拍照水印条：定位（可点击切换「附近定位」）/ 时间 / 部位 / 凭证号 / 哈希指纹。
+  /// 定位信息来自 [_location]（用户从附近定位点选择，工程水印相机风格）。
   Widget _buildWatermark() {
+    final m = _watermarkMeta;
     final now = DateTime.now();
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
         '${_two(now.hour)}:${_two(now.minute)}';
-    final gps = '22.593${_x.toStringAsFixed(3).replaceAll('.', '')}°N '
-        '113.979${_y.toStringAsFixed(3).replaceAll('.', '')}°E';
+    final burned = _watermarkedPhoto != null;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppTokens.space3, vertical: AppTokens.space2),
@@ -854,29 +916,218 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.camera, size: 14, color: AppTokens.accent),
+          // 定位图标 + 地点名（点击切换附近定位）
+          InkWell(
+            onTap: _pickLocation,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppTokens.space2, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(LucideIcons.mapPin,
+                      size: 14, color: AppTokens.accent),
+                  const SizedBox(width: 4),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 150),
+                    child: Text(
+                      _location.name,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(LucideIcons.chevronDown,
+                      size: 12, color: Colors.white54),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(width: AppTokens.space2),
           Expanded(
-            child: Text(
-              '$_anchorLabel · $_floor',
-              style: const TextStyle(fontSize: 11, color: Colors.white),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_anchorLabel · $_floor',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (m != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '凭证 ${m.serial} · ${_photoHash != null ? _photoHash!.substring(0, 12) : '--'}…',
+                    style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.white38,
+                        fontFeatures: [FontFeature.tabularFigures()]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(width: AppTokens.space3),
+          if (burned)
+            const Tooltip(
+              message: '防篡改水印已烧录进照片像素，裁剪/涂抹即破坏原始画面',
+              child: Icon(LucideIcons.shieldCheck, size: 14, color: Color(0xFF34D399)),
+            )
+          else
+            const Icon(LucideIcons.shieldAlert, size: 14, color: Color(0xFFFBBF24)),
+          const SizedBox(width: AppTokens.space2),
           Text(ts, style: const TextStyle(fontSize: 10, color: Colors.white70)),
-          const SizedBox(width: AppTokens.space3),
-          const Icon(LucideIcons.satellite, size: 12, color: Colors.white70),
-          const SizedBox(width: 4),
-          Text(gps,
-              style: const TextStyle(fontSize: 10, color: Colors.white70)),
-          const SizedBox(width: AppTokens.space3),
-          const Icon(LucideIcons.gauge, size: 12, color: Colors.white70),
-          const SizedBox(width: 4),
-          const Text('18.2m',
-              style: TextStyle(fontSize: 10, color: Colors.white70)),
         ],
+      ),
+    );
+  }
+
+  /// 打开「附近定位」选择器：列出所有定位点（含 GPS / 地址 / 距离），
+  /// 用户选择后切换 [_location]，水印/照片上的定位信息随之更新。
+  void _pickLocation() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+          padding: const EdgeInsets.all(AppTokens.space4),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(LucideIcons.navigation,
+                      size: 15, color: AppTokens.accent),
+                  const SizedBox(width: 6),
+                  const Text('选择附近定位',
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.fg)),
+                  const Spacer(),
+                  Text('${siteLocations.length} 处',
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTokens.muted)),
+                ],
+              ),
+              const SizedBox(height: AppTokens.space2),
+              Text('定位将烧录到照片水印中（工程取证）',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTokens.muted)),
+              const SizedBox(height: AppTokens.space3),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: siteLocations.length,
+                  itemBuilder: (ctx, i) => _buildLocationTile(siteLocations[i]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 单个附近定位项：名称 + 地址 + GPS/海拔 + 距当前定位距离。
+  Widget _buildLocationTile(SiteLocation loc) {
+    final selected = loc.id == _location.id;
+    final km = _location.distanceKmTo(loc);
+    final distText = km < 1
+        ? '${(km * 1000).round()}m'
+        : '${km.toStringAsFixed(1)}km';
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        setState(() => _location = loc);
+        AppSnack.show(context, '定位已切换：${loc.name}', kind: AppSnackKind.accent);
+      },
+      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppTokens.space3, vertical: AppTokens.space3),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTokens.brand.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          border: Border.all(
+            color: selected ? AppTokens.brand : AppTokens.border,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppTokens.brand
+                    : AppTokens.bg,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                selected
+                    ? LucideIcons.mapPinCheck
+                    : LucideIcons.mapPin,
+                size: 16,
+                color: selected ? Colors.white : AppTokens.muted,
+              ),
+            ),
+            const SizedBox(width: AppTokens.space3),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(loc.name,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.fg)),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${loc.address} · ${loc.gpsText} · ${loc.altitude.toStringAsFixed(0)}m',
+                    style: const TextStyle(
+                        fontSize: 10.5, color: AppTokens.muted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTokens.space2),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppTokens.bg,
+                borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+              ),
+              child: Text(
+                selected ? '当前' : '距 ${_location.name} $distText',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppTokens.brand : AppTokens.muted),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

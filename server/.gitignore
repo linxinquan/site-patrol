@@ -4,5 +4,11 @@ cos_config.py
 .env
 ocf_cache/
 *.log
+*.err
 __pycache__/
 *.pyc
+
+# 临时调试脚本与产物
+_test_*.py
+_aqi_result.json
+_ws_*.log

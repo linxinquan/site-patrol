@@ -13,7 +13,23 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
-import cos_config as C
+# COS 凭证（cos_config.py 被 gitignore 排除，缺失时用环境变量+默认值兜底）
+try:
+    import cos_config as C
+except ImportError:
+    class C:
+        COS_BUCKET = os.environ.get("COS_BUCKET", "")
+        COS_REGION = os.environ.get("COS_REGION", "ap-guangzhou")
+        COS_SECRET_ID = os.environ.get("COS_SECRET_ID", "")
+        COS_SECRET_KEY = os.environ.get("COS_SECRET_KEY", "")
+        COS_HOST = f"{COS_BUCKET}.cos.{COS_REGION}.myqcloud.com"
+
+if not (C.COS_SECRET_ID and C.COS_SECRET_KEY):
+    raise ImportError(
+        "未配置腾讯云 COS 凭证（COS_SECRET_ID/COS_SECRET_KEY）。\n"
+        "请复制 server/.env.example 为 server/cos_config.py 并填入真实凭证，"
+        "或设置同名环境变量。"
+    )
 
 try:
     from qcloud_cos import CosConfig, CosS3Client
