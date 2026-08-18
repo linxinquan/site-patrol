@@ -340,21 +340,28 @@ class _ViewerState extends ConsumerState<_Viewer> {
       ref.watch(cadCalibrationMapProvider)[widget.d.key] != null;
 
   /// 坐标拾取：点击图纸打点，换算为真实图纸坐标并记录缺陷。
+  ///
+  /// [localPos] 为点击点在 InteractiveViewer 约束盒子坐标系的位置
+  /// （来自盒子层 GestureDetector.localPosition，范围 [0..maxW,0..maxH]）。
+  /// [matrix] 为 InteractiveViewer 当前的变换矩阵（缩放/平移）。
+  /// [containedSize] 为约束盒子尺寸（maxW×maxH），图片在其中按 BoxFit.contain 居中显示。
+  ///
+  /// 关键：InteractiveViewer 缩放/平移后，localPos 必须先经
+  /// [CadCoordMapper.localToViewPixel] 反算回「整图像素坐标（0..imgW, 0..imgH）」，
+  /// 再换算真实图纸坐标。切勿把 localPos 直接按显示比例当整图坐标（会系统性偏移）。
   void _pickAnnotation(
     Offset localPos,
     Matrix4 matrix,
     Size containedSize,
-    double dispW,
-    double dispH,
   ) {
-    // 整图在屏幕的显示范围（BoxFit.contain 后）由 dispW/dispH 给出，
-    // 点击相对整图左上角：(localPos - 图中原点)。图中原点即 (0,0)。
-    final relX = (localPos.dx / dispW).clamp(0.0, 1.0);
-    final relY = (localPos.dy / dispH).clamp(0.0, 1.0);
-    // 整图像素坐标（乘图宽高）
-    final px = relX * widget.d.w;
-    final py = relY * widget.d.h;
-    // 用校准映射换算真实图纸坐标（未校准回退演示坐标系）
+    // 1. 经变换矩阵反算点击在「整图像素坐标（0..imgW, 0..imgH）」中的位置。
+    final pixel = _coordMapper.localToViewPixel(localPos, matrix, containedSize);
+    final px = pixel.dx;
+    final py = pixel.dy;
+    // 2. 归一化比例（供图钉标记定位，与 display 尺寸无关）
+    final relX = (widget.d.w > 0) ? (px / widget.d.w).clamp(0.0, 1.0) : 0.0;
+    final relY = (widget.d.h > 0) ? (py / widget.d.h).clamp(0.0, 1.0) : 0.0;
+    // 3. 用校准映射换算真实图纸坐标（未校准回退演示坐标系）
     final world = _coordMapper.screenToWorld(px, py);
 
     final now = DateTime.now();
@@ -578,117 +585,125 @@ class _ViewerState extends ConsumerState<_Viewer> {
                   dispH = maxH;
                   dispW = dispH * ar;
                 }
-                return Center(
-                  child: SizedBox(
-                    width: dispW,
-                    height: dispH,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // 底图：按 contain 自然尺寸显示。
-                        // CAD/OCF 图纸：有截图底图 src 时用 Image.asset 渲染（截图底图+矢量坐标方案，
-                        // 离线可用、精度已校验 <2mm）；无底图时回退待渲染占位。
-                        Positioned.fill(
-                          child: d.src.isNotEmpty
-                              ? Image.asset(
-                                  d.src,
-                                  fit: BoxFit.fill,
-                                  errorBuilder: (_, __, ___) =>
-                                      _CadPlaceholder(
-                                    ocfKey: d.cadOcfKey ?? d.key,
-                                    title: d.title,
+                // 盒子层：占满 InteractiveViewer 约束盒子，接收盒子坐标系的点击，
+                // 用于打点/锚定。localPosition ∈ [0..maxW, 0..maxH]，与
+                // CadCoordMapper.localToViewPixel 的 containedSize 语义一致。
+                return Stack(
+                  children: [
+                    // 居中的整图（图片坐标系层，含底图/热点/标注标记）
+                    Center(
+                      child: SizedBox(
+                        width: dispW,
+                        height: dispH,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            // 底图：按 contain 自然尺寸显示。
+                            // CAD/OCF 图纸：有截图底图 src 时用 Image.asset 渲染（截图底图+矢量坐标方案，
+                            // 离线可用、精度已校验 <2mm）；无底图时回退待渲染占位。
+                            Positioned.fill(
+                              child: d.src.isNotEmpty
+                                  ? Image.asset(
+                                      d.src,
+                                      fit: BoxFit.fill,
+                                      errorBuilder: (_, __, ___) =>
+                                          _CadPlaceholder(
+                                        ocfKey: d.cadOcfKey ?? d.key,
+                                        title: d.title,
+                                      ),
+                                    )
+                                  : _CadPlaceholder(
+                                      ocfKey: d.cadOcfKey ?? d.key,
+                                      title: d.title,
+                                    ),
+                            ),
+                            // 热点：用 (x * dispW, y * dispH) 定位，与显示像素一致
+                            ...d.hotspots.map(
+                              (h) => Positioned(
+                                left: h.x * dispW - 50,
+                                top: h.y * dispH - 14,
+                                child: GestureDetector(
+                                  onTap: () => _jumpConfirm(h),
+                                  onLongPress: _anchor,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      // 数字圆（白底 + 蓝色边框，对齐原型 dv__hotspot）
+                                      Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: AppTokens.surface,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: AppTokens.brand, width: 2),
+                                          boxShadow: AppTokens.elevationRaised,
+                                        ),
+                                        child: Center(
+                                          child: Text('${h.num}',
+                                              style: const TextStyle(
+                                                  color: AppTokens.brand,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      // 文字标签（白底小药丸，对齐原型 dv__label）
+                                      Flexible(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppTokens.surface,
+                                            borderRadius: BorderRadius.circular(
+                                                AppTokens.radiusSm),
+                                            border: Border.all(
+                                                color: AppTokens.border),
+                                            boxShadow:
+                                                AppTokens.elevationRaised,
+                                          ),
+                                          child: Text(
+                                            h.label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppTokens.fg),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                )
-                              : _CadPlaceholder(
-                                  ocfKey: d.cadOcfKey ?? d.key,
-                                  title: d.title,
                                 ),
-                        ),
-                        // 热点：用 (x * dispW, y * dispH) 定位，与显示像素一致
-                        ...d.hotspots.map(
-                          (h) => Positioned(
-                            left: h.x * dispW - 50,
-                            top: h.y * dispH - 14,
-                            child: GestureDetector(
-                              onTap: () => _jumpConfirm(h),
-                              onLongPress: _anchor,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  // 数字圆（白底 + 蓝色边框，对齐原型 dv__hotspot）
-                                  Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: AppTokens.surface,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: AppTokens.brand, width: 2),
-                                      boxShadow: AppTokens.elevationRaised,
-                                    ),
-                                    child: Center(
-                                      child: Text('${h.num}',
-                                          style: const TextStyle(
-                                              color: AppTokens.brand,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold)),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  // 文字标签（白底小药丸，对齐原型 dv__label）
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTokens.surface,
-                                        borderRadius: BorderRadius.circular(
-                                            AppTokens.radiusSm),
-                                        border: Border.all(
-                                            color: AppTokens.border),
-                                        boxShadow:
-                                            AppTokens.elevationRaised,
-                                      ),
-                                      child: Text(
-                                        h.label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontSize: 10,
-                                            color: AppTokens.fg),
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
-                          ),
+                            // 坐标标注标记
+                            ..._buildAnnotationMarks(dispW, dispH),
+                          ],
                         ),
-                        // 坐标标注标记
-                        ..._buildAnnotationMarks(dispW, dispH),
-                        // 长按底图任意处也可锚定；拾取模式下点击打点
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onLongPress: _anchor,
-                            onTapUp: ref.watch(cadPickModeProvider)
-                                ? (details) {
-                                    // 局部坐标需要减去图中原点（居中偏移）
-                                    final local = details.localPosition;
-                                    _pickAnnotation(
-                                        local,
-                                        _controller.value,
-                                        Size(dispW, dispH),
-                                        dispW,
-                                        dispH);
-                                  }
-                                : null,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    // 盒子层打点/锚定：覆盖全盒子，拾取模式下点击打点
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onLongPress: _anchor,
+                        onTapUp: ref.watch(cadPickModeProvider)
+                            ? (details) {
+                                // 盒子坐标系点击，containedSize 用盒子尺寸
+                                final local = details.localPosition;
+                                _pickAnnotation(
+                                  local,
+                                  _controller.value,
+                                  Size(maxW, maxH),
+                                );
+                              }
+                            : null,
+                      ),
+                    ),
+                  ],
                 );
               },
             ),

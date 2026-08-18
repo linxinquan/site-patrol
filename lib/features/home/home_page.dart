@@ -743,6 +743,7 @@ class _QuickCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTokens.radiusLg),
           child: Container(
             width: 116,
+            height: 84,
             padding: const EdgeInsets.all(AppTokens.space3),
             decoration: BoxDecoration(
               color: AppTokens.surface,
