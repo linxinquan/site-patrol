@@ -312,6 +312,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         tags: const ['AI 识别'],
         note: vl.desc ?? '',
         seed: String.fromCharCode(97 + (i % 6)), // a~f 轮替，水印配色多样
+        // 关联图纸坐标：图钉 → 拍照生成的缺陷自动继承真实图纸坐标
+        drawingKey: widget.args.drawingKey,
+        worldX: widget.args.drawPointWorldX,
+        worldY: widget.args.drawPointWorldY,
       ));
     }
 

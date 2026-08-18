@@ -205,8 +205,10 @@ class _ViewerState extends ConsumerState<_Viewer> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  '粘贴浏览器端校准参数（JSON），或直接应用内置 B05 校准。\n'
-                  '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。',
+                  '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。\n'
+                  '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。\n'
+                  '「应用内置B05」仅为离线演示（假设图纸中心=坐标原点），非真实校准，'
+                  '除图纸中心外均会偏移，不可用于验收数据。',
                   style: TextStyle(fontSize: 12, color: AppTokens.muted),
                 ),
                 const SizedBox(height: AppTokens.space3),
@@ -341,28 +343,55 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   /// 坐标拾取：点击图纸打点，换算为真实图纸坐标并记录缺陷。
   ///
+  /// 坐标拾取：点击图纸打点，换算为真实图纸坐标并记录缺陷。
+  ///
   /// [localPos] 为点击点在 InteractiveViewer 约束盒子坐标系的位置
   /// （来自盒子层 GestureDetector.localPosition，范围 [0..maxW,0..maxH]）。
-  /// [matrix] 为 InteractiveViewer 当前的变换矩阵（缩放/平移）。
-  /// [containedSize] 为约束盒子尺寸（maxW×maxH），图片在其中按 BoxFit.contain 居中显示。
+  /// 注意：InteractiveViewer 内部用 [Transform]（transformHitTests=true）包裹 child，
+  /// 手势回调的 localPosition 已经被自动反变换为「未缩放/平移的盒子坐标」，
+  /// 因此**不能再**用变换矩阵二次反算（会双重反变换导致坐标错误）。
   ///
-  /// 关键：InteractiveViewer 缩放/平移后，localPos 必须先经
-  /// [CadCoordMapper.localToViewPixel] 反算回「整图像素坐标（0..imgW, 0..imgH）」，
-  /// 再换算真实图纸坐标。切勿把 localPos 直接按显示比例当整图坐标（会系统性偏移）。
+  /// 换算：盒子坐标 - 图片居中偏移（图片按 BoxFit.contain 在盒子内居中）
+  /// → 图片显示坐标 → 归一化比例 → 整图像素坐标 → 世界坐标。
+  ///
+  /// [dispW]/[dispH]：图片在盒子内的显示尺寸（BoxFit.contain 后）。
+  /// [maxW]/[maxH]：InteractiveViewer 约束盒子尺寸。
   void _pickAnnotation(
     Offset localPos,
-    Matrix4 matrix,
-    Size containedSize,
+    double dispW,
+    double dispH,
+    double maxW,
+    double maxH,
   ) {
-    // 1. 经变换矩阵反算点击在「整图像素坐标（0..imgW, 0..imgH）」中的位置。
-    final pixel = _coordMapper.localToViewPixel(localPos, matrix, containedSize);
-    final px = pixel.dx;
-    final py = pixel.dy;
-    // 2. 归一化比例（供图钉标记定位，与 display 尺寸无关）
-    final relX = (widget.d.w > 0) ? (px / widget.d.w).clamp(0.0, 1.0) : 0.0;
-    final relY = (widget.d.h > 0) ? (py / widget.d.h).clamp(0.0, 1.0) : 0.0;
-    // 3. 用校准映射换算真实图纸坐标（未校准回退演示坐标系）
+    // 1. 图片显示区域在盒子内的左上角偏移（居中）
+    final originX = (maxW - dispW) / 2;
+    final originY = (maxH - dispH) / 2;
+    // 2. 点击点在图片显示坐标系内的位置
+    final imgX = localPos.dx - originX;
+    final imgY = localPos.dy - originY;
+    // 3. 归一化比例（供图钉标记定位，与 display 尺寸无关）
+    final relX = (dispW > 0) ? (imgX / dispW).clamp(0.0, 1.0) : 0.0;
+    final relY = (dispH > 0) ? (imgY / dispH).clamp(0.0, 1.0) : 0.0;
+    // 4. 整图像素坐标（0..imgW, 0..imgH）
+    final px = relX * widget.d.w;
+    final py = relY * widget.d.h;
+    // 5. 用校准映射换算真实图纸坐标（未校准回退演示坐标系）
     final world = _coordMapper.screenToWorld(px, py);
+
+    // ★ 诊断日志（坐标仍不准时把这段控制台输出截图即可诊断）
+    debugPrint(
+      '[CAD PICK] drawing=${widget.d.key} '
+      'local=(${localPos.dx.toStringAsFixed(1)},${localPos.dy.toStringAsFixed(1)}) '
+      'box=($maxW,$maxH) disp=($dispW,$dispH) '
+      'origin=(${(maxW - dispW) / 2},${(maxH - dispH) / 2}) '
+      'img=(${px.toStringAsFixed(1)},${py.toStringAsFixed(1)}) '
+      'world=(${world.dx.toStringAsFixed(2)},${world.dy.toStringAsFixed(2)}) '
+      'useAffine=${_coordMapper.useAffine} '
+      'a=${_coordMapper.a.toStringAsFixed(6)} '
+      'd=${_coordMapper.d.toStringAsFixed(6)} '
+      'c=${_coordMapper.c.toStringAsFixed(2)} '
+      'f=${_coordMapper.f.toStringAsFixed(2)}',
+    );
 
     final now = DateTime.now();
     final ann = CadAnnotation(
@@ -421,45 +450,61 @@ class _ViewerState extends ConsumerState<_Viewer> {
     repo.addDefect(defect);
 
     final calibrated = _isCalibrated;
+    final mapper = _coordMapper;
+    // 摘要校准参数，便于用户判断是内置演示值还是真实参数
+    final calibLine = mapper.useAffine
+        ? '校准 a=${mapper.a.toStringAsFixed(4)} d=${mapper.d.toStringAsFixed(4)}'
+            ' c=${mapper.c.toStringAsFixed(1)} f=${mapper.f.toStringAsFixed(1)}'
+        : '校准（范围模式）';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           calibrated
-              ? '已记录缺陷（已校准）：${ann.coordText}\n可在「缺陷」列表查看'
-              : '已记录缺陷（未校准，演示值！）：${ann.coordText}\n点「校准」按钮粘贴真实参数后再打点',
+              ? '已记录缺陷：${ann.coordText}\n$calibLine\n点击图钉可拍照记录'
+              : '已记录缺陷（未校准，演示值！）：${ann.coordText}\n$calibLine\n点「校准」粘贴真实参数后再打点',
         ),
         backgroundColor: calibrated ? null : AppTokens.warning,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: '拍照',
+          textColor: Colors.white,
+          onPressed: () => _captureAtAnnotation(ann),
+        ),
       ),
     );
     ref.invalidate(defectsProvider);
   }
 
-  /// 渲染当前图纸的坐标标注标记：图钉 + 序号 + 坐标小标签。
-  /// 紧凑显示：大图缩放下也能看清；点击图钉弹窗显示完整坐标 + 跳转到缺陷详情。
+  /// 渲染当前图纸的坐标标注标记：大头针 + 序号 + 坐标小标签。
+  /// 大头针底部尖端对准精确打点位置（视觉锚点=真实坐标），
+  /// 大图缩放下也能看清；点击图钉弹窗显示完整坐标 + 跳转到缺陷详情。
   List<Widget> _buildAnnotationMarks(double dispW, double dispH) {
     final list =
         ref.watch(cadAnnotationsProvider)[widget.d.key] ?? const <CadAnnotation>[];
+    // 大头针尺寸：圆半径 + 底部尖端
+    const pinR = 16.0;
+    const tipH = 8.0;
     return List.generate(list.length, (i) {
       final a = list[i];
       final idx = i + 1;
       return Positioned(
-        left: a.relX * dispW - 14,
-        top: a.relY * dispH - 14,
+        // 尖端对准打点位置：(relX*dispW, relY*dispH)
+        left: a.relX * dispW - pinR,
+        top: a.relY * dispH - pinR - tipH,
         child: GestureDetector(
           onTap: () => _showAnnotationDetail(a, idx),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // 主图钉（紧凑，红圆+数字序号）
+              // 大头针主体（红圆 + 数字序号，白边醒目）
               Container(
-                width: 28,
-                height: 28,
+                width: pinR * 2,
+                height: pinR * 2,
                 decoration: BoxDecoration(
                   color: AppTokens.danger,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: Colors.white, width: 2.5),
                   boxShadow: AppTokens.elevationRaised,
                 ),
                 child: Center(
@@ -467,20 +512,45 @@ class _ViewerState extends ConsumerState<_Viewer> {
                     '$idx',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black38,
+                          blurRadius: 2,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // 底部尖端（指向精确坐标点）
+              Positioned(
+                left: pinR - 6,
+                top: pinR * 2 - 4,
+                child: Transform.rotate(
+                  angle: 0.7854, // 45°
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: AppTokens.danger,
+                      borderRadius: BorderRadius.circular(2),
+                      border: Border.all(color: Colors.white, width: 2),
                     ),
                   ),
                 ),
               ),
               // 坐标简略标签（图钉右侧，白底胶囊）
               Positioned(
-                left: 32,
-                top: 4,
+                left: pinR * 2 + 2,
+                top: pinR - 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: Colors.white.withValues(alpha: 0.94),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppTokens.border, width: 1),
                     boxShadow: AppTokens.elevationRaised,
@@ -502,8 +572,20 @@ class _ViewerState extends ConsumerState<_Viewer> {
     });
   }
 
-  /// 显示标注详情（弹窗：完整坐标 + 关联缺陷）。
+  /// 显示标注详情（弹窗：完整坐标 + 诊断 + 关联缺陷 + 拍照记录）。
   void _showAnnotationDetail(CadAnnotation a, int idx) {
+    final mapper = _coordMapper;
+    final calibInfo = mapper.useAffine
+        ? 'a=${mapper.a.toStringAsFixed(4)} '
+            'd=${mapper.d.toStringAsFixed(4)} '
+            'c=${mapper.c.toStringAsFixed(1)} '
+            'f=${mapper.f.toStringAsFixed(1)}'
+        : '范围 [${mapper.worldLeft.toStringAsFixed(0)}, '
+            '${(mapper.worldLeft + mapper.worldWidth).toStringAsFixed(0)}]×'
+            '[${(mapper.worldTop - mapper.worldHeight).toStringAsFixed(0)}, '
+            '${mapper.worldTop.toStringAsFixed(0)}] mm';
+    final pxImg = (a.relX * widget.d.w).toStringAsFixed(0);
+    final pyImg = (a.relY * widget.d.h).toStringAsFixed(0);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -513,9 +595,12 @@ class _ViewerState extends ConsumerState<_Viewer> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _detailRow('图纸坐标', a.coordText),
+            _detailRow('整图像素', '($pxImg, $pyImg) / '
+                '${widget.d.w.toStringAsFixed(0)}×${widget.d.h.toStringAsFixed(0)}'),
             _detailRow('相对位置', '${(a.relX * 100).toStringAsFixed(1)}% · ${(a.relY * 100).toStringAsFixed(1)}%'),
+            _detailRow('校准状态', _isCalibrated ? '已校准' : '未校准（演示值）'),
+            _detailRow('校准参数', calibInfo),
             _detailRow('记录时间', a.createdAt.toString().substring(0, 19)),
-            _detailRow('校准状态', _isCalibrated ? '已校准（真实图纸坐标）' : '未校准（演示值）'),
           ],
         ),
         actions: [
@@ -535,7 +620,32 @@ class _ViewerState extends ConsumerState<_Viewer> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
           ),
+          FilledButton.icon(
+            icon: const Icon(LucideIcons.camera, size: 16),
+            label: const Text('拍照记录'),
+            style: FilledButton.styleFrom(backgroundColor: AppTokens.accent),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _captureAtAnnotation(a);
+            },
+          ),
         ],
+      ),
+    );
+  }
+
+  /// 从图钉直接进入拍照：带图纸坐标写入 CaptureArgs。
+  void _captureAtAnnotation(CadAnnotation a) {
+    context.push(
+      '/capture',
+      extra: CaptureArgs(
+        floor: widget.d.crumb.replaceAll(' ', ''),
+        anchorLabel: '${widget.d.title}·标注',
+        x: a.relX,
+        y: a.relY,
+        drawingKey: a.drawingKey,
+        drawPointWorldX: a.worldX,
+        drawPointWorldY: a.worldY,
       ),
     );
   }
@@ -692,13 +802,10 @@ class _ViewerState extends ConsumerState<_Viewer> {
                         onLongPress: _anchor,
                         onTapUp: ref.watch(cadPickModeProvider)
                             ? (details) {
-                                // 盒子坐标系点击，containedSize 用盒子尺寸
+                                // 盒子坐标系点击（localPosition 已被 Transform 自动反变换，
+                                // 不能再乘变换矩阵）。传图片显示尺寸与盒子尺寸。
                                 final local = details.localPosition;
-                                _pickAnnotation(
-                                  local,
-                                  _controller.value,
-                                  Size(maxW, maxH),
-                                );
+                                _pickAnnotation(local, dispW, dispH, maxW, maxH);
                               }
                             : null,
                       ),

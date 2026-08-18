@@ -365,17 +365,25 @@ class TimelinePhoto {
   });
 }
 
-/// 拍照验收路由参数：楼层 + 预锚定部位 + 相对坐标（0~1）。
+/// 拍照验收路由参数：楼层 + 预锚定部位 + 相对坐标（0~1） + 可选图纸坐标。
 class CaptureArgs {
   final String floor;
   final String anchorLabel;
   final double x;
   final double y;
+  /// 若从图纸打点跳转：关联的图纸 key；拍照记录时一并写入缺陷
+  /// （真实坐标由 drawPointWorldX/drawPointWorldY 提供）。
+  final String? drawingKey;
+  final double? drawPointWorldX;
+  final double? drawPointWorldY;
   const CaptureArgs({
     this.floor = '西楼1F',
     this.anchorLabel = '待选点',
     this.x = 0.5,
     this.y = 0.5,
+    this.drawingKey,
+    this.drawPointWorldX,
+    this.drawPointWorldY,
   });
 }
 

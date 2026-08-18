@@ -150,9 +150,12 @@ class CadCoordMapper {
   /// [px]、[py] 为整图坐标系下的像素位置（0..viewWidth, 0..viewHeight）。
   Offset screenToWorld(double px, double py) {
     if (useAffine) {
-      // 仿射校准：worldX = a*px + b*py + c；worldY = d*px + e*py + f
+      // ★ 与浏览器端 cad_viewer_hybrid.imagePxToWorld 语义完全一致：
+      //   X = a*px + b*py + c   （浏览器 b=0 → X = a*px + c）
+      //   Y = d*py + e*px + f   （浏览器 e=0 → Y = d*py + f，Y 系数在 d、乘 py）
+      // 注意：浏览器导出的 MAP 中 Y 系数存于 d（非 e），此处置 py 系数为 d。
       final wx = a * px + b * py + c;
-      final wy = d * px + e * py + f;
+      final wy = d * py + e * px + f;
       return Offset(wx, wy);
     }
     final wx = worldLeft + px * scaleX;
