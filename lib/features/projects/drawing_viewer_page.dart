@@ -77,6 +77,9 @@ class _Viewer extends ConsumerStatefulWidget {
 class _ViewerState extends ConsumerState<_Viewer> {
   final _controller = TransformationController();
 
+  /// 持久化的浏览器原始校准 JSON（用于弹窗预填，免重复粘贴）。
+  String? _persistedRawJson;
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +87,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
     Future.microtask(() async {
       if (!mounted) return;
       await loadCadCalibration(ref, widget.d.key);
+      // 从校准库读取原始浏览器 JSON（清单已含），供校准弹窗预填。
+      _persistedRawJson =
+          await ref.read(calibrationLibraryProvider).readRaw(widget.d.key);
       if (mounted) setState(() {});
     });
   }
@@ -164,6 +170,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
         anchorLabel: '${widget.d.title}·锚点',
         x: 0.5,
         y: 0.5,
+        drawingKey: widget.d.key,
       ),
     );
   }
@@ -190,9 +197,11 @@ class _ViewerState extends ConsumerState<_Viewer> {
   /// 的「复制参数」/「复制链接」），或直接应用内置的 B05 校准（已验证 <2mm）。
   Future<void> _openCalibrationDialog() async {
     final d = widget.d;
-    final controller = TextEditingController(
-      text: _isCalibrated ? _jsonOfCurrent() : '',
-    );
+    // 弹窗预填优先级：内存态（本次已粘贴/内置）→ 持久化原始 JSON → 空占位。
+    final initialText = _isCalibrated
+        ? _jsonOfCurrent()
+        : (_persistedRawJson ?? '');
+    final controller = TextEditingController(text: initialText);
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -238,6 +247,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
           ),
         ),
         actions: [
+          if (_isCalibrated)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _clearCalibration();
+              },
+              child: const Text('清除校准'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('取消'),
@@ -253,14 +270,19 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
     CadCoordMapper? mapper;
     if (result == 'BUILTIN') {
-      // B05 内置校准：X=1/3.022 方向，单点已校（中心偏移）。仅用于未联网快速演示。
+      // B05 内置校准：与 web/cad_viewer_hybrid.html 的 debugPoint 完全同式，
+      // 即 scale=((imgW/1489)+(imgH/844))/2（X/Y 平均法），保证浏览器「调试信息」
+      // 输出的坐标与此处一致，便于肉眼对照打点（<2mm）。
+      //   a = 1/scale; c = -imgW/2/scale
+      //   d = -1/scale; f = +imgH/2/scale
+      final scale = ((d.w / 1489) + (d.h / 844)) / 2;
       mapper = CadCoordMapper.fromAffine(
         viewWidth: d.w,
         viewHeight: d.h,
-        a: 1 / 3.022, // 1489mm / 4500px
-        d: -1 / 3.022,
-        c: -d.w / 2 * (1 / 3.022),
-        f: d.h / 2 / 3.022,
+        a: 1 / scale,
+        d: -1 / scale,
+        c: -d.w / 2 / scale,
+        f: d.h / 2 / scale,
       );
     } else {
       try {
@@ -280,12 +302,34 @@ class _ViewerState extends ConsumerState<_Viewer> {
         return;
       }
     }
-    await saveCadCalibration(ref, d.key, mapper);
+    // 保存校准并登记进校准库；内置演示坐标系传 null（从库中移除）。
+    await saveCadCalibration(
+      ref,
+      d.key,
+      mapper,
+      result == 'BUILTIN' ? null : result,
+    );
+    _persistedRawJson = result == 'BUILTIN' ? null : result;
     if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('校准已保存，图纸坐标定位已生效'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  /// 清除本图纸校准，回到内置演示坐标系（校准库同步移除）。
+  Future<void> _clearCalibration() async {
+    final d = widget.d;
+    await deleteCadCalibration(ref, d.key);
+    _persistedRawJson = null;
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('已清除校准，回到内置演示坐标系'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -476,15 +520,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
     ref.invalidate(defectsProvider);
   }
 
-  /// 渲染当前图纸的坐标标注标记：大头针 + 序号 + 坐标小标签。
-  /// 大头针底部尖端对准精确打点位置（视觉锚点=真实坐标），
-  /// 大图缩放下也能看清；点击图钉弹窗显示完整坐标 + 跳转到缺陷详情。
+  /// 渲染当前图纸的坐标标注标记：小图钉 + 序号。
+  /// 默认不显示坐标标签，避免遮挡图纸；点击图钉弹窗显示完整坐标。
   List<Widget> _buildAnnotationMarks(double dispW, double dispH) {
     final list =
         ref.watch(cadAnnotationsProvider)[widget.d.key] ?? const <CadAnnotation>[];
-    // 大头针尺寸：圆半径 + 底部尖端
-    const pinR = 16.0;
-    const tipH = 8.0;
+    // 小图钉尺寸：随图纸缩放，但基数较小，减少遮挡。
+    const pinR = 10.0;
+    const tipH = 5.0;
     return List.generate(list.length, (i) {
       final a = list[i];
       final idx = i + 1;
@@ -497,14 +540,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              // 大头针主体（红圆 + 数字序号，白边醒目）
+              // 图钉主体（红圆 + 数字序号，白边醒目）
               Container(
                 width: pinR * 2,
                 height: pinR * 2,
                 decoration: BoxDecoration(
                   color: AppTokens.danger,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2.5),
+                  border: Border.all(color: Colors.white, width: 2),
                   boxShadow: AppTokens.elevationRaised,
                 ),
                 child: Center(
@@ -512,7 +555,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
                     '$idx',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       shadows: [
                         Shadow(
@@ -527,40 +570,17 @@ class _ViewerState extends ConsumerState<_Viewer> {
               ),
               // 底部尖端（指向精确坐标点）
               Positioned(
-                left: pinR - 6,
-                top: pinR * 2 - 4,
+                left: pinR - 4,
+                top: pinR * 2 - 3,
                 child: Transform.rotate(
                   angle: 0.7854, // 45°
                   child: Container(
-                    width: 12,
-                    height: 12,
+                    width: 8,
+                    height: 8,
                     decoration: BoxDecoration(
                       color: AppTokens.danger,
-                      borderRadius: BorderRadius.circular(2),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ),
-              // 坐标简略标签（图钉右侧，白底胶囊）
-              Positioned(
-                left: pinR * 2 + 2,
-                top: pinR - 10,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTokens.border, width: 1),
-                    boxShadow: AppTokens.elevationRaised,
-                  ),
-                  child: Text(
-                    'X=${a.worldX.toStringAsFixed(1)} Y=${a.worldY.toStringAsFixed(1)}',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: AppTokens.fg,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                      borderRadius: BorderRadius.circular(1.5),
+                      border: Border.all(color: Colors.white, width: 1.5),
                     ),
                   ),
                 ),
@@ -613,8 +633,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
                     .where((x) => x.id != a.id).toList(),
               };
             },
-            child: const Text('删除'),
             style: TextButton.styleFrom(foregroundColor: AppTokens.danger),
+            child: const Text('删除'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),

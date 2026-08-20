@@ -1,5 +1,5 @@
-$root = "f:\GitHub\site-patrol\build\web"
-$port = 8000
+$root = "c:\sp\build\web"
+$port = 9876
 $mime = @{
     ".html" = "text/html; charset=utf-8"
     ".js"   = "application/javascript; charset=utf-8"

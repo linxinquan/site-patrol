@@ -18,7 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_snack.dart';
 
-/// 拍照验收页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
+/// 拍照记录页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
 /// → 1.5s 扫描 → VL 识别 → 保存记录。
 /// 注：真实相机（image_picker）代码已注释，改走"关联历史照片"的模拟拍照。
 class CapturePage extends ConsumerStatefulWidget {
@@ -69,6 +69,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   Timer? _scanTimer;
   bool _saved = false;
 
+  /// 当前要显示的图纸（按项目图纸 provider 解析，避免不同项目图纸串图）。
+  Drawing? _drawing;
+
   /// 暂存的 vision 识别结果列表（Web localStorage 持久化，刷新后仍可见）。
   /// 每项：{ts, anchor, floor, count, defects:[{name, desc}]}
   List<Map<String, dynamic>> _storedResults = [];
@@ -108,10 +111,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   // —— 图纸坐标换算 ——
-  String get _drawingKey => floorToDrawingKey(_floor);
-  Drawing get _drawing => drawings[_drawingKey] ?? drawings['nkf_west_1f']!;
+  String get _drawingKey {
+    final argsKey = widget.args.drawingKey;
+    if (argsKey != null && argsKey.isNotEmpty) return argsKey;
+    return floorToDrawingKey(_floor);
+  }
 
-  double get _ratio => (_drawing.h / _drawing.w).clamp(0.6, 1.0);
+  Drawing _resolveDrawing(Map<String, Drawing> projectMap) {
+    final key = _drawingKey;
+    final d = projectMap[key] ?? dy7Drawings[key] ?? drawings[key];
+    return d ?? drawings['nkf_west_1f']!;
+  }
+
+  double get _ratio => (_drawing!.h / _drawing!.w).clamp(0.6, 1.0);
 
   void _onTapDrawing(Offset local, Size size) {
     final nx = (local.dx / size.width).clamp(0.02, 0.98).toDouble();
@@ -181,7 +193,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     // 定位信息来自用户选择的「附近定位点」（工程水印相机风格）。
     final now = DateTime.now();
     final meta = WatermarkMeta(
-      project: '${_location.name}',
+      project: _location.name,
       anchor: '$_anchorLabel · $_floor',
       time: '${now.year}-${_two(now.month)}-${_two(now.day)} '
           '${_two(now.hour)}:${_two(now.minute)}',
@@ -340,7 +352,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
     // 未识别到缺陷：仅提示，不生成空工单污染列表
     if (_defects.isEmpty) {
-      AppSnack.show(context, '未识别到缺陷，验收记录已留痕', kind: AppSnackKind.success);
+      AppSnack.show(context, '未识别到缺陷，记录已留痕', kind: AppSnackKind.success);
       _saved = true;
       Navigator.of(context).pop();
       return;
@@ -410,10 +422,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   // —— 渲染 ——
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final drawingsAsync = ref.watch(drawingsProvider);
+    _drawing = _resolveDrawing(drawingsAsync.valueOrNull ?? {});
+    return Scaffold(
         backgroundColor: AppTokens.bg,
         appBar: AppBar(
-          title: const Text('拍照验收',
+          title: const Text('拍照记录',
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -473,6 +488,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           ],
         ),
       );
+  }
 
   /// 顶部锚定部位信息条。
   Widget _buildAnchorBar() => Container(
@@ -532,7 +548,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                   child: Image.asset(
-                    _drawing.src,
+                    _drawing!.src,
                     fit: BoxFit.fill,
                     filterQuality: FilterQuality.medium,
                   ),
@@ -1024,8 +1040,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 ],
               ),
               const SizedBox(height: AppTokens.space2),
-              Text('定位将烧录到照片水印中（工程取证）',
-                  style: const TextStyle(
+              const Text('定位将烧录到照片水印中（工程取证）',
+                  style: TextStyle(
                       fontSize: 11, color: AppTokens.muted)),
               const SizedBox(height: AppTokens.space3),
               Flexible(
@@ -1228,7 +1244,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
             ),
             icon: const Icon(LucideIcons.save, size: 18),
-            label: const Text('保存验收记录',
+            label: const Text('保存记录',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ),
         ),

@@ -79,6 +79,11 @@ final cadCalibrationStoreProvider = Provider<CadCalibrationStore>((ref) {
   return CadCalibrationStore(LocalStorage.instance);
 });
 
+/// 校准库（多图纸批量套用：已校准图纸 key + 参数清单）。
+final calibrationLibraryProvider = Provider<CalibrationLibrary>((ref) {
+  return CalibrationLibrary(LocalStorage.instance);
+});
+
 /// 各图纸的坐标校准映射（内存缓存，key = drawingKey）。
 /// 由图纸页在加载时通过 [loadCadCalibration] 填充；校准后通过 [saveCadCalibration] 更新。
 final cadCalibrationMapProvider =
@@ -96,19 +101,40 @@ Future<CadCoordMapper?> loadCadCalibration(WidgetRef ref, String drawingKey) asy
   return mapper;
 }
 
-/// 保存指定图纸的校准映射（内存 + 本地持久化）。
-Future<void> saveCadCalibration(
-    WidgetRef ref, String drawingKey, CadCoordMapper mapper) async {
+/// 保存指定图纸的校准映射（内存 + 本地持久化 + 登记进校准库）。
+/// [rawJson] 为浏览器导出的原始 JSON 文本（内置演示坐标系可传 null）。
+Future<void> saveCadCalibration(WidgetRef ref, String drawingKey,
+    CadCoordMapper mapper, [String? rawJson]) async {
   final map = {...ref.read(cadCalibrationMapProvider), drawingKey: mapper};
   ref.read(cadCalibrationMapProvider.notifier).state = map;
-  await ref.read(cadCalibrationStoreProvider).saveCalibration(drawingKey, mapper);
+  final store = ref.read(cadCalibrationStoreProvider);
+  await store.saveCalibration(drawingKey, mapper);
+  if (rawJson != null) {
+    await store.saveRawJson(drawingKey, rawJson);
+    await ref.read(calibrationLibraryProvider).upsert(drawingKey, mapper, rawJson);
+  } else {
+    // 内置演示坐标系：从库中移除，避免下次自动套用演示值。
+    await store.deleteRawJson(drawingKey);
+    await ref.read(calibrationLibraryProvider).remove(drawingKey);
+  }
 }
 
-/// 删除指定图纸的校准映射。
+/// 删除指定图纸的校准映射（内存 + 本地 + 校准库同步移除）。
 Future<void> deleteCadCalibration(WidgetRef ref, String drawingKey) async {
   final map = {...ref.read(cadCalibrationMapProvider)}..remove(drawingKey);
   ref.read(cadCalibrationMapProvider.notifier).state = map;
-  await ref.read(cadCalibrationStoreProvider).deleteCalibration(drawingKey);
+  final store = ref.read(cadCalibrationStoreProvider);
+  await store.deleteCalibration(drawingKey);
+  await store.deleteRawJson(drawingKey);
+  await ref.read(calibrationLibraryProvider).remove(drawingKey);
+}
+
+/// 启动期调用：把校准库清单中所有已校准图纸的坐标映射一次性灌入内存，
+/// 使后续打开任意图纸自动套用，无需逐张加载或手动粘贴。
+Future<void> applyCalibrationLibrary(WidgetRef ref) async {
+  final all = await ref.read(calibrationLibraryProvider).buildAll();
+  final current = {...ref.read(cadCalibrationMapProvider), ...all};
+  ref.read(cadCalibrationMapProvider.notifier).state = current;
 }
 
 /// 当前项目的缺陷列表（按项目区分，走 Repository 以支持新增）。

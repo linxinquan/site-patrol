@@ -89,13 +89,19 @@ class CadCoordMapper {
         f: f,
       );
 
-  /// 从校准数据 JSON Map 构建（兼容 HTML 端 `cad_calib` / 分享链接 / 离线文件格式）。
-  /// 接受的 key：{a,b,c,d,e,f}（必），可带 imgW/imgH（可选，用于校验/提示）。
+  /// 从校准数据 JSON Map 构建。
+  /// 兼容两种来源：
+  ///  1) HTML 端导出的分享格式：{..., "m":{"a","b","c","d","e","f"}, "imgW","imgH", ...}
+  ///  2) 本地持久化格式：{a,b,c,d,e,f, imgW?, imgH?}
   factory CadCoordMapper.fromCalibrationMap(Map<String, dynamic> m) {
-    num n(dynamic k, [num def = 0]) => (m[k] as num?) ?? def;
+    // 浏览器分享格式把仿射系数包在 "m" 子对象里
+    final src = (m['m'] is Map<String, dynamic>) ? m['m'] as Map<String, dynamic> : m;
+    num n(dynamic k, [num def = 0]) => (src[k] as num?) ?? def;
+    final imgW = (m['imgW'] as num?)?.toDouble() ?? 1.0;
+    final imgH = (m['imgH'] as num?)?.toDouble() ?? 1.0;
     return CadCoordMapper.fromAffine(
-      viewWidth: n('imgW', 1).toDouble(),
-      viewHeight: n('imgH', 1).toDouble(),
+      viewWidth: imgW,
+      viewHeight: imgH,
       a: n('a').toDouble(),
       b: n('b').toDouble(),
       c: n('c').toDouble(),

@@ -1,0 +1,7 @@
+feat: Web预览内置真实B05校准 + 拍照记录页串图修复 + 图钉缩小去标签
+
+- main.dart 启动期注入内置真实 B05 校准种子(仅空清单时写入,不覆盖用户校准)
+- capture_page 改拍照记录,按 drawingKey 查 dy7Drawings 修复跨项目串图
+- drawing_viewer_page 图钉缩小至r=10并默认隐藏坐标标签,点击弹窗显示
+- _anchor 入口补 drawingKey; serve_web.ps1 改用 junction 路径避中文编码
+- 更新 DEVELOPMENT_LOG_2026-08-20 记录下午修复与明日待办
