@@ -4,18 +4,22 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:app_settings/app_settings.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/image_compress.dart';
 import '../../core/utils/photo_watermark.dart';
 import '../../core/utils/web_storage.dart';
+import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
+import '../../features/measure/measure_page.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
@@ -41,14 +45,27 @@ class _ConfBucket {
   const _ConfBucket(this.label, this.fg, this.bg);
 }
 
+/// 拍照流程步骤：先选平面 → 图纸上选坐标/部位 → 拍照。
+enum _CaptureStep { selectFloor, selectPoint, capture }
+
 class _CapturePageState extends ConsumerState<CapturePage> {
+  late String _projectId;
   late String _floor;
+  /// 选中平面的 Drawing key（大铲湾楼层直接用 Floor.key，避免 floorToDrawingKey 串图）。
+  String _selectedFloorKey = '';
   late String _anchorLabel;
   late double _x;
   late double _y;
+  /// 当前流程步骤。
+  late _CaptureStep _step;
 
   /// 拍摄照片的压缩字节数据（Image.memory 展示）。
   Uint8List? _shotPhoto;
+
+  /// 拍照后待确认的原始文件（拍后预览确认：重拍/使用）。
+  XFile? _pendingShot;
+  /// 提交（烧录水印 + 识别）进行中。
+  bool _committing = false;
 
   /// 烧录水印后的照片字节（保存用）。
   Uint8List? _watermarkedPhoto;
@@ -75,6 +92,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 当前要显示的图纸（按项目图纸 provider 解析，避免不同项目图纸串图）。
   Drawing? _drawing;
+
+  /// 当本地没有 PNG 资产时，尝试从 CAD 服务生成/加载的远程 PNG URL。
+  String? _remotePngUrl;
+  bool _remotePngLoading = false;
+  String? _remotePngError;
 
   /// 暂存的 vision 识别结果列表（Web localStorage 持久化，刷新后仍可见）。
   /// 每项：{ts, anchor, floor, count, defects:[{name, desc}]}
@@ -104,12 +126,27 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   @override
   void initState() {
     super.initState();
+    _projectId = widget.args.projectId ??
+        ref.read(currentProjectIdProvider) ??
+        allProjects.first.id;
     _floor = widget.args.floor;
-    _anchorLabel = widget.args.anchorLabel;
+    _anchorLabel = widget.args.anchorLabel.isEmpty ? '待选点' : widget.args.anchorLabel;
     _x = widget.args.x;
     _y = widget.args.y;
-    // 初始坐标下尝试关联最近锚点（兼容"待选点"默认值）。
-    _snapToNearestAnchor(force: true);
+    // 若未指定楼层/图纸，则默认选中当前项目的地下一层平面图并进入选坐标步骤。
+    if (widget.args.drawingKey != null || _floor.isNotEmpty) {
+      _step = _CaptureStep.capture;
+      _snapToNearestAnchor(force: true);
+    } else {
+      _step = _CaptureStep.selectPoint;
+      final defaultFloor = _floorOptions.cast<Floor?>().firstWhere(
+            (f) => f!.key == _defaultFloorKey,
+            orElse: () => _floorOptions.firstOrNull,
+          );
+      _selectedFloorKey = defaultFloor?.key ?? '';
+      _floor = defaultFloor?.floor ?? '';
+      _anchorLabel = '待选点';
+    }
     _loadStoredResults();
   }
 
@@ -128,20 +165,109 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     super.dispose();
   }
 
+  // —— 流程步骤控制 ——
+  /// 按当前项目返回可选图纸列表（避免串图）。
+  List<Floor> get _floorOptions =>
+      _projectId == tencentProject.id ? dy7Floors : floors;
+
+  /// 当前项目默认图纸 key（地下一层平面图），用于“重选图纸”后回到默认视图。
+  String get _defaultFloorKey {
+    const defaults = <String, String>{
+      'tencent-dy04-7': 'dy04_7_B05', // 地下室夹层组合平面图（B05 PDF 底图）
+      'nkf': 'nkf_west_1f',           // 西楼·一层平面图（建施报_06_V1.0_西楼一层平面图）
+      'sustech': 'sustech_west_1f',
+    };
+    return defaults[_projectId] ?? _floorOptions.firstOrNull?.key ?? '';
+  }
+
+  /// 当前已选图纸对象（按 key 匹配，未选时返回 null）。
+  Floor? get _selectedFloor {
+    if (_selectedFloorKey.isEmpty) return null;
+    return _floorOptions
+        .cast<Floor?>()
+        .firstWhere((f) => f!.key == _selectedFloorKey, orElse: () => null);
+  }
+
+  /// 图纸显示名称：同一名称存在多个 key 时，用 key 后缀区分，避免下方选项重复。
+  String _floorLabel(Floor f) {
+    final sameNameCount =
+        _floorOptions.where((x) => x.name == f.name).length;
+    if (sameNameCount > 1) {
+      return '${f.name} (${f.key.toUpperCase()})';
+    }
+    return f.name;
+  }
+
+  /// 选中平面 → 进入选坐标步骤。
+  void _selectFloor(Floor f) {
+    final d = _resolveDrawing(ref.read(drawingsProvider).valueOrNull ?? {});
+    setState(() {
+      _selectedFloorKey = f.key;
+      _floor = f.floor;
+      _drawing = d;
+      _remotePngUrl = null;
+      _remotePngError = null;
+      _step = _CaptureStep.selectPoint;
+      _anchorLabel = '待选点';
+      _x = 0.5;
+      _y = 0.5;
+    });
+    // 若本地无 PNG 但有 CAD OCF key，则尝试从服务端生成/加载 PNG 底图。
+    if (d != null && d.src.isEmpty && (d.cadOcfKey?.isNotEmpty ?? false)) {
+      _ensureRemotePng(d);
+    }
+  }
+
+  /// 从 CAD 服务请求 OCF 转 PNG。服务器会自动缓存，后续直接走 /api/ocf/{key}.png。
+  Future<void> _ensureRemotePng(Drawing d) async {
+    if (_remotePngLoading) return;
+    setState(() {
+      _remotePngLoading = true;
+      _remotePngError = null;
+    });
+    try {
+      final url = await CadService().saveOcfAsImage(d.cadOcfKey!);
+      if (mounted) {
+        setState(() {
+          _remotePngUrl = url.startsWith('http') ? url : '${CadService.host}$url';
+          _remotePngLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _remotePngError = e.toString();
+          _remotePngLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 确认已选坐标 → 进入拍照步骤。
+  void _confirmPointAndCapture() {
+    if (_anchorLabel == '待选点') {
+      AppSnack.show(context, '请先在图纸上点选部位', kind: AppSnackKind.danger);
+      return;
+    }
+    setState(() => _step = _CaptureStep.capture);
+  }
+
   // —— 图纸坐标换算 ——
   String get _drawingKey {
+    if (_selectedFloorKey.isNotEmpty) return _selectedFloorKey;
     final argsKey = widget.args.drawingKey;
     if (argsKey != null && argsKey.isNotEmpty) return argsKey;
     return floorToDrawingKey(_floor);
   }
 
-  Drawing _resolveDrawing(Map<String, Drawing> projectMap) {
+  Drawing? _resolveDrawing(Map<String, Drawing> projectMap) {
     final key = _drawingKey;
-    final d = projectMap[key] ?? dy7Drawings[key] ?? drawings[key];
-    return d ?? drawings['nkf_west_1f']!;
+    if (key.isEmpty) return null;
+    return projectMap[key] ?? dy7Drawings[key] ?? drawings[key];
   }
 
-  double get _ratio => (_drawing!.h / _drawing!.w).clamp(0.6, 1.0);
+  double get _ratio =>
+      _drawing == null ? 1.0 : (_drawing!.h / _drawing!.w).clamp(0.6, 1.0);
 
   void _onTapDrawing(Offset local, Size size) {
     final nx = (local.dx / size.width).clamp(0.02, 0.98).toDouble();
@@ -178,14 +304,33 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 按平台分流取图：
   /// - Web：相册选图（桌面浏览器无法直接调相机，走文件上传）。
   /// - Android/iOS：真实相机，并做原生压缩（maxWidth / imageQuality）。
+  ///   移动端提高清晰度（1920/88），验收照片需保留更多细节；Web 保持 1280/82 兼容。
   Future<XFile?> _pickImage() async {
     const source = kIsWeb ? ImageSource.gallery : ImageSource.camera;
+    // 移动端提高分辨率与质量；Web 用保守值避免超大文件。
+    final maxWidth = kIsWeb ? 1280.0 : 1920.0;
+    final imageQuality = kIsWeb ? 82 : 88;
     try {
       return await _picker.pickImage(
         source: source,
-        maxWidth: 1280,
-        imageQuality: 82,
+        maxWidth: maxWidth,
+        imageQuality: imageQuality,
+        preferredCameraDevice: CameraDevice.rear,
       );
+    } on PlatformException catch (e) {
+      // 权限被拒绝（cameraPermission / photoLibrary 等）→ 引导去系统设置。
+      if (mounted) {
+        final denied = e.code.contains('permission') ||
+            e.code.contains('Permission') ||
+            e.code.contains('denied');
+        if (denied) {
+          _showPermissionGuide();
+        } else {
+          AppSnack.show(context, '无法调用相机：${e.message ?? e.code}',
+              kind: AppSnackKind.danger);
+        }
+      }
+      return null;
     } catch (_) {
       if (mounted) {
         AppSnack.show(context, '无法调用相机/相册，请检查权限', kind: AppSnackKind.danger);
@@ -194,8 +339,32 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     }
   }
 
+  /// 权限被拒绝时，弹窗引导用户前往系统设置开启。
+  void _showPermissionGuide() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('需要相机/相册权限'),
+        content: const Text('现场拍照验收需要相机与相册权限。请在系统设置中开启后重试。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('稍后'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              AppSettings.openAppSettings();
+            },
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _doCapture() async {
-    if (_scanning) return;
+    if (_scanning || _committing) return;
 
     final shot = await _pickImage();
     if (shot == null) {
@@ -203,55 +372,84 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       return;
     }
 
-    // 读取图片字节 → 简单压缩（压缩后的字节用于展示与烧录水印）。
-    final rawBytes = await shot.readAsBytes();
-    final compressed = compressImage(rawBytes);
-
-    // 构造水印元信息（工程记录：时间 / 项目 / 部位 / GPS / 凭证号）。
-    // 定位信息来自用户选择的「附近定位点」（工程水印相机风格）。
-    final now = DateTime.now();
-    final meta = WatermarkMeta(
-      project: _location.name,
-      anchor: '$_anchorLabel · $_floor',
-      time: '${now.year}-${_two(now.month)}-${_two(now.day)} '
-          '${_two(now.hour)}:${_two(now.minute)}',
-      gps: _location.gpsText,
-      altitude: '${_location.altitude.toStringAsFixed(1)}m',
-      reporter: _currentUser,
-      serial: '${now.millisecondsSinceEpoch}',
-      worldCoord: widget.args.drawPointWorldX != null &&
-              widget.args.drawPointWorldY != null
-          ? '图纸坐标 X=${widget.args.drawPointWorldX!.toStringAsFixed(1)} '
-              'Y=${widget.args.drawPointWorldY!.toStringAsFixed(1)}'
-          : null,
-    );
-
-    // 烧录水印（失败时回退原始压缩图，避免阻断拍照流程）。
-    Uint8List? watermarked;
-    try {
-      watermarked = await applyPhotoWatermark(compressed, meta);
-    } catch (e) {
-      debugPrint('[capture] watermark failed: $e');
-      watermarked = null;
-    }
-    final finalPhoto = watermarked ?? compressed;
-
+    // 拍后预览确认：先展示待确认照片，用户「使用」后再烧录水印 + 识别，
+    // 「重拍」可丢弃重来，避免误拍占用流程。
     if (mounted) {
       setState(() {
-        _shotPhoto = finalPhoto;
-        _watermarkedPhoto = watermarked;
-        _watermarkMeta = meta;
-        _photoHash = imageSha256(finalPhoto);
-        _shotCaption = shot.name;
+        _pendingShot = shot;
+        _shotPhoto = null;
         _defects = const [];
+        _scanError = null;
       });
-      AppSnack.show(
-        context,
-        watermarked != null
-            ? '已拍摄并烧录防篡改水印'
-            : '已拍摄（水印烧录失败，已保留原图）',
-        kind: watermarked != null ? AppSnackKind.success : AppSnackKind.danger,
+    }
+  }
+
+  /// 取消待确认照片（重拍）。
+  void _cancelPending() {
+    setState(() => _pendingShot = null);
+  }
+
+  /// 确认使用待确认照片：执行烧录水印 + 缺陷识别（原提交流程）。
+  Future<void> _commitPhoto() async {
+    final shot = _pendingShot;
+    if (shot == null || _committing) return;
+    setState(() => _committing = true);
+    try {
+      // 读取图片字节 → 简单压缩（压缩后的字节用于展示与烧录水印）。
+      final rawBytes = await shot.readAsBytes();
+      final compressed = compressImage(rawBytes);
+
+      // 构造水印元信息（工程记录：时间 / 项目 / 部位 / GPS / 凭证号）。
+      // 定位信息来自用户选择的「附近定位点」（工程水印相机风格）。
+      final now = DateTime.now();
+      final meta = WatermarkMeta(
+        project: _location.name,
+        anchor: '$_anchorLabel · $_floor',
+        time: '${now.year}-${_two(now.month)}-${_two(now.day)} '
+            '${_two(now.hour)}:${_two(now.minute)}',
+        gps: _location.gpsText,
+        altitude: '${_location.altitude.toStringAsFixed(1)}m',
+        reporter: _currentUser,
+        serial: '${now.millisecondsSinceEpoch}',
+        worldCoord: widget.args.drawPointWorldX != null &&
+                widget.args.drawPointWorldY != null
+            ? '图纸坐标 X=${widget.args.drawPointWorldX!.toStringAsFixed(1)} '
+                'Y=${widget.args.drawPointWorldY!.toStringAsFixed(1)}'
+            : null,
       );
+
+      // 烧录水印（失败时回退原始压缩图，避免阻断拍照流程）。
+      Uint8List? watermarked;
+      try {
+        watermarked = await applyPhotoWatermark(compressed, meta);
+      } catch (e) {
+        debugPrint('[capture] watermark failed: $e');
+        watermarked = null;
+      }
+      final finalPhoto = watermarked ?? compressed;
+
+      if (mounted) {
+        setState(() {
+          _shotPhoto = finalPhoto;
+          _watermarkedPhoto = watermarked;
+          _watermarkMeta = meta;
+          _photoHash = imageSha256(finalPhoto);
+          _shotCaption = shot.name;
+          _defects = const [];
+          _pendingShot = null;
+        });
+        AppSnack.show(
+          context,
+          watermarked != null
+              ? '已拍摄并烧录防篡改水印'
+              : '已拍摄（水印烧录失败，已保留原图）',
+          kind: watermarked != null
+              ? AppSnackKind.success
+              : AppSnackKind.danger,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _committing = false);
     }
     await _runScan();
   }
@@ -489,6 +687,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   children: [
                     _buildDrawingStage(),
                     const SizedBox(height: AppTokens.space4),
+                    _buildStepPanel(),
+                    const SizedBox(height: AppTokens.space4),
                     _buildWatermark(),
                     const SizedBox(height: AppTokens.space4),
                     _buildResultPanel(),
@@ -511,7 +711,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   /// 顶部锚定部位信息条。
-  Widget _buildAnchorBar() => Container(
+  Widget _buildAnchorBar() {
+    final currentDrawingName = _selectedFloor?.name ?? '—';
+    final subtitle = _step == _CaptureStep.selectFloor
+        ? '请选择图纸与具体部位'
+        : '$_anchorLabel · $currentDrawingName';
+    return Container(
         width: double.infinity,
         margin: const EdgeInsets.fromLTRB(
             AppTokens.space4, AppTokens.space2, AppTokens.space4, 0),
@@ -533,14 +738,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   style: const TextStyle(fontSize: 13, color: AppTokens.muted),
                   children: [
                     TextSpan(
-                      text: _anchorLabel,
+                      text: _step == _CaptureStep.selectFloor
+                          ? '待选择'
+                          : _anchorLabel,
                       style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
                           color: AppTokens.fg),
                     ),
                     TextSpan(
-                      text: ' · $_floor',
+                      text: ' · $subtitle',
                       style:
                           const TextStyle(fontSize: 12, color: AppTokens.muted),
                     ),
@@ -553,44 +760,152 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           ],
         ),
       );
+  }
+
+  /// 无 PNG 底图时的占位图，可展示错误信息并提供重试。
+  Widget _buildMissingPngPlaceholder(String? error) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.border),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.fileX, size: 48, color: AppTokens.muted),
+          const SizedBox(height: AppTokens.space2),
+          Text(
+            _remotePngLoading ? '正在生成 PNG 底图…' : '该图纸暂无 PNG 底图',
+            style: TextStyle(
+              color: AppTokens.muted,
+              fontWeight: FontWeight.w600,
+            ),
+            ),
+            if (error != null && error.isNotEmpty && !_remotePngLoading) ...[
+            const SizedBox(height: AppTokens.space1),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
+              child: Text(
+                error,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: AppTokens.danger),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ],
+            if (!_remotePngLoading &&
+              (_drawing?.cadOcfKey?.isNotEmpty ?? false)) ...[
+            const SizedBox(height: AppTokens.space2),
+            TextButton.icon(
+              onPressed: () => _ensureRemotePng(_drawing!),
+              icon: Icon(LucideIcons.refreshCw, size: 14, color: AppTokens.accent),
+              label: Text('重新生成', style: TextStyle(color: AppTokens.accent)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   /// 图纸 + 图钉 + 准星交互区。
   Widget _buildDrawingStage() {
+    final stepHint = _step == _CaptureStep.selectFloor
+        ? '请先选择下方图纸，再进入图纸选点'
+        : '点击图纸选点，将自动吸附最近锚点';
     return AspectRatio(
       aspectRatio: 1 / _ratio,
       child: LayoutBuilder(
         builder: (context, constraints) {
           return GestureDetector(
-            onTapUp: (d) => _onTapDrawing(d.localPosition, constraints.biggest),
+            onTapUp: _step == _CaptureStep.selectFloor
+                ? null
+                : (d) => _onTapDrawing(d.localPosition, constraints.biggest),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                  child: Image.asset(
-                    _drawing!.src,
-                    fit: BoxFit.fill,
-                    filterQuality: FilterQuality.medium,
-                  ),
-                ),
-                // 半透明遮罩，突出蓝图观感
-                Container(
-                  decoration: BoxDecoration(
+                if (_drawing != null && _drawing!.src.isNotEmpty)
+                  ClipRRect(
                     borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.10),
-                        Colors.black.withValues(alpha: 0.28),
+                    child: Image.asset(
+                      _drawing!.src,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  )
+                else if (_drawing != null &&
+                    _drawing!.src.isEmpty &&
+                    _remotePngUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                    child: Image.network(
+                      _remotePngUrl!,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.medium,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                              ? child
+                              : Container(
+                                  alignment: Alignment.center,
+                                  child: CircularProgressIndicator(
+                                    value: progress.expectedTotalBytes != null
+                                        ? progress.cumulativeBytesLoaded /
+                                            progress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildMissingPngPlaceholder(error.toString()),
+                    ),
+                  )
+                else if (_drawing != null && _drawing!.src.isEmpty)
+                  _buildMissingPngPlaceholder(_remotePngError)
+                else
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppTokens.surface,
+                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                      border: Border.all(color: AppTokens.border),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(LucideIcons.map,
+                            size: 48, color: AppTokens.muted),
+                        const SizedBox(height: AppTokens.space2),
+                        Text('未选择图纸',
+                            style: TextStyle(
+                                color: AppTokens.muted,
+                                fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
-                ),
+                // 半透明遮罩，突出蓝图观感
+                if (_drawing != null &&
+                    (_drawing!.src.isNotEmpty || _remotePngUrl != null))
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.10),
+                          Colors.black.withValues(alpha: 0.28),
+                        ],
+                      ),
+                    ),
+                  ),
                 // 预置照片锚点图钉
-                ..._anchors.map((a) => _buildPin(a)),
-                // 准星选点
-                _buildCrosshair(),
+                if (_drawing != null &&
+                    (_drawing!.src.isNotEmpty || _remotePngUrl != null))
+                  ..._anchors.map((a) => _buildPin(a)),
+                // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
+                if (_drawing != null && _step != _CaptureStep.selectFloor)
+                  _buildCrosshair(),
                 // 顶部提示条
                 Positioned(
                   top: AppTokens.space3,
@@ -603,15 +918,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       color: Colors.black.withValues(alpha: 0.45),
                       borderRadius: BorderRadius.circular(AppTokens.radiusPill),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.mousePointerClick,
+                        const Icon(LucideIcons.mousePointerClick,
                             size: 12, color: Colors.white),
-                        SizedBox(width: 6),
-                        Text('点击图纸选点，将自动吸附最近锚点',
-                            style:
-                                TextStyle(fontSize: 11, color: Colors.white)),
+                        const SizedBox(width: 6),
+                        Text(stepHint,
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.white)),
                       ],
                     ),
                   ),
@@ -622,6 +937,156 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 步骤面板：选平面 / 选坐标 / 拍照。
+  Widget _buildStepPanel() {
+    switch (_step) {
+      case _CaptureStep.selectFloor:
+        return _buildFloorSelector();
+      case _CaptureStep.selectPoint:
+        return _buildPointConfirm();
+      case _CaptureStep.capture:
+        return _buildCaptureInfo();
+    }
+  }
+
+  /// 步骤 ①：选择平面（楼层）。
+  Widget _buildFloorSelector() {
+    return Card(
+      color: AppTokens.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(LucideIcons.layers, size: 16, color: AppTokens.accent),
+                SizedBox(width: AppTokens.space2),
+                Text('选择图纸',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: AppTokens.space2),
+            Wrap(
+              spacing: AppTokens.space2,
+              runSpacing: AppTokens.space2,
+              children: _floorOptions.map((f) {
+                return ChoiceChip(
+                  label: Text(_floorLabel(f)),
+                  selected: _selectedFloorKey == f.key,
+                  onSelected: (_) => _selectFloor(f),
+                  selectedColor: AppTokens.accent.withOpacity(0.2),
+                  labelStyle: TextStyle(
+                    color: _selectedFloorKey == f.key
+                        ? AppTokens.accent
+                        : AppTokens.fg,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 步骤 ②：确认图纸上选中的部位。
+  Widget _buildPointConfirm() {
+    return Card(
+      color: AppTokens.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(LucideIcons.mapPin,
+                    size: 16, color: AppTokens.accent),
+                const SizedBox(width: AppTokens.space2),
+                Expanded(
+                  child: Text('已选部位：${_anchorLabel}',
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppTokens.space1),
+            Text('在图纸上点击可重新选择部位',
+                style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+            const SizedBox(height: AppTokens.space3),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      final defaultFloor = _floorOptions.cast<Floor?>().firstWhere(
+                            (f) => f!.key == _defaultFloorKey,
+                            orElse: () => _floorOptions.firstOrNull,
+                          );
+                      setState(() {
+                        _step = _CaptureStep.selectFloor;
+                        _selectedFloorKey = defaultFloor?.key ?? '';
+                        _floor = defaultFloor?.floor ?? '';
+                        _anchorLabel = '待选点';
+                        _drawing = _resolveDrawing(
+                            ref.read(drawingsProvider).valueOrNull ?? {});
+                        _remotePngUrl = null;
+                        _remotePngError = null;
+                      });
+                      if (_drawing != null &&
+                          _drawing!.src.isEmpty &&
+                          (_drawing!.cadOcfKey?.isNotEmpty ?? false)) {
+                        _ensureRemotePng(_drawing!);
+                      }
+                    },
+                    icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                    label: const Text('重选图纸'),
+                  ),
+                ),
+                const SizedBox(width: AppTokens.space3),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _confirmPointAndCapture,
+                    icon: const Icon(LucideIcons.camera, size: 16),
+                    label: const Text('开始拍照'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 步骤 ③：拍照阶段信息条。
+  Widget _buildCaptureInfo() {
+    return Card(
+      color: AppTokens.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        child: Row(
+          children: [
+            const Icon(LucideIcons.camera, size: 16, color: AppTokens.accent),
+            const SizedBox(width: AppTokens.space2),
+            Expanded(
+              child: Text('${_drawing?.title ?? '—'} · ${_anchorLabel}',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600)),
+            ),
+            TextButton.icon(
+              onPressed: () => setState(() => _step = _CaptureStep.selectPoint),
+              icon: const Icon(LucideIcons.arrowLeft, size: 14),
+              label: const Text('重选', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -889,6 +1354,29 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const Text('拍照量尺校对',
                   style:
                       TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              TextButton.icon(
+                onPressed: () async {
+                  final projectId =
+                      ref.read(currentProjectIdProvider) ??
+                          (await ref.read(projectProvider.future)).id;
+                  if (!mounted) return;
+                  context.push(
+                    '/measure',
+                    extra: MeasureArgs(
+                      projectKey: projectId,
+                      drawingKey: _drawingKey,
+                      floor: _floor,
+                    ),
+                  );
+                },
+                icon: const Icon(LucideIcons.ruler, size: 14),
+                label: const Text('智能量尺校对',
+                    style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTokens.accent,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
               const Spacer(),
               if (total > 0)
                 Container(
@@ -1560,8 +2048,23 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 控制条 + 快门。
   Widget _buildControls() {
+    // 选平面 / 选坐标步骤：快门与保存等拍照控件暂不显示。
+    if (_step != _CaptureStep.capture) {
+      return Container(
+        height: 56,
+        alignment: Alignment.center,
+        child: Text(
+          _step == _CaptureStep.selectFloor
+              ? '请先选择上方图纸'
+              : '点击「开始拍照」进入拍摄',
+          style: TextStyle(color: AppTokens.muted, fontSize: 13),
+        ),
+      );
+    }
     return Column(
       children: [
+        // 拍后预览确认：使用 / 重拍（移动端原生相机优化）。
+        if (_pendingShot != null) _buildPendingPreview(),
         Row(
           children: [
             _buildControlBtn(LucideIcons.scanSearch, '识别', _runScan),
@@ -1704,6 +2207,74 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     const TextStyle(fontSize: 11, color: AppTokens.mutedA11y)),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 拍后预览确认卡片：展示刚拍的照片，提供「重拍 / 使用」。
+  Widget _buildPendingPreview() {
+    final shot = _pendingShot!;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTokens.space3),
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.brand.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.circleCheck,
+                  size: 16, color: AppTokens.brand),
+              const SizedBox(width: AppTokens.space2),
+              const Text('拍照完成，请确认',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+              const Spacer(),
+              if (_committing)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space2),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            child: FutureBuilder<Uint8List>(
+              future: shot.readAsBytes(),
+              builder: (ctx, snap) => snap.hasData
+                  ? Image.memory(snap.data!,
+                      height: 200, width: double.infinity, fit: BoxFit.cover)
+                  : const SizedBox(
+                      height: 200,
+                      child: Center(child: CircularProgressIndicator())),
+            ),
+          ),
+          const SizedBox(height: AppTokens.space3),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _committing ? null : _cancelPending,
+                  icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                  label: const Text('重拍'),
+                ),
+              ),
+              const SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _committing ? null : _commitPhoto,
+                  icon: const Icon(LucideIcons.check, size: 16),
+                  label: const Text('使用'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

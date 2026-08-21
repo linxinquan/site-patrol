@@ -50,6 +50,19 @@ class MockRepository implements Repository {
   bool _currentIs7 = false;
   set currentIs7(bool v) => _currentIs7 = v;
 
+  /// 拍照量尺校对会话（内存态，按 项目+图纸 唯一）。
+  final Map<String, MeasureSession> _measurements = {};
+
+  @override
+  Future<void> saveMeasurement(MeasureSession session) {
+    _measurements['${session.projectKey}|${session.drawingKey}'] = session;
+    return Future.value();
+  }
+
+  @override
+  Future<MeasureSession?> getMeasurement(String projectKey, String drawingKey) =>
+      Future.value(_measurements['$projectKey|$drawingKey']);
+
   @override
   Future<void> addDefect(Defect defect) {
     _defects.add(defect);

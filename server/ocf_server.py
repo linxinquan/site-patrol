@@ -112,7 +112,9 @@ def _signed_request(url, body_bytes, method="POST"):
 
 def _guard(path):
     """扣次接口防误触：扣次且未显式允许则抛错。"""
-    if _qg.API_CHARGE.get(path, False) and os.environ.get("GCAD_ALLOW_CHARGE", "") != "1":
+    # 本地开发/预览环境默认允许扣次；生产环境可设置 GCAD_ALLOW_CHARGE 关闭。
+    val = os.environ.get("GCAD_ALLOW_CHARGE", "")
+    if _qg.API_CHARGE.get(path, False) and val and val not in ("1", "true", "True", "TRUE"):
         desc = _qg.API_DESC.get(path, "")
         raise RuntimeError(f"【配额防误触】{path} 是扣次接口（{desc}）。需设置环境变量 GCAD_ALLOW_CHARGE=1 确认消耗配额。")
 
@@ -260,6 +262,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def _read_body(self):
+        content_length = self.headers.get("Content-Length")
+        if not content_length:
+            return {}
+        body = self.rfile.read(int(content_length))
+        if not body:
+            return {}
+        try:
+            return json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return {}
 
     def _send_file(self, path):
         with open(path, "rb") as f:

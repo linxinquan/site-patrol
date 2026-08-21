@@ -439,6 +439,8 @@ class TimelinePhoto {
 
 /// 拍照验收路由参数：楼层 + 预锚定部位 + 相对坐标（0~1） + 可选图纸坐标。
 class CaptureArgs {
+  /// 所属项目 ID（无项目时按 currentProjectIdProvider 推断）。
+  final String? projectId;
   final String floor;
   final String anchorLabel;
   final double x;
@@ -449,8 +451,9 @@ class CaptureArgs {
   final double? drawPointWorldX;
   final double? drawPointWorldY;
   const CaptureArgs({
-    this.floor = '西楼1F',
-    this.anchorLabel = '待选点',
+    this.projectId,
+    this.floor = '',
+    this.anchorLabel = '',
     this.x = 0.5,
     this.y = 0.5,
     this.drawingKey,
@@ -499,6 +502,178 @@ class ScaleCheck {
         measuredMm: measuredMm ?? this.measuredMm,
         drawingMm: drawingMm ?? this.drawingMm,
       );
+}
+
+// ==================== 半自动标定测量（拍照量尺校对 V2）====================
+// 设计见 MEASURE_FEATURE_PLAN.md：图纸侧量距（CAD 校准）+ 照片侧量距（参考物标定）
+// + 逐项校对（图纸 mm vs 实测 mm，双容差判定）。
+
+/// 照片侧量距的一次标定：以已知尺寸参考物（卷尺/标准块）标定照片上的像素比例。
+class PhotoCalib {
+  final double refMm; // 参考物真实尺寸（mm）
+  final double pixA; // 起点像素 x（0..imgW）
+  final double pixB; // 终点像素 x（0..imgW）
+  final double imgW; // 照片整图像素宽
+  const PhotoCalib({
+    required this.refMm,
+    required this.pixA,
+    required this.pixB,
+    required this.imgW,
+  });
+
+  /// 照片像素比例（mm/px）：参考物尺寸 / 像素跨度。
+  double get mmPerPx => refMm / (pixB - pixA).abs();
+
+  PhotoCalib copyWith({double? refMm, double? pixA, double? pixB, double? imgW}) =>
+      PhotoCalib(
+        refMm: refMm ?? this.refMm,
+        pixA: pixA ?? this.pixA,
+        pixB: pixB ?? this.pixB,
+        imgW: imgW ?? this.imgW,
+      );
+}
+
+/// 校对清单中的一项：图纸侧量得值 vs 照片侧量得值。
+class MeasureItem {
+  final String name; // 量尺项，如「梁宽」「墙厚」
+  final double drawingMm; // 图纸侧量得（CAD 校准后，mm）
+  final double photoMm; // 照片侧量得（参考物标定后，mm）
+  const MeasureItem({
+    required this.name,
+    required this.drawingMm,
+    required this.photoMm,
+  });
+
+  /// 偏差 = 照片实测 - 图纸（mm）
+  double get deviation => photoMm - drawingMm;
+  /// 偏差率 = 偏差 / 图纸（%）
+  double get deviationPct => drawingMm == 0 ? 0 : deviation / drawingMm * 100;
+  /// 是否合格：偏差绝对值 <= 容差
+  bool pass(double tolMm, double tolPct) =>
+      deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
+
+  MeasureItem copyWith({String? name, double? drawingMm, double? photoMm}) =>
+      MeasureItem(
+        name: name ?? this.name,
+        drawingMm: drawingMm ?? this.drawingMm,
+        photoMm: photoMm ?? this.photoMm,
+      );
+}
+
+/// 一次测量会话（可持久化）。
+class MeasureSession {
+  final String id;
+  final String projectKey;
+  final String drawingKey;
+  final String floor;
+  final double tolMm; // 容差 mm
+  final double tolPct; // 容差 %
+  final PhotoCalib? photoCalib; // 照片侧标定（可空）
+  final List<MeasureItem> items;
+  final int updatedAt; // 毫秒时间戳
+  const MeasureSession({
+    required this.id,
+    required this.projectKey,
+    required this.drawingKey,
+    required this.floor,
+    this.tolMm = 5,
+    this.tolPct = 2,
+    this.photoCalib,
+    this.items = const [],
+    this.updatedAt = 0,
+  });
+
+  MeasureSession copyWith({
+    String? projectKey,
+    String? drawingKey,
+    String? floor,
+    double? tolMm,
+    double? tolPct,
+    PhotoCalib? photoCalib,
+    bool clearPhotoCalib = false,
+    List<MeasureItem>? items,
+    int? updatedAt,
+  }) =>
+      MeasureSession(
+        id: id,
+        projectKey: projectKey ?? this.projectKey,
+        drawingKey: drawingKey ?? this.drawingKey,
+        floor: floor ?? this.floor,
+        tolMm: tolMm ?? this.tolMm,
+        tolPct: tolPct ?? this.tolPct,
+        photoCalib: clearPhotoCalib ? null : (photoCalib ?? this.photoCalib),
+        items: items ?? this.items,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+
+  int get passCount => items.where((e) => e.pass(tolMm, tolPct)).length;
+  bool get allPass => items.isNotEmpty && passCount == items.length;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'projectKey': projectKey,
+        'drawingKey': drawingKey,
+        'floor': floor,
+        'tolMm': tolMm,
+        'tolPct': tolPct,
+        'photoCalib': photoCalib == null
+            ? null
+            : {
+                'refMm': photoCalib!.refMm,
+                'pixA': photoCalib!.pixA,
+                'pixB': photoCalib!.pixB,
+                'imgW': photoCalib!.imgW,
+              },
+        'items': items
+            .map((e) => {
+                  'name': e.name,
+                  'drawingMm': e.drawingMm,
+                  'photoMm': e.photoMm,
+                })
+            .toList(),
+        'updatedAt': updatedAt,
+      };
+
+  factory MeasureSession.fromJson(Map<String, dynamic> m) {
+    final calib = m['photoCalib'] as Map<String, dynamic>?;
+    return MeasureSession(
+      id: m['id'] as String? ?? '',
+      projectKey: m['projectKey'] as String? ?? '',
+      drawingKey: m['drawingKey'] as String? ?? '',
+      floor: m['floor'] as String? ?? '',
+      tolMm: (m['tolMm'] as num? ?? 5).toDouble(),
+      tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
+      photoCalib: calib == null
+          ? null
+          : PhotoCalib(
+              refMm: (calib['refMm'] as num).toDouble(),
+              pixA: (calib['pixA'] as num).toDouble(),
+              pixB: (calib['pixB'] as num).toDouble(),
+              imgW: (calib['imgW'] as num).toDouble(),
+            ),
+      items: (m['items'] as List? ?? [])
+          .map((e) => (e as Map<String, dynamic>))
+          .map((e) => MeasureItem(
+                name: e['name'] as String? ?? '',
+                drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
+                photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
+              ))
+          .toList(),
+      updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
+    );
+  }
+}
+
+/// 拍照量尺校对页路由参数。
+class MeasureArgs {
+  final String projectKey;
+  final String drawingKey;
+  final String floor;
+  const MeasureArgs({
+    required this.projectKey,
+    required this.drawingKey,
+    this.floor = '',
+  });
 }
 
 // ==================== 浩辰云图 CAD 模型 ====================

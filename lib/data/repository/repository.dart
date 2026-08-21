@@ -13,4 +13,9 @@ abstract class Repository {
   /// 新增一条缺陷工单（拍照识别后由 CapturePage 调用）。
   Future<void> addDefect(Defect defect);
   Future<List<TimelinePhoto>> getTimeline(String anchor);
+
+  /// 保存一次拍照量尺校对会话（后端落库）。dev/Mock 下为内存实现。
+  Future<void> saveMeasurement(MeasureSession session);
+  /// 读取某图纸的测量会话（无则返回 null）。
+  Future<MeasureSession?> getMeasurement(String projectKey, String drawingKey);
 }

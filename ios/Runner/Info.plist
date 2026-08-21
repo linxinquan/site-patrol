@@ -30,6 +30,8 @@
 	<string>用于现场拍照，记录并识别设计缺陷与施工问题</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于读取现场照片进行 AI 分类与缺陷归档</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于将验收拍照结果保存到相册留档</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

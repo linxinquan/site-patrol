@@ -342,52 +342,56 @@ const List<Map<String, String>> blueprintDrawings = [
 // src 为空（无 PNG），由 CAD 服务提供。
 
 const List<Floor> dy7Floors = [
-  Floor(key: 'dy04_7_B05', name: '地下室夹层组合平面图', index: 0, cached: true, progress: 100, building: '7栋', floor: 'B1'),
-  Floor(key: 'dy04_7_B02', name: '地下室夹层组合平面图', index: 1, cached: true, progress: 100, building: '7栋', floor: 'B1'),
-  Floor(key: 'dy04_7_D01', name: 'A座 1-1 剖面图', index: 2, cached: true, progress: 100, building: '7栋', floor: '剖面'),
-  Floor(key: 'dy04_7_D03', name: 'B座 剖面图绑定版', index: 3, cached: true, progress: 100, building: '7栋', floor: '剖面'),
-  Floor(key: 'dy04_7_K01', name: '墙身详图（一）', index: 4, cached: true, progress: 100, building: '7栋', floor: '详图'),
-  Floor(key: 'dy04_7_K02', name: '墙身详图（二）', index: 5, cached: true, progress: 100, building: '7栋', floor: '详图'),
-  Floor(key: 'dy04_7_E01', name: 'A座 楼梯详图（一）', index: 6, cached: true, progress: 100, building: '7栋', floor: '详图'),
-  Floor(key: 'dy04_7_F01', name: 'B座 楼梯剖面图绑定版', index: 7, cached: true, progress: 100, building: '7栋', floor: '详图'),
-  Floor(key: 'dy04_7_J01', name: 'A座 门窗详图（一）', index: 8, cached: true, progress: 100, building: '7栋', floor: '详图'),
-  Floor(key: 'dy04_7_J04', name: '门窗详图绑定版', index: 9, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_B05', name: '建筑 AW-7-B05 V1.0 地下室夹层组合平面图', index: 0, cached: true, progress: 100, building: '7栋', floor: 'B1'),
+  Floor(key: 'dy04_7_B01', name: '建筑 AW-7-B01 V1.0 地下一层顶板组合平面图', index: 1, cached: true, progress: 100, building: '7栋', floor: 'B1'),
+  Floor(key: 'dy04_7_D01', name: '建筑 AW-7-D01 V1.0 A座1-1剖面图', index: 2, cached: true, progress: 100, building: '7栋', floor: '剖面'),
+  Floor(key: 'dy04_7_D03', name: '建筑 AW-7-D03 V1.0 B座1-1剖面图', index: 3, cached: true, progress: 100, building: '7栋', floor: '剖面'),
+  Floor(key: 'dy04_7_D04', name: '建筑 AW-7-D04 V1.0 B座2-2剖面图', index: 4, cached: true, progress: 100, building: '7栋', floor: '剖面'),
+  Floor(key: 'dy04_7_K01', name: '建筑 AW-7-K01 V1.0 墙身详图（一）', index: 5, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_K02', name: '建筑 AW-7-K02 V1.0 墙身详图（二）', index: 6, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_E01', name: '建筑 AW-7-E01 V1.0 A座7A-LT01楼梯详图（一）', index: 7, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_F01', name: '建筑 AW-7-F01 V1.0 B座7B-LT01楼梯详图（一）', index: 8, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_J01', name: '建筑 AW-7-J01 V1.0 A座门窗详图（一）', index: 9, cached: true, progress: 100, building: '7栋', floor: '详图'),
+  Floor(key: 'dy04_7_J04', name: '建筑 AW-7-J04 V1.0 B座门窗详图（一）', index: 10, cached: true, progress: 100, building: '7栋', floor: '详图'),
 ];
 
 const Map<String, Drawing> dy7Drawings = {
   'dy04_7_B05': Drawing(
-      key: 'dy04_7_B05', title: '地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
+      key: 'dy04_7_B05', title: '建筑 AW-7-B05 V1.0 地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
       // ★ B05 截图底图（PDF 布局空间，4500×2551，对应物理页 1489×844mm），
       // 配合 cad_calib 校准系数实现真实图纸坐标定位（已验证 <2mm）。
       src: 'assets/drawings/dy04_7_B05_paper_hybrid.png', w: 4500, h: 2551, hotspots: [],
       cadOcfKey: 'dy04_7_B05'),
-  'dy04_7_B02': Drawing(
-      key: 'dy04_7_B02', title: '地下室夹层组合平面图', crumb: '7栋 B1', variant: 'plan',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_B02'),
+  'dy04_7_B01': Drawing(
+      key: 'dy04_7_B01', title: '建筑 AW-7-B01 V1.0 地下一层顶板组合平面图', crumb: '7栋 B1', variant: 'plan',
+      src: 'assets/drawings/dy04_7_B01.png', w: 4500, h: 3186, hotspots: [], cadOcfKey: 'dy04_7_B01'),
   'dy04_7_D01': Drawing(
-      key: 'dy04_7_D01', title: 'A座 1-1 剖面图', crumb: '7栋 剖面', variant: 'section',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_D01'),
+      key: 'dy04_7_D01', title: '建筑 AW-7-D01 V1.0 A座1-1剖面图', crumb: '7栋 剖面', variant: 'section',
+      src: 'assets/drawings/dy04_7_D01.png', w: 2400, h: 1133, hotspots: [], cadOcfKey: 'dy04_7_D01'),
   'dy04_7_D03': Drawing(
-      key: 'dy04_7_D03', title: 'B座 剖面图绑定版', crumb: '7栋 剖面', variant: 'section',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_D03'),
+      key: 'dy04_7_D03', title: '建筑 AW-7-D03 V1.0 B座1-1剖面图', crumb: '7栋 剖面', variant: 'section',
+      src: 'assets/drawings/dy04_7_D03.png', w: 2400, h: 1698, hotspots: [], cadOcfKey: 'dy04_7_D03'),
+  'dy04_7_D04': Drawing(
+      key: 'dy04_7_D04', title: '建筑 AW-7-D04 V1.0 B座2-2剖面图', crumb: '7栋 剖面', variant: 'section',
+      src: 'assets/drawings/dy04_7_D04.png', w: 2400, h: 1698, hotspots: [], cadOcfKey: 'dy04_7_D04'),
   'dy04_7_K01': Drawing(
-      key: 'dy04_7_K01', title: '墙身详图（一）', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_K01'),
+      key: 'dy04_7_K01', title: '建筑 AW-7-K01 V1.0 墙身详图（一）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_K01.png', w: 2400, h: 3398, hotspots: [], cadOcfKey: 'dy04_7_K01'),
   'dy04_7_K02': Drawing(
-      key: 'dy04_7_K02', title: '墙身详图（二）', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_K02'),
+      key: 'dy04_7_K02', title: '建筑 AW-7-K02 V1.0 墙身详图（二）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_K02.png', w: 2400, h: 3398, hotspots: [], cadOcfKey: 'dy04_7_K02'),
   'dy04_7_E01': Drawing(
-      key: 'dy04_7_E01', title: 'A座 楼梯详图（一）', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_E01'),
+      key: 'dy04_7_E01', title: '建筑 AW-7-E01 V1.0 A座7A-LT01楼梯详图（一）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_E01.png', w: 2401, h: 1696, hotspots: [], cadOcfKey: 'dy04_7_E01'),
   'dy04_7_F01': Drawing(
-      key: 'dy04_7_F01', title: 'B座 楼梯剖面图绑定版', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_F01'),
+      key: 'dy04_7_F01', title: '建筑 AW-7-F01 V1.0 B座7B-LT01楼梯详图（一）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_F01.png', w: 2400, h: 5087, hotspots: [], cadOcfKey: 'dy04_7_F01'),
   'dy04_7_J01': Drawing(
-      key: 'dy04_7_J01', title: 'A座 门窗详图（一）', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_J01'),
+      key: 'dy04_7_J01', title: '建筑 AW-7-J01 V1.0 A座门窗详图（一）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_J01.png', w: 2401, h: 1696, hotspots: [], cadOcfKey: 'dy04_7_J01'),
   'dy04_7_J04': Drawing(
-      key: 'dy04_7_J04', title: '门窗详图绑定版', crumb: '7栋 详图', variant: 'detail',
-      src: '', w: 2400, h: 1200, hotspots: [], cadOcfKey: 'dy04_7_J04'),
+      key: 'dy04_7_J04', title: '建筑 AW-7-J04 V1.0 B座门窗详图（一）', crumb: '7栋 详图', variant: 'detail',
+      src: 'assets/drawings/dy04_7_J04.png', w: 2400, h: 1698, hotspots: [], cadOcfKey: 'dy04_7_J04'),
 };
 
 // ==================== 7栋 · 巡检缺陷 mock ====================

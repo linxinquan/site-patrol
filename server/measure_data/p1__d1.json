@@ -1,0 +1,23 @@
+{
+  "id": "p1_d1_1",
+  "projectKey": "p1",
+  "drawingKey": "d1",
+  "floor": "3F",
+  "tolMm": 5,
+  "tolPct": 2,
+  "photoCalib": {
+    "refMm": 1000,
+    "pixA": 10,
+    "pixB": 200,
+    "imgW": 1920
+  },
+  "items": [
+    {
+      "name": "???",
+      "drawingMm": 300,
+      "photoMm": 305
+    }
+  ],
+  "updatedAt": 123,
+  "serverSavedAt": 1787285178838
+}

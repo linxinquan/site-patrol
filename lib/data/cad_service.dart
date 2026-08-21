@@ -124,6 +124,39 @@ class CadService {
     throw Exception('图纸解析超时，请稍后重试');
   }
 
+  /// 请求 OCF 转 PNG（saveAsImage）。优先使用本地 OCF 缓存，生成后服务器会缓存 PNG。
+  /// 返回 PNG 的相对/绝对 URL（如 `/api/ocf/{key}.png`）。
+  Future<String> saveOcfAsImage(
+    String key, {
+    int? width,
+    int? height,
+    String? layout,
+  }) async {
+    final resp = await http
+        .post(
+          Uri.parse('$host/api/cad/saveAsImage'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'key': key,
+            if (width != null) 'imageWidth': width,
+            if (height != null) 'imageHeight': height,
+            if (layout != null) 'layout': layout,
+          }),
+        )
+        .timeout(_timeout);
+
+    if (resp.statusCode != 200) {
+      throw Exception('生成 PNG 失败(${resp.statusCode}): ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    _checkGatewayCode(data);
+    final imgUrl = data['bizData']?['imgUrl'] as String?;
+    if (imgUrl == null || imgUrl.isEmpty) {
+      throw Exception('生成 PNG 后未返回 imgUrl');
+    }
+    return imgUrl;
+  }
+
   /// 校验网关返回码，非成功抛异常。
   void _checkGatewayCode(Map<String, dynamic> data) {
     final code = data['rtnCode']?.toString();
