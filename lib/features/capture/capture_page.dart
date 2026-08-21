@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -17,6 +17,10 @@ import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_snack.dart';
+
+/// 量尺校对容差默认值：±10mm 且 ±5%
+const double _defaultTolMm = 10;
+const double _defaultTolPct = 5;
 
 /// 拍照记录页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
 /// → 1.5s 扫描 → VL 识别 → 保存记录。
@@ -82,6 +86,20 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   bool _useMock = false;
 
   List<PhotoAnchor> get _anchors => photoAnchors[_floor] ?? const [];
+
+  // —— 量尺校对 ——
+  /// 量尺校对项集合（实测 vs 图纸标注）。
+  List<ScaleCheck> _scaleChecks = [];
+  /// 容差：绝对偏差(mm) 与 偏差率(%) 取"且"逻辑。
+  double _tolMm = _defaultTolMm;
+  double _tolPct = _defaultTolPct;
+  /// 当前图纸的标定比例（mm/px），由 CAD 校准仿射系数推导，无则 null。
+  double? get _scaleMmPerPx {
+    final m = ref.read(cadCalibrationMapProvider)[_drawingKey];
+    if (m == null) return null;
+    final s = m.useAffine ? m.a.abs() : m.scaleX.abs();
+    return s > 0 ? s : null;
+  }
 
   @override
   void initState() {
@@ -479,6 +497,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       _buildDefectSection(),
                     ],
                     const SizedBox(height: AppTokens.space4),
+                    _buildScaleCheckSection(),
+                    const SizedBox(height: AppTokens.space4),
                     _buildControls(),
                     const SizedBox(height: AppTokens.space6),
                   ],
@@ -839,6 +859,329 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           const SizedBox(height: AppTokens.space2),
           ..._defects.map(_buildDefectCard),
         ],
+      ),
+    );
+  }
+
+  // ============ 量尺校对（实测 vs 图纸标注） ============
+
+  /// 量尺校对区块：列出各构件实测/图纸尺寸，按容差判定合格，并显示当前图纸标定比例。
+  Widget _buildScaleCheckSection() {
+    final passCount = _scaleChecks.where((c) => c.pass(_tolMm, _tolPct)).length;
+    final total = _scaleChecks.length;
+    final rate = total == 0 ? 0.0 : passCount / total * 100;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        border: Border.all(color: AppTokens.border),
+        boxShadow: AppTokens.elevationOverlay,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(LucideIcons.ruler, size: 14, color: AppTokens.accent),
+              const SizedBox(width: 6),
+              const Text('拍照量尺校对',
+                  style:
+                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              const Spacer(),
+              if (total > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: passCount == total
+                        ? AppTokens.success.withValues(alpha: 0.12)
+                        : AppTokens.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '合格 $passCount/$total · ${rate.toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: passCount == total
+                          ? AppTokens.success
+                          : AppTokens.warning,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space2),
+          // 当前图纸标定比例（mm/px）—— 把"实测"和"图纸坐标/真实尺寸"关联起来
+          if (_scaleMmPerPx != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: AppTokens.space2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTokens.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              ),
+              child: Text.rich(
+                TextSpan(
+                  text: '当前图纸标定比例：',
+                  style:
+                      const TextStyle(fontSize: 11, color: AppTokens.muted),
+                  children: [
+                    TextSpan(
+                      text: '${_scaleMmPerPx!.toStringAsFixed(4)} mm/px',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.accent),
+                    ),
+                    const TextSpan(
+                        text: '  （照片像素↔真实尺寸）',
+                        style: TextStyle(fontSize: 11, color: AppTokens.muted)),
+                  ],
+                ),
+              ),
+            ),
+          // 容差设置
+          _buildToleranceRow(),
+          const SizedBox(height: AppTokens.space2),
+          if (total == 0)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('尚未添加量尺项。点击「+ 添加量尺项」，录入现场实测与图纸标注尺寸进行比对。',
+                  style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+            )
+          else
+            ..._scaleChecks.asMap().entries.map((e) {
+              final i = e.key;
+              final c = e.value;
+              final ok = c.pass(_tolMm, _tolPct);
+              return _buildScaleCheckCard(i, c, ok);
+            }),
+          const SizedBox(height: AppTokens.space2),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _addScaleCheck,
+              icon: const Icon(LucideIcons.plus, size: 14),
+              label: const Text('添加量尺项',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTokens.accent,
+                side: BorderSide(color: AppTokens.accent.withValues(alpha: 0.5)),
+                shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTokens.radiusMd)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToleranceRow() {
+    return Row(
+      children: [
+        const Text('容差',
+            style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _tolField('±', _tolMm, 'mm', (v) => setState(() => _tolMm = v)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _tolField('±', _tolPct, '%', (v) => setState(() => _tolPct = v)),
+        ),
+      ],
+    );
+  }
+
+  Widget _tolField(
+      String prefix, double value, String unit, ValueChanged<double> onChanged) {
+    final ctrl = TextEditingController(text: value.toStringAsFixed(0));
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppTokens.bg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: Row(
+        children: [
+          Text(prefix,
+              style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+          const SizedBox(width: 2),
+          Expanded(
+            child: TextField(
+              controller: ctrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+                hintText: '0',
+              ),
+              style: const TextStyle(fontSize: 13),
+              onChanged: (s) =>
+                  onChanged(double.tryParse(s) ?? 0),
+            ),
+          ),
+          Text(' $unit',
+              style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScaleCheckCard(int index, ScaleCheck c, bool ok) {
+    final dev = c.deviation;
+    final devPct = c.deviationPct;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppTokens.space2),
+      padding: const EdgeInsets.all(AppTokens.space2),
+      decoration: BoxDecoration(
+        color: AppTokens.bg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _textField(c.name, '量尺项（如 梁宽）',
+                    (v) => _updateCheck(index, c.copyWith(name: v))),
+              ),
+              IconButton(
+                onPressed: () => setState(() => _scaleChecks.removeAt(index)),
+                icon: const Icon(LucideIcons.trash2,
+                    size: 16, color: AppTokens.danger),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space2),
+          Row(
+            children: [
+              Expanded(
+                child: _numField(c.measuredMm.toStringAsFixed(0), '实测 mm',
+                    (v) => _updateCheck(index, c.copyWith(measuredMm: v)),
+                    isDouble: true),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _numField(c.drawingMm.toStringAsFixed(0), '图纸 mm',
+                    (v) => _updateCheck(index, c.copyWith(drawingMm: v)),
+                    isDouble: true),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ok
+                      ? AppTokens.success.withValues(alpha: 0.12)
+                      : AppTokens.danger.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                ),
+                child: Column(
+                  children: [
+                    Icon(ok ? LucideIcons.check : LucideIcons.x,
+                        size: 14,
+                        color: ok ? AppTokens.success : AppTokens.danger),
+                    Text(ok ? '合格' : '超差',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: ok ? AppTokens.success : AppTokens.danger)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space1),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '偏差 ${dev >= 0 ? '+' : ''}${dev.toStringAsFixed(1)}mm'
+              '（${devPct >= 0 ? '+' : ''}${devPct.toStringAsFixed(1)}%）',
+              style: TextStyle(
+                fontSize: 11,
+                color: ok ? AppTokens.muted : AppTokens.danger,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _numField(String initial, String hint, ValueChanged<double> onChanged,
+      {bool isDouble = false}) {
+    final ctrl = TextEditingController(text: initial);
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: TextField(
+        controller: ctrl,
+        keyboardType:
+            const TextInputType.numberWithOptions(decimal: true, signed: true),
+        inputFormatters: isDouble
+            ? [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*'))]
+            : [FilteringTextInputFormatter.digitsOnly],
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          isCollapsed: true,
+          hintText: hint,
+          hintStyle: const TextStyle(fontSize: 12, color: AppTokens.muted),
+        ),
+        style: const TextStyle(fontSize: 13),
+        onChanged: (s) => onChanged(double.tryParse(s) ?? 0),
+      ),
+    );
+  }
+
+  void _updateCheck(int index, ScaleCheck c) {
+    if (index < 0 || index >= _scaleChecks.length) return;
+    setState(() => _scaleChecks[index] = c);
+  }
+
+  void _addScaleCheck() {
+    setState(() => _scaleChecks.add(
+        const ScaleCheck(name: '', measuredMm: 0, drawingMm: 0)));
+  }
+
+  Widget _textField(
+      String initial, String hint, ValueChanged<String> onChanged) {
+    final ctrl = TextEditingController(text: initial);
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        border: Border.all(color: AppTokens.border),
+      ),
+      child: TextField(
+        controller: ctrl,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          isCollapsed: true,
+          hintText: hint,
+          hintStyle: const TextStyle(fontSize: 12, color: AppTokens.muted),
+        ),
+        style: const TextStyle(fontSize: 13),
+        onChanged: onChanged,
       ),
     );
   }

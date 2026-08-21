@@ -146,4 +146,40 @@
 - **Web 预览地址**：`http://localhost:12345/`（Python 静态服务 `c:\sp\build\web`）。
 - 8080 被系统 HTTP.sys（PID 4）占用，勿用。
 - `serve_web.ps1` 的 root 已改 `c:\sp\build\web`（junction）以避中文编码问题。
+
+---
+
+## 八、2026-08-21 上午：拍照量尺校对功能 + 串图回归 + 校准范围确认
+
+### 1. ⭐ 拍照量尺校对功能（核心新增）
+- **需求**：拍照后量尺尺寸（现场实测）与图纸坐标/真实尺寸做比对校验。
+- **模型**（`lib/data/models.dart`）：新增 `ScaleCheck{name, measuredMm, drawingMm}`，含 `deviation`、`deviationPct`、`pass(tolMm, tolPct)`。
+- **UI**（`lib/features/capture/capture_page.dart`）：
+  - 新增「拍照量尺校对」区块（位于视觉识别结果之后、操作区之前）。
+  - 顶部显示**当前图纸标定比例（mm/px）**（`cadCalibrationMapProvider[_drawingKey]` 的仿射 `a` 系数），把"实测"和"图纸坐标/真实尺寸"关联：B05 ≈ 0.3309 mm/px。
+  - 容差双控：±mm 与 ±%，取"且"逻辑。
+  - 逐项卡片：量尺项名称 + 实测 mm + 图纸 mm → 实时算偏差/偏差率，标注「合格/超差」徽标。
+  - 区块头部汇总「合格 N/总数 · 合格率%」。
+  - 支持增/删/改量尺项。
+- **验证**：`flutter analyze` 无 error（仅 info 级 prefer_final/unnecessary_import，非本次引入阻断项）；`flutter build web --release` 成功；18/18 单测通过；12345 服务新产物 200。
+
+### 2. 图纸串图修复回归验证（已完成）
+- `capture_page._resolveDrawing` 优先查 `projectMap[key] ?? dy7Drawings[key] ?? drawings[key]`。
+- 确认 `dy7Drawings` 含 `dy04_7_B05`（真实 B05 PNG），且 `drawing_viewer_page` 两入口（`_anchor`、`_captureAtAnnotation`）均传 `drawingKey: dy04_7_B05`。
+- 结论：7栋 B05 进入拍照页必解析到正确图纸，不再 fallback 到南方医院 `nkf_west_1f`，串图问题已修复。
+
+### 3. Web 其他图纸预置校准确认（无需新增）
+- 全量排查所有 `Drawing`：`dy7Drawings` 中仅 `dy04_7_B05` 有真实 PNG 底图（其余 B02/D01/详图等 `src:''`，走 CAD 占位，无图无需校准）。
+- nkf 系列属南方医院另一项目，不在 7栋 Web 预览流程内。
+- 结论：**仅 B05 需要预置真实校准，已于昨日内置种子**（main.dart 启动期注入，仅空清单时写入）。Todo 3 结案。
+
+### 变更文件（2026-08-21）
+| 文件 | 改动 |
+| --- | --- |
+| `lib/data/models.dart` | 新增 `ScaleCheck` 量尺校对模型 |
+| `lib/features/capture/capture_page.dart` | 拍照量尺校对区块 + 标定比例读数 + 容差/增删逻辑 |
+
+### 明日/后续建议
+- 量尺校对结果当前为页面内状态，未持久化到缺陷记录；若需随「保存记录」一起落库，扩展 `Defect` 模型加 `scaleChecks` 字段即可。
+- 真实拍照（image_picker）仍注释走模拟，量尺为手动录入；如需照片内自动量尺（像素→mm via 标定比例），需图像识别标尺/参照物，超出当前范围。
 </content>

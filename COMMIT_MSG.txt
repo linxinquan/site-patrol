@@ -1,7 +1,10 @@
-feat: Web预览内置真实B05校准 + 拍照记录页串图修复 + 图钉缩小去标签
+feat: 拍照量尺校对功能 + 串图回归确认
 
-- main.dart 启动期注入内置真实 B05 校准种子(仅空清单时写入,不覆盖用户校准)
-- capture_page 改拍照记录,按 drawingKey 查 dy7Drawings 修复跨项目串图
-- drawing_viewer_page 图钉缩小至r=10并默认隐藏坐标标签,点击弹窗显示
-- _anchor 入口补 drawingKey; serve_web.ps1 改用 junction 路径避中文编码
-- 更新 DEVELOPMENT_LOG_2026-08-20 记录下午修复与明日待办
+- 新增 ScaleCheck 模型(实测mm/图纸mm/偏差/偏差率/容差判定)
+- 拍照记录页新增「量尺校对」区块：显示当前图纸标定比例(mm/px)、
+  双容差±mm/±%、逐项实测vs图纸比对卡片、合格率汇总、增删改
+- 串图修复回归确认：dy7Drawings 含 dy04_7_B05 真实底图，两入口均传
+  drawingKey，capture_page 优先查 dy7Drawings 不再 fallback 串图
+- 校准范围确认：仅 B05 有真实PNG底图需预置校准(昨日已内置种子)，
+  其余7栋图纸src为空走CAD占位，nkf属另一项目，无需新增
+- 更新 DEVELOPMENT_LOG_2026-08-20 记录上午开发内容

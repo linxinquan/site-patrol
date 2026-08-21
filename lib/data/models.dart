@@ -474,6 +474,33 @@ class VlDefect {
   });
 }
 
+/// 拍照量尺校对：一张照片内对某一构件，实测尺寸 vs 图纸标注尺寸的比对。
+class ScaleCheck {
+  final String name; // 量尺项，如「梁宽」「墙厚」
+  final double measuredMm; // 现场量尺实测值（mm）
+  final double drawingMm; // 图纸标注值（mm）
+  const ScaleCheck({
+    required this.name,
+    required this.measuredMm,
+    required this.drawingMm,
+  });
+
+  /// 偏差 = 实测 - 图纸（mm）
+  double get deviation => measuredMm - drawingMm;
+  /// 偏差率 = 偏差 / 图纸（%）
+  double get deviationPct => drawingMm == 0 ? 0 : deviation / drawingMm * 100;
+  /// 是否合格：偏差绝对值 <= 容差
+  bool pass(double tolMm, double tolPct) =>
+      deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
+
+  ScaleCheck copyWith({String? name, double? measuredMm, double? drawingMm}) =>
+      ScaleCheck(
+        name: name ?? this.name,
+        measuredMm: measuredMm ?? this.measuredMm,
+        drawingMm: drawingMm ?? this.drawingMm,
+      );
+}
+
 // ==================== 浩辰云图 CAD 模型 ====================
 
 /// 图层状态信息（来自 getDwgInfo 返回的 layers）。
