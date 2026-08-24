@@ -168,33 +168,33 @@ const List<User> users = [
 ];
 
 const List<Floor> floors = [
-  Floor(key: 'nkf_total', name: '总平面图', index: 2, cached: true, progress: 100, building: '总图', floor: '总图'),
-  Floor(key: 'nkf_total_v', name: '首层竖向总平面图', index: 0, cached: false, progress: 0, building: '总图', floor: '1F'),
-  Floor(key: 'nkf_west_b2', name: '西楼·地下二层平面图', index: 0, cached: true, progress: 100, building: '西楼', floor: 'B2'),
-  Floor(key: 'nkf_west_b1', name: '西楼·地下一层平面图', index: 0, cached: false, progress: 0, building: '西楼', floor: 'B1'),
-  Floor(key: 'nkf_west_1f', name: '西楼·一层平面图', index: 7, cached: true, progress: 100, building: '西楼', floor: '1F'),
-  Floor(key: 'nkf_west_2f', name: '西楼·二层平面图', index: 0, cached: true, progress: 100, building: '西楼', floor: '2F'),
-  Floor(key: 'nkf_west_4f', name: '西楼·四层平面图(标准层)', index: 0, cached: true, progress: 100, building: '西楼', floor: '4F'),
-  Floor(key: 'nkf_east_1f', name: '东楼·一层平面图', index: 3, cached: true, progress: 100, building: '东楼', floor: '1F'),
-  Floor(key: 'nkf_east_4f', name: '东楼·四层平面图(标准层)', index: 0, cached: true, progress: 100, building: '东楼', floor: '4F'),
+  Floor(key: 'nkf_total', name: '建施报_01_V1.0_总平面图', index: 2, cached: true, progress: 100, building: '总图', floor: '总图'),
+  Floor(key: 'nkf_total_v', name: '建施报_02_V1.0_首层竖向总平面图', index: 0, cached: false, progress: 0, building: '总图', floor: '1F'),
+  Floor(key: 'nkf_west_b2', name: '建施报_04_V1.0_西楼地下二层平面图', index: 0, cached: true, progress: 100, building: '西楼', floor: 'B2'),
+  Floor(key: 'nkf_west_b1', name: '建施报_05_V1.0_西楼地下一层平面图', index: 0, cached: false, progress: 0, building: '西楼', floor: 'B1'),
+  Floor(key: 'nkf_west_1f', name: '建施报_06_V1.0_西楼一层平面图', index: 7, cached: true, progress: 100, building: '西楼', floor: '1F'),
+  Floor(key: 'nkf_west_2f', name: '建施报_07_V1.0_西楼二层平面图', index: 0, cached: true, progress: 100, building: '西楼', floor: '2F'),
+  Floor(key: 'nkf_west_4f', name: '建施报_09_V1.0_西楼四层平面图', index: 0, cached: true, progress: 100, building: '西楼', floor: '4F'),
+  Floor(key: 'nkf_east_1f', name: '建施报_20_V1.0_东楼一层平面图', index: 3, cached: true, progress: 100, building: '东楼', floor: '1F'),
+  Floor(key: 'nkf_east_4f', name: '建施报_23_V1.0_东楼四层平面图', index: 0, cached: true, progress: 100, building: '东楼', floor: '4F'),
   Floor(key: 'nkf_inf_1f', name: '感染楼·一层平面图', index: 0, cached: false, progress: 0, building: '感染楼', floor: '1F'),
   Floor(key: 'nkf_cor_1f', name: '连廊·一层平面图', index: 0, cached: true, progress: 100, building: '连廊', floor: '1F'),
 ];
 
 const Map<String, Drawing> drawings = {
   'nkf_total': Drawing(
-    key: 'nkf_total', title: '总平面图', crumb: '总平面图', variant: 'plan',
+    key: 'nkf_total', title: '建施报_01_V1.0_总平面图', crumb: '总平面图', variant: 'plan',
     src: 'assets/drawings/nkf_total.png', w: 1500, h: 944,
     hotspots: [
       Hotspot(num: 1, label: '西楼主入口 → 西楼1F', target: 'nkf_west_1f', x: 0.38, y: 0.58),
       Hotspot(num: 2, label: '东楼门诊 → 东楼1F', target: 'nkf_east_1f', x: 0.68, y: 0.26),
     ],
   ),
-  'nkf_total_v': Drawing(key: 'nkf_total_v', title: '首层竖向总平面图', crumb: '竖向总平面', variant: 'plan', src: 'assets/drawings/nkf_total_v.png', w: 1500, h: 944, hotspots: []),
-  'nkf_west_b2': Drawing(key: 'nkf_west_b2', title: '西楼·地下二层平面图', crumb: '西楼 B2', variant: 'plan', src: 'assets/drawings/nkf_west_b2.png', w: 1500, h: 944, hotspots: []),
-  'nkf_west_b1': Drawing(key: 'nkf_west_b1', title: '西楼·地下一层平面图', crumb: '西楼 B1', variant: 'plan', src: 'assets/drawings/nkf_west_b1.png', w: 1500, h: 944, hotspots: []),
+  'nkf_total_v': Drawing(key: 'nkf_total_v', title: '建施报_02_V1.0_首层竖向总平面图', crumb: '竖向总平面', variant: 'plan', src: 'assets/drawings/nkf_total_v.png', w: 1500, h: 944, hotspots: []),
+  'nkf_west_b2': Drawing(key: 'nkf_west_b2', title: '建施报_04_V1.0_西楼地下二层平面图', crumb: '西楼 B2', variant: 'plan', src: 'assets/drawings/nkf_west_b2.png', w: 1500, h: 944, hotspots: []),
+  'nkf_west_b1': Drawing(key: 'nkf_west_b1', title: '建施报_05_V1.0_西楼地下一层平面图', crumb: '西楼 B1', variant: 'plan', src: 'assets/drawings/nkf_west_b1.png', w: 1500, h: 944, hotspots: []),
   'nkf_west_1f': Drawing(
-    key: 'nkf_west_1f', title: '西楼·一层平面图', crumb: '西楼 1F', variant: 'plan',
+    key: 'nkf_west_1f', title: '建施报_06_V1.0_西楼一层平面图', crumb: '西楼 1F', variant: 'plan',
     src: 'assets/drawings/nkf_west_1f.png', w: 1500, h: 944,
     hotspots: [
       Hotspot(num: 3, label: '左病房翼 → 2F', target: 'nkf_west_2f', x: 0.18, y: 0.38),
@@ -205,10 +205,10 @@ const Map<String, Drawing> drawings = {
       Hotspot(num: 8, label: '地下车库入口 → B2', target: 'nkf_west_b2', x: 0.50, y: 0.85),
     ],
   ),
-  'nkf_west_2f': Drawing(key: 'nkf_west_2f', title: '西楼·二层平面图', crumb: '西楼 2F', variant: 'plan', src: 'assets/drawings/nkf_west_2f.png', w: 1500, h: 944, hotspots: []),
-  'nkf_west_4f': Drawing(key: 'nkf_west_4f', title: '西楼·四层平面图(标准层)', crumb: '西楼 4F', variant: 'plan', src: 'assets/drawings/nkf_west_4f.png', w: 1500, h: 944, hotspots: []),
+  'nkf_west_2f': Drawing(key: 'nkf_west_2f', title: '建施报_07_V1.0_西楼二层平面图', crumb: '西楼 2F', variant: 'plan', src: 'assets/drawings/nkf_west_2f.png', w: 1500, h: 944, hotspots: []),
+  'nkf_west_4f': Drawing(key: 'nkf_west_4f', title: '建施报_09_V1.0_西楼四层平面图', crumb: '西楼 4F', variant: 'plan', src: 'assets/drawings/nkf_west_4f.png', w: 1500, h: 944, hotspots: []),
   'nkf_east_1f': Drawing(
-    key: 'nkf_east_1f', title: '东楼·一层平面图', crumb: '东楼 1F', variant: 'plan',
+    key: 'nkf_east_1f', title: '建施报_20_V1.0_东楼一层平面图', crumb: '东楼 1F', variant: 'plan',
     src: 'assets/drawings/nkf_east_1f.png', w: 1500, h: 1062,
     hotspots: [
       Hotspot(num: 9, label: '门诊大厅 → 4F标准层', target: 'nkf_east_4f', x: 0.50, y: 0.35),
@@ -216,9 +216,9 @@ const Map<String, Drawing> drawings = {
       Hotspot(num: 11, label: '医辅区 → 4F标准层', target: 'nkf_east_4f', x: 0.75, y: 0.55),
     ],
   ),
-  'nkf_east_4f': Drawing(key: 'nkf_east_4f', title: '东楼·四层平面图(标准层)', crumb: '东楼 4F', variant: 'plan', src: 'assets/drawings/nkf_east_4f.png', w: 1500, h: 1062, hotspots: []),
-  'nkf_inf_1f': Drawing(key: 'nkf_inf_1f', title: '感染楼·一层平面图', crumb: '感染楼 1F', variant: 'plan', src: 'assets/drawings/nkf_inf_1f.png', w: 1500, h: 1062, hotspots: []),
-  'nkf_cor_1f': Drawing(key: 'nkf_cor_1f', title: '连廊·一层平面图', crumb: '连廊 1F', variant: 'plan', src: 'assets/drawings/nkf_cor_1f.png', w: 1500, h: 1062, hotspots: []),
+  'nkf_east_4f': Drawing(key: 'nkf_east_4f', title: '建施报_23_V1.0_东楼四层平面图', crumb: '东楼 4F', variant: 'plan', src: 'assets/drawings/nkf_east_4f.png', w: 1500, h: 1062, hotspots: []),
+  'nkf_inf_1f': Drawing(key: 'nkf_inf_1f', title: '建施报_31_V1.0_感染楼一层平面图', crumb: '感染楼 1F', variant: 'plan', src: 'assets/drawings/nkf_inf_1f.png', w: 1500, h: 1062, hotspots: []),
+  'nkf_cor_1f': Drawing(key: 'nkf_cor_1f', title: '建施报_38_V1.0_连廊一层平面图', crumb: '连廊 1F', variant: 'plan', src: 'assets/drawings/nkf_cor_1f.png', w: 1500, h: 1062, hotspots: []),
 };
 
 const Map<String, List<PhotoAnchor>> photoAnchors = {
@@ -331,9 +331,9 @@ String floorToDrawingKey(String floor) {
 
 /// 蓝图原稿清单（P4 蓝图预览页图纸切换用）。
 const List<Map<String, String>> blueprintDrawings = [
-  {'key': 'nkf_west_1f', 'label': '西楼1F', 'title': '西楼·一层平面图', 'src': 'assets/drawings/nkf_west_1f.png'},
-  {'key': 'nkf_east_1f', 'label': '东楼1F', 'title': '东楼·一层平面图', 'src': 'assets/drawings/nkf_east_1f.png'},
-  {'key': 'nkf_total', 'label': '总平面图', 'title': '总平面图', 'src': 'assets/drawings/nkf_total.png'},
+  {'key': 'nkf_west_1f', 'label': '西楼1F', 'title': '建施报_06_V1.0_西楼一层平面图', 'src': 'assets/drawings/nkf_west_1f.png'},
+  {'key': 'nkf_east_1f', 'label': '东楼1F', 'title': '建施报_20_V1.0_东楼一层平面图', 'src': 'assets/drawings/nkf_east_1f.png'},
+  {'key': 'nkf_total', 'label': '总平面图', 'title': '建施报_01_V1.0_总平面图', 'src': 'assets/drawings/nkf_total.png'},
 ];
 
 // ==================== 7栋 · 第一轮测试 CAD 图纸 ====================

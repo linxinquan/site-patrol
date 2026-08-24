@@ -137,6 +137,37 @@ Future<void> applyCalibrationLibrary(WidgetRef ref) async {
   ref.read(cadCalibrationMapProvider.notifier).state = current;
 }
 
+/// 启动期一次性预置：把 B05（地下室夹层组合平面图）的演示校准系数写入本地单图存储，
+/// 使测量模块在全新 web 环境下也能直接走通图纸侧量距流程。
+///
+/// 注意：这是【演示值】——日志(08-18)记录 B05 系数含系统性恒定偏移（X 偏 0.5mm、Y 偏 1.6mm），
+/// 真实精度需现场用浏览器校准弹窗重新获取并保存。本 seed 仅在「该图尚未校准」时写入，
+/// 不会覆盖用户已保存的真实校准数据。
+Future<void> seedDefaultCalibrations(WidgetRef ref) async {
+  const b05Key = 'dy04_7_B05';
+  final store = ref.read(cadCalibrationStoreProvider);
+  final existing = await store.readCalibration(b05Key);
+  if (existing != null) return; // 已校准过（可能是真实值），不覆盖
+  final mapper = CadCoordMapper.fromAffine(
+    viewWidth: 4500,
+    viewHeight: 2551,
+    a: 0.3308888888888889,
+    b: 0,
+    c: -359.3091448275862,
+    d: -0.3308888888888889,
+    e: 0,
+    f: 852.4496763746746,
+  );
+  await store.saveCalibration(b05Key, mapper);
+}
+
+/// 启动期初始化 Provider（一次性触发校准 seed + 库灌入）。
+final appInitProvider = FutureProvider<void>((ref) async {
+  final wref = ref as WidgetRef;
+  await seedDefaultCalibrations(wref);
+  await applyCalibrationLibrary(wref);
+});
+
 /// 当前项目的缺陷列表（按项目区分，走 Repository 以支持新增）。
 /// 7栋项目 → dy7Defects（与 7栋图纸对应的真实巡检数据）；
 /// 南科大 → defects（原有 6 条）。

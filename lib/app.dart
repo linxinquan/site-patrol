@@ -136,6 +136,8 @@ class App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 启动期一次性初始化：校准系数预置 + 校准库灌入（测量模块开箱即用）。
+    ref.watch(appInitProvider);
     final phoneMode = ref.watch(devicePhoneModeProvider);
     return MaterialApp.router(
       title: '蓝图落地',

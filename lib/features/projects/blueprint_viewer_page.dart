@@ -4,7 +4,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../data/mock/mock_data.dart';
 
 /// 蓝图原稿预览页（P4）：深色蓝图氛围 + InteractiveViewer 缩放 + 图纸切换。
-/// 图纸：assets/drawings 的 PNG 原稿（西楼1F / 东楼1F / 总平面图），离线可用、零新依赖。
+/// 图纸：assets/drawings 的 PNG 原稿（建施报_06 西楼一层 / 建施报_20 东楼一层 / 建施报_01 总平面图），离线可用、零新依赖。
 class BlueprintViewerPage extends StatefulWidget {
   const BlueprintViewerPage({super.key});
 

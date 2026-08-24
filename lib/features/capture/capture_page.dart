@@ -174,7 +174,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   String get _defaultFloorKey {
     const defaults = <String, String>{
       'tencent-dy04-7': 'dy04_7_B05', // 地下室夹层组合平面图（B05 PDF 底图）
-      'nkf': 'nkf_west_1f',           // 西楼·一层平面图（建施报_06_V1.0_西楼一层平面图）
+      'nkf': 'nkf_west_1f',           // 西楼一层平面图（建施报_06_V1.0_西楼一层平面图）
       'sustech': 'sustech_west_1f',
     };
     return defaults[_projectId] ?? _floorOptions.firstOrNull?.key ?? '';
