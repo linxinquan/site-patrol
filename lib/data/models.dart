@@ -509,28 +509,76 @@ class ScaleCheck {
 // + 逐项校对（图纸 mm vs 实测 mm，双容差判定）。
 
 /// 照片侧量距的一次标定：以已知尺寸参考物（卷尺/标准块）标定照片上的像素比例。
+/// 存储参考物两端点完整像素坐标（2D），mm/px 用 2D 欧氏距离计算。
 class PhotoCalib {
   final double refMm; // 参考物真实尺寸（mm）
-  final double pixA; // 起点像素 x（0..imgW）
-  final double pixB; // 终点像素 x（0..imgW）
+  final double ax; // 起点像素 x（整图坐标系，0..imgW）
+  final double ay; // 起点像素 y（整图坐标系，0..imgH）
+  final double bx; // 终点像素 x
+  final double by; // 终点像素 y
   final double imgW; // 照片整图像素宽
+  final double imgH; // 照片整图像素高
   const PhotoCalib({
     required this.refMm,
-    required this.pixA,
-    required this.pixB,
+    required this.ax,
+    required this.ay,
+    required this.bx,
+    required this.by,
     required this.imgW,
+    this.imgH = 0,
   });
 
-  /// 照片像素比例（mm/px）：参考物尺寸 / 像素跨度。
-  double get mmPerPx => refMm / (pixB - pixA).abs();
+  /// 参考物像素跨度（2D 欧氏距离，px）。
+  double get spanPx => math.sqrt(math.pow(bx - ax, 2) + math.pow(by - ay, 2));
 
-  PhotoCalib copyWith({double? refMm, double? pixA, double? pixB, double? imgW}) =>
+  /// 照片像素比例（mm/px）：参考物尺寸 / 像素跨度（2D）。
+  double get mmPerPx => spanPx <= 1e-6 ? 0 : refMm / spanPx;
+
+  PhotoCalib copyWith({
+    double? refMm,
+    double? ax,
+    double? ay,
+    double? bx,
+    double? by,
+    double? imgW,
+    double? imgH,
+  }) =>
       PhotoCalib(
         refMm: refMm ?? this.refMm,
-        pixA: pixA ?? this.pixA,
-        pixB: pixB ?? this.pixB,
+        ax: ax ?? this.ax,
+        ay: ay ?? this.ay,
+        bx: bx ?? this.bx,
+        by: by ?? this.by,
         imgW: imgW ?? this.imgW,
+        imgH: imgH ?? this.imgH,
       );
+
+  /// 新格式序列化。
+  Map<String, dynamic> toJson() => {
+        'refMm': refMm,
+        'ax': ax,
+        'ay': ay,
+        'bx': bx,
+        'by': by,
+        'imgW': imgW,
+        'imgH': imgH,
+      };
+
+  /// 兼容旧格式（仅 {refMm, pixA, pixB, imgW}）：旧数据 ay=by=0，
+  /// 退化为水平距离计算，与旧版行为一致，不抛异常。
+  factory PhotoCalib.fromJson(Map<String, dynamic> m) {
+    final pixA = (m['pixA'] as num?)?.toDouble();
+    final pixB = (m['pixB'] as num?)?.toDouble();
+    return PhotoCalib(
+      refMm: (m['refMm'] as num?)?.toDouble() ?? 0,
+      ax: (m['ax'] as num?)?.toDouble() ?? pixA ?? 0,
+      ay: (m['ay'] as num?)?.toDouble() ?? 0,
+      bx: (m['bx'] as num?)?.toDouble() ?? pixB ?? 0,
+      by: (m['by'] as num?)?.toDouble() ?? 0,
+      imgW: (m['imgW'] as num?)?.toDouble() ?? 0,
+      imgH: (m['imgH'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 /// 校对清单中的一项：图纸侧量得值 vs 照片侧量得值。
@@ -616,14 +664,7 @@ class MeasureSession {
         'floor': floor,
         'tolMm': tolMm,
         'tolPct': tolPct,
-        'photoCalib': photoCalib == null
-            ? null
-            : {
-                'refMm': photoCalib!.refMm,
-                'pixA': photoCalib!.pixA,
-                'pixB': photoCalib!.pixB,
-                'imgW': photoCalib!.imgW,
-              },
+        'photoCalib': photoCalib?.toJson(),
         'items': items
             .map((e) => {
                   'name': e.name,
@@ -643,14 +684,7 @@ class MeasureSession {
       floor: m['floor'] as String? ?? '',
       tolMm: (m['tolMm'] as num? ?? 5).toDouble(),
       tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
-      photoCalib: calib == null
-          ? null
-          : PhotoCalib(
-              refMm: (calib['refMm'] as num).toDouble(),
-              pixA: (calib['pixA'] as num).toDouble(),
-              pixB: (calib['pixB'] as num).toDouble(),
-              imgW: (calib['imgW'] as num).toDouble(),
-            ),
+      photoCalib: calib == null ? null : PhotoCalib.fromJson(calib),
       items: (m['items'] as List? ?? [])
           .map((e) => (e as Map<String, dynamic>))
           .map((e) => MeasureItem(

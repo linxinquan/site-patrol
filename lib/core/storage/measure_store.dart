@@ -40,14 +40,7 @@ class MeasureStore {
         'floor': s.floor,
         'tolMm': s.tolMm,
         'tolPct': s.tolPct,
-        'photoCalib': s.photoCalib == null
-            ? null
-            : {
-                'refMm': s.photoCalib!.refMm,
-                'pixA': s.photoCalib!.pixA,
-                'pixB': s.photoCalib!.pixB,
-                'imgW': s.photoCalib!.imgW,
-              },
+        'photoCalib': s.photoCalib?.toJson(),
         'items': s.items
             .map((e) => {
                   'name': e.name,
@@ -67,14 +60,7 @@ class MeasureStore {
       floor: m['floor'] as String? ?? '',
       tolMm: (m['tolMm'] as num? ?? 5).toDouble(),
       tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
-      photoCalib: calib == null
-          ? null
-          : PhotoCalib(
-              refMm: (calib['refMm'] as num).toDouble(),
-              pixA: (calib['pixA'] as num).toDouble(),
-              pixB: (calib['pixB'] as num).toDouble(),
-              imgW: (calib['imgW'] as num).toDouble(),
-            ),
+      photoCalib: calib == null ? null : PhotoCalib.fromJson(calib),
       items: (m['items'] as List? ?? [])
           .map((e) => (e as Map<String, dynamic>))
           .map((e) => MeasureItem(

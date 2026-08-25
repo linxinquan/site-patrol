@@ -16,7 +16,6 @@ import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/measure_math.dart';
 import '../../data/models.dart';
-import '../../data/repository/repository.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 拍照量尺校对页（半自动标定测量，MEASURE_FEATURE_PLAN.md）。
@@ -207,10 +206,17 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     }
     final calib = PhotoCalib(
       refMm: refMm,
-      pixA: _refPicks[0].dx,
-      pixB: _refPicks[1].dx,
+      ax: _refPicks[0].dx,
+      ay: _refPicks[0].dy,
+      bx: _refPicks[1].dx,
+      by: _refPicks[1].dy,
       imgW: _photoSize!.width,
+      imgH: _photoSize!.height,
     );
+    if (calib.spanPx <= 1e-3) {
+      AppSnack.show(context, '参考物两点过近，请重新点选', kind: AppSnackKind.danger);
+      return;
+    }
     setState(() {
       _session = _session!.copyWith(photoCalib: calib);
       _refPicks.clear();
