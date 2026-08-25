@@ -7,7 +7,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-FLUTTER=/Users/apple/Desktop/flutter/bin/flutter
+FLUTTER=$(command -v flutter)
+
+# 0. 检查 Flutter
+if [ -z "$FLUTTER" ]; then
+  echo "❌ 未检测到 Flutter，请先安装 Flutter 并确保 flutter 命令可用"
+  echo "   参考：https://docs.flutter.dev/get-started/install/macos"
+  exit 1
+fi
 
 # 0. 检查 CocoaPods
 if ! command -v pod >/dev/null 2>&1; then
