@@ -18,9 +18,14 @@ if not HAS_EZDXF:
 
 # OCF key → 真实 DWG 文件路径
 DWG_SOURCE_ROOT = r"F:\建筑验收工具\大铲湾DY04_资料\7栋B1施工图"
-OCF_KEYS = ['dy04_7_B01','dy04_7_B02','dy04_7_D01','dy04_7_D03',
+# P1：B05 已校准（仿射 b=e=0），用于穿墙检测首张图
+OCF_KEYS = ['dy04_7_B01','dy04_7_B02','dy04_7_B05',
+            'dy04_7_D01','dy04_7_D03',
             'dy04_7_E01','dy04_7_F01','dy04_7_J01','dy04_7_J04',
             'dy04_7_K01','dy04_7_K02']
+
+# Flutter 资产目录：把含 wall_lines 的元数据拷到这里，给前端 rootBundle 读取。
+WALLS_ASSETS_DIR = os.path.join(os.path.dirname(ROOT), "assets", "walls")
 
 
 def find_dwg(short):
@@ -43,8 +48,9 @@ print(f"[build_meta] 目标目录：{META_DIR}")
 print(f"[build_meta] 解析 {len(OCF_KEYS)} 张图...\n")
 
 ok_count = 0
+walls_ok = 0
 for key in OCF_KEYS:
-    short = key.split('_', 2)[-1]  # B01 / D01
+    short = key.split('_', 2)[-1]  # B01 / D01 / B05
     dwg = find_dwg(short)
     if not dwg:
         print(f"[{key}]  ✗ 未找到 DWG")
@@ -62,10 +68,21 @@ for key in OCF_KEYS:
         print(f"  → 图层 {meta['layer_count']} (开 {meta['on_count']} 冻 {meta['frozen_count']})")
         print(f"  → 布局 {meta['layouts']}")
         print(f"  → 实体类型 {len(meta['ent_types'])} 种")
+        # P1-1：拷贝含 wall_lines 的元数据到 Flutter 资产目录，供前端 rootBundle 读取。
+        ws = meta.get('wall_seg_count', 0)
+        if ws > 0:
+            os.makedirs(WALLS_ASSETS_DIR, exist_ok=True)
+            wall_out = os.path.join(WALLS_ASSETS_DIR, key + "_walls.json")
+            with open(wall_out, "w", encoding="utf-8") as f:
+                json.dump({"key": key, "wall_lines": meta["wall_lines"]},
+                          f, ensure_ascii=False, indent=2)
+            print(f"  → 墙线段 {ws}（已拷贝到 assets/walls/{key}_walls.json）")
+            walls_ok += 1
         ok_count += 1
     except Exception as e:
         print(f"  ✗ 解析失败：{e}")
     print()
 
 print(f"[build_meta] 完成：{ok_count}/{len(OCF_KEYS)} 张元数据生成成功")
+print(f"[build_meta] 含墙线数据：{walls_ok}/{len(OCF_KEYS)} 张（assets/walls/）")
 print(f"[build_meta] 元数据输出目录：{META_DIR}")

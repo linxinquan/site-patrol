@@ -9,6 +9,7 @@ import 'features/home/home_page.dart';
 import 'features/projects/projects_page.dart';
 import 'features/projects/drawing_viewer_page.dart';
 import 'features/patrol/patrol_page.dart';
+import 'features/patrol/patrol_editor_page.dart';
 import 'features/defects/defects_page.dart';
 import 'features/defects/record_detail_page.dart';
 import 'features/defects/timeline_compare_page.dart';
@@ -109,10 +110,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/patrol',
-            pageBuilder: (_, __) => CustomTransitionPage(
+            pageBuilder: (_, state) => CustomTransitionPage(
               transitionDuration: Duration.zero,
               transitionsBuilder: (_, __, ___, child) => child,
-              child: const PatrolPage(),
+              child: PatrolPage(
+                args: state.extra is PatrolArgs
+                    ? state.extra as PatrolArgs
+                    : const PatrolArgs(),
+              ),
             ),
           ),
           GoRoute(
@@ -170,6 +175,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           args: state.extra is MeasureArgs
               ? state.extra as MeasureArgs
               : const MeasureArgs(projectKey: '', drawingKey: ''),
+        ),
+      ),
+      GoRoute(
+        path: '/patrol-editor',
+        builder: (_, state) => PatrolEditorPage(
+          args: state.extra is PatrolArgs
+              ? state.extra as PatrolArgs
+              : const PatrolArgs(),
         ),
       ),
     ],

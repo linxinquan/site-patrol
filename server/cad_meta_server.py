@@ -80,6 +80,41 @@ def parse_dwg_to_meta(dwg_path):
         t = e.dxftype()
         ent_types[t] = ent_types.get(t, 0) + 1
 
+    # 5) 墙线段（P1-1）：遍历 LINE + LWPOLYLINE，过滤 WALL/墙 图层、排除 COL/柱。
+    #    输出世界坐标 mm，前端用 worldToScreen 映射到相对坐标 0-100 后做穿墙检测。
+    wall_lines = []
+    for ent in msp.query('LINE LWPOLYLINE'):
+        try:
+            layer_name = ent.dxf.layer if ent.dxf.hasattr('layer') else ''
+            name_upper = layer_name.upper()
+            if 'COL' in name_upper:
+                continue  # 柱不是墙
+            if 'WALL' not in name_upper and '墙' not in layer_name:
+                continue  # 只取墙图层
+            t = ent.dxftype()
+            pts = []
+            if t == 'LINE':
+                pts = [[float(ent.dxf.start.x), float(ent.dxf.start.y)],
+                       [float(ent.dxf.end.x),   float(ent.dxf.end.y)]]
+            else:  # LWPOLYLINE
+                verts = list(ent.get_points('xyseb'))
+                if not verts:
+                    continue
+                for (x, y, *_rest) in verts:
+                    pts.append([float(x), float(y)])
+                # 闭合多段线去重（最后一点 == 第一点）
+                if len(pts) >= 2 and abs(pts[0][0] - pts[-1][0]) < 1e-3 \
+                        and abs(pts[0][1] - pts[-1][1]) < 1e-3:
+                    pts = pts[:-1]
+                if len(pts) < 2:
+                    continue
+            wall_lines.append({
+                "layer": layer_name,
+                "pts": pts,
+            })
+        except Exception:
+            continue
+
     return {
         "ok": True,
         "source": os.path.basename(dwg_path),
@@ -90,6 +125,8 @@ def parse_dwg_to_meta(dwg_path):
         "layer_count": len(layers),
         "on_count": sum(1 for l in layers if l["on"]),
         "frozen_count": sum(1 for l in layers if l["frozen"]),
+        "wall_lines": wall_lines,
+        "wall_seg_count": sum(max(0, len(w["pts"]) - 1) for w in wall_lines),
     }
 
 

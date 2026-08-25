@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import '../models.dart';
 
 /// 由原型 app.js 常量移植。src 统一用 PNG（避开 16MB SVG 卡顿）。
@@ -501,4 +503,97 @@ const List<Defect> dy7Defects = [
       tags: ['幕墙', '安装精度'],
       note: '复测在允许范围内，驳回',
       seed: 'dy7f'),
+];
+
+/// ==================== 巡场计划（PatrolPlan 种子）====================
+///
+/// 以下常量由 [lib/utils/path_metrics.dart] 的 `patrolPathPoints`、
+/// `patrolCheckpoints` **迁移而来**，作为 mock 种子数据，保证首次打开有内容。
+///
+/// 出处说明（保留）：
+///   - `patrolPathPoints` 来自 HTML demo 的 app.js（patrolPath / roundPolyline），
+///     为南科大西丽 1F 巡场闭合路径，坐标体系为 0-100 相对坐标（巡场页按容器尺寸缩放）。
+///   - `patrolCheckpoints = [1, 4, 7, 9, 14, 17, 19]` 为上述路径上的检查点下标。
+///   - 原 `patrolPlanKey='nkf_west_1f'` 已废弃（确认全项目无引用后删除）。
+
+/// 巡场路径点（0-100 相对坐标，与 HTML demo 一致）。
+/// 来源：path_metrics.dart 的 `patrolPathPoints`（迁移后保持原 24 点不变）。
+const List<Offset> patrolPathPoints = [
+  Offset(50, 30), // 0: 门诊大厅（起点）
+  Offset(50, 40), // 1: 门厅导诊
+  Offset(50, 52), // 2: 中央医街中轴
+  Offset(40, 52), // 3: 西走廊
+  Offset(30, 52), // 4: 左翼走廊入口
+  Offset(20, 52), // 5
+  Offset(18, 52), // 6: 左病房翼北
+  Offset(18, 58), // 7: 左病房翼中
+  Offset(18, 62), // 8: 左病房翼南
+  Offset(30, 62), // 9: 左翼走廊南
+  Offset(40, 62), // 10
+  Offset(50, 62), // 11: 中央医街南段
+  Offset(50, 52), // 12: 返回中轴
+  Offset(60, 52), // 13
+  Offset(70, 52), // 14: 右翼走廊入口
+  Offset(80, 52), // 15
+  Offset(82, 52), // 16: 右病房翼北
+  Offset(82, 58), // 17: 右病房翼中
+  Offset(82, 62), // 18: 右病房翼南
+  Offset(70, 62), // 19: 右翼走廊南
+  Offset(60, 62), // 20
+  Offset(50, 62), // 21: 中央医街南段
+  Offset(50, 70), // 22
+  Offset(50, 78), // 23: 地下车库入口（终点）
+];
+
+/// 关键检查点下标（蓝点）：路径中的索引。
+/// 来源：path_metrics.dart 的 `patrolCheckpoints`。
+const List<int> patrolCheckpoints = [1, 4, 7, 9, 14, 17, 19];
+
+/// 把 [patrolPathPoints] + [patrolCheckpoints] 转成 PatrolPlan 的点列表。
+List<PatrolPoint> _nkfPlanPoints() => [
+      for (var i = 0; i < patrolPathPoints.length; i++)
+        PatrolPoint(
+          dx: patrolPathPoints[i].dx,
+          dy: patrolPathPoints[i].dy,
+          isCheckpoint: patrolCheckpoints.contains(i),
+        ),
+    ];
+
+/// 默认巡场路线种子。南科大 = 原 24 点路径（迁移自 path_metrics，保留演示不破坏）；
+/// 7栋 = B05 地下室夹层平面图上的演示路线（含 3 个检查点，
+/// 具体点位为演示值，上线前用路线编辑器按真实走廊调整）。
+final List<PatrolPlan> seedPatrolPlans = [
+  PatrolPlan(
+    id: 'nkf_default',
+    projectId: 'nkf',
+    drawingKey: 'nkf_west_1f',
+    name: '西楼1F 门诊-病房翼巡场',
+    floor: '西楼 1F',
+    totalKm: 0.52, // 保留原演示里程（图纸未校准时兜底）
+    points: _nkfPlanPoints(),
+  ),
+  /// 7栋 B05 默认推荐路线：全局巡场（沿四周走廊走一圈，覆盖 4 个检查点）。
+  ///
+  /// 点位基于 B05 墙线（assets/walls/dy04_7_B05_walls.json）实测排布——
+  /// 中央有矩形房间 (15,25)-(40,25)-(40,75)-(15,75)，右侧有隔墙 (55,15)-(55,50)-(85,50)。
+  /// 推荐路线沿最外围走廊走、不横穿任何墙体（x=10 / x=90 两竖走廊、
+  /// y=10 / y=80 两横走廊围合），符合工程巡场习惯。
+  const PatrolPlan(
+    id: 'dy7_default',
+    projectId: 'tencent-dy04-7',
+    drawingKey: 'dy04_7_B05',
+    name: 'B1 地下室夹层·全局巡场',
+    floor: 'B1',
+    points: [
+      PatrolPoint(dx: 10, dy: 10),
+      PatrolPoint(dx: 55, dy: 10, isCheckpoint: true),
+      PatrolPoint(dx: 90, dy: 10),
+      PatrolPoint(dx: 90, dy: 45, isCheckpoint: true),
+      PatrolPoint(dx: 90, dy: 80),
+      PatrolPoint(dx: 55, dy: 80, isCheckpoint: true),
+      PatrolPoint(dx: 10, dy: 80),
+      PatrolPoint(dx: 10, dy: 45, isCheckpoint: true),
+      PatrolPoint(dx: 10, dy: 10),
+    ],
+  ),
 ];

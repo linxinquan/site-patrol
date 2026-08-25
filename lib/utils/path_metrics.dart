@@ -1,43 +1,15 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
+import '../core/utils/cad_coord.dart';
+import '../data/models.dart';
+
 /// 巡场路径工具：从 HTML demo 的 app.js（patrolPath / patrolCheckpoints / roundPolyline）移植。
 /// 坐标体系：相对坐标 0~100（0-100% 底图），与 SVG viewBox="0 0 100 100" 一致。
-
-/// 巡场步行路线（沿走廊/医街走，不横穿房间；相对坐标 0-100）。
-/// 底图为西楼一层平面图（nkf_west_1f）。
-const List<Offset> patrolPathPoints = [
-  Offset(50, 30), // 0: 门诊大厅（起点）
-  Offset(50, 40), // 1: 门厅导诊
-  Offset(50, 52), // 2: 中央医街中轴
-  Offset(40, 52), // 3: 西走廊
-  Offset(30, 52), // 4: 左翼走廊入口
-  Offset(20, 52), // 5
-  Offset(18, 52), // 6: 左病房翼北
-  Offset(18, 58), // 7: 左病房翼中
-  Offset(18, 62), // 8: 左病房翼南
-  Offset(30, 62), // 9: 左翼走廊南
-  Offset(40, 62), // 10
-  Offset(50, 62), // 11: 中央医街南段
-  Offset(50, 52), // 12: 返回中轴
-  Offset(60, 52), // 13
-  Offset(70, 52), // 14: 右翼走廊入口
-  Offset(80, 52), // 15
-  Offset(82, 52), // 16: 右病房翼北
-  Offset(82, 58), // 17: 右病房翼中
-  Offset(82, 62), // 18: 右病房翼南
-  Offset(70, 62), // 19: 右翼走廊南
-  Offset(60, 62), // 20
-  Offset(50, 62), // 21: 中央医街南段
-  Offset(50, 70), // 22
-  Offset(50, 78), // 23: 地下车库入口（终点）
-];
-
-/// 关键检查点（蓝点）：路径中的索引。
-const List<int> patrolCheckpoints = [1, 4, 7, 9, 14, 17, 19];
-
-/// 巡场底图 key（对应 drawings mock 中的 nkf_west_1f）。
-const String patrolPlanKey = 'nkf_west_1f';
+///
+/// 注意：`patrolPathPoints` / `patrolCheckpoints` 业务常量已迁移至
+/// `lib/data/mock/mock_data.dart` 的 `seedPatrolPlans`（见 PATROL_OPTIMIZE.md），
+/// 本文件仅保留纯算法：roundPolyline / pointAtProgress / realRouteKm / PatrolOverlayPainter。
 
 /// 把折线转为带圆角的导航式路径（HTML roundPolyline 的 Dart 移植）。
 Path roundPolyline(List<Offset> pts, double r) {
@@ -97,7 +69,7 @@ List<PatrolSegment> buildPatrolSegments(List<Offset> pts, List<int> cpIdxs) {
   return segs;
 }
 
-/// 沿路径按进度插值出当前位置（相对坐标，与 [patrolPathPoints] 同体系）。
+/// 沿路径按进度插值出当前位置（相对坐标，与巡场路径同体系）。
 Offset pointAtProgress(List<Offset> pts, double progress) {
   var total = 0.0;
   for (var i = 1; i < pts.length; i++) {
@@ -116,6 +88,27 @@ Offset pointAtProgress(List<Offset> pts, double progress) {
   return pts.last;
 }
 
+/// 按校准后的 CAD 坐标计算路线真实里程（km）。
+///
+/// [points] 为巡场路线点（相对坐标 0~100）；[mapper] 为图纸坐标校准映射；
+/// [imgW]/[imgH] 为整图像素尺寸。先 0~100 → 整图像素，再经
+/// `CadCoordMapper.screenToWorld` 得世界坐标（mm），逐段欧氏距离累加后换算 km。
+///
+/// 图纸未校准（mapper == null 或点数 <2）时返回 null，调用方用 [PatrolPlan.totalKm] 兜底。
+double? realRouteKm(
+    List<PatrolPoint> points, CadCoordMapper? mapper, double imgW, double imgH) {
+  if (mapper == null || points.length < 2) return null;
+  var total = 0.0;
+  for (var i = 1; i < points.length; i++) {
+    final a = mapper.screenToWorld(
+        points[i - 1].dx / 100 * imgW, points[i - 1].dy / 100 * imgH);
+    final b = mapper.screenToWorld(
+        points[i].dx / 100 * imgW, points[i].dy / 100 * imgH);
+    total += (a - b).distance; // mm
+  }
+  return total / 1e6; // → km
+}
+
 /// 巡场底图绘制（轨迹动画版）：路径 + 检查点 + 起终点 + 脉冲当前位置。
 /// 输入尺寸为底图实际像素尺寸；坐标按 w/h 缩放。
 /// [progress] 0~1 控制路径逐段显现；[currentPos] 为像素坐标的当前位置；
@@ -126,12 +119,16 @@ class PatrolOverlayPainter extends CustomPainter {
   final double progress;
   final Offset? currentPos;
   final double pulse;
+  // P1：穿墙段下标（与 _RouteEditorPainter 一致语义：i 对应 pts[i]→pts[i+1]）；
+  // 巡场页加载墙线后计算一次传入，未校准时为空集。
+  final Set<int> crossingSegs;
   const PatrolOverlayPainter({
     required this.pts,
     required this.cpIdxs,
     this.progress = 1.0,
     this.currentPos,
     this.pulse = 0,
+    this.crossingSegs = const {},
   });
 
   @override
@@ -147,6 +144,20 @@ class PatrolOverlayPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(full, basePaint);
+
+    // 1.1 P1：穿墙段红色覆盖（画在蓝线之上，与橙色"已走"不冲突）
+    if (crossingSegs.isNotEmpty) {
+      final redPaint = Paint()
+        ..color = const Color(0xFFEF4444).withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      for (final i in crossingSegs) {
+        if (i + 1 >= pts.length) continue;
+        canvas.drawLine(pts[i], pts[i + 1], redPaint);
+      }
+    }
 
     // 2. 已走路径（橙色高亮覆盖在蓝线之上，0 进度时不画）
     if (p > 0.003) {
@@ -237,5 +248,6 @@ class PatrolOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant PatrolOverlayPainter oldDelegate) =>
       oldDelegate.progress != progress ||
       oldDelegate.currentPos != currentPos ||
-      oldDelegate.pulse != pulse;
+      oldDelegate.pulse != pulse ||
+      oldDelegate.crossingSegs != crossingSegs;
 }

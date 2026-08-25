@@ -12,6 +12,7 @@ import '../../core/cad/cad_calibration.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/session_store.dart';
+import '../../core/storage/patrol_plan_store.dart';
 
 /// 数据仓库：dev 用 Mock，prod 用 Remote（后端就绪后实现）。UI 只依赖此 Provider。
 final repositoryProvider = Provider<Repository>((ref) {
@@ -271,3 +272,17 @@ final weatherProvider = FutureProvider<WeatherInfo>((ref) async {
     category: '良',
   );
 });
+
+// ==================== 巡场 ====================
+
+/// 当前项目的巡场路线列表（持久化优先，首次为空回退项目种子）。
+final patrolPlansProvider =
+    FutureProvider.family<List<PatrolPlan>, String>(
+  (ref, projectId) => PatrolPlanStore.list(projectId),
+);
+
+/// 当前项目的巡场历史记录列表（⑦历史用；阶段三接真实存储）。
+final patrolRecordsProvider =
+    FutureProvider.family<List<PatrolRecord>, String>(
+  (ref, projectId) async => const [], // 阶段三实现
+);
