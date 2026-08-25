@@ -9,12 +9,12 @@ import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/async_state.dart';
-import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/project_switcher.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
+import '../measure/ar_measure_page.dart';
 
 const _mockDataFloors = floors;
 
@@ -104,8 +104,8 @@ class HomePage extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space3, AppTokens.space3, AppTokens.space3, AppTokens.space5),
+        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space3,
+            AppTokens.space3, AppTokens.space5),
         children: [
           // —— 0. 天气预警（有预警时置顶显示，自带间距）——
           const _WeatherAlertBanner(),
@@ -149,10 +149,8 @@ class HomePage extends ConsumerWidget {
           SectionTitle(
               title: '项目大事记',
               action: '查看全部',
-              actionIcon: MingCuteIcons.rightLine,
-              onAction: () =>
-                  AppSnack.show(context, '大事记列表页建设中，敬请期待')),
-          // 标题 → 卡片间距 8（SectionTitle 自带下 padding 8 承担）
+              actionIcon: LucideIcons.chevronRight),
+          const SizedBox(height: AppTokens.space2),
           const _TimelineEvents(),
           const SizedBox(height: AppTokens.space4),
 
@@ -182,6 +180,9 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
   bool _autoScrolled = false;
   String? _projectId;
   int? _selectedIdx; // 点击选中的里程碑卡（选中态：#E6F5FF 底 + 蓝框，日期/阶段名保持原色）
+
+  /// 里程碑卡宽度（横向列表单卡固定宽，保证可滚动）。
+  static const double _itemWidth = 110;
 
   @override
   void didUpdateWidget(covariant _ProjectTimelineCard old) {
@@ -216,56 +217,64 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     _autoScrolled = true;
   }
 
-  /// 选中节点详情条（内嵌在项目进度卡内，替代原底部弹窗）：
-  /// #F1F7FF 底圆角 8，padding 4/8，两行：计划时间 / 状态。
-  Widget _detailStrip(Milestone m) {
-    const gray = Color(0xFF666666);
-    const iconGray = Color(0xFF999999); // 计划时间/状态图标颜色
-    const blue = Color(0xFF0395FF);
-    final statusText = m.done ? '已完成' : m.current ? '进行中' : '未开始';
-    final statusColor = m.current
-        ? blue
-        : m.done
-            ? const Color(0xFF34C759)
-            : const Color(0xFFFF3B30); // 未开始/未来 = 规范红 #FF3B30，与里程碑标签「未来」一致
+  Widget _milestoneDotBig(Milestone m) => Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: m.done
+              ? AppTokens.success
+              : m.current
+                  ? AppTokens.brand
+                  : AppTokens.surface3,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          m.done
+              ? LucideIcons.check
+              : m.current
+                  ? LucideIcons.loader
+                  : LucideIcons.dot,
+          color: (m.done || m.current) ? Colors.white : AppTokens.muted,
+          size: 18,
+        ),
+      );
 
-    Widget row(IconData icon, String label, String value, Color valueColor) =>
-        Row(
+  /// 选中节点详情条：节点圆点 + 名称 + 日期/状态（默认展示当前节点）。
+  Widget _detailStrip(Milestone m) => Container(
+        margin: const EdgeInsets.only(top: 6),
+        padding: const EdgeInsets.all(AppTokens.space2),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
           children: [
-            Icon(icon, size: 14, color: iconGray),
-            const SizedBox(width: 4),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    height: 20 / 12,
-                    fontWeight: FontWeight.w400,
-                    color: gray)),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 12,
-                    height: 20 / 12,
-                    fontWeight: FontWeight.w400,
-                    color: valueColor)),
+            _milestoneDotBig(m),
+            const SizedBox(width: AppTokens.space2),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(m.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.fg)),
+                  const SizedBox(height: 1),
+                  Text(
+                    '${_cnDate(m.date)} · ${m.done ? '已完成' : m.current ? '进行中' : '未开始'}',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: AppTokens.muted),
+                  ),
+                ],
+              ),
+            ),
           ],
-        );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6F5FF),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          row(MingCuteIcons.timeLine, '计划时间：', m.date, gray),
-          row(MingCuteIcons.threeQuartersCircleDashLine, '状态：',
-              statusText, statusColor),
-        ],
-      ),
-    );
-  }
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -298,8 +307,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
                           color: AppTokens.fg)),
                   SizedBox(height: 2),
                   Text('进度节点数据待接入',
-                      style: TextStyle(
-                          fontSize: 12, color: AppTokens.muted)),
+                      style: TextStyle(fontSize: 12, color: AppTokens.muted)),
                 ],
               ),
             ),
@@ -309,8 +317,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     }
 
     final doneCount = ms.where((m) => m.done).length;
-    final currentIdx =
-        ms.indexWhere((m) => m.current); // -1 表示无当前节点
+    final currentIdx = ms.indexWhere((m) => m.current); // -1 表示无当前节点
     // 进度算法：已完成里程碑 + 当前里程碑按时间插值
     double progress;
     if (currentIdx >= 0) {
@@ -327,17 +334,6 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
       progress = (doneCount + ratio) / ms.length;
     } else {
       progress = doneCount / ms.length;
-    }
-
-    // 选中节点：默认选「当前」节点，无当前节点则退到最后一个
-    final currentSel = ms.indexWhere((m) => m.current);
-    final selIdx = (_selectedIdx ?? (currentSel >= 0 ? currentSel : ms.length - 1))
-        .clamp(0, ms.length - 1);
-
-    // 卡 key 列表与里程碑数量对齐，供点击后居中聚焦
-    if (_chipKeys.length != ms.length) {
-      _chipKeys.clear();
-      _chipKeys.addAll(List.generate(ms.length, (_) => GlobalKey()));
     }
 
     return AppCard(
@@ -383,11 +379,16 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
           const SizedBox(height: 16), // 进度条 → 里程碑卡片 间距 16
           // 横向里程碑卡列表（可左右滑动；首帧后聚焦到「当前」节点卡并居中）
           Builder(builder: (ctx) {
+            // 确保每个里程碑都有对应的 GlobalKey（供点击后居中聚焦）
+            while (_chipKeys.length < ms.length) {
+              _chipKeys.add(GlobalKey());
+            }
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToFocus(currentSel >= 0 ? currentSel : ms.length - 1);
+              final focus = _selectedIdx ?? (currentIdx >= 0 ? currentIdx : -1);
+              _scrollToFocus(focus >= 0 ? focus : ms.length - 1);
             });
-            return               SizedBox(
-              height: 60, // 卡片 padding 8+8 + 标签 44 = 60
+            return SizedBox(
+              height: 80,
               child: ScrollConfiguration(
                 behavior: _MouseDragScrollBehavior(),
                 child: ListView.separated(
@@ -400,7 +401,9 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
                   itemBuilder: (_, i) => _MilestoneChip(
                     key: _chipKeys[i], // 每张卡挂 key，供点击后居中聚焦
                     m: ms[i],
-                    selected: selIdx == i,
+                    selected: _selectedIdx == i,
+                    isFirst: i == 0,
+                    isLast: i == ms.length - 1,
                     onTap: () {
                       setState(() => _selectedIdx = i);
                       _scrollToItem(i); // 点击后把该卡滚动到居中，避免边缘被遮挡
@@ -412,7 +415,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
           }),
           const SizedBox(height: 8),
           // 选中节点详情条（默认展示当前节点）
-          _detailStrip(ms[selIdx]),
+          _detailStrip(ms[_selectedIdx ?? (currentIdx >= 0 ? currentIdx : 0)]),
         ],
       ),
     );
@@ -497,120 +500,153 @@ class _GradientProgressBar extends StatelessWidget {
 class _MilestoneChip extends StatelessWidget {
   final Milestone m;
   final bool selected;
+  final bool isFirst;
+  final bool isLast;
   final VoidCallback onTap;
-  const _MilestoneChip(
-      {super.key, required this.m, required this.selected, required this.onTap});
+  const _MilestoneChip({
+    super.key,
+    required this.m,
+    required this.selected,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    const blue = Color(0xFF0395FF);
-    const green = Color(0xFF34C759);
-    const red = Color(0xFFFF3B30);
     final isCurrent = m.current;
-    // 状态文案：当前节点优先；已完成（非当前）标记「完成」；其余「未来」
-    final label = isCurrent ? '当前' : (m.done ? '完成' : '未来');
-    final tagBg = isCurrent ? blue : Colors.white;
-    final tagFg = isCurrent
-        ? Colors.white
-        : (m.done ? green : red); // 完成=绿、未来=红
+    final isDone = m.done;
+    final dotColor = isDone
+        ? AppTokens.muted
+        : isCurrent
+            ? AppTokens.accent
+            : AppTokens.brand;
+    final nameColor = isCurrent
+        ? AppTokens.fg
+        : isDone
+            ? AppTokens.muted
+            : AppTokens.brand;
+    final dateColor = isCurrent
+        ? AppTokens.accent
+        : isDone
+            ? AppTokens.muted
+            : AppTokens.brand;
+    final nameWeight = isCurrent ? FontWeight.w800 : FontWeight.w600;
+    // 连接线颜色：左侧由当前节点状态决定（整个 segment 视为当前节点的颜色）
+    final lineColor = isDone
+        ? AppTokens.muted
+        : isCurrent
+            ? AppTokens.accent
+            : AppTokens.brand;
 
-    // 选中态：仅底色 + 边框变化，日期/阶段名保持原色（#222222 / #666666）
-    final cardColor = selected ? const Color(0xFFE6F5FF) : const Color(0xFFF8F8F8);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        // 所有卡都带 1px 边框（未选中为透明），保证高度一致
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: selected ? blue : Colors.transparent, width: 1),
-        ),
-        child: Row(
-          // 竖排标签与文字组垂直居中对齐；内容自适应宽度（横向列表无界宽度下不使用 Expanded）
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // 竖排状态标签：20×44，两字上下排列（12/W400，行高 18）
-            Container(
-              width: 20,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: tagBg,
-                borderRadius: BorderRadius.circular(4),
+    return SizedBox(
+      width: _ProjectTimelineCardState._itemWidth,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+            decoration: selected
+                ? BoxDecoration(
+                    color: const Color(0xFFE6F5FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF0395FF)),
+                  )
+                : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              // 顶部：日期（短格式 MM-DD）
+              SizedBox(
+                height: 16,
+                child: Text(
+                  _shortDate(m.date),
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    color: dateColor,
+                    fontWeight: FontWeight.w600,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final ch in label.split(''))
-                    Text(
-                      ch,
-                      // strut 强制行盒 = 18px，避免 CJK 字形在行盒内偏移
-                      strutStyle: const StrutStyle(
-                          fontSize: 12,
-                          height: 18 / 12,
-                          forceStrutHeight: true),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        height: 18 / 12,
-                        color: tagFg,
+              // 中部：左连接线 + 圆点 + 右连接线（圆点中心在 Row 垂直中心）
+              SizedBox(
+                height: 18,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // 左连接线（首项不画）
+                    if (!isFirst)
+                      Expanded(
+                        child: Container(
+                          height: 2,
+                          margin: const EdgeInsets.only(right: 1),
+                          color: lineColor,
+                        ),
                       ),
+                    // 圆点
+                    Container(
+                      width: isCurrent ? 12 : 10,
+                      height: isCurrent ? 12 : 10,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                        border: isCurrent
+                            ? Border.all(
+                                color: AppTokens.accent.withValues(alpha: 0.22),
+                                width: 3)
+                            : null,
+                      ),
+                      child: isDone
+                          ? const Icon(LucideIcons.check,
+                              size: 7, color: Colors.white)
+                          : isCurrent
+                              ? Center(
+                                  child: Container(
+                                    width: 5,
+                                    height: 5,
+                                    decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle),
+                                  ),
+                                )
+                              : null,
                     ),
-                ],
+                    // 右连接线（末项不画）
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                          height: 2,
+                          margin: const EdgeInsets.only(left: 1),
+                          color: lineColor,
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // 右侧两行：日期(12/W600/#222222) + 阶段名(14/W400/#666666)，固定 42 高与标签等高
-            SizedBox(
-              height: 42,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _cnDate(m.date),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    strutStyle: const StrutStyle(
-                        fontSize: 12,
-                        height: 20 / 12,
-                        forceStrutHeight: true),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      height: 20 / 12,
-                      color: Color(0xFF222222),
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  Text(
-                    m.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    strutStyle: const StrutStyle(
-                        fontSize: 14,
-                        height: 22 / 14,
-                        forceStrutHeight: true),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      height: 22 / 14,
-                      color: Color(0xFF666666),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 5),
+              // 底部：节点名称（最多 2 行）
+              Text(
+                m.name,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: nameWeight,
+                  color: nameColor,
+                  letterSpacing: -0.1,
+                  height: 1.3,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -620,6 +656,13 @@ String _cnDate(String d) {
   if (dt == null) return d;
   final y = dt.year % 100;
   return '$y年${dt.month}月${dt.day}日';
+}
+
+/// 节点日期短格式（里程碑卡顶部）：`2024-03-31` -> `3/31`。
+String _shortDate(String d) {
+  final dt = _parseDate(d);
+  if (dt == null) return d;
+  return '${dt.month}/${dt.day}';
 }
 
 /// 解析 `YYYY-MM-DD`（不含时分秒）到 DateTime，解析失败返回 null。
@@ -641,100 +684,154 @@ DateTime _prevNodeStart(List<Milestone> ms, int currentIdx) {
 }
 
 // ==================== 快捷操作（横向滑动，更紧凑） ====================
-class _QuickActions extends StatelessWidget {
+class _QuickActions extends ConsumerWidget {
   final List<Floor> floors;
   const _QuickActions({required this.floors});
 
   @override
-  Widget build(BuildContext context) => Row(
-        children: [
-          _QuickCard(
-            iconAsset: 'assets/icons/patrol.png',
-            title: '立即巡场',
-            subtitle: '离线可用',
-            gradientBegin: const Color(0xFF0174F8),
-            gradientEnd: const Color(0xFF57C2FF),
-            onTap: () => context.go('/patrol'),
+  Widget build(BuildContext context, WidgetRef ref) => SizedBox(
+        height: 78,
+        child: ScrollConfiguration(
+          // 让鼠标也能拖拽 / 滚轮横向滚动（Web 默认仅触摸可滚）
+          behavior: _MouseDragScrollBehavior(),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: EdgeInsets.zero,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _QuickCard(
+                  icon: LucideIcons.navigation,
+                  title: '开始巡场',
+                  subtitle: '离线可用',
+                  tint: AppTokens.accent,
+                  onTap: () => context.go('/patrol'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.camera,
+                  title: '拍照验收',
+                  subtitle: 'AI 识别',
+                  tint: AppTokens.brand,
+                  onTap: () => context.push('/capture'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.folderOpen,
+                  title: '打开图纸',
+                  subtitle: '${floors.length} 张',
+                  tint: AppTokens.success,
+                  onTap: () => context.go('/projects'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.box,
+                  title: 'AR量尺',
+                  subtitle: 'iPhone Pro',
+                  tint: AppTokens.brand,
+                  onTap: () {
+                    final projectKey = ref.read(currentProjectIdProvider) ?? '';
+                    final floor = floors.firstOrNull;
+                    if (floor == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('当前项目没有可用图纸，无法使用AR量尺')),
+                      );
+                      return;
+                    }
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => ArMeasurePage(
+                        args: MeasureArgs(
+                          projectKey: projectKey,
+                          drawingKey: floor.key,
+                          floor: floor.name,
+                        ),
+                      ),
+                    ));
+                  },
+                ),
+                _QuickCard(
+                  icon: LucideIcons.listChecks,
+                  title: '缺陷列表',
+                  subtitle: '查看全部',
+                  tint: AppTokens.warning,
+                  onTap: () => context.go('/defects'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.layers,
+                  title: '图层索引',
+                  subtitle: '快速定位',
+                  tint: AppTokens.success,
+                  onTap: () => context.go('/projects'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.fileText,
+                  title: 'PDF 原稿',
+                  subtitle: '蓝图预览',
+                  tint: AppTokens.warning,
+                  onTap: () => context.push('/blueprint'),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 12),
-          _QuickCard(
-            iconAsset: 'assets/icons/capture.png',
-            title: '拍照验收',
-            subtitle: 'AI 识别',
-            gradientBegin: const Color(0xFFFF5E5B),
-            gradientEnd: const Color(0xFFFD8B7C),
-            onTap: () => context.push('/capture'),
-          ),
-          const SizedBox(width: 12),
-          _QuickCard(
-            iconAsset: 'assets/icons/drawings.png',
-            title: '项目图纸',
-            subtitle: '${floors.length} 张',
-            gradientBegin: const Color(0xFFFE8E18),
-            gradientEnd: const Color(0xFFFFC13F),
-            onTap: () => context.go('/projects'),
-          ),
-        ],
+        ),
       );
 }
 
-/// 快捷操作大卡（114×110，圆角 12）：竖向渐变底 + 36×36 图标切图
-/// + 标题 14/W600 白字 + 副标题 12/W400 白字（透明度 0.7）。
 class _QuickCard extends StatelessWidget {
-  final String iconAsset;
+  final IconData icon;
   final String title;
   final String subtitle;
-  final Color gradientBegin;
-  final Color gradientEnd;
+  final Color tint;
   final VoidCallback onTap;
   const _QuickCard({
-    required this.iconAsset,
+    required this.icon,
     required this.title,
     required this.subtitle,
-    required this.gradientBegin,
-    required this.gradientEnd,
+    required this.tint,
     required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) => Expanded(
+  Widget build(BuildContext context) => SizedBox(
+        width: 92,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            height: 110,
-            padding: const EdgeInsets.all(12),
+            height: 78,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [gradientBegin, gradientEnd],
+                colors: [tint, tint.withValues(alpha: 0.72)],
               ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 36×36 图标切图（PNG 自带白底）
-                Image.asset(iconAsset, width: 36, height: 36),
-                const SizedBox(height: 8),
+                Icon(icon, size: 26, color: Colors.white),
+                const SizedBox(height: 6),
                 Text(
                   title,
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    height: 22 / 14,
+                    height: 20 / 13,
                     color: Colors.white,
                   ),
                 ),
                 Text(
                   subtitle,
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w400,
-                    height: 20 / 12,
+                    height: 16 / 11,
                     color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
@@ -1219,14 +1316,12 @@ class _TimelineEvents extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppCard(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space4, AppTokens.space3, AppTokens.space4, AppTokens.space3),
+        padding: const EdgeInsets.fromLTRB(AppTokens.space4, AppTokens.space3,
+            AppTokens.space4, AppTokens.space3),
         child: Column(
           children: [
             for (var i = 0; i < _events.length; i++)
-              _EventRow(
-                  event: _events[i],
-                  isLast: i == _events.length - 1),
+              _EventRow(event: _events[i], isLast: i == _events.length - 1),
           ],
         ),
       );
@@ -1258,109 +1353,97 @@ class _EventRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IntrinsicHeight(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: isLast ? 0 : AppTokens.space4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 左区（flex-grow 1）：时间列 + 圆点列 + 标题列（gap 8）
-              Expanded(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 左区：时间列（时刻 + 相对日期）
+            SizedBox(
+              width: 40,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(event.time,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTokens.fg,
+                          height: 1.2)),
+                  const SizedBox(height: 2),
+                  Text(event.day,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTokens.muted,
+                          height: 1.2)),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTokens.space2),
+            // 中部：彩色实心圆 + 连接线
+            SizedBox(
+              width: 26,
+              child: Column(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: event.color,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(event.icon, color: Colors.white, size: 12),
+                    ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: 1.5,
+                        color: AppTokens.border,
+                        margin: const EdgeInsets.symmetric(vertical: 3),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppTokens.space3),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(
+                    top: 1, bottom: isLast ? 0 : AppTokens.space3),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 时间列（Frame 2131330692，40 宽居中）：时刻 14/W600/fg + 相对日期 12/400/muted
-                    SizedBox(
-                      width: 40,
-                      child: Column(
-                        children: [
-                          Text(event.time,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 22 / 14,
-                                  color: AppTokens.fg)),
-                          Text(event.day,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  height: 20 / 12,
-                                  color: AppTokens.muted)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // 圆点列：22px 圆点（事件色 5% 浅底 + 12px 彩色图标，规范「浅底 = 文字色 5%」）
-                    // + 1.5px border 色连接线（Expanded 向下延伸至下一事件圆点，保留时间轴语义）
-                    Column(
-                      children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: event.color.withValues(alpha: 0.05),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child:
-                                Icon(event.icon, color: event.color, size: 12),
-                          ),
-                        ),
-                        if (!isLast)
-                          Expanded(
-                            child: Container(
-                              width: 1.5,
-                              color: AppTokens.border,
-                              margin:
-                                  const EdgeInsets.symmetric(vertical: 3),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                    // 标题列（Frame 2131330693）：标题 14/W600/fg + 责任人 12/400/muted
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(event.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  height: 22 / 14,
-                                  color: AppTokens.fg)),
-                          Text(event.resp,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  height: 20 / 12,
-                                  color: AppTokens.muted)),
-                        ],
+                      child: Text(event.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.1,
+                              color: AppTokens.fg,
+                              height: 1.3)),
+                    ),
+                    const SizedBox(width: AppTokens.space2),
+                    // 类型浅底标签（事件色 5% 浅底 + 事件色字）
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: event.color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
                       ),
+                      child: Text(event.type,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: event.color)),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              // 类型浅底标签（Frame 2131330652）：12/W400 事件色，底 5%，圆角 6，padding 2·8
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: event.color.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(event.type,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: event.color,
-                        height: 20 / 12)),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
 }
@@ -1506,8 +1589,7 @@ class _WeatherAlertBanner extends ConsumerStatefulWidget {
       _WeatherAlertBannerState();
 }
 
-class _WeatherAlertBannerState
-    extends ConsumerState<_WeatherAlertBanner> {
+class _WeatherAlertBannerState extends ConsumerState<_WeatherAlertBanner> {
   bool _dismissed = false;
 
   @override
@@ -1562,7 +1644,7 @@ class _WeatherAlertBannerState
               onPressed: () => setState(() => _dismissed = true),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: Icon(MingCuteIcons.closeLine, size: 16, color: AppTokens.muted),
+              icon: Icon(LucideIcons.x, size: 16, color: AppTokens.muted),
             ),
           ],
         ),

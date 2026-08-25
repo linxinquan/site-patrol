@@ -452,7 +452,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               label: const Text('拍/选照片'),
             ),
             const SizedBox(width: AppTokens.space3),
-            if (!kIsWeb && Platform.isIOS)
+            if (kIsWeb || Platform.isIOS)
               OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -462,7 +462,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 icon: const Icon(Icons.view_in_ar_outlined),
                 label: const Text('AR量尺（iPhone Pro）'),
               ),
-            if (!kIsWeb && Platform.isIOS) const SizedBox(width: AppTokens.space3),
+            if (kIsWeb || Platform.isIOS) const SizedBox(width: AppTokens.space3),
             if (_session?.photoCalib != null)
               Chip(
                 label: Text(
