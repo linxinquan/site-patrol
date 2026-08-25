@@ -14,6 +14,7 @@ import 'features/defects/record_detail_page.dart';
 import 'features/defects/timeline_compare_page.dart';
 import 'features/capture/capture_page.dart';
 import 'features/measure/measure_page.dart';
+import 'features/measure/ar_measure_page.dart';
 import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 import 'features/auth/auth_controller.dart';
@@ -122,6 +123,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/measure',
         builder: (_, state) => MeasurePage(
+          args: state.extra is MeasureArgs
+              ? state.extra as MeasureArgs
+              : const MeasureArgs(projectKey: '', drawingKey: ''),
+        ),
+      ),
+      GoRoute(
+        path: '/measure/ar',
+        builder: (_, state) => ArMeasurePage(
           args: state.extra is MeasureArgs
               ? state.extra as MeasureArgs
               : const MeasureArgs(projectKey: '', drawingKey: ''),

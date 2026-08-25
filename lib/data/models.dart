@@ -586,10 +586,14 @@ class MeasureItem {
   final String name; // 量尺项，如「梁宽」「墙厚」
   final double drawingMm; // 图纸侧量得（CAD 校准后，mm）
   final double photoMm; // 照片侧量得（参考物标定后，mm）
+  /// 测量来源：'photo' 默认（照片标尺法）| 'ar_lidar'（AR量尺）| 'manual'。
+  /// 旧会话数据无该字段时按 'photo' 处理，保证向后兼容。
+  final String source;
   const MeasureItem({
     required this.name,
     required this.drawingMm,
     required this.photoMm,
+    this.source = 'photo',
   });
 
   /// 偏差 = 照片实测 - 图纸（mm）
@@ -600,11 +604,16 @@ class MeasureItem {
   bool pass(double tolMm, double tolPct) =>
       deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
 
-  MeasureItem copyWith({String? name, double? drawingMm, double? photoMm}) =>
+  MeasureItem copyWith(
+          {String? name,
+          double? drawingMm,
+          double? photoMm,
+          String? source}) =>
       MeasureItem(
         name: name ?? this.name,
         drawingMm: drawingMm ?? this.drawingMm,
         photoMm: photoMm ?? this.photoMm,
+        source: source ?? this.source,
       );
 }
 
@@ -670,6 +679,7 @@ class MeasureSession {
                   'name': e.name,
                   'drawingMm': e.drawingMm,
                   'photoMm': e.photoMm,
+                  'source': e.source,
                 })
             .toList(),
         'updatedAt': updatedAt,
@@ -691,6 +701,7 @@ class MeasureSession {
                 name: e['name'] as String? ?? '',
                 drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
                 photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
+                source: e['source'] as String? ?? 'photo', // 旧数据兼容
               ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
