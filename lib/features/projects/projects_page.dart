@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +6,6 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
-import '../../shared/widgets/section_title.dart';
 import '../../shared/widgets/status_badge.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
@@ -118,10 +116,10 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                     value: project,
                     builder: (p) => _ProjectCard(p: p, floorCount: fs.length),
                   ),
-                  const SizedBox(height: AppTokens.space4),
-                  // 楼层图纸板块标题（SectionTitle 规范：16/W600 + 楼层数徽标，自带上下 padding 8）
-                  SectionTitle(
-                      title: '楼层图纸', subtitle: '${fs.length} 个楼层'),
+                  const SizedBox(height: AppTokens.space3),
+                  // 楼层图纸板块标题（CSS Frame 2131330676：16/W600 + N个楼层白色徽标）
+                  _FloorHeader(floorCount: fs.length),
+                  const SizedBox(height: AppTokens.space2),
                   // 导入图纸：楼层图纸板块的第一个卡片（标题下、楼层列表前）
                   _ImportCard(
                       onTap: () => AppSnack.show(
@@ -134,16 +132,13 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                       data: (m) => m[f.key]?.hotspots.length ?? f.index,
                       orElse: () => f.index,
                     );
-                    final progress =
-                        cache[f.key] ?? (f.cached ? 100 : f.progress);
-                    final cached = progress >= 100;
+                    final cached =
+                        (cache[f.key] ?? (f.cached ? 100 : f.progress)) >= 100;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppTokens.space2),
                       child: DrawingListItem(
                         floor: f,
                         indexCount: count,
-                        progress: progress,
-                        cached: cached,
                         onTap: () {
                           if (cached) {
                             context.push('/projects/drawing/${f.key}');
@@ -297,130 +292,141 @@ class _ProjectCard extends StatelessWidget {
       );
 }
 
+/// 楼层图纸板块标题（CSS Frame 2131330676）：左「楼层图纸」16/W600/fg，
+/// 右「N个楼层」白色徽标（圆角 6、12/W400/fg）。
+class _FloorHeader extends StatelessWidget {
+  final int floorCount;
+  const _FloorHeader({required this.floorCount});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTokens.space1),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text('楼层图纸',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg,
+                    height: 24 / 16)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text('$floorCount 个楼层',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: AppTokens.fg)),
+            ),
+          ],
+        ),
+      );
+}
+
 class _ImportCard extends StatelessWidget {
   final VoidCallback onTap;
   const _ImportCard({required this.onTap});
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-            child: CustomPaint(
-              foregroundPainter: const _DashedBorderPainter(),
-              child: Padding(
-                padding: const EdgeInsets.all(AppTokens.space4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTokens.surface2,
-                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                      ),
-                      child: const Icon(MingCuteIcons.addLine,
-                          color: AppTokens.fg),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('导入图纸',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTokens.fg)),
-                            SizedBox(height: 2),
-                            Text('支持 PDF / JPG / PNG，DWG 导入即转 PDF',
-                                style: TextStyle(
-                                    fontSize: 12, color: AppTokens.muted)),
-                          ],
-                        ),
-                    ),
-                    const Icon(MingCuteIcons.rightLine,
-                        color: AppTokens.muted, size: 18),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
-/// 导入图纸虚线边框（设计稿虚线卡：1.5px 虚线描边，圆角 12，边框色 border）。
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppTokens.border
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    const dash = 6.0;
-    const gap = 4.0;
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0.75, 0.75, size.width - 1.5, size.height - 1.5),
-      const Radius.circular(AppTokens.radiusLg),
-    );
-    final path = Path()..addRRect(rrect);
-    for (final metric in path.computeMetrics()) {
-      var d = 0.0;
-      while (d < metric.length) {
-        final end = math.min(d + dash, metric.length);
-        canvas.drawPath(metric.extractPath(d, end), paint);
-        d = end + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) => false;
-}
-
-class DrawingListItem extends StatelessWidget {
-  final Floor floor;
-  final int indexCount;
-  final VoidCallback onTap;
-  final int progress;
-  final bool cached;
-  const DrawingListItem({
-    super.key,
-    required this.floor,
-    required this.indexCount,
-    required this.onTap,
-    this.progress = 100,
-    this.cached = true,
-  });
-
-  @override
   Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
         onTap: onTap,
         child: Row(
           children: [
+            // 导入图标：32x32 灰底（#F4F6F7）圆角 8 + 品牌蓝上传图标
             Container(
-              width: 44,
-              height: 44,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: AppTokens.surface2,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(MingCuteIcons.documentLine, color: AppTokens.brand),
+              child: const Icon(MingCuteIcons.uploadLine,
+                  color: AppTokens.brand, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text('导入图纸',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTokens.fg)),
+                  const SizedBox(height: 4),
+                  const Text('支持 PDF/JPG/PNG,DWG导入即转PDF',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppTokens.muted)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(MingCuteIcons.rightLine,
+                color: Color(0xFF999999), size: 16),
+          ],
+        ),
+      );
+}
+
+/// 楼层图纸行内标签（CSS Frame 2131330663 / 0617 系列）：
+/// 实色浅底、圆角 6、12/W400、行高 20。
+class _Tag extends StatelessWidget {
+  final String text;
+  final Color bg;
+  final Color fg;
+  const _Tag({required this.text, required this.bg, required this.fg});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: fg)),
+      );
+}
+
+class DrawingListItem extends StatelessWidget {
+  final Floor floor;
+  final int indexCount;
+  final VoidCallback onTap;
+  const DrawingListItem({
+    super.key,
+    required this.floor,
+    required this.indexCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        onTap: onTap,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 图纸图标（图纸.png，无矩形灰底）
+            Image.asset('assets/icons/drawings.png',
+                width: 32, height: 32, fit: BoxFit.contain),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 标题
                   Text(floor.name,
                       style: const TextStyle(
                           fontSize: 16,
@@ -429,49 +435,28 @@ class DrawingListItem extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
+                  // 下排：索引 + 楼栋 + 楼层
                   Row(
                     children: [
-                      StatusBadge(
-                          text: floor.building,
-                          color: AppTokens.muted,
-                          bg: AppTokens.surface2,
-                          fontWeight: FontWeight.w400),
-                      const SizedBox(width: 6),
-                      StatusBadge(
-                          text: floor.floor,
-                          color: AppTokens.muted,
-                          bg: AppTokens.surface2,
-                          fontWeight: FontWeight.w400),
-                      const SizedBox(width: 6),
                       if (indexCount > 0)
-                        StatusBadge(
+                        _Tag(
                             text: '索引 $indexCount',
-                            color: AppTokens.brand,
-                            fontWeight: FontWeight.w400),
+                            bg: const Color(0xFFF1F7FF),
+                            fg: const Color(0xFF428BF7)),
+                      if (indexCount > 0) const SizedBox(width: 4),
+                      _Tag(
+                          text: floor.building,
+                          bg: const Color(0xFFF8F8F8),
+                          fg: AppTokens.muted),
+                      const SizedBox(width: 4),
+                      _Tag(
+                          text: floor.floor,
+                          bg: const Color(0xFFF8F8F8),
+                          fg: AppTokens.muted),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                StatusBadge(
-                    text: cached ? '已下载' : '未下载',
-                    color: cached ? AppTokens.success : AppTokens.warning,
-                    fontWeight: FontWeight.w400),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 72,
-                  child: LinearProgressIndicator(
-                    value: progress / 100,
-                    backgroundColor: AppTokens.surface2,
-                    valueColor: const AlwaysStoppedAnimation(AppTokens.fg),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
             ),
           ],
         ),

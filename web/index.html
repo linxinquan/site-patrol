@@ -75,6 +75,15 @@
     <div class="ring"></div>
     <div class="tip">加载中…</div>
   </div>
+  <!-- 预览环境：加载前先注销已有的 Service Worker，避免浏览器一直缓存旧 JS bundle
+       （Flutter web 默认会通过 flutter_service_worker.js 缓存，开发预览时刷新看不到最新改动） -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (r) { r.unregister(); });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
     // Flutter 首帧渲染后（HTML 渲染器根节点 flt-glass-pane 出现）移除加载动画

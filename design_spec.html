@@ -257,9 +257,9 @@
     <ul>
       <li>AppBar：<code>toolbarHeight</code> 44 · <code>backgroundColor</code> bg · <code>scrolledUnderElevation</code> 0 · <code>titleSpacing</code> 12；标题 16/W600/fg + 副标题 12/400/<code>fg2</code>（副标题描述页号与功能）</li>
       <li>页面背景 <code>bg</code>；ListView padding LTRB(12, 8, 12, 12)，卡间距 8</li>
-      <li>板块标题「楼层图纸」用 <code>SectionTitle</code>（16/W600 + 楼层数徽标 surface2 底），下接板块内卡片</li>
-      <li>导入图纸卡 = 楼层图纸板块<b>第一个卡片</b>（标题下、楼层列表前）：<b>虚线边框卡</b>（1.5px 虚线 <code>border</code> 描边圆角 12，区别于普通卡）+ 44 图标块（surface2 底）+ 标题 16/W600 + 副标题 12/<code>muted</code>；点击涟漪反馈同 AppCard</li>
-      <li>楼层卡（DrawingListItem）：标题 16/W600/fg + 楼栋/楼层/索引标签（灰标签 surface2 实底、索引品牌蓝 5% 底，浅底标签统一 12/W400）+ 右侧已下载/未下载标签（成功绿/警告橙 5% 底 12/W400）+ 4px 进度条</li>
+      <li>板块标题「楼层图纸」用 <code>_FloorHeader</code>：<b>两端对齐</b>（<code>mainAxisAlignment: spaceBetween</code>）——左侧 16/W600/fg 标题，右侧「N个楼层」白色徽标（圆角 6、12/W400/fg）</li>
+      <li>导入图纸卡 = 楼层图纸板块<b>第一个卡片</b>（标题下、楼层列表前）：<b>实色白卡</b>（AppCard 圆角 12、padding 12）+ 32 图标块（surface2 灰底圆角 8）+ 品牌蓝上传图标 + 标题 16/W600 + 副标题 12/W400/<code>muted</code>「支持 PDF/JPG/PNG,DWG导入即转PDF」+ 灰色右箭头（#999999）；点击涟漪反馈同 AppCard</li>
+      <li>楼层卡（DrawingListItem）：左侧 <b>图纸.png 图标 32×32（无矩形灰底）</b> + 标题 16/W600/fg + 下排标签（索引：浅蓝 #F1F7FF 底 / #428BF7 字；楼栋·楼层：#F8F8F8 灰底 / <code>muted</code> 字，统一 12/W400、圆角 6）。<b>无下载状态标签、无进度条</b></li>
       <li>项目卡标题 16/W600；参与方角色 12/400/<code>fg2</code>、单位名 14/W600/fg、联系人 12/<code>muted</code>（MaskableName 打码）；参与方与主体间分割线用 <code>border</code> 色</li>
       <li>交互：下载完成 / 未下载点击提示统一 <code>AppSnack</code>（success / muted）；图纸查看器内 3 处功能提示同步 AppSnack（danger / success / muted）</li>
     </ul>
