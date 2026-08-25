@@ -52,7 +52,7 @@ class _MaskableNameState extends State<MaskableName> {
 
   @override
   Widget build(BuildContext context) {
-    final accent = widget.accentColor ?? AppTokens.accent;
+    final accent = widget.accentColor ?? AppTokens.fg;
     final color = _hidden
         ? (widget.style?.color ?? AppTokens.muted)
         : (widget.style?.color ?? AppTokens.fg);

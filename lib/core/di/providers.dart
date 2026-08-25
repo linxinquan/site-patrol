@@ -11,11 +11,17 @@ import '../../core/env/env.dart';
 import '../../core/cad/cad_calibration.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/storage/local_storage.dart';
+import '../../core/storage/session_store.dart';
 
 /// 数据仓库：dev 用 Mock，prod 用 Remote（后端就绪后实现）。UI 只依赖此 Provider。
 final repositoryProvider = Provider<Repository>((ref) {
   return Env.isProd ? RemoteRepository() : MockRepository();
 });
+
+/// 引导态与当前选择的本地偏好（重启后保留，避免重复进入 /onboard）。
+final userPrefsProvider = Provider<UserPrefs>(
+  (ref) => UserPrefs(storage: LocalStorage.instance),
+);
 
 /// 项目列表（多项目切换）。
 final projectsProvider = FutureProvider<List<Project>>(

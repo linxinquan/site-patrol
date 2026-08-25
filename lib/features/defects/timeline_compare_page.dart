@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/app_card.dart';
 
 /// 时间轴对比页（F8）：同一部位多时点照片选两张，滑块裁剪前后对比。
 /// 数据：timeline mock（anchor → 3 张 before/mid/after 照片）。
@@ -74,44 +75,54 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        title: const Text('时间轴对比',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTokens.fg)),
+        toolbarHeight: 44,
+        titleSpacing: 12,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('时间轴对比',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg)),
+            Text('F8 · 滑块前后对比',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppTokens.fg2,
+                    fontWeight: FontWeight.w400)),
+          ],
+        ),
         centerTitle: false,
-        backgroundColor: AppTokens.surface,
+        backgroundColor: AppTokens.bg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppTokens.space4),
+        padding: const EdgeInsets.fromLTRB(
+            AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
         children: [
           _buildAnchorBar(),
-          const SizedBox(height: AppTokens.space4),
+          const SizedBox(height: AppTokens.space3),
           _buildThumbGrid(),
-          const SizedBox(height: AppTokens.space4),
+          const SizedBox(height: AppTokens.space3),
           if (left != null && right != null) ...[
             _buildCompareCard(left, right),
-            const SizedBox(height: AppTokens.space4),
+            const SizedBox(height: AppTokens.space3),
           ],
           if (left == null || right == null)
-            Container(
-              padding: const EdgeInsets.all(AppTokens.space4),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                border: Border.all(color: AppTokens.border),
-              ),
-              child: const Row(
+            const AppCard(
+              padding: EdgeInsets.all(AppTokens.space4),
+              child: Row(
                 children: [
-                  Icon(LucideIcons.imageOff,
+                  Icon(MingCuteIcons.forbidCircleLine,
                       size: 16, color: AppTokens.muted),
                   SizedBox(width: AppTokens.space2),
                   Expanded(
                     child: Text('请从上方照片中至少选择两张进行对比',
                         style: TextStyle(
-                            fontSize: 13, color: AppTokens.muted)),
+                            fontSize: 14, color: AppTokens.muted)),
                   ),
                 ],
               ),
@@ -121,25 +132,20 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
     );
   }
 
-  Widget _buildAnchorBar() => Container(
+  Widget _buildAnchorBar() => AppCard(
         padding: const EdgeInsets.symmetric(
             horizontal: AppTokens.space4, vertical: AppTokens.space3),
-        decoration: BoxDecoration(
-          color: AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-          border: Border.all(color: AppTokens.border),
-        ),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: AppTokens.brandSoft,
                 borderRadius: BorderRadius.circular(AppTokens.radiusMd),
               ),
-              child: const Icon(LucideIcons.calendarClock,
-                  size: 17, color: AppTokens.brand),
+              child: const Icon(MingCuteIcons.timeLine,
+                  size: 16, color: AppTokens.brand),
             ),
             const SizedBox(width: AppTokens.space3),
             Expanded(
@@ -149,12 +155,12 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   Text(_anchor,
                       style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppTokens.fg)),
                   const SizedBox(height: 2),
                   Text('${_photos.length} 个时点 · 点击照片选择左右对比',
                       style: const TextStyle(
-                          fontSize: 11, color: AppTokens.muted)),
+                          fontSize: 12, color: AppTokens.muted)),
                 ],
               ),
             ),
@@ -164,16 +170,11 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
 
   Widget _buildThumbGrid() {
     if (_photos.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(AppTokens.space4),
-        decoration: BoxDecoration(
-          color: AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-          border: Border.all(color: AppTokens.border),
-        ),
-        child: const Center(
+      return const AppCard(
+        padding: EdgeInsets.all(AppTokens.space4),
+        child: Center(
           child: Text('该部位暂无时间轴照片',
-              style: TextStyle(fontSize: 13, color: AppTokens.muted)),
+              style: TextStyle(fontSize: 14, color: AppTokens.muted)),
         ),
       );
     }
@@ -200,8 +201,8 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
           color: AppTokens.surface,
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           border: Border.all(
-            color: selected ? AppTokens.accent : AppTokens.border,
-            width: selected ? 2 : 1,
+            color: selected ? AppTokens.fg : Colors.transparent,
+            width: 1.5,
           ),
         ),
         child: Column(
@@ -235,21 +236,21 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
-                      color: AppTokens.brandSoft,
+                      color: AppTokens.brandTint,
                       borderRadius:
                           BorderRadius.circular(AppTokens.radiusPill),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.check,
+                        Icon(MingCuteIcons.checkLine,
                             size: 9, color: AppTokens.brand),
                         SizedBox(width: 2),
                         Text('已校验',
                             style: TextStyle(
-                                fontSize: 9,
+                                fontSize: 10,
                                 color: AppTokens.brand,
-                                fontWeight: FontWeight.w700)),
+                                fontWeight: FontWeight.w400)),
                       ],
                     ),
                   ),
@@ -273,25 +274,20 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       };
 
   Widget _buildCompareCard(TimelinePhoto left, TimelinePhoto right) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(AppTokens.space3),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.split,
-                  size: 14, color: AppTokens.accent),
+              const Icon(MingCuteIcons.columns2Line,
+                  size: 14, color: AppTokens.fg),
               const SizedBox(width: 6),
               const Text('前后对比',
                   style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
               const Spacer(),
               InkWell(
@@ -303,14 +299,14 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(LucideIcons.arrowLeftRight,
-                          size: 12, color: AppTokens.accent),
+                      Icon(MingCuteIcons.unfoldHorizontalLine,
+                          size: 12, color: AppTokens.muted),
                       SizedBox(width: 4),
                       Text('交换',
                           style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: AppTokens.accent)),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              color: AppTokens.muted)),
                     ],
                   ),
                 ),
@@ -322,7 +318,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
           const SizedBox(height: AppTokens.space3),
           Slider(
             value: _slider,
-            activeColor: AppTokens.accent,
+            activeColor: AppTokens.fg,
             inactiveColor: AppTokens.border,
             onChanged: (v) => setState(() => _slider = v),
           ),
@@ -337,7 +333,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
           Text(
             '${left.date}（${left.caption}） → ${right.date}（${right.caption}）',
             style: const TextStyle(
-                fontSize: 12, color: AppTokens.muted, height: 1.5),
+                fontSize: 12, color: AppTokens.muted, height: 20 / 12),
           ),
         ],
       ),
@@ -386,7 +382,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   left: w * _slider - 1.5,
                   top: 0,
                   bottom: 0,
-                  child: Container(width: 3, color: AppTokens.accent),
+                  child: Container(width: 3, color: AppTokens.fg),
                 ),
                 // 日期角标
                 Positioned(
@@ -394,7 +390,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   top: 8,
                   child: _CornerTag(
                     label: '前 ${left.date}',
-                    bg: AppTokens.accent,
+                    bg: AppTokens.fg,
                   ),
                 ),
                 Positioned(
@@ -419,7 +415,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
             alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
         children: [
           Icon(
-            alignLeft ? LucideIcons.arrowLeft : LucideIcons.arrowRight,
+            alignLeft ? MingCuteIcons.arrowLeftLine : MingCuteIcons.arrowRightLine,
             size: 12,
             color: AppTokens.muted,
           ),
@@ -427,7 +423,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
           Text(p.date,
               style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: AppTokens.fg)),
         ],
       );
@@ -550,7 +546,7 @@ class _MockPhotoPainter extends CustomPainter {
       text: TextSpan(
         text: '现场照片 $date  ·  验收留证',
         style: const TextStyle(
-            fontSize: 9, color: Colors.white, letterSpacing: 0.5),
+            fontSize: 10, color: Colors.white, letterSpacing: 0),
       ),
       textDirection: TextDirection.ltr,
     )..layout();

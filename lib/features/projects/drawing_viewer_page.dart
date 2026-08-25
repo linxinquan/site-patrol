@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
+import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/open_web.dart';
 import '../../shared/widgets/async_state.dart';
@@ -25,7 +27,13 @@ class DrawingViewerPage extends ConsumerWidget {
     final current =
         drawings.maybeWhen(data: (m) => m[drawingKey], orElse: () => null);
     return Scaffold(
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
+        toolbarHeight: 44,
+        backgroundColor: AppTokens.bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 12,
         title: current == null
             ? const Text('图纸查看')
             : Column(
@@ -41,9 +49,9 @@ class DrawingViewerPage extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis),
                   Text(current.crumb,
                       style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTokens.muted,
-                          fontWeight: FontWeight.normal)),
+                          fontSize: 12,
+                          color: AppTokens.fg2,
+                          fontWeight: FontWeight.w400)),
                 ],
               ),
       ),
@@ -115,7 +123,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (sheetCtx) => SafeArea(
         child: Padding(
@@ -127,33 +135,34 @@ class _ViewerState extends ConsumerState<_Viewer> {
               Text('索引 ${h.num} · ${h.label}',
                   style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
               const SizedBox(height: 6),
               Text('跳转到：${target?.title ?? h.target}',
-                  style: const TextStyle(fontSize: 13, color: AppTokens.muted)),
+                  style: const TextStyle(fontSize: 14, color: AppTokens.muted)),
               const SizedBox(height: AppTokens.space4),
               Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(sheetCtx),
-                      child: const Text('取消'),
-                    ),
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: '取消',
+                    onPressed: () => Navigator.pop(sheetCtx),
+                    outlined: true,
+                    size: AppButtonSize.md,
                   ),
-                  const SizedBox(width: AppTokens.space3),
-                  Expanded(
-                    child: FilledButton(
-                      style: FilledButton.styleFrom(
-                          backgroundColor: AppTokens.accent),
-                      onPressed: () {
-                        Navigator.pop(sheetCtx);
-                        context.push('/projects/drawing/${h.target}');
-                      },
-                      child: const Text('跳转'),
-                    ),
+                ),
+                const SizedBox(width: AppTokens.space3),
+                Expanded(
+                  child: AppButton(
+                    label: '跳转',
+                    onPressed: () {
+                      Navigator.pop(sheetCtx);
+                      context.push('/projects/drawing/${h.target}');
+                    },
+                    size: AppButtonSize.md,
                   ),
-                ],
+                ),
+              ],
               ),
             ],
           ),
@@ -181,12 +190,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
   /// 此 Web 入口不可用，点击仅提示。
   void _openCadViewer() {
     if (!kIsWeb || !canOpenWebWindow) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('平板端使用「校准 + 坐标」进行图纸定位'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnack.show(context, '平板端使用「校准 + 坐标」进行图纸定位');
       return;
     }
     final key = widget.d.cadOcfKey ?? widget.d.key;
@@ -293,12 +297,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
       } catch (_) {}
       if (mapper == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('校准参数格式无效，请检查 JSON'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnack.show(context, '校准参数格式无效，请检查 JSON',
+            kind: AppSnackKind.danger);
         return;
       }
     }
@@ -312,12 +312,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
     _persistedRawJson = result == 'BUILTIN' ? null : result;
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('校准已保存，图纸坐标定位已生效'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppSnack.show(context, '校准已保存，图纸坐标定位已生效',
+        kind: AppSnackKind.success);
   }
 
   /// 清除本图纸校准，回到内置演示坐标系（校准库同步移除）。
@@ -347,7 +343,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (sheetCtx) => CadInfoPanel(
         drawingKey: widget.d.key,
@@ -494,28 +490,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
     repo.addDefect(defect);
 
     final calibrated = _isCalibrated;
-    final mapper = _coordMapper;
-    // 摘要校准参数，便于用户判断是内置演示值还是真实参数
-    final calibLine = mapper.useAffine
-        ? '校准 a=${mapper.a.toStringAsFixed(4)} d=${mapper.d.toStringAsFixed(4)}'
-            ' c=${mapper.c.toStringAsFixed(1)} f=${mapper.f.toStringAsFixed(1)}'
-        : '校准（范围模式）';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          calibrated
-              ? '已记录缺陷：${ann.coordText}\n$calibLine\n点击图钉可拍照记录'
-              : '已记录缺陷（未校准，演示值！）：${ann.coordText}\n$calibLine\n点「校准」粘贴真实参数后再打点',
-        ),
-        backgroundColor: calibrated ? null : AppTokens.warning,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-        action: SnackBarAction(
-          label: '拍照',
-          textColor: Colors.white,
-          onPressed: () => _captureAtAnnotation(ann),
-        ),
-      ),
+    AppSnack.show(
+      context,
+      calibrated
+          ? '已记录缺陷：${ann.coordText} · 点击图钉可拍照记录'
+          : '已记录缺陷（未校准演示值）：${ann.coordText} · 先校准再打点',
+      kind: calibrated ? AppSnackKind.success : AppSnackKind.danger,
+      actionLabel: '拍照',
+      onAction: () => _captureAtAnnotation(ann),
     );
     ref.invalidate(defectsProvider);
   }
@@ -555,8 +537,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
                     '$idx',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       shadows: [
                         Shadow(
                           color: Colors.black38,
@@ -640,14 +622,13 @@ class _ViewerState extends ConsumerState<_Viewer> {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('关闭'),
           ),
-          FilledButton.icon(
-            icon: const Icon(LucideIcons.camera, size: 16),
-            label: const Text('拍照记录'),
-            style: FilledButton.styleFrom(backgroundColor: AppTokens.accent),
+          FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               _captureAtAnnotation(a);
             },
+            style: FilledButton.styleFrom(backgroundColor: AppTokens.accent),
+            child: const Text('拍照记录'),
           ),
         ],
       ),
@@ -891,33 +872,29 @@ class _Toolbar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _ToolBtn(
-                  icon: LucideIcons.box,
+                  icon: MingCuteIcons.boxLine,
                   label: '专业看图',
                   onTap: onCad,
                   accent: true),
-              _ToolBtn(icon: LucideIcons.zoomIn, label: '放大', onTap: onZoomIn),
-              _ToolBtn(icon: LucideIcons.zoomOut, label: '缩小', onTap: onZoomOut),
+              _ToolBtn(icon: MingCuteIcons.zoomInLine, label: '放大', onTap: onZoomIn),
+              _ToolBtn(icon: MingCuteIcons.zoomOutLine, label: '缩小', onTap: onZoomOut),
               _ToolBtn(
-                  icon: LucideIcons.layers,
+                  icon: MingCuteIcons.layersLine,
                   label: '图层',
                   onTap: onLayers,
                   active: true),
               _ToolBtn(
-                  icon: LucideIcons.ruler,
+                  icon: MingCuteIcons.rulerLine,
                   label: '校准',
                   onTap: onCalibrate,
                   active: isCalibrated),
               _ToolBtn(
-                  icon: LucideIcons.mapPin,
+                  icon: MingCuteIcons.mapPinLine,
                   label: '坐标',
                   onTap: onPick,
                   active: pickActive),
-              _ToolBtn(
-                  icon: LucideIcons.fileText,
-                  label: 'PDF原稿',
-                  onTap: onPdf),
-              _ToolBtn(
-                  icon: LucideIcons.maximize, label: '复位', onTap: onReset),
+              _ToolBtn(icon: MingCuteIcons.documentLine, label: 'PDF原稿', onTap: onPdf),
+              _ToolBtn(icon: MingCuteIcons.fullscreenLine, label: '复位', onTap: onReset),
             ],
           ),
         ),
@@ -939,8 +916,6 @@ class _ToolBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color fg =
-        accent ? AppTokens.accent : (active ? AppTokens.brand : AppTokens.mutedA11y);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTokens.radiusSm),
@@ -948,7 +923,7 @@ class _ToolBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
         decoration: accent
             ? BoxDecoration(
-                color: AppTokens.accent.withValues(alpha: 0.12),
+                color: AppTokens.fg.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(AppTokens.radiusSm),
               )
             : active
@@ -959,14 +934,12 @@ class _ToolBtn extends StatelessWidget {
                 : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: fg),
-            const SizedBox(height: 2),
+            children: [
             Text(label,
                 style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: accent
-                        ? AppTokens.accent
+                        ? AppTokens.fg
                         : active
                             ? AppTokens.brand
                             : AppTokens.muted)),
@@ -995,11 +968,11 @@ class _IndexBar extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 8),
                     child: ActionChip(
                       avatar: CircleAvatar(
-                        backgroundColor: AppTokens.accent,
+                        backgroundColor: AppTokens.fg,
                         radius: 10,
                         child: Text('${h.num}',
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 11)),
+                                color: Colors.white, fontSize: 12)),
                       ),
                       label: Text(h.label),
                       onPressed: () => onJump(h),
@@ -1032,7 +1005,7 @@ class _CadPlaceholder extends StatelessWidget {
                 color: AppTokens.brandSoft,
                 borderRadius: BorderRadius.circular(AppTokens.radiusLg),
               ),
-              child: const Icon(LucideIcons.fileText,
+              child: const Icon(MingCuteIcons.documentLine,
                   size: 30, color: AppTokens.brand),
             ),
             const SizedBox(height: AppTokens.space4),
@@ -1041,8 +1014,8 @@ class _CadPlaceholder extends StatelessWidget {
               child: Text(title,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
             ),
             const SizedBox(height: AppTokens.space2),
@@ -1058,13 +1031,13 @@ class _CadPlaceholder extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: AppTokens.space4, vertical: AppTokens.space2),
               decoration: BoxDecoration(
-                color: AppTokens.warningSoft,
+                color: AppTokens.warningTint,
                 borderRadius: BorderRadius.circular(AppTokens.radiusPill),
               ),
               child: const Text('矢量渲染待 GStarSDK 接入',
                   style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                       color: AppTokens.warning)),
             ),
           ],

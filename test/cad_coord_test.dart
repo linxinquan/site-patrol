@@ -127,8 +127,6 @@ void main() {
       // 不同缩放与不同视口尺寸都应得到同一结果（因为居中偏移抵消）
       for (final scale in [0.3, 0.55, 1.0, 2.3]) {
         for (final vp in [const Size(800, 600), const Size(1920, 1080)]) {
-          final dispW = imgW * scale;
-          final dispH = imgH * scale;
           final localPos = Offset(vp.width / 2, vp.height / 2); // 视口中心 = 图片中心
           final w = _pickWorld(localPos, scale, vp.width, vp.height, imgW, imgH, mapper);
           expect(w.dx, closeTo(wx0, 1e-4), reason: 'scale=$scale vp=$vp');

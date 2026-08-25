@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/mock/mock_data.dart';
 
@@ -49,7 +49,7 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
         elevation: 0,
         title: const Text('蓝图原稿',
             style: TextStyle(
-                fontSize: 17, fontWeight: FontWeight.w700)),
+                fontSize: 16, fontWeight: FontWeight.w600)),
         centerTitle: false,
       ),
       body: Column(
@@ -67,17 +67,17 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
                       label: Text(blueprintDrawings[i]['label']!,
                           style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w400,
                               color: _index == i
                                   ? AppTokens.onAccent
                                   : Colors.white70)),
                       selected: _index == i,
                       onSelected: (_) => _switchTo(i),
                       backgroundColor: Colors.white.withValues(alpha: 0.06),
-                      selectedColor: AppTokens.accent,
+                      selectedColor: Colors.white,
                       side: BorderSide(
                         color: _index == i
-                            ? AppTokens.accent
+                            ? Colors.white
                             : Colors.white.withValues(alpha: 0.18),
                       ),
                       showCheckmark: false,
@@ -96,7 +96,7 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
             padding: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
             child: Row(
               children: [
-                const Icon(LucideIcons.fileStack,
+                const Icon(MingCuteIcons.documentsLine,
                     size: 13, color: Colors.white54),
                 const SizedBox(width: 6),
                 Text(_title,
@@ -151,17 +151,17 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _ToolBtn(
-                    icon: LucideIcons.zoomOut,
+                    icon: MingCuteIcons.zoomOutLine,
                     label: '缩小',
                     onTap: () => _zoom(0.8)),
                 const SizedBox(width: AppTokens.space3),
                 _ToolBtn(
-                    icon: LucideIcons.maximize,
+                    icon: MingCuteIcons.fullscreenLine,
                     label: '复位',
                     onTap: _reset),
                 const SizedBox(width: AppTokens.space3),
                 _ToolBtn(
-                    icon: LucideIcons.zoomIn,
+                    icon: MingCuteIcons.zoomInLine,
                     label: '放大',
                     onTap: () => _zoom(1.25)),
               ],
@@ -198,12 +198,10 @@ class _ToolBtn extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
               Text(label,
                   style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                       color: Colors.white)),
             ],
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
@@ -19,23 +19,23 @@ class RecordDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final defects = ref.watch(defectsProvider);
     return Scaffold(
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('记录详情',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            Text('F5 水印留证 · F8 对比',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: AppTokens.muted,
-                    fontWeight: FontWeight.normal)),
-          ],
+        toolbarHeight: 44,
+        backgroundColor: AppTokens.bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(MingCuteIcons.leftLine,
+              size: 20, color: AppTokens.fg),
+          onPressed: () => context.pop(),
         ),
+        title: const Text('记录详情',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.fg)),
       ),
       body: defects.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -45,7 +45,13 @@ class RecordDetailPage extends ConsumerWidget {
         data: (list) {
           final d = list.where((x) => x.id == defectId).firstOrNull;
           if (d == null) {
-            return const Center(child: Text('未找到该记录'));
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 72),
+              child: Center(
+                child: Text('未找到该记录',
+                    style: TextStyle(color: AppTokens.muted)),
+              ),
+            );
           }
           return _Body(d);
         },
@@ -60,11 +66,12 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(AppTokens.space4),
+        padding: const EdgeInsets.fromLTRB(
+            AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
         children: [
           // 水印照片 + 右上校验胶囊 + 底部 3 行水印文字
           _WatermarkPhoto(d: d),
-          const SizedBox(height: AppTokens.space4),
+          const SizedBox(height: AppTokens.space3),
           // 缺陷块：左侧三角 + 中部文字 + 右侧状态大胶囊
           AppCard(
             padding: const EdgeInsets.all(AppTokens.space3),
@@ -78,7 +85,7 @@ class _Body extends StatelessWidget {
                     color: AppTokens.dangerSoft,
                     borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                   ),
-                  child: const Icon(LucideIcons.alertTriangle,
+                  child: const Icon(MingCuteIcons.warningLine,
                       size: 16, color: AppTokens.danger),
                 ),
                 const SizedBox(width: AppTokens.space3),
@@ -102,7 +109,7 @@ class _Body extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: AppTokens.muted),
                       ),
                     ],
@@ -139,7 +146,7 @@ class _Body extends StatelessWidget {
                 ]),
                 const SizedBox(height: AppTokens.space3),
                 _MetaRow(
-                    icon: LucideIcons.user, label: '责任人', value: d.resp),
+                    icon: MingCuteIcons.user1Line, label: '责任人', value: d.resp),
               ],
             ),
           ),
@@ -149,7 +156,7 @@ class _Body extends StatelessWidget {
             onTap: () => context.push('/timeline', extra: d.anchor),
             child: const Row(
               children: [
-                Icon(LucideIcons.calendarClock,
+                Icon(MingCuteIcons.timeLine,
                     color: AppTokens.brand, size: 18),
                 SizedBox(width: 10),
                 Expanded(
@@ -158,7 +165,7 @@ class _Body extends StatelessWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: AppTokens.fg))),
-                Icon(LucideIcons.chevronRight,
+                Icon(MingCuteIcons.rightLine,
                     color: AppTokens.muted, size: 18),
               ],
             ),
@@ -189,7 +196,7 @@ class _MetaRow extends StatelessWidget {
             Expanded(
                 child: Text(value,
                     style: const TextStyle(
-                        fontSize: 13, color: AppTokens.fg))),
+                        fontSize: 14, color: AppTokens.fg))),
           ],
         ),
       );
@@ -239,7 +246,7 @@ class _WatermarkPhoto extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.35),
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.4,
+                    letterSpacing: 0,
                   ),
                 ),
               ),
@@ -250,13 +257,13 @@ class _WatermarkPhoto extends StatelessWidget {
               right: AppTokens.space3,
               child: verified
                   ? const _VerifiedBadge(
-                      icon: LucideIcons.badgeCheck,
+                      icon: MingCuteIcons.badgeLine,
                       label: '已校验',
                       bg: AppTokens.success,
                       fg: AppTokens.onAccent,
                     )
                   : const _VerifiedBadge(
-                      icon: LucideIcons.cloudOff,
+                      icon: MingCuteIcons.wifiOffLine,
                       label: '待回网校验',
                       bg: AppTokens.surface,
                       fg: AppTokens.muted,
@@ -291,7 +298,7 @@ class _WatermarkPhoto extends StatelessWidget {
         s,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11,
+          fontSize: 12,
           fontFamily: 'monospace',
           shadows: [
             Shadow(color: Colors.black54, offset: Offset(0, 1), blurRadius: 2),
@@ -331,7 +338,7 @@ class _VerifiedBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Text(label,
                 style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: fg)),
           ],
@@ -357,14 +364,14 @@ class _MetaCell extends StatelessWidget {
           children: [
             Text(label,
                 style: const TextStyle(
-                    fontSize: 11, color: AppTokens.muted)),
+                    fontSize: 12, color: AppTokens.muted)),
             const SizedBox(height: 2),
             Text(value,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
                     color: AppTokens.fg)),
           ],
         ),

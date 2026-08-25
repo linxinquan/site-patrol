@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -115,7 +114,7 @@ Future<Uint8List?> applyPhotoWatermark(
   final textStyle = TextStyle(
     color: const Color(0xFFF5F5F5),
     fontSize: _scaleFont(w, 26),
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     height: 1.4,
   );
   var y = h - barH + 12.0;

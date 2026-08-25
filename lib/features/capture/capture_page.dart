@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -19,7 +20,7 @@ import '../../data/models.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
-import '../../features/measure/measure_page.dart';
+import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
@@ -646,11 +647,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         appBar: AppBar(
           title: const Text('拍照记录',
               style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                   color: AppTokens.fg)),
           centerTitle: false,
-          backgroundColor: AppTokens.surface,
+          backgroundColor: AppTokens.bg,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           actions: [
@@ -661,7 +662,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   Text('Mock',
                       style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w400,
                           color:
                               _useMock ? AppTokens.accent : AppTokens.muted)),
                   const SizedBox(width: 4),
@@ -681,24 +682,24 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(
-                    AppTokens.space4, AppTokens.space2, AppTokens.space4, 0),
+                    AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildDrawingStage(),
-                    const SizedBox(height: AppTokens.space4),
+                    const SizedBox(height: AppTokens.space3),
                     _buildStepPanel(),
-                    const SizedBox(height: AppTokens.space4),
+                    const SizedBox(height: AppTokens.space3),
                     _buildWatermark(),
-                    const SizedBox(height: AppTokens.space4),
+                    const SizedBox(height: AppTokens.space3),
                     _buildResultPanel(),
                     if (_defects.isNotEmpty) ...[
-                      const SizedBox(height: AppTokens.space4),
-                      _buildDefectSection(),
-                    ],
-                    const SizedBox(height: AppTokens.space4),
+                      const SizedBox(height: AppTokens.space3),
+                    _buildDefectSection(),
+                  ],
+                    const SizedBox(height: AppTokens.space3),
                     _buildScaleCheckSection(),
-                    const SizedBox(height: AppTokens.space4),
+                    const SizedBox(height: AppTokens.space3),
                     _buildControls(),
                     const SizedBox(height: AppTokens.space6),
                   ],
@@ -719,13 +720,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Container(
         width: double.infinity,
         margin: const EdgeInsets.fromLTRB(
-            AppTokens.space4, AppTokens.space2, AppTokens.space4, 0),
+            AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
         padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space4, vertical: AppTokens.space3),
+            horizontal: AppTokens.space3, vertical: AppTokens.space3),
         decoration: BoxDecoration(
           color: AppTokens.surface,
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          border: Border.all(color: AppTokens.border),
         ),
         child: Row(
           children: [
@@ -743,7 +743,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           : _anchorLabel,
                       style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppTokens.fg),
                     ),
                     TextSpan(
@@ -1148,7 +1148,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       builder: (sheetCtx) => SafeArea(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-          padding: const EdgeInsets.all(AppTokens.space4),
+          padding: const EdgeInsets.all(AppTokens.space3),
           decoration: BoxDecoration(
             color: AppTokens.surface,
             borderRadius: BorderRadius.circular(AppTokens.radiusLg),
@@ -1165,7 +1165,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   Text('${a.label} · 历史照片',
                       style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppTokens.fg)),
                 ],
               ),
@@ -1257,7 +1257,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space5, vertical: AppTokens.space4),
+              horizontal: AppTokens.space5, vertical: AppTokens.space3),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppTokens.radiusLg),
@@ -1300,8 +1300,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
-        boxShadow: AppTokens.elevationOverlay,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1314,7 +1312,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const Text('视觉识别结果',
                   style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
               const Spacer(),
               Text('AI · VL · ${_defects.length} 处',
@@ -1716,7 +1714,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           '${bucket.label} · ${(d.conf * 100).toStringAsFixed(0)}%',
                           style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w400,
                               color: bucket.fg)),
                     ),
                   ],
@@ -1737,13 +1735,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 置信度档位：<0.5 低（红）、0.5~0.8 中（橙）、>0.8 高（绿）。
   _ConfBucket _confBucket(double conf) {
+    // 置信度标签统一走设计规范语义色 + 原色 5% 浅底。
     if (conf >= 0.8) {
-      return const _ConfBucket('高', Color(0xFF16A34A), Color(0xFFDCFCE7));
+      return const _ConfBucket('高', AppTokens.success, AppTokens.successTint);
     }
     if (conf >= 0.5) {
-      return const _ConfBucket('中', Color(0xFFEA580C), Color(0xFFFFEDD5));
+      return const _ConfBucket('中', AppTokens.warning, AppTokens.warningTint);
     }
-    return const _ConfBucket('低', Color(0xFFDC2626), Color(0xFFFEE2E2));
+    return const _ConfBucket('低', AppTokens.danger, AppTokens.dangerTint);
   }
 
   /// 拍照水印条：定位（可点击切换「附近定位」）/ 时间 / 部位 / 凭证号 / 哈希指纹。
@@ -1782,7 +1781,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       _location.name,
                       style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1831,6 +1830,18 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             const Icon(LucideIcons.shieldAlert, size: 14, color: Color(0xFFFBBF24)),
           const SizedBox(width: AppTokens.space2),
           Text(ts, style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          const SizedBox(width: AppTokens.space3),
+          const Icon(MingCuteIcons.spaceLine,
+              size: 12, color: Colors.white70),
+          const SizedBox(width: 4),
+          Text(_location.gpsText,
+              style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          const SizedBox(width: AppTokens.space3),
+          const Icon(MingCuteIcons.dashboard2Line,
+              size: 12, color: Colors.white70),
+          const SizedBox(width: 4),
+          const Text('18.2m',
+              style: TextStyle(fontSize: 10, color: Colors.white70)),
         ],
       ),
     );
@@ -1845,7 +1856,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       builder: (sheetCtx) => SafeArea(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-          padding: const EdgeInsets.all(AppTokens.space4),
+          padding: const EdgeInsets.all(AppTokens.space3),
           decoration: BoxDecoration(
             color: AppTokens.surface,
             borderRadius: BorderRadius.circular(AppTokens.radiusLg),
@@ -1861,8 +1872,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   const SizedBox(width: 6),
                   const Text('选择附近定位',
                       style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                           color: AppTokens.fg)),
                   const Spacer(),
                   Text('${siteLocations.length} 处',
@@ -1944,7 +1955,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   Text(loc.name,
                       style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           color: AppTokens.fg)),
                   const SizedBox(height: 2),
                   Text(
@@ -1969,7 +1980,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 selected ? '当前' : '距 ${_location.name} $distText',
                 style: TextStyle(
                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                     color: selected ? AppTokens.brand : AppTokens.muted),
               ),
             ),
@@ -1989,7 +2000,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
       ),
       child: _shotPhoto == null
           ? const Row(
@@ -2025,7 +2035,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                                 : '已识别 ${_defects.length} 处缺陷'),
                         style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: _scanError != null
                                 ? const Color(0xFFDC2626)
                                 : AppTokens.fg),
@@ -2076,26 +2086,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             _buildControlBtn(LucideIcons.penTool, '标注', _annotate),
           ],
         ),
-        const SizedBox(height: AppTokens.space4),
-        SizedBox(
+        const SizedBox(height: AppTokens.space3),
+        // 保存验收记录（大按钮组件：满宽 / 高 48 / 纯文字不带图标，字号统一 lg 档 16）
+        AppButton(
+          size: AppButtonSize.lg,
           width: double.infinity,
-          height: 46,
-          child: FilledButton.icon(
-            onPressed: _saveRecord,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTokens.accent,
-              foregroundColor: AppTokens.onAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              ),
-            ),
-            icon: const Icon(LucideIcons.save, size: 18),
-            label: const Text('保存记录',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-          ),
+          label: '保存验收记录',
+          onPressed: _saveRecord,
         ),
         if (_storedResults.isNotEmpty) ...[
-          const SizedBox(height: AppTokens.space4),
+          const SizedBox(height: AppTokens.space3),
           _buildStoredResults(),
         ],
       ],
@@ -2109,7 +2109,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
       ),
       padding: const EdgeInsets.all(AppTokens.space3),
       child: Column(
@@ -2123,7 +2122,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const Text('暂存识别结果',
                   style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
               const Spacer(),
               Text('${_storedResults.length} 条',
@@ -2200,11 +2199,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: AppTokens.mutedA11y),
-            const SizedBox(height: 2),
             Text(label,
                 style:
-                    const TextStyle(fontSize: 11, color: AppTokens.mutedA11y)),
+                    const TextStyle(fontSize: 11, color: AppTokens.note)),
           ],
         ),
       ),

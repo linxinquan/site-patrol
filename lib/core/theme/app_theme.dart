@@ -2,9 +2,24 @@ import 'package:flutter/material.dart';
 import 'design_tokens.dart';
 
 /// iOS 风格浅色主题（扁平化）。
-/// 字体：Inter (≈ SF Pro Text/Display) + Nunito (数字圆润)。
+/// 字体：各平台系统默认字体（iOS 苹方 / SF Pro，Android Roboto + 思源黑体，
+/// Web 通过 HTML 渲染器使用系统字体：Windows 微软雅黑 / Mac 苹方）。不打包自定义字体。
 ThemeData get lightTheme => ThemeData(
       useMaterial3: true,
+      // iOS 操作习惯：去除 Material 水波纹与悬停高亮，图标/按钮不做浏览器式 hover
+      splashFactory: NoSplash.splashFactory,
+      hoverColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      // 全局去除悬浮提示（含 AppBar 自动返回键自带的 "Back" 文字气泡）
+      tooltipTheme: const TooltipThemeData(triggerMode: TooltipTriggerMode.manual),
+      // 图标按钮不做浏览器式 hover：浮层/高亮全透明
+      iconButtonTheme: IconButtonThemeData(
+        style: ButtonStyle(
+          overlayColor: WidgetStateProperty.all(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+        ),
+      ),
       scaffoldBackgroundColor: AppTokens.bg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppTokens.accent,
@@ -12,65 +27,64 @@ ThemeData get lightTheme => ThemeData(
         surface: AppTokens.surface,
         error: AppTokens.danger,
       ),
-      // iOS 风格字体栈：Inter 是 SF Pro 的开源近似；-apple-system 在 macOS/iOS 走原生 SF
-      fontFamily: 'Inter',
+      // 不强制自定义字体：fontFamily 为 null 时 Flutter 自动使用各平台系统默认字体。
+      // fontFamilyFallback 仅作兜底（主要影响 Web HTML 渲染器的 CSS 字体栈）。
+      fontFamily: null,
       fontFamilyFallback: const [
-        '-apple-system',
-        'BlinkMacSystemFont',
-        'SF Pro Text',
-        'Helvetica Neue',
         'PingFang SC',
         'Microsoft YaHei',
+        'Noto Sans CJK SC',
+        'Source Han Sans SC',
         'sans-serif',
       ],
-      // iOS 风格的字号阶梯（更紧凑、字间距 -0.01em）
+      // 字号阶梯（六档：32/22/16/14/12/10，字距统一 0，字重仅 w400/w700）
       textTheme: const TextTheme(
         // 大标题（如项目名） — SF Pro Display 风格
         displaySmall: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.6,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.15,
+          height: 1.25,
         ),
         // 中标题（如 section）
         headlineMedium: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.2,
+          height: 30 / 22,
         ),
         // 小标题（如卡名）
         titleLarge: TextStyle(
-          fontSize: 17,
+          fontSize: 16,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.25,
+          height: 24 / 16,
         ),
         // 卡内标题
         titleMedium: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.3,
+          height: 24 / 16,
         ),
         // 正文
         bodyLarge: TextStyle(
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w400,
-          letterSpacing: -0.1,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.45,
+          height: 24 / 16,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          letterSpacing: -0.1,
+          letterSpacing: 0,
           color: AppTokens.fg,
-          height: 1.45,
+          height: 22 / 14,
         ),
         // 辅助文字
         bodySmall: TextStyle(
@@ -78,24 +92,24 @@ ThemeData get lightTheme => ThemeData(
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
           color: AppTokens.muted,
-          height: 1.35,
+          height: 20 / 12,
         ),
         // 按钮 / 强调
         labelLarge: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelMedium: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.1,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelSmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0,
           color: AppTokens.muted,
         ),
@@ -106,10 +120,11 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        toolbarHeight: 44,
         titleTextStyle: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
           color: AppTokens.fg,
         ),
       ),
@@ -131,44 +146,68 @@ ThemeData get lightTheme => ThemeData(
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppTokens.surface,
-        selectedItemColor: AppTokens.accent,
+        selectedItemColor: AppTokens.fg,
         unselectedItemColor: AppTokens.muted,
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
+      // 按钮默认 = 中档（高度36 严格 / 左右padding≥12 / 圆角12 / 白字 / 14·w700·行高22）
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppTokens.accent,
           foregroundColor: AppTokens.onAccent,
+          minimumSize: const Size(0, AppTokens.buttonH_md),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.buttonPadX_md),
           shape: const RoundedRectangleBorder(
               borderRadius:
-                  BorderRadius.all(Radius.circular(AppTokens.radiusPill))),
+                  BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            color: Colors.white,
+            letterSpacing: 0,
+            height: 22 / 14,
+            color: AppTokens.onAccent,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          foregroundColor: AppTokens.accent,
+          side: BorderSide(color: AppTokens.accent),
+          minimumSize: const Size(0, AppTokens.buttonH_md),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.buttonPadX_md),
           shape: const RoundedRectangleBorder(
               borderRadius:
-                  BorderRadius.all(Radius.circular(AppTokens.radiusPill))),
+                  BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
+            letterSpacing: 0,
+            height: 22 / 14,
+            color: AppTokens.accent,
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          foregroundColor: AppTokens.accent,
+          minimumSize: const Size(0, AppTokens.buttonH_md),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.buttonPadX_md),
+          shape: const RoundedRectangleBorder(
+              borderRadius:
+                  BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+            height: 22 / 14,
+            color: AppTokens.accent,
           ),
         ),
       ),
@@ -177,8 +216,8 @@ ThemeData get lightTheme => ThemeData(
         backgroundColor: Color(0xFF2C2C2E),
         contentTextStyle: TextStyle(
           color: Colors.white,
-          fontSize: 13.5,
-          fontWeight: FontWeight.w500,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
         ),
         shape: RoundedRectangleBorder(
             borderRadius:
@@ -190,6 +229,8 @@ ThemeData get lightTheme => ThemeData(
 ThemeData get patrolDarkTheme => ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      // 巡场深色页同样关闭悬浮提示
+      tooltipTheme: const TooltipThemeData(triggerMode: TooltipTriggerMode.manual),
       scaffoldBackgroundColor: AppTokens.patrolBg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppTokens.accent,
@@ -197,16 +238,17 @@ ThemeData get patrolDarkTheme => ThemeData(
         primary: AppTokens.accent,
         surface: AppTokens.patrolSurface,
       ),
-      fontFamily: 'Inter',
+      fontFamily: null,
       fontFamilyFallback: const [
-        '-apple-system',
-        'SF Pro Text',
-        'Helvetica Neue',
         'PingFang SC',
+        'Microsoft YaHei',
+        'Noto Sans CJK SC',
+        'sans-serif',
       ],
       appBarTheme: const AppBarTheme(
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        toolbarHeight: 44,
       ),
     );
