@@ -27,7 +27,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>用于现场拍照，记录并识别设计缺陷与施工问题</string>
+	<string>用于现场拍照记录缺陷，以及 AR 量尺（LiDAR）实时测量尺寸</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>用于读取现场照片进行 AI 分类与缺陷归档</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

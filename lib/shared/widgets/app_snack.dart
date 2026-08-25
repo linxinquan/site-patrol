@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 
 /// 全局 Snack 提示（HTML demo 内的 `snack()` 系统等价）。
@@ -8,7 +8,9 @@ enum AppSnackKind { muted, success, accent, brand, danger }
 
 class AppSnack {
   static void show(BuildContext context, String message,
-      {AppSnackKind kind = AppSnackKind.muted}) {
+      {AppSnackKind kind = AppSnackKind.muted,
+      String? actionLabel,
+      VoidCallback? onAction}) {
     final style = _resolve(kind);
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -29,10 +31,26 @@ class AppSnack {
                   message,
                   style: TextStyle(
                       color: style.fg,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400),
                 ),
               ),
+              if (actionLabel != null && onAction != null)
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    onAction();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: style.fg,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                  ),
+                  child: Text(actionLabel,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                ),
             ],
           ),
         ),
@@ -43,19 +61,19 @@ class AppSnack {
     switch (k) {
       case AppSnackKind.success:
         return const _SnackStyle(
-            icon: LucideIcons.circleCheck, fg: AppTokens.success, bg: AppTokens.successSoft);
+            icon: MingCuteIcons.checkCircleLine, fg: AppTokens.success, bg: AppTokens.successSoft);
       case AppSnackKind.accent:
         return const _SnackStyle(
-            icon: LucideIcons.fileText, fg: AppTokens.accent, bg: AppTokens.accentSoft);
+            icon: MingCuteIcons.documentLine, fg: AppTokens.fg, bg: AppTokens.surface2);
       case AppSnackKind.brand:
         return const _SnackStyle(
-            icon: LucideIcons.info, fg: AppTokens.brand, bg: AppTokens.brandSoft);
+            icon: MingCuteIcons.informationLine, fg: AppTokens.brand, bg: AppTokens.brandSoft);
       case AppSnackKind.danger:
         return const _SnackStyle(
-            icon: LucideIcons.alertTriangle, fg: AppTokens.danger, bg: AppTokens.dangerSoft);
+            icon: MingCuteIcons.warningLine, fg: AppTokens.danger, bg: AppTokens.dangerSoft);
       case AppSnackKind.muted:
         return const _SnackStyle(
-            icon: LucideIcons.info, fg: AppTokens.mutedA11y, bg: AppTokens.surface2);
+            icon: MingCuteIcons.informationLine, fg: AppTokens.muted, bg: AppTokens.surface2);
     }
   }
 }

@@ -23,26 +23,26 @@ extension DefectStatusX on DefectStatus {
   Color get color {
     switch (this) {
       case DefectStatus.draft:
-        return const Color(0xFFDC2626);
+        return const Color(0xFFFF9500); // 待整改 = warning 橙
       case DefectStatus.doing:
-        return const Color(0xFFEA580C);
+        return const Color(0xFF0395FF); // 整改中 = brand 蓝
       case DefectStatus.done:
-        return const Color(0xFF16A34A);
+        return const Color(0xFF34C759); // 已销项 = success 绿
       case DefectStatus.reject:
-        return const Color(0xFF64748B);
+        return const Color(0xFFFF3B30); // 已拒绝 = danger 红
     }
   }
 
   Color get soft {
     switch (this) {
       case DefectStatus.draft:
-        return const Color(0xFFFEE2E2);
+        return const Color(0xFFFFF3E0); // warningSoft
       case DefectStatus.doing:
-        return const Color(0xFFFFEDD5);
+        return const Color(0xFFE6F5FF); // brandSoft
       case DefectStatus.done:
-        return const Color(0xFFDCFCE7);
+        return const Color(0xFFE6F8ED); // successSoft
       case DefectStatus.reject:
-        return const Color(0xFFF1F5F9);
+        return const Color(0xFFFFEBEA); // dangerSoft
     }
   }
 }
@@ -71,22 +71,24 @@ extension DefectCategoryX on DefectCategory {
   }
 }
 
-/// 缺陷紧急/重要程度分级（红/橙/黄/绿 四通道）。
-/// 参考《施工阶段紧急重要程度分级》：红区=重要且紧急(停工+上报)、
-/// 橙区=重要不紧急(限期整改)、黄区=紧急不重要(即改)、绿区=不重要不紧急(观察)。
+/// 缺陷严重程度分级（红/橙/黄/绿 四通道，颜色体系不变）。
+/// 文字用直白等级词（严重/较重/一般/轻微），避免"红区/橙区"等
+/// 非标准说法让人看不懂；红=重要且紧急(停工+上报)、
+/// 橙=重要不紧急(限期整改)、黄=紧急不重要(即改)、绿=不重要不紧急(观察)。
 enum DefectSeverity { red, orange, yellow, green }
 
 extension DefectSeverityX on DefectSeverity {
+  /// 显示名：直接描述严重程度，不依赖颜色。
   String get label {
     switch (this) {
       case DefectSeverity.red:
-        return '红区';
+        return '严重';
       case DefectSeverity.orange:
-        return '橙区';
+        return '较重';
       case DefectSeverity.yellow:
-        return '黄区';
+        return '一般';
       case DefectSeverity.green:
-        return '绿区';
+        return '轻微';
     }
   }
 
@@ -104,30 +106,31 @@ extension DefectSeverityX on DefectSeverity {
     }
   }
 
+  /// 严重程度文本色（规范分区色）：严重红 / 较重橙 / 一般黄 #FADC19 / 轻微绿。
   Color get color {
     switch (this) {
       case DefectSeverity.red:
-        return const Color(0xFFDC2626); // 红
+        return const Color(0xFFFF3B30); // 严重
       case DefectSeverity.orange:
-        return const Color(0xFFEA580C); // 橙
+        return const Color(0xFFFF9500); // 较重
       case DefectSeverity.yellow:
-        return const Color(0xFFCA8A04); // 黄
+        return const Color(0xFFFADC19); // 一般
       case DefectSeverity.green:
-        return const Color(0xFF16A34A); // 绿
+        return const Color(0xFF34C759); // 轻微
     }
   }
 
-  /// 软底色（用于徽标/卡片背景）。
+  /// 软底色 = 原色 5% 透明度（与全局标签浅底通则一致）。
   Color get soft {
     switch (this) {
       case DefectSeverity.red:
-        return const Color(0xFFFEE2E2);
+        return const Color(0x0DFF3B30);
       case DefectSeverity.orange:
-        return const Color(0xFFFFEDD5);
+        return const Color(0x0DFF9500);
       case DefectSeverity.yellow:
-        return const Color(0xFFFEF3C7);
+        return const Color(0x0DFADC19);
       case DefectSeverity.green:
-        return const Color(0xFFDCFCE7);
+        return const Color(0x0D34C759);
     }
   }
 }
@@ -586,10 +589,14 @@ class MeasureItem {
   final String name; // 量尺项，如「梁宽」「墙厚」
   final double drawingMm; // 图纸侧量得（CAD 校准后，mm）
   final double photoMm; // 照片侧量得（参考物标定后，mm）
+  /// 测量来源：'photo' 默认（照片标尺法）| 'ar_lidar'（AR量尺）| 'manual'。
+  /// 旧会话数据无该字段时按 'photo' 处理，保证向后兼容。
+  final String source;
   const MeasureItem({
     required this.name,
     required this.drawingMm,
     required this.photoMm,
+    this.source = 'photo',
   });
 
   /// 偏差 = 照片实测 - 图纸（mm）
@@ -600,11 +607,16 @@ class MeasureItem {
   bool pass(double tolMm, double tolPct) =>
       deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
 
-  MeasureItem copyWith({String? name, double? drawingMm, double? photoMm}) =>
+  MeasureItem copyWith(
+          {String? name,
+          double? drawingMm,
+          double? photoMm,
+          String? source}) =>
       MeasureItem(
         name: name ?? this.name,
         drawingMm: drawingMm ?? this.drawingMm,
         photoMm: photoMm ?? this.photoMm,
+        source: source ?? this.source,
       );
 }
 
@@ -670,6 +682,7 @@ class MeasureSession {
                   'name': e.name,
                   'drawingMm': e.drawingMm,
                   'photoMm': e.photoMm,
+                  'source': e.source,
                 })
             .toList(),
         'updatedAt': updatedAt,
@@ -691,6 +704,7 @@ class MeasureSession {
                 name: e['name'] as String? ?? '',
                 drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
                 photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
+                source: e['source'] as String? ?? 'photo', // 旧数据兼容
               ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
@@ -975,7 +989,7 @@ class WeatherInfo {
 
   bool get isMock => source == 'mock';
 
-  /// 天气图标名（映射到 LucideIcons）。
+  /// 天气图标名（映射到 MingCuteIcons）。
   String get iconName {
     final t = text;
     if (t.contains('雷')) return 'cloudLightning';

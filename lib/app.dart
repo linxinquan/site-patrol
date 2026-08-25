@@ -14,11 +14,11 @@ import 'features/defects/record_detail_page.dart';
 import 'features/defects/timeline_compare_page.dart';
 import 'features/capture/capture_page.dart';
 import 'features/measure/measure_page.dart';
+import 'features/measure/ar_measure_page.dart';
 import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_page.dart';
-import 'features/auth/value_page.dart';
 import 'features/auth/onboard_page.dart';
 import 'features/auth/onboard_project_page.dart';
 
@@ -37,28 +37,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final onLogin = loc == '/login';
       final onOnboard = loc == "/onboard" || loc.startsWith("/onboard/");
-      final onValue = loc == '/value';
       // 根路径未匹配任何路由：交给守卫决定去向
       if (loc == '/') {
         if (!loggedIn) return '/login';
-        return onboarded ? '/home' : '/value';
+        return onboarded ? '/home' : '/onboard';
       }
       // 未登录只能去 login
       if (!loggedIn && !onLogin) return '/login';
-      // 已登录且正在 login：去价值页或首页
-      if (loggedIn && onLogin) return onboarded ? '/home' : '/value';
-      // 已登录但未引导，且不在 value/onboard：强制去 value
-      if (loggedIn && !onboarded && !onValue && !onOnboard) return '/value';
+      // 已登录且正在 login：去引导页或首页
+      if (loggedIn && onLogin) return onboarded ? '/home' : '/onboard';
+      // 已登录但未引导，且不在 onboard：强制去引导
+      if (loggedIn && !onboarded && !onOnboard) return '/onboard';
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginPage(),
-      ),
-      GoRoute(
-        path: '/value',
-        builder: (_, __) => const ValuePage(),
       ),
       GoRoute(
         path: '/onboard',
@@ -80,17 +75,65 @@ final routerProvider = Provider<GoRouter>((ref) {
             index = 2;
           } else if (loc.startsWith('/defects')) {
             index = 3;
+          } else if (loc.startsWith('/capture')) {
+            // 拍照验收是一级页面，但不属于 4 个文字 tab，故无 tab 选中高亮。
+            index = -1;
           }
+          final cameraActive = loc.startsWith('/capture');
           return Scaffold(
             body: child,
-            bottomNavigationBar: AppBottomNav(currentIndex: index),
+            bottomNavigationBar: AppBottomNav(
+              currentIndex: index,
+              cameraActive: cameraActive,
+            ),
           );
         },
         routes: [
-          GoRoute(path: '/home', builder: (_, __) => const HomePage()),
-          GoRoute(path: '/projects', builder: (_, __) => const ProjectsPage()),
-          GoRoute(path: '/patrol', builder: (_, __) => const PatrolPage()),
-          GoRoute(path: '/defects', builder: (_, __) => const DefectsPage()),
+          // 4 个文字 tab + 拍照验收：切换时瞬间完成（无页面滑动/淡入过渡），
+          // 中间相机按钮 icon↔text 也是瞬间切换，无动画。
+          GoRoute(
+            path: '/home',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const HomePage(),
+            ),
+          ),
+          GoRoute(
+            path: '/projects',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const ProjectsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/patrol',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const PatrolPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/defects',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const DefectsPage(),
+            ),
+          ),
+          // 中间相机按钮入口：拍照验收属于一级页面（与 4 个 tab 同级，保留底部导航）。
+          GoRoute(
+            path: '/capture',
+            pageBuilder: (_, state) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: CapturePage(
+                args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
+              ),
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -102,12 +145,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/defects/record/:id',
         builder: (_, state) =>
             RecordDetailPage(defectId: state.pathParameters['id']!),
-      ),
-      GoRoute(
-        path: '/capture',
-        builder: (_, state) => CapturePage(
-          args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
-        ),
       ),
       GoRoute(
         path: '/timeline',
@@ -122,6 +159,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/measure',
         builder: (_, state) => MeasurePage(
+          args: state.extra is MeasureArgs
+              ? state.extra as MeasureArgs
+              : const MeasureArgs(projectKey: '', drawingKey: ''),
+        ),
+      ),
+      GoRoute(
+        path: '/measure/ar',
+        builder: (_, state) => ArMeasurePage(
           args: state.extra is MeasureArgs
               ? state.extra as MeasureArgs
               : const MeasureArgs(projectKey: '', drawingKey: ''),
@@ -152,7 +197,12 @@ class App extends ConsumerWidget {
         return MediaQuery(
           data: base.copyWith(
             size: const Size(DeviceFrame.phoneWidth, DeviceFrame.phoneHeight),
-            padding: const EdgeInsets.only(top: 0, bottom: 0),
+            // 注入真机安全区：顶部状态栏 47pt、底部 home indicator 34pt，
+            // 让 AppBar / SafeArea 自动避让，与模拟状态栏/刘海对齐。
+            padding: const EdgeInsets.only(
+              top: DeviceFrame.statusbarH,
+              bottom: DeviceFrame.homeIndicatorH,
+            ),
           ),
           child: child,
         );

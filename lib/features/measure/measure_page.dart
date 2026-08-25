@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -17,6 +18,7 @@ import '../../core/utils/cad_coord.dart';
 import '../../core/utils/measure_math.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_snack.dart';
+import 'ar_measure_page.dart';
 
 /// 拍照量尺校对页（半自动标定测量，MEASURE_FEATURE_PLAN.md）。
 ///
@@ -450,6 +452,17 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               label: const Text('拍/选照片'),
             ),
             const SizedBox(width: AppTokens.space3),
+            if (!kIsWeb && Platform.isIOS)
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ArMeasurePage(args: widget.args),
+                  ),
+                ),
+                icon: const Icon(Icons.view_in_ar_outlined),
+                label: const Text('AR量尺（iPhone Pro）'),
+              ),
+            if (!kIsWeb && Platform.isIOS) const SizedBox(width: AppTokens.space3),
             if (_session?.photoCalib != null)
               Chip(
                 label: Text(

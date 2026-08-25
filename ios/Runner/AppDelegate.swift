@@ -12,5 +12,12 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // 注册 AR 量尺平台视图（ar_measure_view）。
+    if let registrar = engineBridge.registrar(forPlugin: "ArMeasureViewPlugin") {
+      registrar.register(
+        ArMeasureViewFactory(messenger: registrar.messenger()),
+        withId: "ar_measure_view")
+    }
   }
 }

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../utils/path_metrics.dart';
+import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// 巡场状态机。
@@ -192,12 +193,12 @@ class _PatrolPageState extends State<PatrolPage>
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.cloudOff,
+                        Icon(MingCuteIcons.wifiOffLine,
                             size: 12, color: AppTokens.patrolMuted),
                         SizedBox(width: 5),
                         Text('离线 · 工地信号弱（GPS 仍记录）',
                             style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: AppTokens.patrolMuted)),
                       ],
                     ),
@@ -207,7 +208,8 @@ class _PatrolPageState extends State<PatrolPage>
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: AppTokens.dangerSoft,
+                      // 标签浅底 = 原色 5% 透明度（深色沉浸主题下呈暗红微底）
+                      color: AppTokens.dangerTint,
                       borderRadius:
                           BorderRadius.circular(AppTokens.radiusPill),
                     ),
@@ -218,11 +220,11 @@ class _PatrolPageState extends State<PatrolPage>
                         const SizedBox(width: 5),
                         Text(_status == _PatrolStatus.running ? '记录中' : '待机',
                             style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: _status == _PatrolStatus.running
                                     ? AppTokens.danger
                                     : AppTokens.patrolMuted,
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: FontWeight.w400)),
                       ],
                     ),
                   ),
@@ -378,8 +380,8 @@ class _Chip extends StatelessWidget {
         children: [
           Text(value,
               style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: AppTokens.patrolFg)),
           const SizedBox(height: 2),
           Text(label,
@@ -414,11 +416,11 @@ class _PatrolPanel extends StatelessWidget {
     final isRunning = status == _PatrolStatus.running;
     final isPaused = status == _PatrolStatus.paused;
     final isFinished = status == _PatrolStatus.finished;
-    final (IconData icon, String label, VoidCallback action) = switch (status) {
-      _PatrolStatus.idle => (LucideIcons.play, '开始巡场', onStart),
-      _PatrolStatus.running => (LucideIcons.pause, '暂停巡场', onPause),
-      _PatrolStatus.paused => (LucideIcons.play, '继续巡场', onResume),
-      _PatrolStatus.finished => (LucideIcons.rotateCcw, '重新巡场', onRestart),
+    final (String label, VoidCallback action) = switch (status) {
+      _PatrolStatus.idle => ('开始巡场', onStart),
+      _PatrolStatus.running => ('暂停巡场', onPause),
+      _PatrolStatus.paused => ('继续巡场', onResume),
+      _PatrolStatus.finished => ('重新巡场', onRestart),
     };
     return Container(
       color: AppTokens.patrolSurface,
@@ -426,30 +428,19 @@ class _PatrolPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
+          // 主操作（大按钮组件：满宽 / 高 48 / 纯文字不带图标；巡场深色底上品牌蓝）
+          AppButton(
+            size: AppButtonSize.lg,
             width: double.infinity,
-            height: 48,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTokens.accent,
-                foregroundColor: AppTokens.onAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                ),
-              ),
-              onPressed: action,
-              icon: Icon(icon, size: 18),
-              label: Text(label,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w700)),
-            ),
+            label: label,
+            onPressed: action,
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: _SubBtn(
-                  icon: LucideIcons.square,
+                  icon: MingCuteIcons.squareLine,
                   label: isFinished ? '已结束' : '结束巡场',
                   enabled: isRunning || isPaused,
                   onTap: onFinish,
@@ -458,7 +449,7 @@ class _PatrolPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _SubBtn(
-                  icon: LucideIcons.history,
+                  icon: MingCuteIcons.historyLine,
                   label: '历史轨迹',
                   onTap: onHistory,
                 ),
@@ -466,7 +457,7 @@ class _PatrolPanel extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: _SubBtn(
-                  icon: LucideIcons.map,
+                  icon: MingCuteIcons.mapLine,
                   label: '标记问题点',
                   onTap: onMark,
                 ),
@@ -508,15 +499,9 @@ class _SubBtn extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 16,
-                  color: enabled
-                      ? AppTokens.patrolFg
-                      : AppTokens.patrolMuted.withValues(alpha: 0.5)),
-              const SizedBox(height: 4),
               Text(label,
                   style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: enabled
                           ? AppTokens.patrolFg
                           : AppTokens.patrolMuted.withValues(alpha: 0.5))),

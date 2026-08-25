@@ -22,13 +22,14 @@
   <title>蓝图落地 · 现场数据闭环</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- iOS 风格字体：Inter 接近 SF Pro Text/Display，零扣分加载 -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Web 使用 HTML 渲染器：Flutter 文字即为真实 DOM 文字，下方 CSS 字体栈才会生效。
+       这样 Windows 显示微软雅黑、macOS 显示苹方，使用系统默认字体，无需打包字体文件。 -->
+  <script>
+    window.flutterWebRenderer = 'html';
+  </script>
 
   <style>
-    /* iOS 风格全局字体与渲染优化 */
+    /* 各平台系统字体栈：Windows 微软雅黑 / macOS 苹方 / 其它回退无衬线 */
     html, body {
       margin: 0;
       padding: 0;
@@ -36,32 +37,72 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       text-rendering: optimizeLegibility;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont,
-                   'SF Pro Text', 'Helvetica Neue', sans-serif;
-      font-feature-settings: 'cv11', 'ss01', 'tnum';
-      letter-spacing: -0.01em;
+      font-family: 'Microsoft YaHei', 'PingFang SC',
+                   'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
     }
-    /* 数字优雅排版（等宽数字、小尺寸大数字可选 tabular） */
-    .nums {
-      font-family: 'Inter', -apple-system, sans-serif;
-      font-feature-settings: 'tnum', 'lnum';
-      font-variant-numeric: tabular-nums lining-nums;
+    /* 首屏加载动画：Flutter JS 下载/解析期间显示，避免白屏误以为卡死 */
+    #app-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #F2F2F7;
+      z-index: 9999;
     }
-    /* 标题更紧的字距与圆润数字 */
-    .display {
-      font-family: 'Inter', -apple-system, sans-serif;
-      letter-spacing: -0.025em;
+    #app-loader .ring {
+      width: 36px;
+      height: 36px;
+      border: 3px solid #D9D9DE;
+      border-top-color: #428BF7;
+      border-radius: 50%;
+      animation: app-spin 0.8s linear infinite;
     }
-    .display-num {
-      font-family: 'Nunito', -apple-system, sans-serif;
-      letter-spacing: -0.02em;
-      font-variant-numeric: tabular-nums lining-nums;
+    #app-loader .tip {
+      font-size: 14px;
+      color: #999999;
+      font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
     }
+    @keyframes app-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
+  <div id="app-loader">
+    <div class="ring"></div>
+    <div class="tip">加载中…</div>
+  </div>
+  <!-- 预览环境：加载前先注销已有的 Service Worker，避免浏览器一直缓存旧 JS bundle
+       （Flutter web 默认会通过 flutter_service_worker.js 缓存，开发预览时刷新看不到最新改动） -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (r) { r.unregister(); });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Flutter 首帧渲染后（HTML 渲染器根节点 flt-glass-pane 出现）移除加载动画
+    (function () {
+      var t = setInterval(function () {
+        var root = document.querySelector('flt-glass-pane') || document.querySelector('canvas');
+        if (root) {
+          clearInterval(t);
+          var el = document.getElementById('app-loader');
+          if (el) el.remove();
+        }
+      }, 150);
+      // 兜底：最多 30s 后强制移除，避免异常时永久遮挡
+      setTimeout(function () {
+        clearInterval(t);
+        var el = document.getElementById('app-loader');
+        if (el) el.remove();
+      }, 30000);
+    })();
+  </script>
 </body>
 </html>

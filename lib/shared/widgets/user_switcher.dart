@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:go_router/go_router.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
-import 'maskable_name.dart';
+import '../../features/auth/auth_controller.dart';
+import '../../shared/widgets/identity_tile.dart';
 
 /// 用户切换器：点击头像弹出用户列表，选择后切换当前登录用户。
 class UserSwitcher extends ConsumerWidget {
@@ -20,30 +22,9 @@ class UserSwitcher extends ConsumerWidget {
 
     return GestureDetector(
       onTap: () => _showUserSheet(context, ref, users, user),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CircleAvatar(
-            backgroundImage: AssetImage(user.avatar),
-            radius: size / 2,
-          ),
-          // 右下角小徽标：当前用户首字（或一个切换图标）
-          Positioned(
-            right: -3,
-            bottom: -3,
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: AppTokens.accent,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppTokens.surface, width: 2),
-              ),
-              child: const Icon(LucideIcons.refreshCcw,
-                  size: 9, color: AppTokens.onAccent),
-            ),
-          ),
-        ],
+      child: CircleAvatar(
+        backgroundImage: AssetImage(user.avatar),
+        radius: size / 2,
       ),
     );
   }
@@ -54,7 +35,7 @@ class UserSwitcher extends ConsumerWidget {
       context: context,
       backgroundColor: AppTokens.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (sheetCtx) => SafeArea(
         child: Column(
@@ -73,7 +54,7 @@ class UserSwitcher extends ConsumerWidget {
             const Text('切换用户',
                 style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     color: AppTokens.fg)),
             const SizedBox(height: 4),
             const Text('以不同角色身份进入系统',
@@ -88,96 +69,59 @@ class UserSwitcher extends ConsumerWidget {
                   for (final u in users)
                     Padding(
                       padding: const EdgeInsets.only(bottom: AppTokens.space2),
-                      child: Material(
-                        color: u.id == current.id
-                            ? AppTokens.accentSoft
-                            : AppTokens.surface2,
-                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                        child: InkWell(
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusMd),
-                          onTap: () {
-                            if (u.id != current.id) {
-                              ref
-                                  .read(currentUserIdProvider.notifier)
-                                  .state = u.id;
-                            }
-                            Navigator.pop(sheetCtx);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppTokens.space3),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundImage: AssetImage(u.avatar),
-                                  radius: 22,
-                                ),
-                                const SizedBox(width: AppTokens.space3),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          MaskableName(
-                                            name: u.name,
-                                            style: const TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppTokens.fg),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          if (u.id == current.id)
-                                            Container(
-                                              padding: const EdgeInsets
-                                                  .symmetric(
-                                                  horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: AppTokens.accentSoft,
-                                                borderRadius: BorderRadius
-                                                    .circular(
-                                                        AppTokens.radiusPill),
-                                              ),
-                                              child: const Text('当前用户',
-                                                  style: TextStyle(
-                                                      fontSize: 10,
-                                                      color:
-                                                          AppTokens.accent)),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        u.org,
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            color: AppTokens.muted,
-                                            height: 1.3),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        u.role,
-                                        style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppTokens.accent,
-                                            fontWeight: FontWeight.w600),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (u.id == current.id)
-                                  const Icon(LucideIcons.check,
-                                      size: 18, color: AppTokens.accent),
-                              ],
-                            ),
-                          ),
-                        ),
+                      child: IdentityTile(
+                        user: u,
+                        selected: u.id == current.id,
+                        onTap: () {
+                          if (u.id != current.id) {
+                            ref
+                                .read(currentUserIdProvider.notifier)
+                                .state = u.id;
+                            ref.read(userPrefsProvider).saveUserId(u.id);
+                          }
+                          Navigator.pop(sheetCtx);
+                        },
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: AppTokens.space2),
+            const Divider(height: 1, thickness: 0.5, color: AppTokens.border),
+            const SizedBox(height: AppTokens.space2),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                onTap: () async {
+                  // 退出登录：清空会话与本地偏好，重置内存态，回到登录页
+                  final router = GoRouter.of(context);
+                  await ref.read(sessionStoreProvider).clear();
+                  await ref.read(userPrefsProvider).clear();
+                  ref.read(authStateProvider.notifier).state = null;
+                  ref.read(onboardedProvider.notifier).state = false;
+                  ref.read(currentUserIdProvider.notifier).state = null;
+                  ref.read(currentProjectIdProvider.notifier).state = null;
+                  Navigator.pop(sheetCtx);
+                  // authState 置空会触发路由守卫重定向到 /login，显式跳转保底
+                  router.go('/login');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppTokens.space3),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(MingCuteIcons.exitDoorLine,
+                          size: 18, color: AppTokens.danger),
+                      SizedBox(width: 8),
+                      Text('退出登录',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppTokens.danger)),
+                    ],
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: AppTokens.space3),

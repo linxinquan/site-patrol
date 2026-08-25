@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
@@ -110,7 +110,7 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
                 const Text('专业看图',
                     style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: AppTokens.fg)),
                 const Spacer(),
                 IconButton(
@@ -126,8 +126,8 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
               unselectedLabelColor: AppTokens.muted,
               indicatorColor: AppTokens.brand,
               tabs: const [
-                Tab(text: '图层', icon: Icon(LucideIcons.layers, size: 16)),
-                Tab(text: '布局', icon: Icon(LucideIcons.layoutTemplate, size: 16)),
+                Tab(text: '图层', icon: Icon(MingCuteIcons.layersLine, size: 16)),
+                Tab(text: '布局', icon: Icon(MingCuteIcons.layoutGridLine, size: 16)),
               ],
             ),
             const SizedBox(height: 4),
@@ -183,11 +183,11 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
           title: Text(l.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: AppTokens.fg)),
+              style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
           subtitle: l.isFrozen
-              ? const Text('已冻结', style: TextStyle(fontSize: 11))
+              ? const Text('已冻结', style: TextStyle(fontSize: 12))
               : (l.isLock
-                  ? const Text('已锁定', style: TextStyle(fontSize: 11))
+                  ? const Text('已锁定', style: TextStyle(fontSize: 12))
                   : null),
           value: on,
           onChanged: (v) =>
@@ -215,15 +215,15 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
           dense: true,
           contentPadding: EdgeInsets.zero,
           leading: Icon(
-            selected ? LucideIcons.checkCircle : LucideIcons.circle,
+            selected ? MingCuteIcons.checkCircleLine : MingCuteIcons.circleDashLine,
             color: selected ? AppTokens.brand : AppTokens.muted,
             size: 20,
           ),
           title: Text(lay.name,
-              style: const TextStyle(fontSize: 13, color: AppTokens.fg)),
+              style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
           subtitle: lay.handle != null
               ? Text('句柄 ${lay.handle}',
-                  style: const TextStyle(fontSize: 11))
+                  style: const TextStyle(fontSize: 12))
               : null,
           onTap: () {
             ref.read(cadCurrentLayoutProvider.notifier).state = lay.name;

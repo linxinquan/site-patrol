@@ -46,6 +46,7 @@ class MeasureStore {
                   'name': e.name,
                   'drawingMm': e.drawingMm,
                   'photoMm': e.photoMm,
+                  'source': e.source,
                 })
             .toList(),
         'updatedAt': s.updatedAt,
@@ -64,10 +65,11 @@ class MeasureStore {
       items: (m['items'] as List? ?? [])
           .map((e) => (e as Map<String, dynamic>))
           .map((e) => MeasureItem(
-                name: e['name'] as String? ?? '',
-                drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
-                photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
-              ))
+            name: e['name'] as String? ?? '',
+            drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
+            photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
+            source: e['source'] as String? ?? 'photo',
+          ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
     );

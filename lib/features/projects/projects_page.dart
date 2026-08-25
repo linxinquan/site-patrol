@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
@@ -53,8 +53,8 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         key: p,
       };
       if (done) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('图纸已缓存，可离线查看')));
+        AppSnack.show(context, '图纸已下载，可离线查看',
+            kind: AppSnackKind.success);
       }
     });
     _downloadTimers[key] = timer;
@@ -68,7 +68,13 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
     final cache = ref.watch(floorCacheProvider);
 
     return Scaffold(
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
+        toolbarHeight: 44,
+        backgroundColor: AppTokens.bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 12,
         title: project.maybeWhen(
           data: (p) => const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,8 +88,8 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
               Text('F1 · 图纸文件夹与离线管理',
                   style: TextStyle(
                       fontSize: 12,
-                      color: AppTokens.muted,
-                      fontWeight: FontWeight.normal)),
+                      color: AppTokens.fg2,
+                      fontWeight: FontWeight.w400)),
             ],
           ),
           orElse: () => const Text('项目图纸'),
@@ -92,7 +98,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
           IconButton(
             onPressed: () => AppSnack.show(context, '按楼层 / 索引号检索图纸',
                 kind: AppSnackKind.brand),
-            icon: const Icon(LucideIcons.search),
+            icon: const Icon(MingCuteIcons.searchLine),
           ),
         ],
       ),
@@ -102,45 +108,37 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(AppTokens.space4),
+                padding: const EdgeInsets.fromLTRB(
+                    AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
                 children: [
                   // 项目卡
                   AsyncState(
                     value: project,
                     builder: (p) => _ProjectCard(p: p, floorCount: fs.length),
                   ),
-                  const SizedBox(height: AppTokens.space4),
-                  const Padding(
-                    padding: EdgeInsets.only(left: 2, bottom: AppTokens.space2),
-                    child: Row(
-                      children: [
-                        Icon(LucideIcons.layers,
-                            size: 14, color: AppTokens.muted),
-                        SizedBox(width: 4),
-                        Text('楼层图纸',
-                            style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppTokens.muted)),
-                      ],
-                    ),
-                  ),
-                  // 楼层列表
+                  const SizedBox(height: AppTokens.space3),
+                  // 楼层图纸板块标题（CSS Frame 2131330676：16/W600 + N个楼层白色徽标）
+                  _FloorHeader(floorCount: fs.length),
+                  const SizedBox(height: AppTokens.space2),
+                  // 导入图纸：楼层图纸板块的第一个卡片（标题下、楼层列表前）
+                  _ImportCard(
+                      onTap: () => AppSnack.show(
+                          context, '已选择 1 份 PDF 图纸，开始解析并生成索引',
+                          kind: AppSnackKind.accent)),
+                  const SizedBox(height: AppTokens.space2),
+                  // 楼层列表（卡间距统一 8）
                   ...fs.map((f) {
                     final count = drawings.maybeWhen(
                       data: (m) => m[f.key]?.hotspots.length ?? f.index,
                       orElse: () => f.index,
                     );
-                    final progress =
-                        cache[f.key] ?? (f.cached ? 100 : f.progress);
-                    final cached = progress >= 100;
+                    final cached =
+                        (cache[f.key] ?? (f.cached ? 100 : f.progress)) >= 100;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: AppTokens.space3),
+                      padding: const EdgeInsets.only(bottom: AppTokens.space2),
                       child: DrawingListItem(
                         floor: f,
                         indexCount: count,
-                        progress: progress,
-                        cached: cached,
                         onTap: () {
                           if (cached) {
                             context.push('/projects/drawing/${f.key}');
@@ -153,12 +151,6 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                       ),
                     );
                   }),
-                  // 导入图纸（虚线卡）
-                  _ImportCard(
-                      onTap: () => AppSnack.show(
-                          context, '已选择 1 份 PDF 图纸，开始解析并生成索引',
-                          kind: AppSnackKind.accent)),
-                  const SizedBox(height: AppTokens.space3),
                   OfflineBar.drawings(fs.length),
                 ],
               ),
@@ -190,7 +182,7 @@ class _ProjectCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppTokens.radiusMd),
                   ),
                   child:
-                      const Icon(LucideIcons.folder, color: AppTokens.brand),
+                      const Icon(MingCuteIcons.folderLine, color: AppTokens.brand),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -200,7 +192,7 @@ class _ProjectCard extends StatelessWidget {
                       Text(p.name,
                           style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               color: AppTokens.fg),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -218,14 +210,12 @@ class _ProjectCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 if (p.beds > 0)
                   StatusBadge(
-                      text: '${p.beds} 床',
-                      color: AppTokens.brand,
-                      bg: AppTokens.brandSoft),
+                      text: '${p.beds} 床', color: AppTokens.brand),
               ],
             ),
             if (p.parties.isNotEmpty) ...[
               const SizedBox(height: AppTokens.space3),
-              const Divider(height: 1, color: AppTokens.surface2),
+              const Divider(height: 1, color: AppTokens.border),
               const SizedBox(height: AppTokens.space3),
               for (final party in p.parties)
                 Padding(
@@ -242,7 +232,7 @@ class _ProjectCard extends StatelessWidget {
                           borderRadius:
                               BorderRadius.circular(AppTokens.radiusSm),
                         ),
-                        child: const Icon(LucideIcons.building2,
+                        child: const Icon(MingCuteIcons.building1Line,
                             size: 15, color: AppTokens.brand),
                       ),
                       const SizedBox(width: AppTokens.space3),
@@ -253,19 +243,19 @@ class _ProjectCard extends StatelessWidget {
                             Text(
                               party.role,
                               style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTokens.accent,
-                                  height: 1.3),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppTokens.fg2,
+                                  height: 20 / 12),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               party.org,
                               style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: AppTokens.fg,
-                                  height: 1.3),
+                                  height: 22 / 14),
                             ),
                             const SizedBox(height: 2),
                             Text.rich(
@@ -273,7 +263,7 @@ class _ProjectCard extends StatelessWidget {
                                 style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTokens.muted,
-                                    height: 1.3),
+                                    height: 20 / 12),
                                 children: [
                                   TextSpan(text: '${party.title} · '),
                                   WidgetSpan(
@@ -284,7 +274,7 @@ class _ProjectCard extends StatelessWidget {
                                       style: const TextStyle(
                                           fontSize: 12,
                                           color: AppTokens.muted,
-                                          height: 1.3),
+                                          height: 20 / 12),
                                     ),
                                   ),
                                 ],
@@ -302,49 +292,111 @@ class _ProjectCard extends StatelessWidget {
       );
 }
 
+/// 楼层图纸板块标题（CSS Frame 2131330676）：左「楼层图纸」16/W600/fg，
+/// 右「N个楼层」白色徽标（圆角 6、12/W400/fg）。
+class _FloorHeader extends StatelessWidget {
+  final int floorCount;
+  const _FloorHeader({required this.floorCount});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppTokens.space1),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text('楼层图纸',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg,
+                    height: 24 / 16)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text('$floorCount 个楼层',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: AppTokens.fg)),
+            ),
+          ],
+        ),
+      );
+}
+
 class _ImportCard extends StatelessWidget {
   final VoidCallback onTap;
   const _ImportCard({required this.onTap});
 
   @override
   Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
         onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppTokens.accentSoft,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                ),
-                child: const Icon(LucideIcons.plus, color: AppTokens.accent),
+        child: Row(
+          children: [
+            // 导入图标：32x32 灰底（#F4F6F7）圆角 8 + 品牌蓝上传图标
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTokens.surface2,
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('导入图纸',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppTokens.fg)),
-                    SizedBox(height: 2),
-                    Text('支持 PDF / JPG / PNG，DWG 导入即转 PDF',
-                        style: TextStyle(fontSize: 12, color: AppTokens.muted)),
-                  ],
-                ),
+              child: const Icon(MingCuteIcons.uploadLine,
+                  color: AppTokens.brand, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('导入图纸',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTokens.fg)),
+                  const SizedBox(height: 4),
+                  const Text('支持 PDF/JPG/PNG,DWG导入即转PDF',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          color: AppTokens.muted)),
+                ],
               ),
-              const Icon(LucideIcons.chevronRight,
-                  color: AppTokens.muted, size: 18),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(MingCuteIcons.rightLine,
+                color: Color(0xFF999999), size: 16),
+          ],
         ),
+      );
+}
+
+/// 楼层图纸行内标签（CSS Frame 2131330663 / 0617 系列）：
+/// 实色浅底、圆角 6、12/W400、行高 20。
+class _Tag extends StatelessWidget {
+  final String text;
+  final Color bg;
+  final Color fg;
+  const _Tag({required this.text, required this.bg, required this.fg});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(text,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: fg)),
       );
 }
 
@@ -352,85 +404,59 @@ class DrawingListItem extends StatelessWidget {
   final Floor floor;
   final int indexCount;
   final VoidCallback onTap;
-  final int progress;
-  final bool cached;
   const DrawingListItem({
     super.key,
     required this.floor,
     required this.indexCount,
     required this.onTap,
-    this.progress = 100,
-    this.cached = true,
   });
 
   @override
   Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
         onTap: onTap,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppTokens.surface2,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              ),
-              child: const Icon(LucideIcons.fileText, color: AppTokens.brand),
-            ),
+            // 图纸图标（图纸.png，无矩形灰底）
+            Image.asset('assets/icons/drawings.png',
+                width: 32, height: 32, fit: BoxFit.contain),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 标题
                   Text(floor.name,
                       style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppTokens.fg),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
+                  // 下排：索引 + 楼栋 + 楼层
                   Row(
                     children: [
-                      StatusBadge(
-                          text: floor.building,
-                          color: AppTokens.mutedA11y,
-                          bg: AppTokens.surface2),
-                      const SizedBox(width: 6),
-                      StatusBadge(
-                          text: floor.floor,
-                          color: AppTokens.mutedA11y,
-                          bg: AppTokens.surface2),
-                      const SizedBox(width: 6),
                       if (indexCount > 0)
-                        StatusBadge(
+                        _Tag(
                             text: '索引 $indexCount',
-                            color: AppTokens.brand,
-                            bg: AppTokens.brandSoft),
+                            bg: const Color(0xFFF1F7FF),
+                            fg: const Color(0xFF428BF7)),
+                      if (indexCount > 0) const SizedBox(width: 4),
+                      _Tag(
+                          text: floor.building,
+                          bg: const Color(0xFFF8F8F8),
+                          fg: AppTokens.muted),
+                      const SizedBox(width: 4),
+                      _Tag(
+                          text: floor.floor,
+                          bg: const Color(0xFFF8F8F8),
+                          fg: AppTokens.muted),
                     ],
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                StatusBadge(
-                    text: cached ? '已缓存' : '未缓存',
-                    color: cached ? AppTokens.success : AppTokens.warning,
-                    bg: cached ? AppTokens.successSoft : AppTokens.warningSoft),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: 72,
-                  child: LinearProgressIndicator(
-                    value: progress / 100,
-                    backgroundColor: AppTokens.surface2,
-                    valueColor: const AlwaysStoppedAnimation(AppTokens.accent),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
             ),
           ],
         ),

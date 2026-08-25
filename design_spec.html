@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>site-patrol 设计规范</title>
+<style>
+  :root{
+    --bg:#F4F6F7; --surface:#FFFFFF; --line:#E9EAEB;
+    --fg:#202224; --fg2:#60656B; --muted:#919499;
+    --accent:#0395FF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'PingFang SC','Helvetica Neue',Arial,'Microsoft YaHei',sans-serif;
+    background:var(--bg); color:var(--fg);
+    line-height:1.6; padding:32px 24px 64px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:4px;}
+  .sub{color:var(--fg2);font-size:14px;margin-bottom:32px;}
+  h2{font-size:18px;font-weight:700;margin:40px 0 16px;
+     padding-left:12px;border-left:4px solid var(--accent);}
+  h3{font-size:14px;font-weight:700;color:var(--fg2);margin:20px 0 10px;}
+  p.note{font-size:13px;color:var(--muted);margin:6px 0 14px;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;}
+  .swatch{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface);}
+  .swatch .chip{height:64px;}
+  .swatch .meta{padding:8px 10px;font-size:12px;}
+  .swatch .meta .name{font-weight:700;color:var(--fg);}
+  .swatch .meta .hex{color:var(--fg2);font-family:ui-monospace,Menlo,monospace;font-size:11px;}
+  table{width:100%;border-collapse:collapse;background:var(--surface);
+        border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px;}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);}
+  th{background:#EEF1F3;font-weight:700;color:var(--fg2);}
+  tr:last-child td{border-bottom:none;}
+  code{background:#EEF1F3;padding:1px 6px;border-radius:4px;font-size:12px;
+       font-family:ui-monospace,Menlo,monospace;color:#0273CC;}
+  .comp{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+        padding:16px;margin:12px 0;}
+  .comp .title{font-weight:700;font-size:14px;margin-bottom:4px;}
+  .comp .desc{font-size:13px;color:var(--fg2);}
+  .comp ul{margin:8px 0 0 18px;font-size:13px;color:var(--fg2);}
+  .foot{margin-top:48px;font-size:12px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>site-patrol 设计规范</h1>
+  <p class="sub">扁平化（浅色）· 品牌蓝主色 #0395FF · 统一圆角 · 无投影 · 浅灰背景</p>
+
+  <!-- ===== 颜色 ===== -->
+  <h2>1. 颜色系统</h2>
+
+  <h3>主色（品牌蓝 accent / brand 同源）</h3>
+  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:#0395FF"></div>
+      <div class="meta"><div class="name">品牌蓝</div><div class="hex">#0395FF · accent</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#0284E6"></div>
+      <div class="meta"><div class="name">Hover</div><div class="hex">#0284E6</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#0273CC"></div>
+      <div class="meta"><div class="name">Active</div><div class="hex">#0273CC</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#E6F5FF"></div>
+      <div class="meta"><div class="name">Soft 浅蓝底</div><div class="hex">#E6F5FF</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FFFFFF;border:1px solid #DDD"></div>
+      <div class="meta"><div class="name">onAccent 蓝底白字</div><div class="hex">#FFFFFF</div></div></div>
+  </div>
+
+  <h3>语义状态色</h3>
+  <p class="note">状态语义三色（成功 / 警告 / 危险），自有规范色。每色两档底：<b>Soft</b> = 图标底、弹层等「块面」浅底；<b>Tint</b> = 标签浅底（原色 5% 透明度，见下）。</p>
+  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:#34C759"></div>
+      <div class="meta"><div class="name">Success 绿</div><div class="hex">#34C759</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#E6F8ED"></div>
+      <div class="meta"><div class="name">Success Soft</div><div class="hex">#E6F8ED</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FF9500"></div>
+      <div class="meta"><div class="name">Warning 橙</div><div class="hex">#FF9500</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FFF3E0"></div>
+      <div class="meta"><div class="name">Warning Soft</div><div class="hex">#FFF3E0</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FF3B30"></div>
+      <div class="meta"><div class="name">Danger 红</div><div class="hex">#FF3B30</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#FFEBEA"></div>
+      <div class="meta"><div class="name">Danger Soft</div><div class="hex">#FFEBEA</div></div></div>
+  </div>
+
+  <h3>标签浅底通则（Tint = 原色 5%）</h3>
+  <p class="note"><b>全站所有标签</b>（分区标签、分类标签、状态胶囊、角色徽标、置信度标签、进度百分比标签、已校验/已下载等）浅底一律 = <b>标签自身文字色的 5% 透明度</b>（<code>color.withValues(alpha: 0.05)</code>，令牌 <code>brandTint / successTint / warningTint / dangerTint / yellowTint</code>）。<br>
+  <b>唯一例外</b>：灰标签（缺陷类型、#自定义标签、楼栋楼层、板块副标题）仍用 <code>surface2</code> #F4F6F7 实色底。<br>
+  <b>不适用</b>：实色底白字标签（待整改 / 整改中）、图标块面底（用 Soft 档）。</p>
+
+  <h3>缺陷严重度（红 / 橙 / 黄 / 绿 四色分级）</h3>
+  <p class="note">用于缺陷标签流与筛选。<b>文字用直白等级词</b>：严重（红）=重要且紧急（重大隐患，局部停工立即上报）；较重（橙）=重要不紧急（限期整改）；一般（黄）=紧急不重要（即查即改）；轻微（绿）=不重要不紧急（常规观察）。浅色底 = 四色原色，透明度 5%。</p>
+  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:rgba(255,59,48,0.05)"></div>
+      <div class="meta"><div class="name">严重 文字 #FF3B30</div><div class="hex">底 = 原色5%</div></div></div>
+    <div class="swatch"><div class="chip" style="background:rgba(255,149,0,0.05)"></div>
+      <div class="meta"><div class="name">较重 文字 #FF9500</div><div class="hex">底 = 原色5%</div></div></div>
+    <div class="swatch"><div class="chip" style="background:rgba(250,220,25,0.05)"></div>
+      <div class="meta"><div class="name">一般 文字 #FADC19</div><div class="hex">底 = 原色5%</div></div></div>
+    <div class="swatch"><div class="chip" style="background:rgba(52,199,89,0.05)"></div>
+      <div class="meta"><div class="name">轻微 文字 #34C759</div><div class="hex">底 = 原色5%</div></div></div>
+    <div class="swatch"><div class="chip" style="background:rgba(255,59,48,0.05)"></div>
+      <div class="meta"><div class="name">楼层 文字 #FF3B30</div><div class="hex">底 = 原色5%</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#F4F6F7"></div>
+      <div class="meta"><div class="name">类型/#标签 文字 #919499</div><div class="hex">底 #F4F6F7</div></div></div>
+  </div>
+
+  <h3>中性色（背景 / 文字 / 边框）</h3>
+  <table>
+    <tr><th>角色</th><th>Token</th><th>色值</th><th>用途</th></tr>
+    <tr><td>页面背景</td><td><code>bg</code></td><td>#F4F6F7</td><td>页面全局底色</td></tr>
+    <tr><td>卡片表面</td><td><code>surface</code></td><td>#FFFFFF</td><td>所有卡片 / 弹层</td></tr>
+    <tr><td>次级填充</td><td><code>surface2</code></td><td>#F4F6F7</td><td>图标底、小标签底</td></tr>
+    <tr><td>嵌入底</td><td><code>surface3</code></td><td>#E9EAEB</td><td>输入框 / 禁用态灰底</td></tr>
+    <tr><td>主文字</td><td><code>fg</code></td><td>#202224</td><td>标题、正文</td></tr>
+    <tr><td>次级文字</td><td><code>fg2</code></td><td>#60656B</td><td>副标题、说明</td></tr>
+    <tr><td>辅助文字</td><td><code>muted</code></td><td>#919499</td><td>弱化、占位</td></tr>
+    <tr><td>注释说明文字</td><td><code>note</code></td><td>#B5B9BF</td><td>补充说明 / 脚注 / 最弱一档文字（原 mutedA11y #6C6C70 已废弃）</td></tr>
+    <tr><td>边框 / 分割线</td><td><code>border</code></td><td>#E9EAEB</td><td>细描边（仅结构需要处）</td></tr>
+  </table>
+
+  <!-- ===== 圆角 ===== -->
+  <h2>2. 圆角</h2>
+  <table>
+    <tr><th>Token</th><th>值</th><th>用途</th></tr>
+    <tr><td><code>radiusLg</code></td><td>12px</td><td>外层卡片（AppCard、大卡、里程碑卡）统一 12</td></tr>
+    <tr><td><code>radiusButton</code></td><td><b>12px</b></td><td><b>主操作按钮统一 12</b>（AppButton 三档 + 全局 Filled/Outlined/Text 按钮主题）</td></tr>
+    <tr><td><code>radiusMd</code> / <code>radiusSm</code></td><td>8px</td><td>内层卡、小标签、里程碑状态标签、列表项、Snackbar</td></tr>
+    <tr><td><code>radiusPill</code></td><td>999px</td><td>胶囊（标签式小操作、徽标）；<b>不再用于主操作按钮</b></td></tr>
+  </table>
+
+  <!-- ===== 间距 ===== -->
+  <h2>3. 间距（4px 网格）</h2>
+  <table>
+    <tr><th>Token</th><th>值</th><th>常见用途</th></tr>
+    <tr><td><code>space1</code></td><td>4</td><td>标签内 gap、图标文字间距</td></tr>
+    <tr><td><code>space2</code></td><td>8</td><td>卡片内元素 gap、头部→卡片</td></tr>
+    <tr><td><code>space3</code></td><td>12</td><td>板块间距（基础）、卡片 padding</td></tr>
+    <tr><td><code>space4</code></td><td>16</td><td>卡片默认 padding、页面边距</td></tr>
+    <tr><td><code>space5</code></td><td>24</td><td>数据闭环价值条 → 待办板块（重点板块间距）</td></tr>
+    <tr><td><code>space6</code></td><td>32</td><td>大段落留白</td></tr>
+    <tr><td><code>space7</code></td><td>48</td><td>页面级大留白</td></tr>
+  </table>
+
+  <!-- ===== 阴影 ===== -->
+  <h2>4. 阴影与层级</h2>
+  <p class="note">全部卡片扁平化：<code>elevationRaised</code> / <code>elevationOverlay</code> / <code>elevationNone</code> 均已置空（const []）。层级仅通过背景色差（白卡 vs 浅灰页面）与选中态浅蓝底表达，不使用投影。</p>
+
+  <!-- ===== 字体 ===== -->
+  <h2>5. 字体</h2>
+  <table>
+    <tr><th>场景</th><th>字族 / 字重</th><th>字号示例</th></tr>
+    <tr><td>中文</td><td>PingFang SC（iOS 系统）</td><td>12 / 14 / 16 / 18 / 28</td></tr>
+    <tr><td>数字</td><td>SF Pro / Roboto + <code>tabularFigures</code> 等宽</td><td>大数字 22/W700</td></tr>
+    <tr><td>字重规范</td><td><b>仅 400 / 700 两档</b></td><td>正文 400；标题 / 强调 700</td></tr>
+    <tr><td>说明文字</td><td>400</td><td>副标题 12/400；阶段名 14/400</td></tr>
+  </table>
+
+  <!-- ===== 组件规范 ===== -->
+  <h2>6. 组件规范</h2>
+
+  <div class="comp">
+    <div class="title">AppCard（首页统一卡片）</div>
+    <div class="desc">所有首页板块的视觉基底。</div>
+    <ul>
+      <li>白底 <code>surface</code> · 圆角 <code>radiusLg</code>(12) · 无描边 · 无投影</li>
+      <li>默认 padding = <code>space4</code>(16)；紧凑卡用 <code>space3</code>(12)</li>
+      <li>数据闭环价值条、待办卡、项目进度卡均复用此风格</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">BottomNav（底部 Tab 栏）</div>
+    <div class="desc">纯白底 <code>surface</code>，<b>无顶部描边 / 分割线</b>。</div>
+    <ul>
+      <li>未选中：图标蓝色 #0395FF；选中：文字黑色（非蓝色）</li>
+      <li>iOS 标准高度 49pt（不含 home indicator 安全区）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">里程碑卡 <code>_MilestoneChip</code></div>
+    <div class="desc">横向可滑动，外层列表容器高 60px。</div>
+    <ul>
+      <li>卡高 <b>60</b> · 底 #F8F8F8（非选中）/ #E6F5FF（选中）· 圆角 8 · padding all(8)</li>
+      <li>竖排状态标签 <b>20×44</b> · 圆角 4 · 12/400 竖排</li>
+      <li>三态（已统一为规范分区色）：当前 = 蓝#0395FF 底白字；完成 = 白底绿#34C759 字；未来 = 白底红#FF3B30 字</li>
+      <li>选中态：#E6F5FF 底 + 1px #0395FF 边框</li>
+      <li>日期 12/700/#202224（组件级固定，沿用 Frame 0648）；阶段名 14/400/#60656B</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">待办卡 <code>_TodoCard</code></div>
+    <div class="desc">AppCard · padding 12 · 白底圆角 12。</div>
+    <ul>
+      <li>行1：标题 16/700/#202224 + 分类标签（主色 5% 底 / #0395FF 字） ｜ 状态标签（实色底白字圆角6：待整改 #FF3B30 / 整改中 #FF9500）</li>
+      <li>行2 标签流：严重度 / 类型 / 楼层 / #自定义标签，<b>12/400</b>，圆角 6（严重/较重/一般/轻微按四色分区 + 5% 浅底）</li>
+      <li>行3：左侧（记录人 + 责任人）为一组 ｜ 右侧时间 12/#919499，<code>spaceBetween</code> 两端对齐</li>
+      <li>板块间距：数据闭环价值条 → 待办 = <b>24</b></li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">数据闭环价值条 <code>_ValueStrip</code></div>
+    <div class="desc">AppCard 风格（白底圆角 12、无描边）· padding 水平 16 / 垂直 12。</div>
+    <ul>
+      <li>左侧竖排「数据闭环」标题（数据 #202224 / 700；闭环 #0395FF / 700）</li>
+      <li>四步流程：现场拍照 → AI 分类关联 → 责任判定 → 知识库（14 图标 + 9 号小字 + 连接线）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">快捷操作卡 <code>_QuickCard</code></div>
+    <div class="desc">114×110 渐变大卡 · 圆角 12。</div>
+    <ul>
+      <li>竖向渐变底 + 36×36 图标 + 标题 14/700 白字 + 副标题 12/400 白字(0.7 透明)</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">AppButton（主操作按钮）</div>
+    <div class="desc">主操作 = 蓝底白字（accent 系），由 <code>accentHover/Active/Soft</code> 传导状态。</div>
+    <ul>
+      <li><b>圆角统一 12</b>（<code>radiusButton</code>）· 三形态：filled 实色 / outlined 描边 / text 文字，圆角一致</li>
+      <li>三档高度为<b>严格值</b>：lg <b>48</b> / md 36（默认）/ sm 32；左右 padding lg 24、md·sm 12，上下无 padding（文字在固定高度内垂直居中）</li>
+      <li>字号 lg 16 / md 14 / sm 12，字重 <b>700</b>，行高 = 字号 + 8，字距 0</li>
+      <li>实现要点：<code>min/maximumSize</code> 锁高 + <code>tapTargetSize: shrinkWrap</code>——否则 Material 默认 48 点击区会把 md/sm 撑到 48、上下 padding 会把 lg 撑到 56</li>
+      <li>全局 <code>FilledButton / OutlinedButton / TextButton</code> 主题同步为圆角 12、默认中档 36 高，直写按钮自动继承</li>
+      <li><b>纯文字，不带图标</b>：大按钮统一为文字按钮，已移除 <code>icon</code> 参数，禁止「图标 + 文字」组合；全局图标 + 文字按钮改纯文字（巡场主操作、拍照「保存验收记录」、图纸查看器「拍照记录」、巡场子操作、图纸 / 蓝图工具条、拍照控制按钮）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">大按钮（全宽 CTA）</div>
+    <div class="desc">登录「开始使用」、引导「下一步 / 开始使用」、巡场主操作、拍照页「保存验收记录」、价值页「开始使用」——均为<b>纯文字不带图标</b>全宽 CTA。</div>
+    <ul>
+      <li>全宽 · 高 <b>48</b>（<code>buttonH_lg</code>）· 圆角 <b>12</b>（<code>radiusButton</code>）· 实色品牌蓝底白字 16/700</li>
+      <li>禁用态底色 <code>surface3</code></li>
+      <li><b>纯文字不带图标</b>：CTA 仅文字，不配图标</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">项目大事记 <code>_TimelineEvents</code> + 板块标题 <code>SectionTitle</code></div>
+    <div class="desc">AppCard 内横向时间轴事件列表；标题与待办标题（Frame 2131330676）同款规范。</div>
+    <ul>
+      <li>标题：16/W600/fg + 右侧「查看全部」12/W400/<code>muted</code> + 16px 箭头（同待办标题）；标题 → 卡片间距 8（SectionTitle 自带下 padding 8）</li>
+      <li>事件行（Frame 2131330695 布局 + 圆点时间轴）：Row（gap 8）= 左区（flex-grow 1，gap 8）时间列 40 宽居中「时刻 14/W600/fg + 相对日期 12/400/<code>muted</code>」+ 圆点列「22px 圆点 = 事件色 5% 浅底 + 12px 彩色图标（规范『浅底 = 文字色 5%』）+ 1.5px <code>border</code> 连接线向下延伸」+ 标题列「标题 14/W600/fg（单行省略）+ 责任人 12/400/<code>muted</code>（单位+人）」+ 右侧类型浅底标签（Frame 2131330652：12/W400 事件色，底 = 事件色 5%，圆角 6，padding 2·8，行高 20）；事件与事件间距 16（<code>space4</code>）</li>
+      <li>卡片：AppCard（白底圆角 12）· padding LTRB(16,12,16,12)</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">图纸文件夹页 <code>ProjectsPage</code>（F1）</div>
+    <div class="desc">与工单页同款导航规范：AppBar 44 高 / <code>bg</code> 底色 / 无分割线，列表卡间距统一 8。</div>
+    <ul>
+      <li>AppBar：<code>toolbarHeight</code> 44 · <code>backgroundColor</code> bg · <code>scrolledUnderElevation</code> 0 · <code>titleSpacing</code> 12；标题 16/W600/fg + 副标题 12/400/<code>fg2</code>（副标题描述页号与功能）</li>
+      <li>页面背景 <code>bg</code>；ListView padding LTRB(12, 8, 12, 12)，卡间距 8</li>
+      <li>板块标题「楼层图纸」用 <code>_FloorHeader</code>：<b>两端对齐</b>（<code>mainAxisAlignment: spaceBetween</code>）——左侧 16/W600/fg 标题，右侧「N个楼层」白色徽标（圆角 6、12/W400/fg）</li>
+      <li>导入图纸卡 = 楼层图纸板块<b>第一个卡片</b>（标题下、楼层列表前）：<b>实色白卡</b>（AppCard 圆角 12、padding 12）+ 32 图标块（surface2 灰底圆角 8）+ 品牌蓝上传图标 + 标题 16/W600 + 副标题 12/W400/<code>muted</code>「支持 PDF/JPG/PNG,DWG导入即转PDF」+ 灰色右箭头（#999999）；点击涟漪反馈同 AppCard</li>
+      <li>楼层卡（DrawingListItem）：左侧 <b>图纸.png 图标 32×32（无矩形灰底）</b> + 标题 16/W600/fg + 下排标签（索引：浅蓝 #F1F7FF 底 / #428BF7 字；楼栋·楼层：#F8F8F8 灰底 / <code>muted</code> 字，统一 12/W400、圆角 6）。<b>无下载状态标签、无进度条</b></li>
+      <li>项目卡标题 16/W600；参与方角色 12/400/<code>fg2</code>、单位名 14/W600/fg、联系人 12/<code>muted</code>（MaskableName 打码）；参与方与主体间分割线用 <code>border</code> 色</li>
+      <li>交互：下载完成 / 未下载点击提示统一 <code>AppSnack</code>（success / muted）；图纸查看器内 3 处功能提示同步 AppSnack（danger / success / muted）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">工单二级页 记录详情 <code>RecordDetailPage</code>（F5/F8）</div>
+    <div class="desc">从工单卡进入，导航与列表规范同工单页。</div>
+    <ul>
+      <li>AppBar：44 高 / <code>bg</code> 底 / 无分割线；<b>返回图标（leftLine）+ 居中标题</b>「记录详情」16/W600/fg（<code>centerTitle: true</code> + 显式 <code>leading</code> 返回）；移除原副标题「F5 水印留证 · F8 对比」（居中单标题导航栏不承载副标题，正文区块已含水印留证 / 对比）</li>
+      <li>body padding LTRB(12, 8, 12, 12)，卡间距 12</li>
+      <li>缺陷块卡：32 图标块（dangerSoft 底 + danger 图标）+ 标题 14/W600/fg + 部位行 12/<code>muted</code> + 右侧状态胶囊（实色底白字 12/W600 圆角 6）</li>
+      <li>元信息卡：2 列 <code>_MetaCell</code>（surface2 底圆角 8，label 12/<code>muted</code> + value 14/400/fg）+ 责任人行 14/fg</li>
+      <li>时间轴入口卡：品牌蓝图标 + 标题 14/W600/fg + 16px muted 右箭头</li>
+      <li>水印照片（功能组件保留深色渐变）：右上校验胶囊 12/W600（已校验 = 成功绿实底白字；待回网校验 = surface 底 muted 字 + border 描边），底部 3 行水印文字 12/白/monospace</li>
+      <li>块间距统一 12（<code>space3</code>，含照片 → 缺陷块）；空态 12/<code>muted</code> + vertical 72（同工单页空态）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">工单三级页 时间轴对比 <code>TimelineComparePage</code>（F8）</div>
+    <div class="desc">同部位多时点照片选两张滑块对比；卡片统一无描边 AppCard 风格。</div>
+    <ul>
+      <li>AppBar：44 高 / <code>bg</code> 底 / 无分割线 / <code>titleSpacing</code> 12；标题 16/W600/fg + 副标题「F8 · 滑块前后对比」12/400/<code>fg2</code>；body padding LTRB(12, 8, 12, 12)，块间距统一 12</li>
+      <li>锚点卡（AppCard 无描边）：32 品牌蓝图标块（同记录详情缺陷块）+ 部位名 14/W600/fg + 时点数 12/<code>muted</code></li>
+      <li>缩略图：选中 1.5px <code>fg</code> 边框；日期 10/W600/fg + 已校验徽标（brandTint 底 brand 字 10/400）</li>
+      <li>对比卡（AppCard 无描边）：标题 14/W600/fg + 交换操作 12/400/<code>muted</code>；滑块 active <code>fg</code> / inactive <code>border</code>；前后日期 12/W600/fg</li>
+      <li>空态提示（无照片 / 未选两张）用 AppCard 无描边 + <code>muted</code> 文字</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">拍照验收页 <code>CapturePage</code>（P3）</div>
+    <div class="desc">浅色业务页，与工单 / 图纸页同套规范。</div>
+    <ul>
+      <li>AppBar：44 高 / <code>bg</code> 底 / 无分割线 / 标题 16/W600/fg（原 18/W700·surface 底已统一）；右侧 Mock 开关标签 12/W400</li>
+      <li>块间距统一 12（<code>space3</code>）；卡片（锚定部位 / 视觉识别结果 / 结果面板 / 暂存结果）去描边改无描边 AppCard 风格，视觉识别块同步去阴影</li>
+      <li>标题与数值（锚定值 / 历史照片标题 / 缺陷名 / 选择附近定位 16/W600 / 定位项名 / 结果文案 / 暂存条锚点）全部 W600；浅底标签（置信度 pill 11/W400、当前定位 pill 10/W400、Mock）W400；水印取证条内文字 W600</li>
+      <li>交互：所有提示走 <code>AppSnack</code>（成功 / 危险 / muted / brand）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">巡场页 <code>PatrolPage</code>（深色沉浸）</div>
+    <div class="desc">深色主题保留沉浸氛围，仅统一字重语义。</div>
+    <ul>
+      <li>AppBar 标题「巡场」16/W600/<code>patrolFg</code></li>
+      <li>状态浅底标签（记录中 / 待机）12/W400；统计数值 14/W600</li>
+      <li>大按钮已用 <code>AppButton</code> lg；提示全走 <code>AppSnack</code></li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">蓝图原稿页 <code>BlueprintViewerPage</code>（深色）</div>
+    <div class="desc">深色蓝图氛围保留，仅统一字重语义。</div>
+    <ul>
+      <li>AppBar 标题「蓝图原稿」16/W600</li>
+      <li>图纸切换 Chip 标签、底部工具条按钮文字 12/W400（浅底标签规范）</li>
+    </ul>
+  </div>
+
+  <div class="comp">
+    <div class="title">全局组件层规范</div>
+    <div class="desc">跨页面共用的组件与主题。</div>
+    <ul>
+      <li>主题兜底 <code>appBarTheme.titleTextStyle</code> = 16/W600/fg（任何仅用 <code>Text</code> 的 AppBar 自动对齐）</li>
+      <li><code>AppSnack</code> 新增可选 <code>actionLabel</code> / <code>onAction</code>（带文字按钮的提示也走全局样式，含「拍照」操作）</li>
+      <li>卡片标题 / 项目卡名 / 姓名（MaskableName）/ 切换器项 / CAD 面板标题 / SectionTitle 副标题徽标 统一 W600·W400；底部导航选中态、AppButton、StatusBadge 默认、设备框、水印视觉保留 W700 强调</li>
+    </ul>
+  </div>
+
+  <div class="foot">整理自 design_tokens.dart 与首页实际实现 · site-patrol Flutter</div>
+</div>
+</body>
+</html>
