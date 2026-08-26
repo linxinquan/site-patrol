@@ -153,7 +153,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
     }
   }
 
-  /// 返回本图纸的随包内置真实校准（目前仅 B05 有，验证 <2mm）；无则 null。
+  /// 返回本图纸的随包内置真实校准；无则 null。
+  /// B05 为真实视口校准(<2mm)；D01/D03 为 1:150 估算初值，需在 App 图上多点校准精修。
   CadCoordMapper? _builtinCalibrationFor(Drawing d) {
     if (d.key == 'dy04_7_B05') {
       return CadCoordMapper.fromAffine(
@@ -163,6 +164,35 @@ class _ViewerState extends ConsumerState<_Viewer> {
         d: -0.3308888888888889,
         c: -359.3091448275862,
         f: 852.4496763746746,
+      );
+    }
+    // D01 / D03 剖面图：DXF 已转(server/dwg_cache/*.dxf)，标注比例 1:150。
+    // 以下为估算初值(按 1:150 + A2 图幅推算，X/Y 等比例)，量级正确但偏移/比例
+    // 需用户在 App「图上多点校准」中录入 2~3 个已知坐标点精修至 <2mm。
+    if (d.key == 'dy04_7_D01') {
+      const a = 37.125; // 594mm(图面 A2 宽) * 150 / 2400px
+      const cxWorld = -93635.5; // 轴网中心 X（模型空间）
+      const cyWorld = 885940.0; // 轴网中心 Y
+      return CadCoordMapper.fromAffine(
+        viewWidth: d.w,
+        viewHeight: d.h,
+        a: a,
+        d: -a,
+        c: cxWorld - a * (d.w / 2),
+        f: cyWorld + a * (d.h / 2),
+      );
+    }
+    if (d.key == 'dy04_7_D03') {
+      const a = 37.125;
+      const cxWorld = -1179.0;
+      const cyWorld = 787783.5;
+      return CadCoordMapper.fromAffine(
+        viewWidth: d.w,
+        viewHeight: d.h,
+        a: a,
+        d: -a,
+        c: cxWorld - a * (d.w / 2),
+        f: cyWorld + a * (d.h / 2),
       );
     }
     return null;
