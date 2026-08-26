@@ -75,7 +75,6 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        toolbarHeight: 44,
         titleSpacing: 12,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,

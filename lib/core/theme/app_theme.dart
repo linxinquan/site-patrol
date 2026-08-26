@@ -120,7 +120,8 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        toolbarHeight: 44,
+        // 不写死 toolbarHeight：交给 Flutter 系统默认（kToolbarHeight=56），
+        // 且系统会自动在工具栏上方叠加状态栏留白，自动适配无刘海/刘海/灵动岛。
         titleTextStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
@@ -249,6 +250,5 @@ ThemeData get patrolDarkTheme => ThemeData(
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
-        toolbarHeight: 44,
       ),
     );

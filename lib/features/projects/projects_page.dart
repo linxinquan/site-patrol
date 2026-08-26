@@ -70,7 +70,6 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        toolbarHeight: 44,
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,

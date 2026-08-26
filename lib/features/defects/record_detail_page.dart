@@ -21,7 +21,6 @@ class RecordDetailPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        toolbarHeight: 44,
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
