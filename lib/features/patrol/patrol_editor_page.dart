@@ -393,8 +393,10 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     final next = [...existing.where((p) => p.id != plan.id), plan];
     await PatrolPlanStore.save(_projectId, next);
     if (!mounted) return;
+    // 关键：让巡场页（返回后复用同一 Widget）立即刷新，避免"编辑后没保存"的错觉。
+    ref.invalidate(patrolPlansProvider(_projectId));
     AppSnack.show(context, '路线已保存', kind: AppSnackKind.success);
-    context.pop();
+    context.pop(true);
   }
 
   /// 复用 path_metrics.realRouteKm 的路线里程计算。
@@ -806,20 +808,18 @@ class _RouteEditorPainter extends CustomPainter {
       }
       return;
     }
-    // 折线（先画正常蓝色底层，再对穿墙段叠加红色粗线）
-    final path = Path()..moveTo(points[0].dx, points[0].dy);
-    for (var i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
+    // 1) 整条路线：Catmull-Rom 样条平滑（编辑时与巡场页一致的"模拟人走"曲线）。
+    final smoothPath = catmullRomPath(points, samplesPerSeg: 16);
     canvas.drawPath(
-      path,
+      smoothPath,
       Paint()
         ..color = const Color(0xFF3B82F6).withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
+        ..strokeWidth = 2.4
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
+    // 2) 穿墙警示：每段按局部的 4 点样条切片（保留平滑视觉，不退化为直线）。
     if (crossingSegs.isNotEmpty) {
       final redPaint = Paint()
         ..color = const Color(0xFFEF4444).withValues(alpha: 0.9)
@@ -829,15 +829,39 @@ class _RouteEditorPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round;
       for (final i in crossingSegs) {
         if (i + 1 >= points.length) continue;
-        final seg = Path()
-          ..moveTo(points[i].dx, points[i].dy)
-          ..lineTo(points[i + 1].dx, points[i + 1].dy);
-        canvas.drawPath(seg, redPaint);
+        final segPath = _segmentSplinePath(i);
+        if (segPath != null) canvas.drawPath(segPath, redPaint);
       }
     }
+    // 3) 路径点（始终最上层）。
     for (var i = 0; i < points.length; i++) {
       _drawPoint(canvas, points[i], checkpoints.contains(i), i);
     }
+  }
+
+  /// 用 points[i-1]..points[i+2] 4 个点跑一次局部 Catmull-Rom 样条，
+  /// 然后用 PathMetric.extractPath(0, length) 截取 [i]→[i+1] 对应的弧段。
+  /// 端点处没有邻点时退化为直线（极短段，平滑度影响可忽略）。
+  Path? _segmentSplinePath(int i) {
+    if (i <= 0 || i + 2 >= points.length) {
+      // 边界：首末段无完整邻点，直接用直线。
+      return Path()
+        ..moveTo(points[i].dx, points[i].dy)
+        ..lineTo(points[i + 1].dx, points[i + 1].dy);
+    }
+    final p0 = points[i - 1];
+    final p1 = points[i];
+    final p2 = points[i + 1];
+    final p3 = points[i + 2];
+    final full = catmullRomPath([p0, p1, p2, p3], samplesPerSeg: 16);
+    // Catmull-Rom 把整段 0..1 切三等分对应 [p0-p1, p1-p2, p2-p3]。
+    // 这里要截 [p1]→[p2] 即 1/3..2/3 区间。
+    final metric = full.computeMetrics().first;
+    final seg = metric.extractPath(
+      metric.length * (1 / 3),
+      metric.length * (2 / 3),
+    );
+    return seg;
   }
 
   void _drawPoint(Canvas canvas, Offset p, bool isCp, int idx) {

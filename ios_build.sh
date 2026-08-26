@@ -24,15 +24,19 @@ if ! command -v pod >/dev/null 2>&1; then
   exit 1
 fi
 
-# 1. 安装 iOS 依赖
+# 1. 获取 Flutter 依赖并生成 iOS 配置文件
+echo "📦 flutter pub get ..."
+"$FLUTTER" pub get
+
+# 2. 安装 iOS 依赖
 echo "📦 pod install ..."
 (cd ios && pod install)
 
-# 2. 列出已连接设备
+# 3. 列出已连接设备
 echo "📱 已连接设备："
 "$FLUTTER" devices
 
-# 3. 签名提示（仅需首次）
+# 4. 签名提示（仅需首次）
 echo ""
 echo "⚠️  若 Xcode 尚未配置签名 Team（仅需首次）："
 echo "   1) open ios/Runner.xcworkspace"
@@ -41,9 +45,9 @@ echo "   3) Bundle Identifier 改成你自己的（如 com.yourname.gongdiApp，
 echo "   4) iPhone 上：设置 → 通用 → VPN与设备管理 → 信任你的 Apple ID"
 echo ""
 
-# 4. 等待用户确认设备已连
+# 5. 等待用户确认设备已连
 read -rp "配置好后按回车开始运行（确保 iPhone 已连接并在 Xcode 已选为运行设备）... "
 
-# 5. 运行（自动选已连接的 iPhone；多设备时用 flutter run --device-id <udid>）
+# 6. 运行（自动选已连接的 iPhone；多设备时用 flutter run --device-id <udid>）
 echo "🚀 flutter run ..."
 "$FLUTTER" run

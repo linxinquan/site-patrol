@@ -11,6 +11,10 @@ CONTENT_TYPES = {
     '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
     '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
     '.ocf': 'application/octet-stream',
+    # 字体文件：Web 图标字体（MaterialIcons / CupertinoIcons / 自定义图标字体）必须正确 MIME
+    '.ttf': 'font/ttf', '.otf': 'font/otf',
+    '.woff': 'font/woff', '.woff2': 'font/woff2',
+    '.eot': 'application/vnd.ms-fontobject',
 }
 
 

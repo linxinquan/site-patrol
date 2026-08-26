@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,11 +53,25 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   // P1：巡场页穿墙段下标（路线不变时只算一次）。
   Set<int> _crossingSegs = const {};
 
+  // 历史巡场轨迹（已按底图缩放的绝对坐标序列），用于底图叠加显示。
+  // 默认隐藏（空），用户从「历史轨迹」面板勾选后才会注入。
+  List<List<Offset>> _historyTracks = const [];
+  List<Color> _historyColors = const [];
+  // 当前"可见"的历史记录下标集合（来自 _HistorySheet 的勾选）。
+  Set<int> _visibleHistoryIdxs = const {};
+
   @override
   void initState() {
     super.initState();
     _ticker = createTicker(_onTick)..start();
     _resolvePlan();
+    // 监听巡场路线列表变化（编辑器保存后 invalidate 触发），自动刷新当前计划与穿墙段，
+    // 避免"编辑后没保存"的错觉。保留当前巡场状态（progress/status）。
+    ref.listenManual(patrolPlansProvider(ref.read(currentProjectIdProvider) ??
+        (ref.read(projectsProvider).valueOrNull?.firstOrNull?.id ?? '')),
+        (_, __) {
+      if (mounted) _resolvePlan();
+    });
   }
 
   @override
@@ -88,12 +104,19 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       plan ??= plans.isNotEmpty ? plans.first : null;
       final real = await _computeRealKm(plan);
       final crossings = await _computeCrossings(plan);
+      // 加载该项目的历史巡场记录（用于底图叠加展示）。
+      final records = await ref
+          .read(patrolRecordsProvider(plan?.projectId ?? project.id).future);
       if (!mounted) return;
       setState(() {
         _plan = plan;
         _realKm = real;
         _crossingSegs = crossings;
         _loadingPlan = false;
+        // 历史轨迹像素化延迟到绘制阶段（需要底图实际像素尺寸），这里只缓存记录。
+        _historyRecords = records;
+        // 重置已像素化缓存，下一帧重算。
+        _historyPxCached = false;
       });
     } catch (_) {
       // 项目/计划读取异常：置空，走空态提示。
@@ -103,6 +126,66 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         _loadingPlan = false;
       });
     }
+  }
+
+  // 历史记录缓存（未按当前底图像素缩放），到 _buildPatrolBody 里首次绘制时完成像素化。
+  List<PatrolRecord> _historyRecords = const [];
+  bool _historyPxCached = false;
+  double _historyPxW = 0;
+  double _historyPxH = 0;
+
+  /// 把历史记录按当前底图实际像素尺寸换算为绝对坐标，并按时间倒序分配冷→暖色。
+  /// 仅对 _visibleHistoryIdxs 集合中的记录做像素化（其它默认不画，避免底图被杂色淹没）。
+  void _ensureHistoryPixelized(double pw, double ph) {
+    if (_historyPxCached &&
+        _historyPxW == pw &&
+        _historyPxH == ph &&
+        _historyTracks.length == _visibleHistoryIdxs.length) {
+      return;
+    }
+    if (_visibleHistoryIdxs.isEmpty) {
+      _historyTracks = const [];
+      _historyColors = const [];
+      _historyPxCached = true;
+      _historyPxW = pw;
+      _historyPxH = ph;
+      return;
+    }
+    // 配色：越新越暖（紫→红→橙）。
+    const palette = <Color>[
+      Color(0xFF8B5CF6), // 紫 - 最旧
+      Color(0xFFEC4899), // 粉
+      Color(0xFFF59E0B), // 橙 - 最近
+    ];
+    final tracks = <List<Offset>>[];
+    final colors = <Color>[];
+    // 按时间顺序遍历（i=0 最旧，i=N-1 最新），便于分配冷→暖。
+    final visibleSorted = _visibleHistoryIdxs.toList()..sort();
+    final n = _historyRecords.length;
+    for (var j = 0; j < visibleSorted.length; j++) {
+      final i = visibleSorted[j];
+      if (i < 0 || i >= n) continue;
+      final r = _historyRecords[i];
+      if (r.track.isEmpty) continue;
+      final pts = <Offset>[];
+      for (final m in r.track) {
+        final x = (m['x'] ?? 0).toDouble();
+        final y = (m['y'] ?? 0).toDouble();
+        pts.add(Offset(x * pw / 100, y * ph / 100));
+      }
+      if (pts.length >= 2) {
+        tracks.add(pts);
+        final ci = visibleSorted.length <= 1
+            ? 0
+            : (j * (palette.length - 1) ~/ (visibleSorted.length - 1));
+        colors.add(palette[ci.clamp(0, palette.length - 1)]);
+      }
+    }
+    _historyTracks = tracks;
+    _historyColors = colors;
+    _historyPxCached = true;
+    _historyPxW = pw;
+    _historyPxH = ph;
   }
 
   /// 按图纸校准算真实里程（⑤ realRouteKm）；未校准返回 null（totalKm 兜底）。
@@ -135,6 +218,15 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         for (final p in _plan!.points) Offset(p.dx, p.dy),
       ];
 
+  /// 样条采样（缓存）：把推荐路线密集化为平滑曲线点。
+  List<Offset>? _planSamples;
+  List<Offset> _getPlanSamples() {
+    if (_planSamples != null && _planSamples!.length == _planOffsets.length * 16) {
+      return _planSamples!;
+    }
+    return _planSamples = catmullRomSamples(_planOffsets, samplesPerSeg: 16);
+  }
+
   void _onTick(Duration _) {
     // 呼吸脉冲：所有状态都持续（idle/paused/finished 都要保持"当前位置"呼吸感）
     final now = DateTime.now();
@@ -144,9 +236,15 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     if (_status != _PatrolStatus.running) return;
     final elapsed = now.difference(_startedAt!) - _pausedTotal;
     if (elapsed.inMilliseconds < 0) return;
+    final linear = (elapsed.inMilliseconds / _totalMs).clamp(0.0, 1.0);
+    // ease-in-out（Cubic Bezier 近似）：起步慢→中段匀速→收尾减速，
+    // 让"模拟人走"看起来更自然，而不是匀速机械推进。
+    final eased = linear < 0.5
+        ? 4 * linear * linear * linear
+        : 1 - math.pow(-2 * linear + 2, 3) / 2;
     setState(() {
       _elapsed = elapsed;
-      _progress = (elapsed.inMilliseconds / _totalMs).clamp(0.0, 1.0);
+      _progress = eased.toDouble();
       if (_progress >= 1.0) {
         _status = _PatrolStatus.finished;
         _progress = 1.0;
@@ -271,7 +369,40 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   }
 
   void _showHistory() {
-    AppSnack.show(context, '已加载 3 条历史巡场轨迹', kind: AppSnackKind.muted);
+    if (_historyRecords.isEmpty) {
+      AppSnack.show(context, '暂无历史巡场轨迹', kind: AppSnackKind.muted);
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTokens.patrolSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      // sheet 关闭后强制刷新一次底图叠加（处理"关闭时清空"等场景）。
+      builder: (ctx) => _HistorySheet(
+        records: _historyRecords,
+        initiallyVisible: _visibleHistoryIdxs,
+        onChanged: (visible) {
+          if (!mounted) return;
+          setState(() {
+            _visibleHistoryIdxs = visible;
+            // 像素化缓存失效，下一帧按新可见集合重算。
+            _historyPxCached = false;
+          });
+        },
+      ),
+    ).then((_) {
+      if (!mounted) return;
+      setState(() {
+        // 关闭弹窗时若已全部取消勾选，清空 painter 入参，底图恢复干净。
+        if (_visibleHistoryIdxs.isEmpty) {
+          _historyTracks = const [];
+          _historyColors = const [];
+          _historyPxCached = false;
+        }
+      });
+    });
   }
 
   @override
@@ -403,12 +534,18 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
               final pts = _planOffsets
                   .map((p) => Offset(p.dx * pw / 100, p.dy * ph / 100))
                   .toList();
+              // 历史轨迹首次绘制时按当前底图尺寸像素化。
+              _ensureHistoryPixelized(pw, ph);
               // idle 时把"当前位置"放在路径起点（与 prototype 一致）；
-              // running/paused/finished 时跟随 _progress。
+              // running/paused/finished 时跟随 _progress（已 ease-in-out）。
               final progressForCurrent =
                   _status == _PatrolStatus.idle ? 0.0 : _progress;
-              final cur = pointAtProgress(_planOffsets, progressForCurrent);
-              final curPx = Offset(cur.dx * pw / 100, cur.dy * ph / 100);
+              // 沿样条按弧长插值 → 像素坐标（先做 0~100 空间的样条插值，再缩放到底图）。
+              final samples = _getPlanSamples(); // 0~100 空间的样条采样
+              final samplesPx = samples
+                  .map((p) => Offset(p.dx * pw / 100, p.dy * ph / 100))
+                  .toList();
+              final curPx = pointAtProgress(samplesPx, progressForCurrent);
               return Center(
                 // P0：InteractiveViewer 支持双指捏合/滚轮放大 12× 与单指/鼠标拖动平移。
                 child: InteractiveViewer(
@@ -435,6 +572,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                             currentPos: curPx,
                             pulse: _pulse,
                             crossingSegs: _crossingSegs,
+                            historyTracks: _historyTracks,
+                            historyColors: _historyColors,
                           ),
                         ),
                       ],
@@ -694,6 +833,300 @@ class _SubBtn extends StatelessWidget {
                           : AppTokens.patrolMuted.withValues(alpha: 0.5))),
             ],
           ),
+        ),
+      );
+}
+
+/// 历史轨迹底部弹窗：列出已加载的历史巡场记录。
+/// 默认**全部不勾选**——勾选状态才会叠加到底图，未勾选时底图保持干净。
+/// 关闭弹窗时若已无勾选，自动清空底图叠加（已由父级回调处理）。
+class _HistorySheet extends StatefulWidget {
+  final List<PatrolRecord> records;
+  final Set<int> initiallyVisible;
+  final ValueChanged<Set<int>> onChanged;
+  const _HistorySheet({
+    required this.records,
+    required this.initiallyVisible,
+    required this.onChanged,
+  });
+
+  @override
+  State<_HistorySheet> createState() => _HistorySheetState();
+}
+
+class _HistorySheetState extends State<_HistorySheet> {
+  /// 用户主动勾选的集合；初始为空（默认底图干净）。
+  late Set<int> _visible = {...widget.initiallyVisible};
+
+  void _toggle(int i, bool v) {
+    setState(() {
+      if (v) {
+        _visible.add(i);
+      } else {
+        _visible.remove(i);
+      }
+      widget.onChanged(_visible);
+    });
+  }
+
+  void _selectAll(bool v) {
+    setState(() {
+      _visible = v ? {for (var i = 0; i < widget.records.length; i++) i} : {};
+      widget.onChanged(_visible);
+    });
+  }
+
+  // 与父级 painter 同一调色板：紫→粉→橙（时间倒序）。
+  static const _palette = <Color>[
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF59E0B),
+  ];
+
+  Color _colorFor(int idx, int total) {
+    if (total <= 1) return _palette.first;
+    final ci = (idx * (_palette.length - 1) / (total - 1)).round();
+    return _palette[ci.clamp(0, _palette.length - 1)];
+  }
+
+  String _formatTime(int ms) {
+    if (ms == 0) return '—';
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}/${two(d.month)}/${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  String _durationStr(int startedAt, int finishedAt) {
+    if (startedAt == 0 || finishedAt == 0) return '未完成';
+    final s = ((finishedAt - startedAt) / 1000).round();
+    final m = s ~/ 60, ss = s % 60;
+    return '$m分${ss}秒';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = widget.records.length;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 顶栏：标题 + 计数 + 全选 + 关闭
+            Row(
+              children: [
+                const Text('历史巡场轨迹',
+                    style: TextStyle(
+                        color: AppTokens.patrolFg,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTokens.patrolSurface2,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                      '已加载 $n 条${_visible.isNotEmpty ? ' · 已选 ${_visible.length}' : ''}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppTokens.patrolMuted)),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () =>
+                      _selectAll(_visible.length < n),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: AppTokens.patrolFg,
+                  ),
+                  child: Text(
+                    _visible.length < n ? '全选' : '全不选',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(MingCuteIcons.closeLine,
+                      size: 18, color: AppTokens.patrolMuted),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: '关闭',
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text('勾选后叠加到底图（默认不显示，保持底图干净）',
+                style: TextStyle(
+                    color: AppTokens.patrolMuted, fontSize: 12)),
+            const SizedBox(height: 12),
+            // 列表
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: n,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (ctx, i) {
+                  final r = widget.records[i];
+                  final checked = _visible.contains(i);
+                  final c = _colorFor(i, n);
+                  return InkWell(
+                    onTap: () => _toggle(i, !checked),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTokens.patrolSurface2,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: checked
+                                ? c.withValues(alpha: 0.7)
+                                : AppTokens.patrolBorder
+                                    .withValues(alpha: 0.4),
+                            width: checked ? 1.4 : 1),
+                      ),
+                      child: Row(
+                        children: [
+                          // 自绘 checkbox + 色块
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: checked
+                                  ? c
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: checked
+                                      ? c
+                                      : AppTokens.patrolBorder,
+                                  width: 1.2),
+                            ),
+                            alignment: Alignment.center,
+                            child: checked
+                                ? const Icon(
+                                    MingCuteIcons.checkLine,
+                                    size: 12,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 10),
+                          // 色相色带
+                          Container(
+                            width: 4,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: c,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(r.name,
+                                          overflow:
+                                              TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              color:
+                                                  AppTokens.patrolFg,
+                                              fontSize: 14,
+                                              fontWeight:
+                                                  FontWeight.w600)),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                        _durationStr(r.startedAt,
+                                            r.finishedAt),
+                                        style: const TextStyle(
+                                            color: AppTokens.patrolMuted,
+                                            fontSize: 12)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    _MetricChip(
+                                        label: '里程',
+                                        value:
+                                            '${r.distKm.toStringAsFixed(2)} km'),
+                                    const SizedBox(width: 8),
+                                    _MetricChip(
+                                        label: '点数',
+                                        value: '${r.pointCount}'),
+                                    const SizedBox(width: 8),
+                                    _MetricChip(
+                                        label: '问题',
+                                        value: '${r.issueCount}',
+                                        highlight: r.issueCount > 0),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                    '开始 ${_formatTime(r.startedAt)}'
+                                    '${r.finishedAt > 0 ? '  ·  结束 ${_formatTime(r.finishedAt)}' : ''}',
+                                    style: const TextStyle(
+                                        color: AppTokens.patrolMuted,
+                                        fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+  const _MetricChip(
+      {required this.label, required this.value, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: highlight
+              ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+              : AppTokens.patrolSurface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$label ',
+                style: const TextStyle(
+                    color: AppTokens.patrolMuted, fontSize: 11)),
+            Text(value,
+                style: TextStyle(
+                    color: highlight
+                        ? const Color(0xFFEF4444)
+                        : AppTokens.patrolFg,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ],
         ),
       );
 }

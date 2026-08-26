@@ -572,12 +572,15 @@ final List<PatrolPlan> seedPatrolPlans = [
     totalKm: 0.52, // 保留原演示里程（图纸未校准时兜底）
     points: _nkfPlanPoints(),
   ),
-  /// 7栋 B05 默认推荐路线：全局巡场（沿四周走廊走一圈，覆盖 4 个检查点）。
+  /// 7栋 B05 默认推荐路线：符合工程巡场习惯的"沿主通道分区巡查"环形路线。
   ///
   /// 点位基于 B05 墙线（assets/walls/dy04_7_B05_walls.json）实测排布——
-  /// 中央有矩形房间 (15,25)-(40,25)-(40,75)-(15,75)，右侧有隔墙 (55,15)-(55,50)-(85,50)。
-  /// 推荐路线沿最外围走廊走、不横穿任何墙体（x=10 / x=90 两竖走廊、
-  /// y=10 / y=80 两横走廊围合），符合工程巡场习惯。
+  /// 校准后中央主体为封闭矩形房间 x∈[15,35.5]、y∈[25,94]（无门，不进入），
+  /// 顶部走廊 y≈10、右侧通道 x≈90、底部走廊 y≈88、左侧走廊 x≈10 为可巡查通道；
+  /// 顶部走廊在 x∈[55,85]、y=25 处有一道短隔墙，需从两端绕行。
+  /// 推荐路线（顺时针）：顶部走廊签到 → 右侧通道（弱电/强电/消防）→
+  /// 底部通道（设备房C）→ 左侧走廊（管井A）返回，覆盖所有可用通道与各功能间，
+  /// 检查点落在关键设备间/签到点；全程不横穿任何墙体。
   const PatrolPlan(
     id: 'dy7_default',
     projectId: 'tencent-dy04-7',
@@ -585,15 +588,131 @@ final List<PatrolPlan> seedPatrolPlans = [
     name: 'B1 地下室夹层·全局巡场',
     floor: 'B1',
     points: [
-      PatrolPoint(dx: 10, dy: 10),
-      PatrolPoint(dx: 55, dy: 10, isCheckpoint: true),
-      PatrolPoint(dx: 90, dy: 10),
-      PatrolPoint(dx: 90, dy: 45, isCheckpoint: true),
-      PatrolPoint(dx: 90, dy: 80),
-      PatrolPoint(dx: 55, dy: 80, isCheckpoint: true),
-      PatrolPoint(dx: 10, dy: 80),
-      PatrolPoint(dx: 10, dy: 45, isCheckpoint: true),
-      PatrolPoint(dx: 10, dy: 10),
+      PatrolPoint(dx: 10, dy: 10, isCheckpoint: true), // 起点·顶部走廊西·签到
+      PatrolPoint(dx: 50, dy: 10, isCheckpoint: true), // 顶部走廊·楼梯前室
+      PatrolPoint(dx: 90, dy: 10), // 顶部走廊最东·管井
+      PatrolPoint(dx: 90, dy: 45, isCheckpoint: true), // 右侧通道·弱电间
+      PatrolPoint(dx: 90, dy: 80), // 右侧通道南·强电间
+      PatrolPoint(dx: 85, dy: 88), // 右下角·消防
+      PatrolPoint(dx: 55, dy: 88, isCheckpoint: true), // 底部右侧通道·设备房C
+      PatrolPoint(dx: 40, dy: 96), // 下到中央房正下方外侧通道（绕开封闭主体）
+      PatrolPoint(dx: 10, dy: 96), // 左下外侧通道
+      PatrolPoint(dx: 10, dy: 45, isCheckpoint: true), // 左侧走廊·管井A
+      PatrolPoint(dx: 10, dy: 10), // 回到起点
+    ],
+  ),
+];
+
+// ==================== 历史巡场轨迹（演示用，阶段三接真实 GPS 记录）====================
+
+/// 3 条历史巡场轨迹 mock：均绑定 B05 图纸，包含屏幕相对坐标轨迹点（x/y 0~100），
+/// 在底图上以样条曲线叠加展示，颜色区分新旧。
+const List<PatrolRecord> seedPatrolRecords = [
+  // 最早：8/15 全程走完，28 点
+  PatrolRecord(
+    id: 'rec_2026-08-15',
+    planId: 'dy7_default',
+    projectId: 'tencent-dy04-7',
+    drawingKey: 'dy04_7_B05',
+    name: '8/15 上午巡场',
+    startedAt: 1755238800000,
+    finishedAt: 1755240600000,
+    distKm: 0.42,
+    pointCount: 28,
+    issueCount: 1,
+    track: [
+      {'x': 10, 'y': 10},
+      {'x': 18, 'y': 12},
+      {'x': 30, 'y': 11},
+      {'x': 42, 'y': 12},
+      {'x': 50, 'y': 10},
+      {'x': 62, 'y': 12},
+      {'x': 78, 'y': 11},
+      {'x': 90, 'y': 18},
+      {'x': 90, 'y': 30},
+      {'x': 90, 'y': 45},
+      {'x': 90, 'y': 60},
+      {'x': 90, 'y': 80},
+      {'x': 85, 'y': 88},
+      {'x': 70, 'y': 88},
+      {'x': 55, 'y': 88},
+      {'x': 40, 'y': 96},
+      {'x': 25, 'y': 96},
+      {'x': 10, 'y': 96},
+      {'x': 10, 'y': 80},
+      {'x': 10, 'y': 65},
+      {'x': 10, 'y': 45},
+      {'x': 10, 'y': 30},
+      {'x': 10, 'y': 18},
+      {'x': 10, 'y': 10},
+    ],
+  ),
+  // 第二次：8/22 中段有偏移（人为绕路检查一处问题），18 点
+  PatrolRecord(
+    id: 'rec_2026-08-22',
+    planId: 'dy7_default',
+    projectId: 'tencent-dy04-7',
+    drawingKey: 'dy04_7_B05',
+    name: '8/22 下午巡场（南侧偏移）',
+    startedAt: 1755843600000,
+    finishedAt: 1755845040000,
+    distKm: 0.36,
+    pointCount: 18,
+    issueCount: 0,
+    track: [
+      {'x': 10, 'y': 10},
+      {'x': 22, 'y': 12},
+      {'x': 38, 'y': 10},
+      {'x': 50, 'y': 12},
+      {'x': 70, 'y': 11},
+      {'x': 90, 'y': 14},
+      {'x': 90, 'y': 32},
+      {'x': 90, 'y': 50},
+      {'x': 90, 'y': 70},
+      {'x': 90, 'y': 82},
+      {'x': 75, 'y': 90},
+      {'x': 55, 'y': 88},
+      {'x': 35, 'y': 92},
+      {'x': 18, 'y': 94},
+      {'x': 10, 'y': 90},
+      {'x': 10, 'y': 60},
+      {'x': 10, 'y': 30},
+      {'x': 10, 'y': 10},
+    ],
+  ),
+  // 最近：8/25 走了一半（暂停/未完成），20 点
+  PatrolRecord(
+    id: 'rec_2026-08-25',
+    planId: 'dy7_default',
+    projectId: 'tencent-dy04-7',
+    drawingKey: 'dy04_7_B05',
+    name: '8/25 上午巡场（未完成）',
+    startedAt: 1756093200000,
+    finishedAt: 0,
+    distKm: 0.21,
+    pointCount: 20,
+    issueCount: 0,
+    track: [
+      {'x': 10, 'y': 10},
+      {'x': 24, 'y': 11},
+      {'x': 42, 'y': 12},
+      {'x': 50, 'y': 10},
+      {'x': 66, 'y': 12},
+      {'x': 82, 'y': 11},
+      {'x': 90, 'y': 18},
+      {'x': 90, 'y': 32},
+      {'x': 90, 'y': 45},
+      {'x': 90, 'y': 56},
+      {'x': 90, 'y': 68},
+      {'x': 90, 'y': 78},
+      {'x': 88, 'y': 86},
+      {'x': 78, 'y': 88},
+      {'x': 60, 'y': 88},
+      {'x': 45, 'y': 94},
+      {'x': 28, 'y': 96},
+      {'x': 10, 'y': 94},
+      {'x': 10, 'y': 78},
+      {'x': 10, 'y': 62},
     ],
   ),
 ];
