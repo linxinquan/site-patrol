@@ -268,8 +268,8 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
                   const SizedBox(height: 1),
                   Text(
                     '${_cnDate(m.date)} · ${m.done ? '已完成' : m.current ? '进行中' : '未开始'}',
-                    style: const TextStyle(
-                        fontSize: 11.5, color: AppTokens.muted),
+                    style:
+                        const TextStyle(fontSize: 11.5, color: AppTokens.muted),
                   ),
                 ],
               ),
@@ -560,95 +560,96 @@ class _MilestoneChip extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              // 顶部：日期（短格式 MM-DD）
-              SizedBox(
-                height: 16,
-                child: Text(
-                  _shortDate(m.date),
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    color: dateColor,
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                // 顶部：日期（短格式 MM-DD）
+                SizedBox(
+                  height: 16,
+                  child: Text(
+                    _shortDate(m.date),
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: dateColor,
+                      fontWeight: FontWeight.w600,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
-              ),
-              // 中部：左连接线 + 圆点 + 右连接线（圆点中心在 Row 垂直中心）
-              SizedBox(
-                height: 18,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // 左连接线（首项不画）
-                    if (!isFirst)
-                      Expanded(
-                        child: Container(
-                          height: 2,
-                          margin: const EdgeInsets.only(right: 1),
-                          color: lineColor,
+                // 中部：左连接线 + 圆点 + 右连接线（圆点中心在 Row 垂直中心）
+                SizedBox(
+                  height: 18,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // 左连接线（首项不画）
+                      if (!isFirst)
+                        Expanded(
+                          child: Container(
+                            height: 2,
+                            margin: const EdgeInsets.only(right: 1),
+                            color: lineColor,
+                          ),
                         ),
-                      ),
-                    // 圆点
-                    Container(
-                      width: isCurrent ? 12 : 10,
-                      height: isCurrent ? 12 : 10,
-                      decoration: BoxDecoration(
-                        color: dotColor,
-                        shape: BoxShape.circle,
-                        border: isCurrent
-                            ? Border.all(
-                                color: AppTokens.accent.withValues(alpha: 0.22),
-                                width: 3)
-                            : null,
-                      ),
-                      child: isDone
-                          ? const Icon(LucideIcons.check,
-                              size: 7, color: Colors.white)
-                          : isCurrent
-                              ? Center(
-                                  child: Container(
-                                    width: 5,
-                                    height: 5,
-                                    decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle),
-                                  ),
-                                )
+                      // 圆点
+                      Container(
+                        width: isCurrent ? 12 : 10,
+                        height: isCurrent ? 12 : 10,
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                          border: isCurrent
+                              ? Border.all(
+                                  color:
+                                      AppTokens.accent.withValues(alpha: 0.22),
+                                  width: 3)
                               : null,
-                    ),
-                    // 右连接线（末项不画）
-                    if (!isLast)
-                      Expanded(
-                        child: Container(
-                          height: 2,
-                          margin: const EdgeInsets.only(left: 1),
-                          color: lineColor,
                         ),
+                        child: isDone
+                            ? const Icon(LucideIcons.check,
+                                size: 7, color: Colors.white)
+                            : isCurrent
+                                ? Center(
+                                    child: Container(
+                                      width: 5,
+                                      height: 5,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle),
+                                    ),
+                                  )
+                                : null,
                       ),
-                  ],
+                      // 右连接线（末项不画）
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            height: 2,
+                            margin: const EdgeInsets.only(left: 1),
+                            color: lineColor,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 5),
-              // 底部：节点名称（最多 2 行）
-              Text(
-                m.name,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: nameWeight,
-                  color: nameColor,
-                  letterSpacing: -0.1,
-                  height: 1.3,
+                const SizedBox(height: 5),
+                // 底部：节点名称（最多 2 行）
+                Text(
+                  m.name,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: nameWeight,
+                    color: nameColor,
+                    letterSpacing: -0.1,
+                    height: 1.3,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
   }
 }
 
@@ -757,6 +758,28 @@ class _QuickActions extends ConsumerWidget {
                   onTap: () => context.go('/defects'),
                 ),
                 _QuickCard(
+                  icon: LucideIcons.mic,
+                  title: '语音记录',
+                  subtitle: '离线可用',
+                  tint: AppTokens.accent,
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: AppTokens.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(AppTokens.radiusLg),
+                      ),
+                    ),
+                    builder: (_) => VoiceInputSheet(
+                      onResult: (text) {
+                        AppSnack.show(context, '已识别：$text',
+                            kind: AppSnackKind.success);
+                      },
+                    ),
+                  ),
+                ),
+                _QuickCard(
                   icon: LucideIcons.layers,
                   title: '图层索引',
                   subtitle: '快速定位',
@@ -769,28 +792,6 @@ class _QuickActions extends ConsumerWidget {
                   subtitle: '蓝图预览',
                   tint: AppTokens.warning,
                   onTap: () => context.push('/blueprint'),
-                ),
-                _QuickCard(
-                  icon: LucideIcons.mic,
-                  title: '语音记录',
-                  subtitle: '离线可用',
-                  tint: AppTokens.accent,
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppTokens.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppTokens.radiusLg),
-                      ),
-                    ),
-                    builder: (_) => VoiceInputSheet(
-                      onResult: (text) {
-                        AppSnack.show(context, '已识别：$text',
-                            kind: AppSnackKind.success);
-                      },
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -1395,9 +1396,7 @@ class _EventRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(event.day,
                       style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTokens.muted,
-                          height: 1.2)),
+                          fontSize: 12, color: AppTokens.muted, height: 1.2)),
                 ],
               ),
             ),
