@@ -122,7 +122,7 @@ class HomePage extends ConsumerWidget {
           ),
           const SizedBox(height: AppTokens.space3), // 项目指标 → 快捷操作 间距 12
 
-          // —— 快捷操作（横向滑动，每张卡更紧凑）——
+          // —— 快捷操作（4×2 网格，自适应屏宽，不横向滑动）——
           floors.maybeWhen(
             data: (fs) => _QuickActions(floors: fs),
             orElse: () => const _QuickActions(floors: _mockDataFloors),
@@ -686,117 +686,110 @@ DateTime _prevNodeStart(List<Milestone> ms, int currentIdx) {
   return prev ?? DateTime(2020, 1, 1);
 }
 
-// ==================== 快捷操作（横向滑动，更紧凑） ====================
+// ==================== 快捷操作（4×2 网格，自适应屏宽，不横向滑动） ====================
 class _QuickActions extends ConsumerWidget {
   final List<Floor> floors;
   const _QuickActions({required this.floors});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => SizedBox(
-        height: 78,
-        child: ScrollConfiguration(
-          // 让鼠标也能拖拽 / 滚轮横向滚动（Web 默认仅触摸可滚）
-          behavior: _MouseDragScrollBehavior(),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: EdgeInsets.zero,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _QuickCard(
-                  icon: LucideIcons.navigation,
-                  title: '开始巡场',
-                  subtitle: '离线可用',
-                  tint: AppTokens.accent,
-                  onTap: () => context.go('/patrol'),
-                ),
-                _QuickCard(
-                  icon: LucideIcons.camera,
-                  title: '拍照验收',
-                  subtitle: 'AI 识别',
-                  tint: AppTokens.brand,
-                  onTap: () => context.push('/capture'),
-                ),
-                _QuickCard(
-                  icon: LucideIcons.folderOpen,
-                  title: '打开图纸',
-                  subtitle: '${floors.length} 张',
-                  tint: AppTokens.success,
-                  onTap: () => context.go('/projects'),
-                ),
-                _QuickCard(
-                  icon: LucideIcons.box,
-                  title: 'AR量尺',
-                  subtitle: 'iPhone Pro',
-                  tint: AppTokens.brand,
-                  onTap: () {
-                    final projectKey = ref.read(currentProjectIdProvider) ?? '';
-                    final floor = floors.firstOrNull;
-                    if (floor == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('当前项目没有可用图纸，无法使用AR量尺')),
-                      );
-                      return;
-                    }
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => ArMeasurePage(
-                        args: MeasureArgs(
-                          projectKey: projectKey,
-                          drawingKey: floor.key,
-                          floor: floor.name,
-                        ),
-                      ),
-                    ));
-                  },
-                ),
-                _QuickCard(
-                  icon: LucideIcons.listChecks,
-                  title: '缺陷列表',
-                  subtitle: '查看全部',
-                  tint: AppTokens.warning,
-                  onTap: () => context.go('/defects'),
-                ),
-                _QuickCard(
-                  icon: LucideIcons.mic,
-                  title: '语音记录',
-                  subtitle: '离线可用',
-                  tint: AppTokens.accent,
-                  onTap: () => showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppTokens.surface,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppTokens.radiusLg),
-                      ),
-                    ),
-                    builder: (_) => VoiceInputSheet(
-                      onResult: (text) {
-                        AppSnack.show(context, '已识别：$text',
-                            kind: AppSnackKind.success);
-                      },
-                    ),
+  Widget build(BuildContext context, WidgetRef ref) => GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 18,
+        childAspectRatio: 0.82,
+        children: [
+          _QuickCard(
+            icon: LucideIcons.navigation,
+            title: '开始巡场',
+            subtitle: '离线可用',
+            tint: AppTokens.accent,
+            onTap: () => context.go('/patrol'),
+          ),
+          _QuickCard(
+            icon: LucideIcons.camera,
+            title: '拍照验收',
+            subtitle: 'AI 识别',
+            tint: AppTokens.brand,
+            onTap: () => context.push('/capture'),
+          ),
+          _QuickCard(
+            icon: LucideIcons.folderOpen,
+            title: '打开图纸',
+            subtitle: '${floors.length} 张',
+            tint: AppTokens.success,
+            onTap: () => context.go('/projects'),
+          ),
+          _QuickCard(
+            icon: LucideIcons.box,
+            title: 'AR量尺',
+            subtitle: 'iPhone Pro',
+            tint: AppTokens.brand,
+            onTap: () {
+              final projectKey = ref.read(currentProjectIdProvider) ?? '';
+              final floor = floors.firstOrNull;
+              if (floor == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('当前项目没有可用图纸，无法使用AR量尺')),
+                );
+                return;
+              }
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => ArMeasurePage(
+                  args: MeasureArgs(
+                    projectKey: projectKey,
+                    drawingKey: floor.key,
+                    floor: floor.name,
                   ),
                 ),
-                _QuickCard(
-                  icon: LucideIcons.layers,
-                  title: '图层索引',
-                  subtitle: '快速定位',
-                  tint: AppTokens.success,
-                  onTap: () => context.go('/projects'),
+              ));
+            },
+          ),
+          _QuickCard(
+            icon: LucideIcons.listChecks,
+            title: '缺陷列表',
+            subtitle: '查看全部',
+            tint: AppTokens.warning,
+            onTap: () => context.go('/defects'),
+          ),
+          _QuickCard(
+            icon: LucideIcons.mic,
+            title: '语音记录',
+            subtitle: '离线可用',
+            tint: AppTokens.accent,
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: AppTokens.surface,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppTokens.radiusLg),
                 ),
-                _QuickCard(
-                  icon: LucideIcons.fileText,
-                  title: 'PDF 原稿',
-                  subtitle: '蓝图预览',
-                  tint: AppTokens.warning,
-                  onTap: () => context.push('/blueprint'),
-                ),
-              ],
+              ),
+              builder: (_) => VoiceInputSheet(
+                onResult: (text) {
+                  AppSnack.show(context, '已识别：$text',
+                      kind: AppSnackKind.success);
+                },
+              ),
             ),
           ),
-        ),
+          _QuickCard(
+            icon: LucideIcons.layers,
+            title: '图层索引',
+            subtitle: '快速定位',
+            tint: AppTokens.success,
+            onTap: () => context.go('/projects'),
+          ),
+          _QuickCard(
+            icon: LucideIcons.fileText,
+            title: 'PDF 原稿',
+            subtitle: '蓝图预览',
+            tint: AppTokens.warning,
+            onTap: () => context.push('/blueprint'),
+          ),
+        ],
       );
 }
 
@@ -815,54 +808,49 @@ class _QuickCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 92,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            height: 78,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [tint, tint.withValues(alpha: 0.72)],
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
               ),
-              borderRadius: BorderRadius.circular(12),
+              child: Icon(icon, size: 26, color: tint),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 26, color: Colors.white),
-                const SizedBox(height: 6),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    height: 20 / 13,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w400,
-                    height: 16 / 11,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 20 / 13,
+                color: AppTokens.fg,
+              ),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w400,
+                height: 16 / 11,
+                color: AppTokens.muted,
+              ),
+            ),
+          ],
         ),
       );
 }
