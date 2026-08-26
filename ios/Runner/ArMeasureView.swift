@@ -145,8 +145,8 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         let iy = ip.y * imgRes.height
         guard ix >= 0, iy >= 0, ix < imgRes.width, iy < imgRes.height else { return nil }
 
-        guard let depthMap = depthData.depthMap,
-              let confMap = depthData.confidenceMap else { return nil }
+        let depthMap = depthData.depthMap
+        guard let confMap = depthData.confidenceMap else { return nil }
         CVPixelBufferLockBaseAddress(depthMap, .readOnly)
         CVPixelBufferLockBaseAddress(confMap, .readOnly)
         defer {
