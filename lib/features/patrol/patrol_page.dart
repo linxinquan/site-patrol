@@ -54,8 +54,11 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   Set<int> _crossingSegs = const {};
 
   // 历史巡场轨迹（已按底图缩放的绝对坐标序列），用于底图叠加显示。
+  // 默认隐藏（空），用户从「历史轨迹」面板勾选后才会注入。
   List<List<Offset>> _historyTracks = const [];
   List<Color> _historyColors = const [];
+  // 当前"可见"的历史记录下标集合（来自 _HistorySheet 的勾选）。
+  Set<int> _visibleHistoryIdxs = const {};
 
   @override
   void initState() {
@@ -132,11 +135,20 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   double _historyPxH = 0;
 
   /// 把历史记录按当前底图实际像素尺寸换算为绝对坐标，并按时间倒序分配冷→暖色。
+  /// 仅对 _visibleHistoryIdxs 集合中的记录做像素化（其它默认不画，避免底图被杂色淹没）。
   void _ensureHistoryPixelized(double pw, double ph) {
     if (_historyPxCached &&
         _historyPxW == pw &&
         _historyPxH == ph &&
-        _historyTracks.length == _historyRecords.length) {
+        _historyTracks.length == _visibleHistoryIdxs.length) {
+      return;
+    }
+    if (_visibleHistoryIdxs.isEmpty) {
+      _historyTracks = const [];
+      _historyColors = const [];
+      _historyPxCached = true;
+      _historyPxW = pw;
+      _historyPxH = ph;
       return;
     }
     // 配色：越新越暖（紫→红→橙）。
@@ -147,8 +159,12 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     ];
     final tracks = <List<Offset>>[];
     final colors = <Color>[];
+    // 按时间顺序遍历（i=0 最旧，i=N-1 最新），便于分配冷→暖。
+    final visibleSorted = _visibleHistoryIdxs.toList()..sort();
     final n = _historyRecords.length;
-    for (var i = 0; i < n; i++) {
+    for (var j = 0; j < visibleSorted.length; j++) {
+      final i = visibleSorted[j];
+      if (i < 0 || i >= n) continue;
       final r = _historyRecords[i];
       if (r.track.isEmpty) continue;
       final pts = <Offset>[];
@@ -159,8 +175,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       }
       if (pts.length >= 2) {
         tracks.add(pts);
-        // n=3 时 [紫,粉,橙]（旧→新）；i=0 最旧 → 紫
-        final ci = n <= 1 ? 0 : (i * (palette.length - 1) ~/ (n - 1));
+        final ci = visibleSorted.length <= 1
+            ? 0
+            : (j * (palette.length - 1) ~/ (visibleSorted.length - 1));
         colors.add(palette[ci.clamp(0, palette.length - 1)]);
       }
     }
@@ -362,12 +379,30 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      // sheet 关闭后强制刷新一次底图叠加（处理"关闭时清空"等场景）。
       builder: (ctx) => _HistorySheet(
         records: _historyRecords,
-        historyColors: _historyColors,
-        historyTracks: _historyTracks,
+        initiallyVisible: _visibleHistoryIdxs,
+        onChanged: (visible) {
+          if (!mounted) return;
+          setState(() {
+            _visibleHistoryIdxs = visible;
+            // 像素化缓存失效，下一帧按新可见集合重算。
+            _historyPxCached = false;
+          });
+        },
       ),
-    );
+    ).then((_) {
+      if (!mounted) return;
+      setState(() {
+        // 关闭弹窗时若已全部取消勾选，清空 painter 入参，底图恢复干净。
+        if (_visibleHistoryIdxs.isEmpty) {
+          _historyTracks = const [];
+          _historyColors = const [];
+          _historyPxCached = false;
+        }
+      });
+    });
   }
 
   @override
@@ -802,16 +837,17 @@ class _SubBtn extends StatelessWidget {
       );
 }
 
-/// 历史轨迹底部弹窗：列出已加载的历史巡场记录，叠加到当前底图上。
-/// 图例 = 历史颜色（与底图叠加一致），点击单条记录可暂时隐藏/显示。
+/// 历史轨迹底部弹窗：列出已加载的历史巡场记录。
+/// 默认**全部不勾选**——勾选状态才会叠加到底图，未勾选时底图保持干净。
+/// 关闭弹窗时若已无勾选，自动清空底图叠加（已由父级回调处理）。
 class _HistorySheet extends StatefulWidget {
   final List<PatrolRecord> records;
-  final List<Color> historyColors;
-  final List<List<Offset>> historyTracks;
+  final Set<int> initiallyVisible;
+  final ValueChanged<Set<int>> onChanged;
   const _HistorySheet({
     required this.records,
-    required this.historyColors,
-    required this.historyTracks,
+    required this.initiallyVisible,
+    required this.onChanged,
   });
 
   @override
@@ -819,7 +855,39 @@ class _HistorySheet extends StatefulWidget {
 }
 
 class _HistorySheetState extends State<_HistorySheet> {
-  late Set<int> _hidden = {};
+  /// 用户主动勾选的集合；初始为空（默认底图干净）。
+  late Set<int> _visible = {...widget.initiallyVisible};
+
+  void _toggle(int i, bool v) {
+    setState(() {
+      if (v) {
+        _visible.add(i);
+      } else {
+        _visible.remove(i);
+      }
+      widget.onChanged(_visible);
+    });
+  }
+
+  void _selectAll(bool v) {
+    setState(() {
+      _visible = v ? {for (var i = 0; i < widget.records.length; i++) i} : {};
+      widget.onChanged(_visible);
+    });
+  }
+
+  // 与父级 painter 同一调色板：紫→粉→橙（时间倒序）。
+  static const _palette = <Color>[
+    Color(0xFF8B5CF6),
+    Color(0xFFEC4899),
+    Color(0xFFF59E0B),
+  ];
+
+  Color _colorFor(int idx, int total) {
+    if (total <= 1) return _palette.first;
+    final ci = (idx * (_palette.length - 1) / (total - 1)).round();
+    return _palette[ci.clamp(0, _palette.length - 1)];
+  }
 
   String _formatTime(int ms) {
     if (ms == 0) return '—';
@@ -835,15 +903,9 @@ class _HistorySheetState extends State<_HistorySheet> {
     return '$m分${ss}秒';
   }
 
-  Color _colorFor(int idx) {
-    final n = widget.historyColors.length;
-    if (n == 0) return const Color(0xFF6B7280);
-    final i = idx.clamp(0, n - 1);
-    return widget.historyColors[i];
-  }
-
   @override
   Widget build(BuildContext context) {
+    final n = widget.records.length;
     return SafeArea(
       top: false,
       child: Padding(
@@ -852,7 +914,7 @@ class _HistorySheetState extends State<_HistorySheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 顶栏：标题 + 关闭
+            // 顶栏：标题 + 计数 + 全选 + 关闭
             Row(
               children: [
                 const Text('历史巡场轨迹',
@@ -868,12 +930,28 @@ class _HistorySheetState extends State<_HistorySheet> {
                     color: AppTokens.patrolSurface2,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('已加载 ${widget.records.length} 条',
+                  child: Text(
+                      '已加载 $n 条${_visible.isNotEmpty ? ' · 已选 ${_visible.length}' : ''}',
                       style: const TextStyle(
                           fontSize: 11,
                           color: AppTokens.patrolMuted)),
                 ),
                 const Spacer(),
+                TextButton(
+                  onPressed: () =>
+                      _selectAll(_visible.length < n),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    foregroundColor: AppTokens.patrolFg,
+                  ),
+                  child: Text(
+                    _visible.length < n ? '全选' : '全不选',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(MingCuteIcons.closeLine,
                       size: 18, color: AppTokens.patrolMuted),
@@ -883,7 +961,7 @@ class _HistorySheetState extends State<_HistorySheet> {
               ],
             ),
             const SizedBox(height: 4),
-            const Text('点击单条可暂时隐藏/显示对应历史轨迹',
+            const Text('勾选后叠加到底图（默认不显示，保持底图干净）',
                 style: TextStyle(
                     color: AppTokens.patrolMuted, fontSize: 12)),
             const SizedBox(height: 12),
@@ -892,19 +970,14 @@ class _HistorySheetState extends State<_HistorySheet> {
               constraints: const BoxConstraints(maxHeight: 360),
               child: ListView.separated(
                 shrinkWrap: true,
-                itemCount: widget.records.length,
+                itemCount: n,
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
                 itemBuilder: (ctx, i) {
                   final r = widget.records[i];
-                  final hidden = _hidden.contains(i);
+                  final checked = _visible.contains(i);
+                  final c = _colorFor(i, n);
                   return InkWell(
-                    onTap: () => setState(() {
-                      if (hidden) {
-                        _hidden.remove(i);
-                      } else {
-                        _hidden.add(i);
-                      }
-                    }),
+                    onTap: () => _toggle(i, !checked),
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -912,43 +985,71 @@ class _HistorySheetState extends State<_HistorySheet> {
                         color: AppTokens.patrolSurface2,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                            color: hidden
-                                ? AppTokens.patrolBorder.withValues(alpha: 0.3)
-                                : _colorFor(i).withValues(alpha: 0.5),
-                            width: hidden ? 1 : 1.2),
+                            color: checked
+                                ? c.withValues(alpha: 0.7)
+                                : AppTokens.patrolBorder
+                                    .withValues(alpha: 0.4),
+                            width: checked ? 1.4 : 1),
                       ),
                       child: Row(
                         children: [
-                          // 颜色色块（也作为"显示/隐藏"的状态指示）
+                          // 自绘 checkbox + 色块
+                          Container(
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: checked
+                                  ? c
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                  color: checked
+                                      ? c
+                                      : AppTokens.patrolBorder,
+                                  width: 1.2),
+                            ),
+                            alignment: Alignment.center,
+                            child: checked
+                                ? const Icon(
+                                    MingCuteIcons.checkLine,
+                                    size: 12,
+                                    color: Colors.white,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 10),
+                          // 色相色带
                           Container(
                             width: 4,
                             height: 36,
                             decoration: BoxDecoration(
-                              color: hidden
-                                  ? AppTokens.patrolMuted
-                                      .withValues(alpha: 0.4)
-                                  : _colorFor(i),
+                              color: c,
                               borderRadius: BorderRadius.circular(2),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                               children: [
                                 Row(
                                   children: [
-                                    Text(r.name,
-                                        style: TextStyle(
-                                            color: hidden
-                                                ? AppTokens.patrolMuted
-                                                : AppTokens.patrolFg,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600)),
-                                    const Spacer(),
+                                    Expanded(
+                                      child: Text(r.name,
+                                          overflow:
+                                              TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              color:
+                                                  AppTokens.patrolFg,
+                                              fontSize: 14,
+                                              fontWeight:
+                                                  FontWeight.w600)),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Text(
-                                        _durationStr(
-                                            r.startedAt, r.finishedAt),
+                                        _durationStr(r.startedAt,
+                                            r.finishedAt),
                                         style: const TextStyle(
                                             color: AppTokens.patrolMuted,
                                             fontSize: 12)),
@@ -981,16 +1082,6 @@ class _HistorySheetState extends State<_HistorySheet> {
                                         fontSize: 11)),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            hidden
-                                ? MingCuteIcons.circleDashLine
-                                : MingCuteIcons.eyeLine,
-                            size: 16,
-                            color: hidden
-                                ? AppTokens.patrolMuted
-                                : _colorFor(i),
                           ),
                         ],
                       ),
