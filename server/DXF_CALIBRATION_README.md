@@ -1,5 +1,33 @@
 # DXF → 自动校准种子生成
 
+## 轴网交点自动套图校准（建筑工程标准做法）
+
+已实现 `lib/core/cad/axis_auto_calibration.dart`（算法 + 测试全部通过）：
+
+**原理**：底图（PDF 渲染）上的轴线交点与 CAD 中的轴网交点是**同一几何网格**，
+分处像素坐标系与毫米坐标系。算法自动做：
+1. 底图侧：`detectAxisLines` 识别横/竖轴线 → `axisIntersections` 求交点（像素）
+2. CAD 侧：从 DXF 轴网层提取交点（毫米）→ 打包 JSON 随 App 加载
+3. `matchAxisGridDeterministic`：利用轴网**行列结构**一维投票匹配（X/Y 方向独立
+   求 scale 与平移），组合行列对应 → 交点对
+4. `fitAffineRobust` 最小二乘仿射拟合 → 全自动 <1mm 校准
+
+同时修复了一个重要 bug：`fitAffineLeastSquares` 的 Y 维 d/e 系数顺序与
+`CadCoordMapper.screenToWorld` 语义不符（无旋转时无影响，含旋转的完整仿射
+拟合会出错）——现已交换修正，手动多点校准与自动套图均受益。
+
+**数据需求**：CAD 侧轴网交点须从**含完整轴网的 DXF** 提取。天正 DWG 经 ODA
+直转会丢失天正自定义轴网对象（实测 D01 只剩竖线、B01 几何全在块内）。
+→ **需在装有天正的机器上用「文件布图 → 整图导出 → T3（2013）」** 导出
+`B01_T3.dxf`（组合平面轴网最完整），我再用 `extract_axis_intersections.py`
+提取交点 JSON 打包进 App，即可全自动套图校准。
+
+`extract_axis_intersections.py` 用法：
+```bat
+cd /d F:\建筑验收工具\site-patrol\server
+python extract_axis_intersections.py server\dwg_cache\B01_T3.dxf server\axis_data\dy04_7_B01.json
+```
+
 ## 最新状态（2026-08-26）
 
 - ✅ **ODA File Converter 已在本机安装**：`C:\Program Files\ODA\ODAFileConverter 27.1.0\OdaFileConverter.exe`

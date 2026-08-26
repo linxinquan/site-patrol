@@ -177,9 +177,11 @@ class AffineFitResult {
 
 /// 完整 6 参数仿射最小二乘拟合（支持旋转/斜交失真）。
 ///
-/// 模型（full affine）：
+/// 内部建模：
 ///   worldX = a*px + b*py + c
-///   worldY = d*px + e*py + f
+///   worldY = dY*px + eY*py + f
+/// 返回的 [CadCoordMapper] 已按 `screenToWorld` 语义（Y = d*py + e*px + f，
+/// d 是 py 系数）交换 d/e。
 ///
 /// [pairs] 需 ≥3 组且像素点不共线；[imgW]/[imgH] 仅用于构造 mapper 的视图尺寸。
 /// 返回 null 表示秩亏（共线/太少）无法解算。
@@ -237,11 +239,14 @@ CadCoordMapper? fitAffineLeastSquares(
   );
   if (bx == null || by == null) return null;
 
+  // ★ 注意：此处解出的 Y 维系数为 worldY = by[0]*px + by[1]*py + by[2]，
+  //   而 CadCoordMapper.screenToWorld 的 Y 维语义为 wy = d*py + e*px + f
+  //   （d 是 py 系数）。因此需交换 by[0]↔by[1] 再传给 mapper。
   return CadCoordMapper.fromAffine(
     viewWidth: imgW,
     viewHeight: imgH,
     a: bx[0], b: bx[1], c: bx[2],
-    d: by[0], e: by[1], f: by[2],
+    d: by[1], e: by[0], f: by[2],
   );
 }
 
