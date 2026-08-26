@@ -108,15 +108,64 @@ class _ViewerState extends ConsumerState<_Viewer> {
   @override
   void initState() {
     super.initState();
-    // 加载本图纸的坐标校准（离线本地存储）。
+    // 加载本图纸的坐标校准（离线本地存储），并自动尝试校准（默认自动）。
     Future.microtask(() async {
       if (!mounted) return;
       await loadCadCalibration(ref, widget.d.key);
       // 从校准库读取原始浏览器 JSON（清单已含），供校准弹窗预填。
       _persistedRawJson =
           await ref.read(calibrationLibraryProvider).readRaw(widget.d.key);
+      // ★ 默认自动校准：图纸未校准时，自动尝试内置种子/内置演示坐标系，
+      //    让"打开即带坐标"，不依赖浏览器端手动导出 JSON。
+      if (ref.read(cadCalibrationMapProvider)[widget.d.key] == null) {
+        await _autoCalibrateSilently();
+      }
       if (mounted) setState(() {});
     });
+  }
+
+  /// 静默自动校准：图纸未校准时尝试内置种子校准（随包预置，B05 已验证 <2mm）。
+  /// 无种子则回退内置演示坐标系（图纸中心=原点），保证"打开即有坐标可用"。
+  Future<void> _autoCalibrateSilently() async {
+    final d = widget.d;
+    try {
+      // 1) 优先用随包内置的真实种子（若本图在种子表内）。
+      final builtin = _builtinCalibrationFor(d);
+      if (builtin != null) {
+        await saveCadCalibration(ref, d.key, builtin, null);
+        _persistedRawJson = null;
+        return;
+      }
+      // 2) 无真实种子：应用内置演示坐标系（图纸中心=原点），
+      //    使打点/量尺在当前图仍可用（精度取决于图幅，现场可再手动精校）。
+      final scale = ((d.w / 1489) + (d.h / 844)) / 2;
+      final demo = CadCoordMapper.fromAffine(
+        viewWidth: d.w,
+        viewHeight: d.h,
+        a: 1 / scale,
+        d: -1 / scale,
+        c: -d.w / 2 / scale,
+        f: d.h / 2 / scale,
+      );
+      await saveCadCalibration(ref, d.key, demo, null);
+    } catch (_) {
+      // 自动校准失败不打扰用户，仍可手动校准。
+    }
+  }
+
+  /// 返回本图纸的随包内置真实校准（目前仅 B05 有，验证 <2mm）；无则 null。
+  CadCoordMapper? _builtinCalibrationFor(Drawing d) {
+    if (d.key == 'dy04_7_B05') {
+      return CadCoordMapper.fromAffine(
+        viewWidth: d.w,
+        viewHeight: d.h,
+        a: 0.3308888888888889,
+        d: -0.3308888888888889,
+        c: -359.3091448275862,
+        f: 852.4496763746746,
+      );
+    }
+    return null;
   }
 
   @override
