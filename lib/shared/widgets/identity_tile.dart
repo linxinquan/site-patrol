@@ -3,7 +3,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 
 /// 身份选择卡（共用组件）：选择身份页与首页切换用户底部弹层共用。
-/// 白底圆角 12、高 72、padding 12、头像 48 + 姓名/角色徽标一行 + 单位一行。
+/// 白底圆角 12、最小高 72、padding 12、头像 48 + 姓名/角色徽标一行 + 单位一行。
 /// 选中：1px 蓝边框 #428BF7（透明边框占位，避免内容位移）。
 class IdentityTile extends StatelessWidget {
   final User user;
@@ -35,7 +35,7 @@ class IdentityTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 72,
+        constraints: const BoxConstraints(minHeight: 72),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppTokens.surface,
