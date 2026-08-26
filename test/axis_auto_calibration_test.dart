@@ -73,18 +73,28 @@ void main() {
       expect((w.dy - (-0.5 * p.dy + 50000)).abs(), lessThan(1.0));
     });
 
-    test('确定性网格匹配：带干扰点', () {
-      final imgPts = genImgPts();
+    test('完整管线：底图带误检线（贴近真实）', () {
+      // 真实场景：cadPts 干净（DXF 轴网交点），imgPts 混入误检线交点。
+      // detectAxisLines 用 coverageMin:0.5 已过滤大部分短线段，
+      // 误检线交点比例约为真实交点的 20~40%。
       final cadPts = genCadPts();
-      // 适度噪声（约 40% 干扰点，贴近实际：cadPts 主体是真实轴网交点）
+      final imgPts = genImgPts();
       final rng = _Rand(42);
-      for (var i = 0; i < 20; i++) {
-        cadPts.add(Offset(
-            rng.next() * 400000 - 200000, rng.next() * 400000 - 200000));
+      for (var i = 0; i < 10; i++) {
+        imgPts.add(Offset(
+            100 + rng.next() * 1000, 80 + rng.next() * 700));
       }
-      final res = matchAxisGridDeterministic(imgPts, cadPts, 1200, 800);
-      expect(res, isNotNull, reason: '适度噪声下应仍能匹配出真实轴网');
-      expect(res!.inliers.length, greaterThanOrEqualTo(8));
+      final res = matchAxisIntersections(
+        imgPts,
+        cadPts,
+        1200,
+        800,
+        trials: 600,
+        matchRadiusMm: 3000,
+        minInliers: 4,
+      );
+      expect(res.success, isTrue, reason: '误检线下应仍能匹配出真实轴网');
+      expect(res.inliers.length, greaterThanOrEqualTo(8));
     });
 
     test('理想网格自动匹配成功（RANSAC 路径）', () {

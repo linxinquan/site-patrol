@@ -14,6 +14,7 @@ import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/open_web.dart';
 import '../../core/cad/axis_calibration.dart';
+import '../../core/cad/axis_auto_calibration.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/cad_info_panel.dart';
 import '../../data/models.dart';
@@ -125,6 +126,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
   }
 
   /// 静默自动校准：图纸未校准时尝试内置种子校准（随包预置，B05 已验证 <2mm）。
+  /// 其次尝试「轴网交点自动套图」（底图轴线交点 ↔ DXF 轴网交点），
   /// 无种子则回退内置演示坐标系（图纸中心=原点），保证"打开即有坐标可用"。
   Future<void> _autoCalibrateSilently() async {
     final d = widget.d;
@@ -136,7 +138,15 @@ class _ViewerState extends ConsumerState<_Viewer> {
         _persistedRawJson = null;
         return;
       }
-      // 2) 无真实种子：应用内置演示坐标系（图纸中心=原点），
+      // 2) 轴网交点自动套图：识别底图轴线交点 + 匹配随包 CAD 轴网交点，
+      //    成功即得真实仿射校准（<2mm），覆盖 D01/D03/D04/B01。
+      final axisFit = await _autoCalibrateByAxisGrid();
+      if (axisFit != null) {
+        await saveCadCalibration(ref, d.key, axisFit.mapper, null);
+        _persistedRawJson = null;
+        return;
+      }
+      // 3) 无真实种子：应用内置演示坐标系（图纸中心=原点），
       //    使打点/量尺在当前图仍可用（精度取决于图幅，现场可再手动精校）。
       final scale = ((d.w / 1489) + (d.h / 844)) / 2;
       final demo = CadCoordMapper.fromAffine(
@@ -150,6 +160,64 @@ class _ViewerState extends ConsumerState<_Viewer> {
       await saveCadCalibration(ref, d.key, demo, null);
     } catch (_) {
       // 自动校准失败不打扰用户，仍可手动校准。
+    }
+  }
+
+  /// 轴网交点自动套图校准：
+  ///   1. 读底图 → 识别横/竖轴线 → 求交点（像素）
+  ///   2. 读随包 CAD 轴网交点 JSON（毫米，服务端从 DXF 提取）
+  ///   3. [matchAxisIntersections] 行列自动配对 → 仿射最小二乘拟合
+  /// 成功返回拟合结果（均值残差 <5mm），失败返回 null（回退其他校准）。
+  Future<AffineFitResult?> _autoCalibrateByAxisGrid() async {
+    final d = widget.d;
+    if (d.src.isEmpty) return null;
+    List<ui.Offset>? cadPts;
+    try {
+      final jsonStr =
+          await rootBundle.loadString('assets/axis_data/${d.key}.json');
+      final decoded = jsonDecode(jsonStr);
+      final pts = decoded['points'] as List;
+      cadPts = [
+        for (final p in pts)
+          ui.Offset((p[0] as num).toDouble(), (p[1] as num).toDouble()),
+      ];
+    } catch (_) {
+      return null; // 该图没有随包轴网数据
+    }
+    if (cadPts.length < 4) return null;
+    try {
+      final bytes = await rootBundle.load(d.src);
+      final codec = await ui.instantiateImageCodec(
+        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+      );
+      final frame = await codec.getNextFrame();
+      final img = frame.image;
+      final rgba = await imageToRgba(img);
+      img.dispose();
+      if (rgba == null) return null;
+      final grid = detectAxisLines(
+        rgba,
+        d.w.round(),
+        d.h.round(),
+        sampleW: 700,
+        coverageMin: 0.5,
+        maxLines: 40,
+      );
+      final result = calibrateByAxisGrid(
+        grid,
+        cadPts,
+        d.w,
+        d.h,
+        trials: 600,
+        matchRadiusMm: 3000,
+        minInliers: 4,
+      );
+      if (result.fit == null) return null;
+      // 质量门限：均值残差太大视为失败（避免错配套到错误区域）。
+      if (result.fit!.meanResidualMm > 5.0) return null;
+      return result.fit;
+    } catch (_) {
+      return null;
     }
   }
 

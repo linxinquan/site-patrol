@@ -525,9 +525,9 @@ AxisMatchResult? matchAxisGridDeterministic(
   if (mx == null || my == null) return null;
 
   // 行列对应：每个底图坐标 → 最近的 CAD 坐标（依据 scale/tx）。
-  // 容差固定 3mm（投票后投影误差 <1mm；轴网间距通常 >3m，不会错配到相邻格，
-  // 也避免被排序最前的干扰点把容差压到 0）。
-  const alignTolMm = 3.0;
+  // 容差自适应：detectAxisLines 用 min-pooling 降采样，轴线质心会有几个像素
+  // 误差（sampleW≈700 时约 ±4px），故容差取 scale*4px 与 5mm 的较大者。
+  final alignTolMm = math.max(5.0, mx.scale * 4.0);
   List<(double, double)> alignX(List<double> img, List<double> cad,
       double scale, double tx) {
     final out = <(double, double)>[];
@@ -570,8 +570,11 @@ AxisMatchResult? matchAxisGridDeterministic(
       pairs.add(CalibPointPair(pixel: p, world: ui.Offset(cx, cy)));
     }
   }
-  // 覆盖率校验：真实场景底图交点应大部分落在 CAD 轴网上
-  if (pairs.length < math.max(3, (imgPts.length * 0.5).ceil())) return null;
+  // 覆盖率校验：真实场景底图检测会混入墙线/文字等非轴网线，交点里可能
+  // 只有一部分落在 CAD 轴网上。放宽到 25% 且至少 6 个配对，由后续
+  // 仿射拟合残差把关（均值残差 >10mm 仍判失败），避免错误套图。
+  final minPairs = math.max(6, (imgPts.length * 0.25).ceil());
+  if (pairs.length < minPairs) return null;
 
   final fit = fitAffineRobust(
     pairs,
@@ -640,19 +643,26 @@ AxisMatchResult? matchAxisGridDeterministic(
   final sMid = bestRatio;
 
   // 2) 在 sMid 附近 ±5% 精细扫描投票平移 tx。
-  //    tol 控制 tx 量化精度：干扰点会拉大 spanC，故设上限 2mm，
-  //    保证 tx 误差 <2mm（align 容差 3mm 可接受）。
+  //    用「差值投票」消除绝对偏移敏感：以第一条线为基准，投影间距
+  //    imgGap_i*scale 与 cad 相邻间距匹配，tol 取 CAD 平均间距的 1/10
+  //    （轴网像素误差 ±4px 放大的 mm 误差远小于 1/10 间距）。
   int bestMatches = -1;
   double bestS = sMid, bestT = 0;
-  final tol = math.min(2.0, math.max(0.1, spanC / 2000.0));
+  // tol 取「真实网格间距」的 1/10：用中位数估计网格间距，
+  // 避免随机干扰点产生的超大/超小间距拉偏平均值。
+  final sortedGaps = cadGaps.toList()..sort();
+  final medCadGap = sortedGaps.length >= 3
+      ? sortedGaps[sortedGaps.length ~/ 2]
+      : (sortedGaps.isNotEmpty ? sortedGaps.last : spanC / math.max(1, cadCoords.length - 1));
+  final tol = math.max(1.0, medCadGap / 10.0);
   for (var k = 0; k <= 200; k++) {
     final s = sMid * (0.95 + 0.1 * k / 200.0);
     if (s < minScale || s > maxScale) continue;
     final votes = <int, int>{};
-    for (final ic in imgCoords) {
-      final proj = ic * s;
-      for (final cc in cadCoords) {
-        final t = cc - proj;
+    for (var ii = 0; ii < imgCoords.length; ii++) {
+      final base = imgCoords[ii] * s;
+      for (var ci = 0; ci < cadCoords.length; ci++) {
+        final t = cadCoords[ci] - base;
         final bin = (t / tol).round();
         votes[bin] = (votes[bin] ?? 0) + 1;
       }
@@ -678,7 +688,8 @@ AxisMatchResult? matchAxisGridDeterministic(
 /// 已用翻转后的 imgYf 匹配，需把匹配结果映射回原始 imgY。
 List<(double, double)> alignY(List<double> imgYs, List<double> cadYs,
     double scale, double tx) {
-  const alignTolMm = 3.0;
+  // 与 alignX 相同的自适应容差：容忍 min-pooling 的像素级误差。
+  final alignTolMm = math.max(5.0, scale * 4.0);
   final out = <(double, double)>[];
   for (final y in imgYs) {
     final proj = (-y) * scale + tx; // imgY 翻转后映射

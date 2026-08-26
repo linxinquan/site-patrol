@@ -40,6 +40,7 @@ flutter:
     - assets/icons/
     - assets/walls/
     - assets/fonts/
+    - assets/axis_data/
   fonts:
     - family: MingCute
       fonts:
