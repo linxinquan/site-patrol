@@ -60,3 +60,5 @@ _flutter_run.log
 server/dwg_cache/
 server/ocf_cache.zip
 *.dxf
+# 轴网交点提取中间产物（正式数据在 assets/axis_data/）
+server/axis_data/
