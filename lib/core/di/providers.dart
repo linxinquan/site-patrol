@@ -153,28 +153,93 @@ Future<void> applyCalibrationLibrary(WidgetRef ref) async {
   ref.read(cadCalibrationMapProvider.notifier).state = current;
 }
 
-/// 启动期一次性预置：把 B05（地下室夹层组合平面图）的演示校准系数写入本地单图存储，
-/// 使测量模块在全新 web 环境下也能直接走通图纸侧量距流程。
+/// 启动期一次性预置：把所有"随包内置"图纸的出厂校准系数写入本地单图存储 + 内存 map，
+/// 使 AR量尺 /拍照校核等不打开图纸查看页的页面也能立即读到"已校准"状态，
+/// 用户不再被要求"先校准再量尺"。
 ///
-/// 注意：这是【演示值】——日志(08-18)记录 B05 系数含系统性恒定偏移（X 偏 0.5mm、Y 偏 1.6mm），
-/// 真实精度需现场用浏览器校准弹窗重新获取并保存。本 seed 仅在「该图尚未校准」时写入，
-/// 不会覆盖用户已保存的真实校准数据。
+/// 注：本表与 `drawing_viewer_page._builtinCalibrationFor` 共用同一组系数。
+/// B05 是真实视口校准（<2mm），其余图纸为估算初值（量级正确，偏移/比例需现场
+/// 用「图上多点校准」精修至 <2mm）。仅在「该图尚未校准」时写入，不覆盖用户保存值。
 Future<void> seedDefaultCalibrations(WidgetRef ref) async {
-  const b05Key = 'dy04_7_B05';
   final store = ref.read(cadCalibrationStoreProvider);
-  final existing = await store.readCalibration(b05Key);
-  if (existing != null) return; // 已校准过（可能是真实值），不覆盖
-  final mapper = CadCoordMapper.fromAffine(
-    viewWidth: 4500,
-    viewHeight: 2551,
-    a: 0.3308888888888889,
-    b: 0,
-    c: -359.3091448275862,
-    d: -0.3308888888888889,
-    e: 0,
-    f: 852.4496763746746,
-  );
-  await store.saveCalibration(b05Key, mapper);
+  for (final d in [...drawings.values, ...dy7Drawings.values]) {
+    final mapper = builtinCalibrationFor(d);
+    if (mapper == null) continue;
+    final existing = await store.readCalibration(d.key);
+    if (existing == null) {
+      await store.saveCalibration(d.key, mapper);
+    }
+    // 无论是否已持久化，都把内置种子灌入内存 map（确保不打开图纸查看页也能读到）。
+    final map = {
+      ...ref.read(cadCalibrationMapProvider),
+      d.key: existing ?? mapper,
+    };
+    ref.read(cadCalibrationMapProvider.notifier).state = map;
+  }
+}
+
+/// 随包内置的出厂校准（与图纸查看页的 `_builtinCalibrationFor` 同步）。
+/// 返回 null 表示该图纸没有出厂种子，需依赖图纸查看页的运行时自动校准
+///（轴网交点自动套图 + 最小二乘拟合）。
+CadCoordMapper? builtinCalibrationFor(Drawing d) {
+  if (d.key == 'dy04_7_B05') {
+    return CadCoordMapper.fromAffine(
+      viewWidth: d.w,
+      viewHeight: d.h,
+      a: 0.3308888888888889,
+      b: 0,
+      c: -359.3091448275862,
+      d: -0.3308888888888889,
+      e: 0,
+      f: 852.4496763746746,
+    );
+  }
+  // D01 / D03 剖面图：DXF 标注 1:150，估算初值（按 A2 图幅 594×420mm + 等比例推算）。
+  if (d.key == 'dy04_7_D01') {
+    const a = 37.125;
+    const cxWorld = -93635.5;
+    const cyWorld = 885940.0;
+    return CadCoordMapper.fromAffine(
+      viewWidth: d.w, viewHeight: d.h,
+      a: a, d: -a,
+      c: cxWorld - a * (d.w / 2),
+      f: cyWorld + a * (d.h / 2),
+    );
+  }
+  if (d.key == 'dy04_7_D03') {
+    const a = 37.125;
+    const cxWorld = -1179.0;
+    const cyWorld = 787783.5;
+    return CadCoordMapper.fromAffine(
+      viewWidth: d.w, viewHeight: d.h,
+      a: a, d: -a,
+      c: cxWorld - a * (d.w / 2),
+      f: cyWorld + a * (d.h / 2),
+    );
+  }
+  // D04 同 D03 估算（无 axis_data 自动匹配，按 1:150 + A2 等比）。
+  if (d.key == 'dy04_7_D04') {
+    const a = 37.125;
+    const cxWorld = 0.0;
+    const cyWorld = 800000.0;
+    return CadCoordMapper.fromAffine(
+      viewWidth: d.w, viewHeight: d.h,
+      a: a, d: -a,
+      c: cxWorld - a * (d.w / 2),
+      f: cyWorld + a * (d.h / 2),
+    );
+  }
+  // B01 组合平面图：按 A0 图框（1189×841mm）+ 1:250 + 竖线匹配 a≈24.88 估算。
+  if (d.key == 'dy04_7_B01') {
+    const a = 24.88;
+    const c = 291881.8;
+    const f = 1300500.0;
+    return CadCoordMapper.fromAffine(
+      viewWidth: d.w, viewHeight: d.h,
+      a: a, d: -a, c: c, f: f,
+    );
+  }
+  return null;
 }
 
 /// 启动期初始化 Provider（一次性触发校准 seed + 库灌入）。

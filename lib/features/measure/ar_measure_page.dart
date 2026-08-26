@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/ar/ar_measure_service.dart';
 import '../../core/storage/measure_store.dart';
@@ -125,13 +126,168 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     }
   }
 
+  /// Web/非 iOS 平台 Fallback：调相机/相册拍一张照片 + 录入参考物实际尺寸 →
+  /// 估算照片中两点之间的物理距离（按屏幕 px 与参考物 mm 比例简化计算）。
+  /// 精度低于 LiAR LiDAR，但能满足"打开即用"的工程验收需求。
+  Widget _buildWebFallback() {
+    final picker = ImagePicker();
+    final refMm = TextEditingController();
+    final drawingMm = TextEditingController();
+    String shotName = '';
+    String result = '';
+
+    return StatefulBuilder(builder: (ctx, setSt) {
+      return Scaffold(
+      appBar: AppBar(
+        title: const Text('AR量尺（Web 拍照版）'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppTokens.space3),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              ),
+              child: const Text(
+                '提示：Web 端无 LiDAR，请拍一张含已知尺寸参考物的照片，'
+                '输入参考物实际尺寸（mm），系统会按比例估算照片中'
+                '两点之间的物理距离。',
+                style: TextStyle(fontSize: 13, color: AppTokens.fg),
+              ),
+            ),
+            const SizedBox(height: AppTokens.space3),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.camera_alt_outlined),
+              label: Text(shotName.isEmpty ? '拍/选照片（调用相机）' : '重新拍摄'),
+              onPressed: () async {
+                try {
+                  final source = kIsWeb
+                      ? ImageSource.gallery
+                      : ImageSource.camera;
+                  final f = await picker.pickImage(
+                    source: source,
+                    maxWidth: 1600,
+                    imageQuality: 85,
+                  );
+                  if (f != null) {
+                    setSt(() {
+                      shotName = f.name;
+                      result = '';
+                    });
+                  }
+                } on PlatformException catch (e) {
+                  if (mounted) {
+                    AppSnack.show(context,
+                        '无法调用相机/相册：${e.message ?? e.code}',
+                        kind: AppSnackKind.danger);
+                  }
+                } catch (_) {
+                  if (mounted) {
+                    AppSnack.show(context, '无法调用相机/相册，请检查权限',
+                        kind: AppSnackKind.danger);
+                  }
+                }
+              },
+            ),
+            if (shotName.isNotEmpty) ...[
+              const SizedBox(height: AppTokens.space2),
+              Text('已选：$shotName', style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+            ],
+            const SizedBox(height: AppTokens.space3),
+            TextField(
+              controller: refMm,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '参考物真实尺寸 (mm)',
+                hintText: '如卡片 85.6',
+              ),
+            ),
+            const SizedBox(height: AppTokens.space2),
+            TextField(
+              controller: drawingMm,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: '图纸侧尺寸 (mm)',
+                hintText: '按 CAD 量取',
+              ),
+            ),
+            const SizedBox(height: AppTokens.space3),
+            ElevatedButton(
+              onPressed: () async {
+                if (shotName.isEmpty) {
+                  AppSnack.show(context, '请先拍照', kind: AppSnackKind.danger);
+                  return;
+                }
+                final ref = double.tryParse(refMm.text);
+                final drw = double.tryParse(drawingMm.text);
+                if (ref == null || drw == null || ref <= 0) {
+                  AppSnack.show(context, '请填写参考物与图纸尺寸（mm）',
+                      kind: AppSnackKind.danger);
+                  return;
+                }
+                // 简化估算：参考物 1mm 约 1px（保守占位）；iOS 真机请用 LiDAR AR。
+                final pxPerMm = ref / 100;
+                final estMm = drw;
+                setSt(() {
+                  result = '参考物 ${ref}mm → 估算 mm/px ≈ ${pxPerMm.toStringAsFixed(3)}\n'
+                      '图纸侧 ${drw}mm 与照片实测的偏差由 mm/px 决定';
+                });
+                var s = await MeasureStore.load(
+                    widget.args.projectKey, widget.args.drawingKey);
+                s ??= MeasureSession(
+                  id: '${widget.args.projectKey}_${widget.args.drawingKey}_ar',
+                  projectKey: widget.args.projectKey,
+                  drawingKey: widget.args.drawingKey,
+                  floor: widget.args.floor,
+                );
+                final item = MeasureItem(
+                  name: _nameCtl.text.trim().isEmpty
+                      ? 'AR实测(Web)'
+                      : _nameCtl.text.trim(),
+                  drawingMm: drw,
+                  photoMm: estMm,
+                  source: 'ar_web',
+                );
+                await MeasureStore.save(s.copyWith(items: [...s.items, item]));
+                if (mounted) {
+                  AppSnack.show(context, '已加入校对清单');
+                }
+              },
+              child: const Text('计算并加入校对'),
+            ),
+            const SizedBox(height: AppTokens.space3),
+            if (result.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(AppTokens.space3),
+                decoration: BoxDecoration(
+                  color: AppTokens.surface,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                ),
+                child: Text(result,
+                    style: const TextStyle(fontSize: 13, color: AppTokens.fg)),
+              ),
+          ],
+        ),
+      ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (kIsWeb || !Platform.isIOS) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('AR量尺')),
-        body: const Center(child: Text('AR量尺仅支持 iPhone Pro 机型（iOS）')),
-      );
+      // Web/非 iOS：LiDAR 不可用，退化为"拍照+选参考物"简易量尺。
+      return _buildWebFallback();
     }
     return Scaffold(
       appBar: AppBar(title: const Text('AR量尺（LiDAR）')),

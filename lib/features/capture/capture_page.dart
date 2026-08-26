@@ -268,12 +268,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   /// 确认已选坐标 → 进入拍照步骤。
-  void _confirmPointAndCapture() {
-    if (_anchorLabel == '待选点') {
-      AppSnack.show(context, '请先在图纸上点选部位', kind: AppSnackKind.danger);
-      return;
-    }
+  /// 用户选点后直接调用相机（一步到位），不再要求锚点吸附成功：
+  /// 选点本身已足以定位，「已选部位:待选点」只是用户没在最近锚点 0.12 半径内，
+  /// 不应阻塞拍照。
+  Future<void> _confirmPointAndCapture() async {
+    // _x 默认 0，但选点后会 setState 到具体值；这里用 _anchorLabel 仍为初始'待选点'
+    // 的旧值不可靠，改成不再校验（_x 在 _onTapDrawing 里必被赋值）。
     setState(() => _step = _CaptureStep.capture);
+    await _doCapture();
   }
 
   // —— 图纸坐标换算 ——
