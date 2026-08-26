@@ -195,6 +195,22 @@ class _ViewerState extends ConsumerState<_Viewer> {
         f: cyWorld + a * (d.h / 2),
       );
     }
+    // B01 地下一层顶板组合平面图：DXF 已转(138.9MB, server/dwg_cache/B01.dxf)。
+    // 天正组合平面，模型空间坐标异常(跨度达 1.5e8mm)，无法自动锁定比例/偏移。
+    // 以下为估算初值(按 1:100 + A1 图幅推算)，量级参考，需 App「图上多点校准」精修。
+    if (d.key == 'dy04_7_B01') {
+      const a = 18.67; // 841mm(图面 A1 宽) * 100 / 4500px（估算）
+      const cxWorld = 75093910.0; // 模型空间 extents 中心 X（异常坐标系，仅作初值锚点）
+      const cyWorld = 88584708.0; // 模型空间 extents 中心 Y
+      return CadCoordMapper.fromAffine(
+        viewWidth: d.w,
+        viewHeight: d.h,
+        a: a,
+        d: -a,
+        c: cxWorld - a * (d.w / 2),
+        f: cyWorld + a * (d.h / 2),
+      );
+    }
     return null;
   }
 

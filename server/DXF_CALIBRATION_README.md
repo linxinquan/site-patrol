@@ -3,12 +3,12 @@
 ## 最新状态（2026-08-26）
 
 - ✅ **ODA File Converter 已在本机安装**：`C:\Program Files\ODA\ODAFileConverter 27.1.0\OdaFileConverter.exe`
-- ✅ **D01 / D03 已成功转为 DXF**：`server/dwg_cache/D01.dxf`、`D03_D04.dxf`
-- ✅ **D01 / D03 内置估算种子已写入** `drawing_viewer_page.dart` 的 `_builtinCalibrationFor`，
-  按 1:150 剖面比例推算（量级正确），App 打开即近似自动校准。
-- ⏳ **B01 源文件损坏**：当前 `server/dwg_cache/B01.dwg` 实际是 429 字节的 XML 错误页（非真实图纸），
-  转换失败（`B01.dxf.err`）。**需你重新提供真实 B01.dwg**，然后我会自动转 DXF 并补种子。
-- ⏳ **D01 / D03 的 c/f 偏移需精修**：因天正模型空间大坐标 + 底图为局部渲染，无法自动锁定偏移。
+- ✅ **D01 / D03 / B01 已成功转为 DXF**：`server/dwg_cache/D01.dxf`、`D03_D04.dxf`、`B01.dxf`
+- ✅ **三张图内置估算种子已写入** `drawing_viewer_page.dart` 的 `_builtinCalibrationFor`：
+  - B05：真实视口校准（<2mm，已验证）
+  - D01 / D03：剖面图 1:150 估算初值，App 打开即近似自动校准
+  - B01：地下一层顶板组合平面图，天正组合平面（模型空间跨度异常 ~1.5e8mm），按 1:100+A1 估算初值
+- ⏳ **三张图的最终 c/f 偏移需精修**：天正模型空间大坐标 + 底图为局部渲染，无法自动锁定偏移。
   **请在 App 内用「图上多点校准」录入 2~3 个已知坐标点，即可收敛到 <2mm 并持久化**（内置种子作为初始值）。
 
 ## 自动转换（已固化脚本）
