@@ -151,6 +151,184 @@ AxisGrid detectAxisLines(
   );
 }
 
+/// 一组校准点对：像素坐标 + 真实图纸坐标（mm）。
+class CalibPointPair {
+  final ui.Offset pixel;
+  final ui.Offset world;
+  const CalibPointPair({required this.pixel, required this.world});
+}
+
+/// 最小二乘仿射拟合结果。
+class AffineFitResult {
+  final CadCoordMapper mapper;
+  /// 各点在世界坐标下的残差（欧氏距离，mm），与输入点对一一对应。
+  final List<double> residuals;
+  /// 平均残差（mm），可用于提示校准质量。
+  final double meanResidualMm;
+  /// 最大残差（mm）。
+  final double maxResidualMm;
+  const AffineFitResult({
+    required this.mapper,
+    required this.residuals,
+    required this.meanResidualMm,
+    required this.maxResidualMm,
+  });
+}
+
+/// 完整 6 参数仿射最小二乘拟合（支持旋转/斜交失真）。
+///
+/// 模型（full affine）：
+///   worldX = a*px + b*py + c
+///   worldY = d*px + e*py + f
+///
+/// [pairs] 需 ≥3 组且像素点不共线；[imgW]/[imgH] 仅用于构造 mapper 的视图尺寸。
+/// 返回 null 表示秩亏（共线/太少）无法解算。
+CadCoordMapper? fitAffineLeastSquares(
+  List<CalibPointPair> pairs,
+  double imgW,
+  double imgH,
+) {
+  if (pairs.length < 3) return null;
+  // 构造正规方程 A^T A x = A^T b（3 未知数/输出维度）。
+  // X 维：列 [px, py, 1] → 未知 [a, b, c]
+  // Y 维：列 [px, py, 1] → 未知 [d, e, f]
+  var sxx = 0.0, syy = 0.0, sx = 0.0, sy = 0.0, n = 0.0;
+  var sxy = 0.0, sxw = 0.0, syw = 0.0, sw = 0.0;
+  for (final p in pairs) {
+    final px = p.pixel.dx, py = p.pixel.dy;
+    final wx = p.world.dx;
+    n += 1;
+    sx += px;
+    sy += py;
+    sxx += px * px;
+    syy += py * py;
+    sxy += px * py;
+    sxw += px * wx;
+    syw += py * wx;
+    sw += wx;
+  }
+  // 正规方程矩阵 M = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]]
+  final det = _det3(
+    sxx, sxy, sx,
+    sxy, syy, sy,
+    sx, sy, n,
+  );
+  if (det.abs() < 1e-12) return null; // 共线或退化
+
+  // X 维解 [a, b, c]
+  final bx = _solve3(
+    sxx, sxy, sx, sxw,
+    sxy, syy, sy, syw,
+    sx, sy, n, sw,
+  );
+  // Y 维（同样的 M，右侧换 [sx, sy, n]×worldY 项）
+  var sxwY = 0.0, sywY = 0.0, swY = 0.0;
+  for (final p in pairs) {
+    final px = p.pixel.dx, py = p.pixel.dy;
+    final wy = p.world.dy;
+    sxwY += px * wy;
+    sywY += py * wy;
+    swY += wy;
+  }
+  final by = _solve3(
+    sxx, sxy, sx, sxwY,
+    sxy, syy, sy, sywY,
+    sx, sy, n, swY,
+  );
+  if (bx == null || by == null) return null;
+
+  return CadCoordMapper.fromAffine(
+    viewWidth: imgW,
+    viewHeight: imgH,
+    a: bx[0], b: bx[1], c: bx[2],
+    d: by[0], e: by[1], f: by[2],
+  );
+}
+
+/// 最小二乘拟合 + 残差剔除（稳健版）。
+///
+/// 策略：先全量拟合一次 → 计算每点残差 → 剔除残差 > [maxResidualMm] 的点
+/// → 用剩余点重拟合（最多迭代 [maxIters] 次）。处理手点个别点歪导致的偏移。
+/// 返回 null 表示最终剩余点 <3。
+AffineFitResult? fitAffineRobust(
+  List<CalibPointPair> pairs,
+  double imgW,
+  double imgH, {
+  double maxResidualMm = 50,
+  int maxIters = 3,
+}) {
+  var cur = List.of(pairs);
+  CadCoordMapper? mapper;
+  for (var iter = 0; iter < maxIters; iter++) {
+    mapper = fitAffineLeastSquares(cur, imgW, imgH);
+    if (mapper == null) return null;
+    final residuals = <double>[];
+    for (final p in cur) {
+      final predicted = mapper.screenToWorld(p.pixel.dx, p.pixel.dy);
+      residuals.add((predicted - p.world).distance);
+    }
+    // 计算平均/最大残差
+    var sum = 0.0;
+    var max = 0.0;
+    for (final r in residuals) {
+      sum += r;
+      if (r > max) max = r;
+    }
+    final mean = sum / residuals.length;
+    // 剔除超差点的下标
+    final keep = <CalibPointPair>[];
+    for (var i = 0; i < cur.length; i++) {
+      if (residuals[i] <= maxResidualMm) keep.add(cur[i]);
+    }
+    if (keep.length == cur.length || keep.length < 3) {
+      return AffineFitResult(
+        mapper: mapper,
+        residuals: residuals,
+        meanResidualMm: mean,
+        maxResidualMm: max,
+      );
+    }
+    cur = keep;
+  }
+  // 最后一次拟合结果
+  mapper = fitAffineLeastSquares(cur, imgW, imgH);
+  if (mapper == null) return null;
+  final residuals = <double>[];
+  for (final p in cur) {
+    final predicted = mapper.screenToWorld(p.pixel.dx, p.pixel.dy);
+    residuals.add((predicted - p.world).distance);
+  }
+  var sum = 0.0;
+  var max = 0.0;
+  for (final r in residuals) {
+    sum += r;
+    if (r > max) max = r;
+  }
+  return AffineFitResult(
+    mapper: mapper,
+    residuals: residuals,
+    meanResidualMm: sum / residuals.length,
+    maxResidualMm: max,
+  );
+}
+
+double _det3(double a, double b, double c,
+    double d, double e, double f,
+    double g, double h, double i) =>
+    a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+
+/// 解 3x3 正规方程 M x = v（克拉默法则）。奇异返回 null。
+List<double>? _solve3(double a, double b, double c, double v1,
+    double d, double e, double f, double v2,
+    double g, double h, double i, double v3) {
+  final det = _det3(a, b, c, d, e, f, g, h, i);
+  if (det.abs() < 1e-12) return null;
+  final x1 = _det3(v1, b, c, v2, e, f, v3, h, i) / det;
+  final x2 = _det3(a, v1, c, d, v2, f, g, v3, i) / det;
+  final x3 = _det3(a, b, v1, d, e, v2, g, h, v3) / det;
+  return [x1, x2, x3];
+}
+
 /// 由两个像素点与其真实图纸坐标（mm）解仿射系数。
 ///
 /// 约定图纸坐标系：CAD X 向右 = 像素 X 向右；CAD Y 向上 = 像素 Y 向下，
@@ -158,6 +336,7 @@ AxisGrid detectAxisLines(
 ///   worldX = a*px + c
 ///   worldY = d*py + f
 /// 用两对 (px, world) 解出 a/d/c/f。两像素点 x 或 y 相同（如正对）时返回 null。
+/// 现内部转调 [fitAffineLeastSquares]（2 点时由最小二乘自然退化），保证语义一致。
 CadCoordMapper? fitAffineTwoPoints({
   required double imgW,
   required double imgH,
@@ -166,6 +345,7 @@ CadCoordMapper? fitAffineTwoPoints({
   required ui.Offset p1World,
   required ui.Offset p2World,
 }) {
+  // 2 点退化：直接按无旋转模型解（与旧实现完全一致，避免 2 点时旋转自由度发散）。
   final dpx = p2Px.dx - p1Px.dx;
   final dpy = p2Px.dy - p1Px.dy;
   final dwx = p2World.dx - p1World.dx;
