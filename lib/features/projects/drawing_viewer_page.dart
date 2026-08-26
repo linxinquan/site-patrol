@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
@@ -11,6 +13,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/open_web.dart';
+import '../../core/cad/axis_calibration.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/cad_info_panel.dart';
 import '../../data/models.dart';
@@ -82,11 +85,23 @@ class _Viewer extends ConsumerStatefulWidget {
   ConsumerState<_Viewer> createState() => _ViewerState();
 }
 
+/// 轴网两点校准的交互阶段。
+enum _CalibPhase { idle, point1, point2 }
+
 class _ViewerState extends ConsumerState<_Viewer> {
   final _controller = TransformationController();
 
   /// 持久化的浏览器原始校准 JSON（用于弹窗预填，免重复粘贴）。
   String? _persistedRawJson;
+
+  // —— 轴网两点校准状态 ——
+  _CalibPhase _calibPhase = _CalibPhase.idle;
+  Offset? _calibP1Px; // 第 1 个点的整图像素坐标
+  Offset? _calibP2Px; // 第 2 个点的整图像素坐标
+  Offset? _calibP1World; // 第 1 个点的真实图纸坐标（mm）
+  Offset? _calibP2World;
+  AxisGrid? _axisGrid; // 自动检测的轴线（"红线"），叠加显示辅助点选
+  bool _detectingAxis = false;
 
   @override
   void initState() {
@@ -244,6 +259,13 @@ class _ViewerState extends ConsumerState<_Viewer> {
                       },
                       child: const Text('应用内置B05'),
                     ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx, 'AXIS');
+                      },
+                      child: const Text('图上两点校准'),
+                    ),
                   ],
                 ),
               ],
@@ -271,6 +293,11 @@ class _ViewerState extends ConsumerState<_Viewer> {
       ),
     );
     if (result == null) return;
+
+    if (result == 'AXIS') {
+      _startAxisCalibration();
+      return;
+    }
 
     CadCoordMapper? mapper;
     if (result == 'BUILTIN') {
@@ -329,6 +356,232 @@ class _ViewerState extends ConsumerState<_Viewer> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  /// 开始"图上两点校准"：进入轴网拾取模式，并异步识别轴线（红线）辅助点选。
+  void _startAxisCalibration() {
+    setState(() {
+      _calibPhase = _CalibPhase.point1;
+      _calibP1Px = null;
+      _calibP2Px = null;
+      _calibP1World = null;
+      _calibP2World = null;
+      _axisGrid = null;
+    });
+    AppSnack.show(
+      context,
+      '校准模式：请点击图纸上的第 1 个轴线交点（建议选对角、距图幅远的点）',
+      kind: AppSnackKind.brand,
+      actionLabel: '取消',
+      onAction: _cancelAxisCalibration,
+    );
+    _detectAxisLinesAsync();
+  }
+
+  /// 异步识别底图轴线：读 asset → 解码 → 扫描长线 → 叠加红色辅助线。
+  Future<void> _detectAxisLinesAsync() async {
+    final d = widget.d;
+    if (_detectingAxis || d.src.isEmpty) return;
+    setState(() => _detectingAxis = true);
+    try {
+      final bytes = await rootBundle.load(d.src);
+      final codec = await ui.instantiateImageCodec(
+        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
+      );
+      final frame = await codec.getNextFrame();
+      final img = frame.image;
+      final rgba = await imageToRgba(img);
+      img.dispose();
+      if (rgba == null || !mounted) return;
+      final grid = detectAxisLines(
+        rgba,
+        d.w.round(),
+        d.h.round(),
+        sampleW: 700,
+        coverageMin: 0.5,
+        maxLines: 30,
+      );
+      if (!mounted) return;
+      setState(() {
+        _axisGrid = grid;
+        _detectingAxis = false;
+      });
+      AppSnack.show(
+        context,
+        '已识别 ${grid.horizontals.length} 横轴 + ${grid.verticals.length} 纵轴（红色辅助线）',
+        kind: AppSnackKind.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _detectingAxis = false);
+    }
+  }
+
+  /// 校准模式下的图纸点击：换算整图像素坐标，弹窗录入真实图纸坐标。
+  void _handleCalibTap(
+    Offset localPos,
+    double dispW,
+    double dispH,
+    double maxW,
+    double maxH,
+  ) {
+    final phase = _calibPhase;
+    if (phase == _CalibPhase.idle) return;
+    final originX = (maxW - dispW) / 2;
+    final originY = (maxH - dispH) / 2;
+    final imgX = localPos.dx - originX;
+    final imgY = localPos.dy - originY;
+    final relX = (dispW > 0) ? (imgX / dispW).clamp(0.0, 1.0) : 0.0;
+    final relY = (dispH > 0) ? (imgY / dispH).clamp(0.0, 1.0) : 0.0;
+    final px = Offset(relX * widget.d.w, relY * widget.d.h);
+    _promptWorldCoord(
+      phase == _CalibPhase.point1 ? '第 1 点' : '第 2 点',
+      px,
+      phase,
+    );
+  }
+
+  /// 录入某像素点的真实图纸坐标（mm），并推进阶段。
+  Future<void> _promptWorldCoord(String title, Offset px, _CalibPhase phase) async {
+    final xCtrl = TextEditingController();
+    final yCtrl = TextEditingController();
+    // 若图上已有旧校准，可把"当前换算值"预填，用户微调更省事。
+    if (_isCalibrated) {
+      final w = _coordMapper.screenToWorld(px.dx, px.dy);
+      xCtrl.text = w.dx.toStringAsFixed(1);
+      yCtrl.text = w.dy.toStringAsFixed(1);
+    }
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('$title 真实图纸坐标'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '输入该点在图纸坐标系中的真实坐标（mm）\n可从 CAD 轴号查（如轴线交点 ①-Ⓐ）',
+              style: TextStyle(fontSize: 12, color: AppTokens.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: xCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'X (mm)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: yCtrl,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Y (mm)',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final x = double.tryParse(xCtrl.text.trim());
+              final y = double.tryParse(yCtrl.text.trim());
+              if (x == null || y == null) {
+                AppSnack.show(ctx, '请输入有效数字', kind: AppSnackKind.danger);
+                return;
+              }
+              Navigator.pop(ctx, (xCtrl.text.trim(), yCtrl.text.trim()));
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+    if (result == null) {
+      // 取消：退回 idle（用户可重新点校准进入）。
+      setState(() => _calibPhase = _CalibPhase.idle);
+      return;
+    }
+    final world =
+        Offset(double.parse(result.$1), double.parse(result.$2));
+    if (phase == _CalibPhase.point1) {
+      setState(() {
+        _calibP1Px = px;
+        _calibP1World = world;
+        _calibPhase = _CalibPhase.point2;
+      });
+      AppSnack.show(
+        context,
+        '第 1 点已记 (${px.dx.toStringAsFixed(0)}, ${px.dy.toStringAsFixed(0)})px → (${world.dx}, ${world.dy})mm，请点击第 2 点（另一对角轴交点）',
+        kind: AppSnackKind.brand,
+      );
+    } else {
+      setState(() {
+        _calibP2Px = px;
+        _calibP2World = world;
+      });
+      _finishAxisCalibration();
+    }
+  }
+
+  /// 两个点已齐：解算仿射并保存校准。
+  void _finishAxisCalibration() {
+    final p1 = _calibP1Px, p2 = _calibP2Px;
+    final w1 = _calibP1World, w2 = _calibP2World;
+    if (p1 == null || p2 == null || w1 == null || w2 == null) return;
+    final d = widget.d;
+    final mapper = fitAffineTwoPoints(
+      imgW: d.w,
+      imgH: d.h,
+      p1Px: p1,
+      p2Px: p2,
+      p1World: w1,
+      p2World: w2,
+    );
+    if (mapper == null) {
+      AppSnack.show(context, '两点坐标无法解算（两点太近？），请重选',
+          kind: AppSnackKind.danger);
+      setState(() => _calibPhase = _CalibPhase.point1);
+      return;
+    }
+    // 保存并登记校准库（图上两点校准无浏览器原始 JSON，传 null）。
+    saveCadCalibration(ref, d.key, mapper, null);
+    _persistedRawJson = null;
+    setState(() {
+      _calibPhase = _CalibPhase.idle;
+      _calibP1Px = null;
+      _calibP2Px = null;
+      _calibP1World = null;
+      _calibP2World = null;
+      _axisGrid = null;
+    });
+    AppSnack.show(
+      context,
+      '两点校准已保存：a=${mapper.a.toStringAsFixed(5)} d=${mapper.d.toStringAsFixed(5)}',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  /// 取消/退出校准模式。
+  void _cancelAxisCalibration() {
+    setState(() {
+      _calibPhase = _CalibPhase.idle;
+      _calibP1Px = null;
+      _calibP2Px = null;
+      _calibP1World = null;
+      _calibP2World = null;
+      _axisGrid = null;
+    });
+    AppSnack.show(context, '已退出校准', kind: AppSnackKind.muted);
   }
 
   String _jsonOfCurrent() {
@@ -792,23 +1045,60 @@ class _ViewerState extends ConsumerState<_Viewer> {
                             ),
                             // 坐标标注标记
                             ..._buildAnnotationMarks(dispW, dispH),
+                            // 轴网校准叠加层：红线 + 已选点
+                            if (_calibPhase != _CalibPhase.idle)
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _AxisOverlayPainter(
+                                    grid: _axisGrid,
+                                    imgW: widget.d.w,
+                                    imgH: widget.d.h,
+                                    p1: _calibP1Px == null
+                                        ? null
+                                        : Offset(_calibP1Px!.dx / widget.d.w * dispW,
+                                            _calibP1Px!.dy / widget.d.h * dispH),
+                                    p2: _calibP2Px == null
+                                        ? null
+                                        : Offset(_calibP2Px!.dx / widget.d.w * dispW,
+                                            _calibP2Px!.dy / widget.d.h * dispH),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
                     ),
-                    // 盒子层打点/锚定：覆盖全盒子，拾取模式下点击打点
+                    // 校准模式提示条
+                    if (_calibPhase != _CalibPhase.idle)
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        top: 10,
+                        child: _CalibHintBar(
+                          phase: _calibPhase,
+                          detecting: _detectingAxis,
+                          onCancel: _cancelAxisCalibration,
+                        ),
+                      ),
+                    // 盒子层打点/锚定：覆盖全盒子，拾取/校准模式下点击
                     Positioned.fill(
                       child: GestureDetector(
                         behavior: HitTestBehavior.translucent,
                         onLongPress: _anchor,
-                        onTapUp: ref.watch(cadPickModeProvider)
+                        onTapUp: _calibPhase != _CalibPhase.idle
                             ? (details) {
-                                // 盒子坐标系点击（localPosition 已被 Transform 自动反变换，
-                                // 不能再乘变换矩阵）。传图片显示尺寸与盒子尺寸。
+                                // 校准模式：优先响应（避免与坐标拾取冲突）
                                 final local = details.localPosition;
-                                _pickAnnotation(local, dispW, dispH, maxW, maxH);
+                                _handleCalibTap(local, dispW, dispH, maxW, maxH);
                               }
-                            : null,
+                            : ref.watch(cadPickModeProvider)
+                                ? (details) {
+                                    // 盒子坐标系点击（localPosition 已被 Transform 自动反变换，
+                                    // 不能再乘变换矩阵）。传图片显示尺寸与盒子尺寸。
+                                    final local = details.localPosition;
+                                    _pickAnnotation(local, dispW, dispH, maxW, maxH);
+                                  }
+                                : null,
                       ),
                     ),
                   ],
@@ -953,6 +1243,142 @@ class _ToolBtn extends StatelessWidget {
                             : AppTokens.muted)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 轴网校准叠加层：检测到的红线 + 已选点标记（显示坐标 = 图片显示像素）。
+class _AxisOverlayPainter extends CustomPainter {
+  final AxisGrid? grid;
+  final Offset? p1; // 已选第 1 点（图片显示坐标）
+  final Offset? p2;
+  final double imgW; // 整图原始像素宽（AxisLine 坐标基准）
+  final double imgH;
+  const _AxisOverlayPainter({
+    this.grid,
+    this.p1,
+    this.p2,
+    required this.imgW,
+    required this.imgH,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 红线：半透明红色虚线，辅助对齐轴线交点（原图坐标 → 显示坐标）
+    if (grid != null && imgW > 0 && imgH > 0) {
+      final paint = Paint()
+        ..color = const Color(0xFFFF3B30).withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4;
+      for (final h in grid!.horizontals) {
+        canvas.drawLine(
+            Offset(h.a.dx / imgW * size.width, h.a.dy / imgH * size.height),
+            Offset(h.b.dx / imgW * size.width, h.b.dy / imgH * size.height),
+            paint);
+      }
+      for (final v in grid!.verticals) {
+        canvas.drawLine(
+            Offset(v.a.dx / imgW * size.width, v.a.dy / imgH * size.height),
+            Offset(v.b.dx / imgW * size.width, v.b.dy / imgH * size.height),
+            paint);
+      }
+    }
+    // 已选点：绿/橙圆 + 十字线
+    if (p1 != null) {
+      _drawPoint(canvas, p1!, const Color(0xFF16A34A), '1');
+    }
+    if (p2 != null) {
+      _drawPoint(canvas, p2!, const Color(0xFFF97316), '2');
+    }
+  }
+
+  void _drawPoint(Canvas canvas, Offset p, Color c, String label) {
+    canvas.drawCircle(p, 7, Paint()..color = c.withValues(alpha: 0.35));
+    canvas.drawCircle(
+      p,
+      5,
+      Paint()
+        ..color = c
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+    final tp = TextPainter(
+      text: TextSpan(
+          text: label,
+          style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Colors.white)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.drawCircle(p, 5, Paint()..color = c);
+    tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _AxisOverlayPainter oldDelegate) =>
+      oldDelegate.grid != grid || oldDelegate.p1 != p1 || oldDelegate.p2 != p2;
+}
+
+/// 校准模式顶部提示条。
+class _CalibHintBar extends StatelessWidget {
+  final _CalibPhase phase;
+  final bool detecting;
+  final VoidCallback onCancel;
+  const _CalibHintBar({
+    required this.phase,
+    required this.detecting,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final label = detecting
+        ? '正在识别轴线红线…'
+        : phase == _CalibPhase.point1
+            ? '点击图纸上的第 1 个轴线交点（建议对角）'
+            : '点击图纸上的第 2 个轴线交点（另一对角）';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTokens.bg.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+        border: Border.all(color: AppTokens.border),
+        boxShadow: AppTokens.elevationRaised,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            detecting
+                ? MingCuteIcons.loadingLine
+                : MingCuteIcons.mapPinLine,
+            size: 14,
+            color: AppTokens.brand,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTokens.fg,
+                    fontWeight: FontWeight.w500)),
+          ),
+          InkWell(
+            onTap: onCancel,
+            borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: const Text('取消',
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: AppTokens.danger,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
       ),
     );
   }
