@@ -282,7 +282,9 @@ final patrolPlansProvider =
 );
 
 /// 当前项目的巡场历史记录列表（⑦历史用；阶段三接真实存储）。
+/// 当前返回 mock 演示数据，便于历史面板真实展示。
 final patrolRecordsProvider =
     FutureProvider.family<List<PatrolRecord>, String>(
-  (ref, projectId) async => const [], // 阶段三实现
+  (ref, projectId) async =>
+      seedPatrolRecords.where((r) => r.projectId == projectId).toList(),
 );

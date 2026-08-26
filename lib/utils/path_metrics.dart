@@ -9,7 +9,7 @@ import '../data/models.dart';
 ///
 /// 注意：`patrolPathPoints` / `patrolCheckpoints` 业务常量已迁移至
 /// `lib/data/mock/mock_data.dart` 的 `seedPatrolPlans`（见 PATROL_OPTIMIZE.md），
-/// 本文件仅保留纯算法：roundPolyline / pointAtProgress / realRouteKm / PatrolOverlayPainter。
+/// 本文件仅保留纯算法：roundPolyline / catmullRomSpline / pointAtProgress / realRouteKm / PatrolOverlayPainter。
 
 /// 把折线转为带圆角的导航式路径（HTML roundPolyline 的 Dart 移植）。
 Path roundPolyline(List<Offset> pts, double r) {
@@ -38,6 +38,81 @@ Path roundPolyline(List<Offset> pts, double r) {
   final last = pts[pts.length - 1];
   path.lineTo(last.dx, last.dy);
   return path;
+}
+
+/// Catmull-Rom 样条平滑（α=0.5 中心化版本）：把折线点序列转为 C1 连续平滑曲线，
+/// 输出 `Path`。`samplesPerSeg` 为每两点之间的插值采样数（越大越平滑），建议 12~20。
+///
+/// 行为：首尾用首末点自身作为虚拟邻点（闭式外推），保证端点不动；中间点作为控制点。
+/// 转角处自然圆滑，更像人走的"弧线"，而非直角折线。
+Path catmullRomPath(List<Offset> pts, {double samplesPerSeg = 16}) {
+  final path = Path();
+  if (pts.isEmpty) return path;
+  if (pts.length < 3) {
+    path.moveTo(pts.first.dx, pts.first.dy);
+    for (var i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].dx, pts[i].dy);
+    }
+    return path;
+  }
+  path.moveTo(pts[0].dx, pts[0].dy);
+  for (var i = 0; i < pts.length - 1; i++) {
+    final p0 = i == 0 ? pts[0] : pts[i - 1];
+    final p1 = pts[i];
+    final p2 = pts[i + 1];
+    final p3 = i + 2 < pts.length ? pts[i + 2] : pts.last;
+    final steps = math.max(2, samplesPerSeg.round());
+    for (var s = 1; s <= steps; s++) {
+      final t = s / steps;
+      final t2 = t * t;
+      final t3 = t2 * t;
+      // Catmull-Rom basis（uniform，α=0.5 → tension 0.5 的 centripetal 近似）
+      final x = 0.5 *
+          ((2 * p1.dx) +
+              (-p0.dx + p2.dx) * t +
+              (2 * p0.dx - 5 * p1.dx + 4 * p2.dx - p3.dx) * t2 +
+              (-p0.dx + 3 * p1.dx - 3 * p2.dx + p3.dx) * t3);
+      final y = 0.5 *
+          ((2 * p1.dy) +
+              (-p0.dy + p2.dy) * t +
+              (2 * p0.dy - 5 * p1.dy + 4 * p2.dy - p3.dy) * t2 +
+              (-p0.dy + 3 * p1.dy - 3 * p2.dy + p3.dy) * t3);
+      path.lineTo(x, y);
+    }
+  }
+  return path;
+}
+
+/// 对 Catmull-Rom 采样生成密集点（默认 16 点/段），返回降采样用于绘制与插值。
+List<Offset> catmullRomSamples(List<Offset> pts, {double samplesPerSeg = 16}) {
+  final out = <Offset>[];
+  if (pts.isEmpty) return out;
+  if (pts.length < 3) return List.of(pts);
+  out.add(pts[0]);
+  for (var i = 0; i < pts.length - 1; i++) {
+    final p0 = i == 0 ? pts[0] : pts[i - 1];
+    final p1 = pts[i];
+    final p2 = pts[i + 1];
+    final p3 = i + 2 < pts.length ? pts[i + 2] : pts.last;
+    final steps = math.max(2, samplesPerSeg.round());
+    for (var s = 1; s <= steps; s++) {
+      final t = s / steps;
+      final t2 = t * t;
+      final t3 = t2 * t;
+      final x = 0.5 *
+          ((2 * p1.dx) +
+              (-p0.dx + p2.dx) * t +
+              (2 * p0.dx - 5 * p1.dx + 4 * p2.dx - p3.dx) * t2 +
+              (-p0.dx + 3 * p1.dx - 3 * p2.dx + p3.dx) * t3);
+      final y = 0.5 *
+          ((2 * p1.dy) +
+              (-p0.dy + p2.dy) * t +
+              (2 * p0.dy - 5 * p1.dy + 4 * p2.dy - p3.dy) * t2 +
+              (-p0.dy + 3 * p1.dy - 3 * p2.dy + p3.dy) * t3);
+      out.add(Offset(x, y));
+    }
+  }
+  return out;
 }
 
 /// 按检查点把路径切成段（P5 动画时每段走到终点才显示）。
@@ -113,6 +188,9 @@ double? realRouteKm(
 /// 输入尺寸为底图实际像素尺寸；坐标按 w/h 缩放。
 /// [progress] 0~1 控制路径逐段显现；[currentPos] 为像素坐标的当前位置；
 /// [pulse] 0~1 驱动脉冲扩散动画。
+///
+/// 主路径用 Catmull-Rom 样条平滑（更像"人走"的弧线，而不是直角折线）；
+/// [historyTracks] 叠加快照中已走过的历史轨迹（按时间倒序，色相由冷到暖、宽度递减）。
 class PatrolOverlayPainter extends CustomPainter {
   final List<Offset> pts; // 已按像素缩放的绝对坐标
   final List<int> cpIdxs;
@@ -122,6 +200,10 @@ class PatrolOverlayPainter extends CustomPainter {
   // P1：穿墙段下标（与 _RouteEditorPainter 一致语义：i 对应 pts[i]→pts[i+1]）；
   // 巡场页加载墙线后计算一次传入，未校准时为空集。
   final Set<int> crossingSegs;
+  // 历史轨迹（已按底图缩放的绝对坐标）。空时仅画主路径。
+  final List<List<Offset>> historyTracks;
+  // 历史轨迹颜色（与 historyTracks 一一对应）。
+  final List<Color> historyColors;
   const PatrolOverlayPainter({
     required this.pts,
     required this.cpIdxs,
@@ -129,14 +211,34 @@ class PatrolOverlayPainter extends CustomPainter {
     this.currentPos,
     this.pulse = 0,
     this.crossingSegs = const {},
+    this.historyTracks = const [],
+    this.historyColors = const [],
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final p = progress.clamp(0.0, 1.0);
-    final full = roundPolyline(pts, 2.5);
 
-    // 1. 完整路径（蓝色细线，对齐原型：路径始终可见，仅颜色区分已走/未走）
+    // 0. 历史轨迹（最底层、半透明样条，给主路径让位感）
+    for (var k = 0; k < historyTracks.length; k++) {
+      final track = historyTracks[k];
+      if (track.length < 2) continue;
+      final c = k < historyColors.length
+          ? historyColors[k]
+          : const Color(0xFF6B7280);
+      final hp = catmullRomPath(track, samplesPerSeg: 10);
+      final paint = Paint()
+        ..color = c.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(hp, paint);
+    }
+
+    // 1. 主路径：Catmull-Rom 平滑样条（替代 roundPolyline 的小圆角折线，更像人走）
+    final full = catmullRomPath(pts, samplesPerSeg: 16);
+
     final basePaint = Paint()
       ..color = const Color(0xFF3B82F6).withValues(alpha: 0.55)
       ..style = PaintingStyle.stroke
@@ -161,7 +263,11 @@ class PatrolOverlayPainter extends CustomPainter {
 
     // 2. 已走路径（橙色高亮覆盖在蓝线之上，0 进度时不画）
     if (p > 0.003) {
-      final metric = full.computeMetrics().first;
+      final metrics = full.computeMetrics().toList();
+      // 样条可能产生多段（理论上单段），取首段绘制已走部分。
+      final metric = metrics.isNotEmpty
+          ? metrics.first
+          : (Path()..moveTo(pts.first.dx, pts.first.dy)).computeMetrics().first;
       final walked = metric.extractPath(0, metric.length * p);
       final walkedPaint = Paint()
         ..color = const Color(0xFFEA580C)
@@ -179,18 +285,18 @@ class PatrolOverlayPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
     for (final i in cpIdxs) {
-      canvas.drawCircle(pts[i], 2.6, cpStroke);
-      canvas.drawCircle(pts[i], 2.6, cpFill);
+      canvas.drawCircle(pts[i], 3.0, cpStroke);
+      canvas.drawCircle(pts[i], 3.0, cpFill);
     }
 
     // 4. 起点（绿）：常亮小圆
     canvas.drawCircle(
-        pts.first, 2.4,
+        pts.first, 2.6,
         Paint()
           ..color = const Color(0xFF16A34A)
           ..style = PaintingStyle.fill);
     canvas.drawCircle(
-        pts.first, 2.4,
+        pts.first, 2.6,
         Paint()
           ..color = const Color(0xFFFFFFFF)
           ..style = PaintingStyle.stroke
@@ -204,9 +310,9 @@ class PatrolOverlayPainter extends CustomPainter {
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-    canvas.drawCircle(pts.last, 2.4, endStroke);
+    canvas.drawCircle(pts.last, 2.6, endStroke);
     endPaint.color = endPaint.color.withValues(alpha: p >= 1 ? 1 : 0.35);
-    canvas.drawCircle(pts.last, 2.4, endPaint);
+    canvas.drawCircle(pts.last, 2.6, endPaint);
 
     // 6. 当前位置：蓝色原点 + 双层呼吸扩散圈（pulse 0~1）
     //    idle 时 currentPos == null → 默认在 pts.first
@@ -227,18 +333,18 @@ class PatrolOverlayPainter extends CustomPainter {
           ..color = const Color(0xFF60A5FA).withValues(alpha: breathA2));
     // 中心实心蓝点 + 白边
     canvas.drawCircle(
-        pos, 2.8,
+        pos, 3.2,
         Paint()
           ..color = const Color(0xFFFFFFFF)
           ..style = PaintingStyle.fill);
     canvas.drawCircle(
-        pos, 2.8,
+        pos, 3.2,
         Paint()
           ..color = const Color(0xFF1D4ED8)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2);
     canvas.drawCircle(
-        pos, 1.6,
+        pos, 1.8,
         Paint()
           ..color = const Color(0xFF1D4ED8)
           ..style = PaintingStyle.fill);
@@ -249,5 +355,7 @@ class PatrolOverlayPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.currentPos != currentPos ||
       oldDelegate.pulse != pulse ||
-      oldDelegate.crossingSegs != crossingSegs;
+      oldDelegate.crossingSegs != crossingSegs ||
+      oldDelegate.historyTracks.length != historyTracks.length ||
+      oldDelegate.historyColors.length != historyColors.length;
 }
