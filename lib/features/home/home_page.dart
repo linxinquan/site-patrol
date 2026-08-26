@@ -63,6 +63,7 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 56,
         titleSpacing: AppTokens.space3,
         title: AsyncState(
           value: project,
