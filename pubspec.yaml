@@ -38,3 +38,11 @@ flutter:
     - assets/avatars/
     - assets/icons/
     - assets/walls/
+    - assets/fonts/
+  fonts:
+    - family: MingCute
+      fonts:
+        - asset: assets/fonts/mingcute.ttf
+    - family: Lucide
+      fonts:
+        - asset: assets/fonts/lucide.ttf

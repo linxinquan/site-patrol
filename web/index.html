@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <base href="$FLUTTER_BASE_HREF">
+  <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -30,6 +30,23 @@
 
   <style>
     /* 各平台系统字体栈：Windows 微软雅黑 / macOS 苹方 / 其它回退无衬线 */
+    /* 第三方图标字体兜底：Flutter Web 有时不会自动把包内字体打包到 build/web，
+       这里显式加载项目 assets/fonts 下的字体文件，避免图标显示为方块。 */
+    @font-face {
+      font-family: 'MingCute';
+      src: url('assets/fonts/mingcute.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: block;
+    }
+    @font-face {
+      font-family: 'Lucide';
+      src: url('assets/fonts/lucide.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+      font-display: block;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
