@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
@@ -13,7 +14,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/image_compress.dart';
 import '../../core/utils/photo_watermark.dart';
-import '../../core/utils/web_storage.dart';
+import '../../core/storage/local_storage.dart';
 import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
@@ -102,8 +103,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   bool _remotePngLoading = false;
   String? _remotePngError;
 
-  /// 暂存的 vision 识别结果列表（Web localStorage 持久化，刷新后仍可见）。
-  /// 每项：{ts, anchor, floor, count, defects:[{name, desc}]}
+  /// 暂存的 vision 识别结果列表（跨端持久化：移动端走 Hive、Web 走 localStorage，刷新后仍可见）。
+  /// 每项：{ts, anchor, floor, count, defects:[{name, severity, conf, desc}]}
   List<Map<String, dynamic>> _storedResults = [];
   static const String _storageKey = 'stored_vision_results';
 
@@ -154,13 +155,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     _loadStoredResults();
   }
 
-  /// 启动时从 Web localStorage 恢复暂存的识别结果。
-  void _loadStoredResults() {
-    final list = WebStorage.getList(_storageKey);
-    if (list.isEmpty) return;
-    setState(() {
-      _storedResults = list.whereType<Map<String, dynamic>>().toList();
-    });
+  /// 启动时从跨端本地存储恢复暂存的识别结果。
+  Future<void> _loadStoredResults() async {
+    final raw = await LocalStorage.instance.readDoc(_storageKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        setState(() {
+          _storedResults =
+              decoded.whereType<Map<String, dynamic>>().toList();
+        });
+      }
+    } catch (_) {
+      // 损坏数据忽略，不阻塞页面。
+    }
   }
 
   @override
@@ -491,6 +500,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     // Mock 开关开启：秒级返回「上次真实模型返回」还原数据，便于验证 UI。
     if (_useMock) {
       result = vlPreset(_anchorLabel, replayReal: true);
+      // Mock 模式同样暂存，保证「刷新页面仍可查看」提示一致（修复①）。
+      _persistResult(result);
     } else if (_shotPhoto != null) {
       try {
         final vision = await VisionService().recognizeDefects(_shotPhoto!);
@@ -504,10 +515,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   desc: d.desc,
                 ))
             .toList();
-        // 只要有返回就暂存（刷新页面仍可见），不依赖当前页 UI 状态。
-        if (vision.defects.isNotEmpty) {
-          _persistResult(vision);
-        }
+        // 无论模型是否识别到缺陷都暂存：无缺陷也留痕（修复②）。
+        _persistResult(result);
       } on TimeoutException catch (e) {
         if (mounted) {
           setState(() =>
@@ -531,8 +540,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     });
   }
 
-  /// 把一条 vision 识别结果追加到暂存列表并持久化（Web localStorage）。
-  void _persistResult(VisionResult vision) {
+  /// 把一条视觉识别结果追加到暂存列表并持久化（Web localStorage）。
+  /// 接收页面内的 [VlDefect] 列表（不再依赖 VisionResult），
+  /// 无论是否识别到缺陷都会暂存（无缺陷记 count=0，仅留痕）。
+  void _persistResult(List<VlDefect> defects) {
     final now = DateTime.now();
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
         '${_two(now.hour)}:${_two(now.minute)}:${_two(now.second)}';
@@ -540,15 +551,26 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       'ts': ts,
       'anchor': _anchorLabel,
       'floor': _floor,
-      'count': vision.count,
-      'defects': vision.defects.map((d) => d.toJson()).toList(),
+      'count': defects.length,
+      'defects': defects.map((d) => d.toJson()).toList(),
     };
     setState(() {
       _storedResults = [entry, ..._storedResults];
     });
-    WebStorage.setList(_storageKey, _storedResults);
+    // 跨端持久化：移动端落 Hive、Web 落 localStorage（不阻塞 UI）。
+    unawaited(
+      LocalStorage.instance
+          .writeDoc(_storageKey, jsonEncode(_storedResults))
+          .catchError((_) {}),
+    );
     if (mounted) {
-      AppSnack.show(context, '识别结果已暂存（刷新页面仍可查看）', kind: AppSnackKind.brand);
+      AppSnack.show(
+        context,
+        defects.isEmpty
+            ? '已暂存：本次未识别到缺陷'
+            : '识别结果已暂存（刷新页面仍可查看）',
+        kind: AppSnackKind.brand,
+      );
     }
   }
 

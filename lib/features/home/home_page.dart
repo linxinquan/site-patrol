@@ -12,6 +12,8 @@ import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/project_switcher.dart';
 import '../../shared/widgets/user_switcher.dart';
+import '../../shared/widgets/voice_input.dart';
+import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
 import '../measure/ar_measure_page.dart';
@@ -767,6 +769,28 @@ class _QuickActions extends ConsumerWidget {
                   subtitle: '蓝图预览',
                   tint: AppTokens.warning,
                   onTap: () => context.push('/blueprint'),
+                ),
+                _QuickCard(
+                  icon: LucideIcons.mic,
+                  title: '语音记录',
+                  subtitle: '离线可用',
+                  tint: AppTokens.accent,
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: AppTokens.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(AppTokens.radiusLg),
+                      ),
+                    ),
+                    builder: (_) => VoiceInputSheet(
+                      onResult: (text) {
+                        AppSnack.show(context, '已识别：$text',
+                            kind: AppSnackKind.success);
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),

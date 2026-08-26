@@ -16,6 +16,7 @@ dependencies:
   lucide_icons_flutter: ^3.1.15
   image_picker: ^1.1.2
   image: ^4.2.0
+  speech_to_text: ^6.3.0   # 设备端离线/在线语音识别（含中文），无需后端/Key
   app_settings: ^5.2.0
   http: ^1.6.0
   flutter_secure_storage: ^9.2.0

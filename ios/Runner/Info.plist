@@ -32,6 +32,10 @@
 	<string>用于读取现场照片进行 AI 分类与缺陷归档</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>用于将验收拍照结果保存到相册留档</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>用于语音记录缺陷与巡场备注</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>用于将现场语音转为文字记录</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -479,6 +479,23 @@ class VlDefect {
     required this.conf,
     this.desc,
   });
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'severity': severity.name,
+        'conf': conf,
+        'desc': desc,
+      };
+
+  factory VlDefect.fromJson(Map<String, dynamic> map) => VlDefect(
+        name: map['name']?.toString() ?? '',
+        severity: DefectSeverity.values.firstWhere(
+          (s) => s.name == map['severity'],
+          orElse: () => DefectSeverity.orange,
+        ),
+        conf: (map['conf'] as num?)?.toDouble() ?? 0.0,
+        desc: map['desc']?.toString(),
+      );
 }
 
 /// 拍照量尺校对：一张照片内对某一构件，实测尺寸 vs 图纸标注尺寸的比对。

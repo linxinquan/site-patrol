@@ -10,6 +10,7 @@ import '../../data/cad_service.dart';
 import '../../core/env/env.dart';
 import '../../core/cad/cad_calibration.dart';
 import '../../core/utils/cad_coord.dart';
+import '../../core/utils/speech_recognizer.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/session_store.dart';
 import '../../core/storage/patrol_plan_store.dart';
@@ -135,6 +136,14 @@ Future<void> deleteCadCalibration(WidgetRef ref, String drawingKey) async {
   await store.deleteRawJson(drawingKey);
   await ref.read(calibrationLibraryProvider).remove(drawingKey);
 }
+
+/// 语音识别服务（设备端离线 ASR，支持中文；无后端/Key 依赖）。
+/// UI 通过 [SpeechRecognizer] 控制录音与消费结果。
+final speechRecognizerProvider = Provider<SpeechRecognizer>((ref) {
+  final r = SpeechRecognizer();
+  ref.onDispose(r.dispose);
+  return r;
+});
 
 /// 启动期调用：把校准库清单中所有已校准图纸的坐标映射一次性灌入内存，
 /// 使后续打开任意图纸自动套用，无需逐张加载或手动粘贴。
