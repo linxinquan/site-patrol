@@ -572,12 +572,15 @@ final List<PatrolPlan> seedPatrolPlans = [
     totalKm: 0.52, // 保留原演示里程（图纸未校准时兜底）
     points: _nkfPlanPoints(),
   ),
-  /// 7栋 B05 默认推荐路线：全局巡场（沿四周走廊走一圈，覆盖 4 个检查点）。
+  /// 7栋 B05 默认推荐路线：符合工程巡场习惯的"沿主通道分区巡查"环形路线。
   ///
   /// 点位基于 B05 墙线（assets/walls/dy04_7_B05_walls.json）实测排布——
-  /// 中央有矩形房间 (15,25)-(40,25)-(40,75)-(15,75)，右侧有隔墙 (55,15)-(55,50)-(85,50)。
-  /// 推荐路线沿最外围走廊走、不横穿任何墙体（x=10 / x=90 两竖走廊、
-  /// y=10 / y=80 两横走廊围合），符合工程巡场习惯。
+  /// 校准后中央主体为封闭矩形房间 x∈[15,35.5]、y∈[25,94]（无门，不进入），
+  /// 顶部走廊 y≈10、右侧通道 x≈90、底部走廊 y≈88、左侧走廊 x≈10 为可巡查通道；
+  /// 顶部走廊在 x∈[55,85]、y=25 处有一道短隔墙，需从两端绕行。
+  /// 推荐路线（顺时针）：顶部走廊签到 → 右侧通道（弱电/强电/消防）→
+  /// 底部通道（设备房C）→ 左侧走廊（管井A）返回，覆盖所有可用通道与各功能间，
+  /// 检查点落在关键设备间/签到点；全程不横穿任何墙体。
   const PatrolPlan(
     id: 'dy7_default',
     projectId: 'tencent-dy04-7',
@@ -585,15 +588,17 @@ final List<PatrolPlan> seedPatrolPlans = [
     name: 'B1 地下室夹层·全局巡场',
     floor: 'B1',
     points: [
-      PatrolPoint(dx: 10, dy: 10),
-      PatrolPoint(dx: 55, dy: 10, isCheckpoint: true),
-      PatrolPoint(dx: 90, dy: 10),
-      PatrolPoint(dx: 90, dy: 45, isCheckpoint: true),
-      PatrolPoint(dx: 90, dy: 80),
-      PatrolPoint(dx: 55, dy: 80, isCheckpoint: true),
-      PatrolPoint(dx: 10, dy: 80),
-      PatrolPoint(dx: 10, dy: 45, isCheckpoint: true),
-      PatrolPoint(dx: 10, dy: 10),
+      PatrolPoint(dx: 10, dy: 10, isCheckpoint: true), // 起点·顶部走廊西·签到
+      PatrolPoint(dx: 50, dy: 10, isCheckpoint: true), // 顶部走廊·楼梯前室
+      PatrolPoint(dx: 90, dy: 10), // 顶部走廊最东·管井
+      PatrolPoint(dx: 90, dy: 45, isCheckpoint: true), // 右侧通道·弱电间
+      PatrolPoint(dx: 90, dy: 80), // 右侧通道南·强电间
+      PatrolPoint(dx: 85, dy: 88), // 右下角·消防
+      PatrolPoint(dx: 55, dy: 88, isCheckpoint: true), // 底部右侧通道·设备房C
+      PatrolPoint(dx: 40, dy: 96), // 下到中央房正下方外侧通道（绕开封闭主体）
+      PatrolPoint(dx: 10, dy: 96), // 左下外侧通道
+      PatrolPoint(dx: 10, dy: 45, isCheckpoint: true), // 左侧走廊·管井A
+      PatrolPoint(dx: 10, dy: 10), // 回到起点
     ],
   ),
 ];

@@ -393,8 +393,10 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     final next = [...existing.where((p) => p.id != plan.id), plan];
     await PatrolPlanStore.save(_projectId, next);
     if (!mounted) return;
+    // 关键：让巡场页（返回后复用同一 Widget）立即刷新，避免"编辑后没保存"的错觉。
+    ref.invalidate(patrolPlansProvider(_projectId));
     AppSnack.show(context, '路线已保存', kind: AppSnackKind.success);
-    context.pop();
+    context.pop(true);
   }
 
   /// 复用 path_metrics.realRouteKm 的路线里程计算。

@@ -56,6 +56,13 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     super.initState();
     _ticker = createTicker(_onTick)..start();
     _resolvePlan();
+    // 监听巡场路线列表变化（编辑器保存后 invalidate 触发），自动刷新当前计划与穿墙段，
+    // 避免"编辑后没保存"的错觉。保留当前巡场状态（progress/status）。
+    ref.listenManual(patrolPlansProvider(ref.read(currentProjectIdProvider) ??
+        (ref.read(projectsProvider).valueOrNull?.firstOrNull?.id ?? '')),
+        (_, __) {
+      if (mounted) _resolvePlan();
+    });
   }
 
   @override
