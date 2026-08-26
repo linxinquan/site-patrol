@@ -934,10 +934,18 @@ class _ToolBtn extends StatelessWidget {
                 : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
-            children: [
+          children: [
+            Icon(icon,
+                size: 18,
+                color: accent
+                    ? AppTokens.fg
+                    : active
+                        ? AppTokens.brand
+                        : AppTokens.muted),
+            const SizedBox(height: 2),
             Text(label,
                 style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
                     color: accent
                         ? AppTokens.fg
                         : active

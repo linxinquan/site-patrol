@@ -94,6 +94,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 当前要显示的图纸（按项目图纸 provider 解析，避免不同项目图纸串图）。
   Drawing? _drawing;
 
+  /// 图纸缩放控制器（拍照验收页支持双指/滚轮缩放）。
+  final _drawingTransform = TransformationController();
+
   /// 当本地没有 PNG 资产时，尝试从 CAD 服务生成/加载的远程 PNG URL。
   String? _remotePngUrl;
   bool _remotePngLoading = false;
@@ -163,8 +166,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   @override
   void dispose() {
     _scanTimer?.cancel();
+    _drawingTransform.dispose();
     super.dispose();
   }
+
+  /// 图纸区缩放：每次按固定倍率，限制在 0.8~8 之间。
+  void _zoomDrawing(double factor) {
+    final current = _drawingTransform.value.getMaxScaleOnAxis();
+    final target = (current * factor).clamp(0.8, 8.0);
+    if (target == current) return;
+    _drawingTransform.value = Matrix4.identity()..scale(target);
+  }
+
+  void _resetDrawingZoom() => _drawingTransform.value = Matrix4.identity();
 
   // —— 流程步骤控制 ——
   /// 按当前项目返回可选图纸列表（避免串图）。
@@ -810,7 +824,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
-  /// 图纸 + 图钉 + 准星交互区。
+  /// 图纸 + 图钉 + 准星交互区（支持双指/滚轮缩放）。
   Widget _buildDrawingStage() {
     final stepHint = _step == _CaptureStep.selectFloor
         ? '请先选择下方图纸，再进入图纸选点'
@@ -819,122 +833,156 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       aspectRatio: 1 / _ratio,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return GestureDetector(
-            onTapUp: _step == _CaptureStep.selectFloor
-                ? null
-                : (d) => _onTapDrawing(d.localPosition, constraints.biggest),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (_drawing != null && _drawing!.src.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                    child: Image.asset(
-                      _drawing!.src,
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.medium,
-                    ),
-                  )
-                else if (_drawing != null &&
-                    _drawing!.src.isEmpty &&
-                    _remotePngUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                    child: Image.network(
-                      _remotePngUrl!,
-                      fit: BoxFit.fill,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                              ? child
-                              : Container(
-                                  alignment: Alignment.center,
-                                  child: CircularProgressIndicator(
-                                    value: progress.expectedTotalBytes != null
-                                        ? progress.cumulativeBytesLoaded /
-                                            progress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                ),
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildMissingPngPlaceholder(error.toString()),
-                    ),
-                  )
-                else if (_drawing != null && _drawing!.src.isEmpty)
-                  _buildMissingPngPlaceholder(_remotePngError)
-                else
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTokens.surface,
-                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                      border: Border.all(color: AppTokens.border),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+          final box = constraints.biggest;
+          return Stack(
+            children: [
+              InteractiveViewer(
+                transformationController: _drawingTransform,
+                minScale: 0.8,
+                maxScale: 8.0,
+                boundaryMargin: const EdgeInsets.all(40),
+                child: SizedBox(
+                  width: box.width,
+                  height: box.height,
+                  child: GestureDetector(
+                    onTapUp: _step == _CaptureStep.selectFloor
+                        ? null
+                        : (d) => _onTapDrawing(d.localPosition, box),
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        Icon(LucideIcons.map,
-                            size: 48, color: AppTokens.muted),
-                        const SizedBox(height: AppTokens.space2),
-                        Text('未选择图纸',
-                            style: TextStyle(
-                                color: AppTokens.muted,
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                // 半透明遮罩，突出蓝图观感
-                if (_drawing != null &&
-                    (_drawing!.src.isNotEmpty || _remotePngUrl != null))
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.10),
-                          Colors.black.withValues(alpha: 0.28),
-                        ],
-                      ),
-                    ),
-                  ),
-                // 预置照片锚点图钉
-                if (_drawing != null &&
-                    (_drawing!.src.isNotEmpty || _remotePngUrl != null))
-                  ..._anchors.map((a) => _buildPin(a)),
-                // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
-                if (_drawing != null && _step != _CaptureStep.selectFloor)
-                  _buildCrosshair(),
-                // 顶部提示条
-                Positioned(
-                  top: AppTokens.space3,
-                  left: AppTokens.space3,
-                  right: AppTokens.space3,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppTokens.space3, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(AppTokens.radiusPill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(LucideIcons.mousePointerClick,
-                            size: 12, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(stepHint,
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.white)),
+                        if (_drawing != null && _drawing!.src.isNotEmpty)
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusLg),
+                            child: Image.asset(
+                              _drawing!.src,
+                              fit: BoxFit.fill,
+                              filterQuality: FilterQuality.medium,
+                            ),
+                          )
+                        else if (_drawing != null &&
+                            _drawing!.src.isEmpty &&
+                            _remotePngUrl != null)
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusLg),
+                            child: Image.network(
+                              _remotePngUrl!,
+                              fit: BoxFit.fill,
+                              filterQuality: FilterQuality.medium,
+                              loadingBuilder: (context, child, progress) =>
+                                  progress == null
+                                      ? child
+                                      : Container(
+                                          alignment: Alignment.center,
+                                          child: CircularProgressIndicator(
+                                            value: progress.expectedTotalBytes !=
+                                                    null
+                                                ? progress.cumulativeBytesLoaded /
+                                                    progress.expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildMissingPngPlaceholder(error.toString()),
+                            ),
+                          )
+                        else if (_drawing != null && _drawing!.src.isEmpty)
+                          _buildMissingPngPlaceholder(_remotePngError)
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppTokens.surface,
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusLg),
+                              border: Border.all(color: AppTokens.border),
+                            ),
+                            alignment: Alignment.center,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(LucideIcons.map,
+                                    size: 48, color: AppTokens.muted),
+                                const SizedBox(height: AppTokens.space2),
+                                Text('未选择图纸',
+                                    style: TextStyle(
+                                        color: AppTokens.muted,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        // 半透明遮罩，突出蓝图观感
+                        if (_drawing != null &&
+                            (_drawing!.src.isNotEmpty ||
+                                _remotePngUrl != null))
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusLg),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.10),
+                                  Colors.black.withValues(alpha: 0.28),
+                                ],
+                              ),
+                            ),
+                          ),
+                        // 预置照片锚点图钉
+                        if (_drawing != null &&
+                            (_drawing!.src.isNotEmpty ||
+                                _remotePngUrl != null))
+                          ..._anchors.map((a) => _buildPin(a)),
+                        // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
+                        if (_drawing != null &&
+                            _step != _CaptureStep.selectFloor)
+                          _buildCrosshair(),
+                        // 顶部提示条
+                        Positioned(
+                          top: AppTokens.space3,
+                          left: AppTokens.space3,
+                          right: AppTokens.space3,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: AppTokens.space3, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusPill),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(LucideIcons.mousePointerClick,
+                                    size: 12, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Text(stepHint,
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 扫描动画
+                        if (_scanning) _buildScanOverlay(),
                       ],
                     ),
                   ),
                 ),
-                // 扫描动画
-                if (_scanning) _buildScanOverlay(),
-              ],
-            ),
+              ),
+              // 缩放控制按钮（浮在图纸之上，保持不随图纸缩放）
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _ZoomToolbar(
+                  onZoomIn: () => _zoomDrawing(1.2),
+                  onZoomOut: () => _zoomDrawing(1 / 1.2),
+                  onReset: _resetDrawingZoom,
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -2301,6 +2349,75 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           ],
         ),
         child: const Icon(LucideIcons.camera, color: Colors.white, size: 28),
+      ),
+    );
+  }
+}
+
+/// 悬浮缩放工具条（拍照验收 / 量尺页复用）。
+class _ZoomToolbar extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+
+  const _ZoomToolbar({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTokens.surface.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconBtn(icon: Icons.zoom_out, onTap: onZoomOut, tooltip: '缩小'),
+          Container(width: 1, height: 28, color: AppTokens.border),
+          _IconBtn(icon: Icons.fullscreen, onTap: onReset, tooltip: '复位'),
+          Container(width: 1, height: 28, color: AppTokens.border),
+          _IconBtn(icon: Icons.zoom_in, onTap: onZoomIn, tooltip: '放大'),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  const _IconBtn({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 18, color: AppTokens.fg),
+        ),
       ),
     );
   }

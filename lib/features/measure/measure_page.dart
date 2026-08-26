@@ -56,6 +56,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final TextEditingController _tolPctCtl = TextEditingController(text: '2');
   final TextEditingController _refMmCtl = TextEditingController(text: '1000');
 
+  // —— 缩放 ——
+  final _drawingTransform = TransformationController();
+  final _photoTransform = TransformationController();
+
   String get _drawingKey => widget.args.drawingKey;
   String get _projectKey => widget.args.projectKey;
 
@@ -72,8 +76,20 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     _tolMmCtl.dispose();
     _tolPctCtl.dispose();
     _refMmCtl.dispose();
+    _drawingTransform.dispose();
+    _photoTransform.dispose();
     super.dispose();
   }
+
+  void _zoom(TransformationController controller, double factor) {
+    final current = controller.value.getMaxScaleOnAxis();
+    final target = (current * factor).clamp(0.8, 8.0);
+    if (target == current) return;
+    controller.value = Matrix4.identity()..scale(target);
+  }
+
+  void _resetZoom(TransformationController controller) =>
+      controller.value = Matrix4.identity();
 
   // ——— ① 加载 CAD 校准 ———
   Future<void> _loadCalibration() async {
@@ -391,22 +407,44 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         borderRadius: BorderRadius.circular(12),
         child: Stack(
           children: [
-            if (src != null)
-              Positioned.fill(
-                child: LayoutBuilder(
-                  builder: (ctx, c) {
-                    final box = c.biggest;
-                    return GestureDetector(
-                      onTapDown: (e) => _onDrawTap(e.localPosition, box),
-                      child: Image.asset(src, fit: BoxFit.contain),
-                    );
-                  },
+            InteractiveViewer(
+              transformationController: _drawingTransform,
+              minScale: 0.8,
+              maxScale: 8.0,
+              boundaryMargin: const EdgeInsets.all(40),
+              child: SizedBox.expand(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (src != null)
+                      Positioned.fill(
+                        child: LayoutBuilder(
+                          builder: (ctx, c) {
+                            final box = c.biggest;
+                            return GestureDetector(
+                              onTapDown: (e) => _onDrawTap(e.localPosition, box),
+                              child: Image.asset(src, fit: BoxFit.contain),
+                            );
+                          },
+                        ),
+                      )
+                    else
+                      const Center(child: Text('无图纸底图')),
+                    // 选点标记
+                    ..._drawPicks.map((p) => _pickDot(p, Colors.blue)),
+                  ],
                 ),
-              )
-            else
-              const Center(child: Text('无图纸底图')),
-            // 选点标记
-            ..._drawPicks.map((p) => _pickDot(p, Colors.blue)),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: _ZoomToolbar(
+                onZoomIn: () => _zoom(_drawingTransform, 1.2),
+                onZoomOut: () => _zoom(_drawingTransform, 1 / 1.2),
+                onReset: () => _resetZoom(_drawingTransform),
+              ),
+            ),
           ],
         ),
       ),
@@ -511,19 +549,41 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: LayoutBuilder(
-                builder: (ctx, c) => GestureDetector(
-                  onTapDown: (e) => _onPhotoTap(e.localPosition, c.biggest),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Image.memory(_photoBytes!, fit: BoxFit.contain),
+              child: Stack(
+                children: [
+                  InteractiveViewer(
+                    transformationController: _photoTransform,
+                    minScale: 0.8,
+                    maxScale: 8.0,
+                    boundaryMargin: const EdgeInsets.all(40),
+                    child: SizedBox.expand(
+                      child: LayoutBuilder(
+                        builder: (ctx, c) => GestureDetector(
+                          onTapDown: (e) => _onPhotoTap(e.localPosition, c.biggest),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Positioned.fill(
+                                child: Image.memory(_photoBytes!, fit: BoxFit.contain),
+                              ),
+                              ..._refPicks.map((p) => _pickDot(p, Colors.orange)),
+                              ..._photoPicks.map((p) => _pickDot(p, Colors.red)),
+                            ],
+                          ),
+                        ),
                       ),
-                      ..._refPicks.map((p) => _pickDot(p, Colors.orange)),
-                      ..._photoPicks.map((p) => _pickDot(p, Colors.red)),
-                    ],
+                    ),
                   ),
-                ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _ZoomToolbar(
+                      onZoomIn: () => _zoom(_photoTransform, 1.2),
+                      onZoomOut: () => _zoom(_photoTransform, 1 / 1.2),
+                      onReset: () => _resetZoom(_photoTransform),
+                    ),
+                  ),
+                ],
               ),
             ),
           )
@@ -657,6 +717,75 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           border: const OutlineInputBorder(),
         ),
       );
+}
+
+/// 悬浮缩放工具条（量尺页 / 拍照验收页复用）。
+class _ZoomToolbar extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+
+  const _ZoomToolbar({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTokens.surface.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: AppTokens.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _IconBtn(icon: Icons.zoom_out, onTap: onZoomOut, tooltip: '缩小'),
+          Container(width: 1, height: 28, color: AppTokens.border),
+          _IconBtn(icon: Icons.fullscreen, onTap: onReset, tooltip: '复位'),
+          Container(width: 1, height: 28, color: AppTokens.border),
+          _IconBtn(icon: Icons.zoom_in, onTap: onZoomIn, tooltip: '放大'),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  const _IconBtn({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(icon, size: 18, color: AppTokens.fg),
+        ),
+      ),
+    );
+  }
 }
 
 /// 安全解码图片尺寸（避免直接依赖 package:image，仅取宽高）。
