@@ -25,6 +25,7 @@ Future<XFile?> pickPhotoRobust(
       preferredCameraDevice: CameraDevice.rear,
     );
   } on PlatformException catch (e) {
+    if (!context.mounted) return null;
     final msg = e.message ?? e.code;
     // 权限类错误 → 引导
     if (msg.toLowerCase().contains('permission') ||
@@ -51,6 +52,7 @@ Future<XFile?> pickPhotoRobust(
       );
       if (retry != null) return retry;
       // 重试返回 null（用户取消）→ 再弹一次兜底，此时不再给"重试"
+      if (!context.mounted) return null;
       final useGallery2 = await _showCameraFallbackDialog(
           context, '相机重试未返回图像', allowRetry: false);
       if (useGallery2 == true) {
@@ -61,6 +63,7 @@ Future<XFile?> pickPhotoRobust(
       }
       return null;
     } catch (_) {
+      if (!context.mounted) return null;
       final useGallery2 =
           await _showCameraFallbackDialog(context, '相机不可用', allowRetry: false);
       if (useGallery2 == true) {
@@ -72,6 +75,7 @@ Future<XFile?> pickPhotoRobust(
       return null;
     }
   } catch (_) {
+    if (!context.mounted) return null;
     final useGallery =
         await _showCameraFallbackDialog(context, '相机不可用');
     if (useGallery == true) {
