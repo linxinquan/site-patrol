@@ -199,7 +199,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
         d.w.round(),
         d.h.round(),
         sampleW: 700,
-        coverageMin: 0.5,
+        minRatio: 0.5,
+        maxGap: 4,
+        clusterTol: 8,
         maxLines: 40,
       );
       final result = calibrateByAxisGrid(
@@ -505,7 +507,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
         d.w.round(),
         d.h.round(),
         sampleW: 700,
-        coverageMin: 0.5,
+        minRatio: 0.5,
+        maxGap: 4,
+        clusterTol: 8,
         maxLines: 30,
       );
       if (!mounted) return;

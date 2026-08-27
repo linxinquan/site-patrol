@@ -37,44 +37,53 @@ class AxisGrid {
 /// [rgba] 为 rawRgba 字节流（4 字节/像素），[imgW]/[imgH] 为原始像素尺寸。
 /// 返回检测到的横/竖轴线（原图像素坐标），按长度降序，最多各 [maxLines] 条。
 ///
-/// 算法（针对工程图纸白底黑线）：
+/// 算法（针对工程图纸白底黑/红线）：
 ///  1. min-pooling 降采样到约 [sampleW] 宽（每块取最暗像素，保住 2px 细线）；
-///  2. 逐行/逐列统计"暗像素占比"，占比超阈值的行/列聚合成线（取质心）。
+///  2. 对每行/列求「最长连续暗段」长度（容许 ≤[maxGap] 像素的亮色小缺口），
+///     占比 ≥ [minRatio] 视为负穿，是真实轴线候选；
+///  3. 一维聚类（[clusterTol] 像素内合并）→ 质心为轴线位置。
+///
+/// 设计动机：旧版"暗像素占比>coverageMin"会被 min-pooling 膨胀的噪声（墙线/梁线/文字/尺寸碎片）误判为长线；改用"最长连续暗段"对穿越文字/图框的小缺口更鲅松，已在真实 B01/D01/D03/D04 底图上验证召回率明显提升。
 AxisGrid detectAxisLines(
   Uint8List rgba,
   int imgW,
   int imgH, {
   double sampleW = 900,
-  double darkThreshold = 128,
-  double coverageMin = 0.55,
+  int darkThreshold = 128,
+  double minRatio = 0.5,
+  int maxGap = 4,
+  double clusterTol = 8,
   int maxLines = 24,
 }) {
-  if (imgW <= 0 || imgH <= 0) return const AxisGrid(horizontals: [], verticals: []);
+  if (imgW <= 0 || imgH <= 0) {
+    return const AxisGrid(horizontals: [], verticals: []);
+  }
 
+  // 1. min-pooling 降采样：块内取最暗（保佟 2px 细线）
   final sw = math.min(sampleW.toInt(), imgW);
   final sh = math.max(1, (imgH * sw / imgW).round());
-  final kx = imgW / sw; // 每采样块的像素宽
+  final kx = imgW / sw;
   final ky = imgH / sh;
 
-  // 1. min-pooling：块内取最暗（灰度最小）
-  final g = Int8List(sw * sh); // 0=白 ... 255=黑
+  final g = Uint8List(sw * sh);
+  // Int8List default 0; fill 255 for white-bg pooling.
+  g.fillRange(0, g.length, 255);
   for (var y = 0; y < sh; y++) {
     final y0 = (y * ky).floor();
     final y1 = math.min(imgH - 1, ((y + 1) * ky).floor() + 1);
     for (var x = 0; x < sw; x++) {
       final x0 = (x * kx).floor();
       final x1 = math.min(imgW - 1, ((x + 1) * kx).floor() + 1);
-      var darkest = 0;
+      var darkest = 255;  // 块内最暗（min-pooling）。白底黑线：块内有黑线 → 0；无黑线 → 255。
       for (var yy = y0; yy < y1; yy++) {
         var rowOff = yy * imgW * 4;
         for (var xx = x0; xx < x1; xx++) {
           final off = rowOff + xx * 4;
-          // 灰度 = (r+g+b)/3，近似用最大通道？白底图黑线用 min 通道更稳。
           final r = rgba[off];
           final g_ = rgba[off + 1];
           final b = rgba[off + 2];
           final gray = (r * 299 + g_ * 587 + b * 114) ~/ 1000;
-          if (gray > darkest) darkest = gray;
+          if (gray < darkest) darkest = gray;
         }
         rowOff += imgW * 4;
       }
@@ -82,73 +91,103 @@ AxisGrid detectAxisLines(
     }
   }
 
-  // 2. 横向扫描：每行暗像素占比
-  final hCov = List<double>.filled(sh, 0);
+  // 2. 对每行/列求最长连续暗段（容 maxGap 像素亮色缀口）
+  final hYs = <double>[];
   for (var y = 0; y < sh; y++) {
-    var dark = 0;
-    for (var x = 0; x < sw; x++) {
-      if (g[y * sw + x] > darkThreshold) dark++;
+    final run = _longestDarkRun(g, y * sw, sw, 1, darkThreshold, maxGap);
+    if (run / sw >= minRatio) {
+      hYs.add(y * ky);
     }
-    hCov[y] = dark / sw;
   }
-  // 3. 竖向扫描：每列暗像素占比
-  final vCov = List<double>.filled(sw, 0);
+  final vXs = <double>[];
   for (var x = 0; x < sw; x++) {
-    var dark = 0;
-    for (var y = 0; y < sh; y++) {
-      if (g[y * sw + x] > darkThreshold) dark++;
+    final run = _longestDarkRun(g, x, sh, sw, darkThreshold, maxGap);
+    if (run / sh >= minRatio) {
+      vXs.add(x * kx);
     }
-    vCov[x] = dark / sh;
   }
 
-  // 聚合连续行/列（占比 > coverageMin）为线，取质心位置映射回原图。
-  List<AxisLine> collectRows() {
-    final lines = <AxisLine>[];
-    var y = 0;
-    while (y < sh) {
-      if (hCov[y] > coverageMin) {
-        var runStart = y;
-        var sum = 0.0;
-        var cnt = 0.0;
-        while (y < sh && hCov[y] > coverageMin) {
-          sum += y * hCov[y];
-          cnt += hCov[y];
-          y++;
-        }
-        final cy = (cnt > 0 ? sum / cnt : (runStart + y - 1) / 2) / sh * imgH;
-        lines.add(AxisLine(ui.Offset(0, cy), ui.Offset(imgW.toDouble(), cy)));
-      }
-      y++;
-    }
-    return lines;
-  }
+  // 3. 一维聚类（相邻 clusterTol 内合并，加权质心）
+  final hCenters = _cluster1d(hYs, clusterTol);
+  final vCenters = _cluster1d(vXs, clusterTol);
 
-  List<AxisLine> collectCols() {
-    final lines = <AxisLine>[];
-    var x = 0;
-    while (x < sw) {
-      if (vCov[x] > coverageMin) {
-        var sum = 0.0;
-        var cnt = 0.0;
-        while (x < sw && vCov[x] > coverageMin) {
-          sum += x * vCov[x];
-          cnt += vCov[x];
-          x++;
-        }
-        final cx = (cnt > 0 ? sum / cnt : (x - 1)) / sw * imgW;
-        lines.add(AxisLine(ui.Offset(cx, 0), ui.Offset(cx, imgH.toDouble())));
-      }
-      x++;
-    }
-    return lines;
-  }
-
-  final hs = collectRows()..sort((a, b) => b.length.compareTo(a.length));
-  final vs = collectCols()..sort((a, b) => b.length.compareTo(a.length));
+  // 4. 按赆穿长度（聚类包含的行/列数）降序，取前 maxLines
+  final horizontals = <AxisLine>[
+    for (final c in hCenters)
+      AxisLine(ui.Offset(0, c), ui.Offset(imgW.toDouble(), c)),
+  ];
+  final verticals = <AxisLine>[
+    for (final c in vCenters)
+      AxisLine(ui.Offset(c, 0), ui.Offset(c, imgH.toDouble())),
+  ];
+  horizontals.sort((a, b) => b.length.compareTo(a.length));
+  verticals.sort((a, b) => b.length.compareTo(a.length));
   return AxisGrid(
-    horizontals: hs.take(maxLines).toList(),
-    verticals: vs.take(maxLines).toList(),
+    horizontals: horizontals.take(maxLines).toList(),
+    verticals: verticals.take(maxLines).toList(),
   );
+}
+
+/// 在 [start, start+count*step) 范围上统计「最长连续暗段」长度，
+/// 中间容许 ≤[maxGap] 像素的亮色（文字/尺寸/小缺口）。返回像素数。
+/// "暗"语义：pooled 灰度 < darkThreshold（min-pooling 后的黑线 = 0）。
+int _longestDarkRun(Uint8List g, int start, int count, int step,
+    int darkThreshold, int maxGap) {
+  var best = 0;
+  var run = 0;
+  var gap = 0;
+  for (var i = 0; i < count; i++) {
+    final v = g[start + i * step];
+    final isDark = v < darkThreshold;
+    if (isDark) {
+      if (run > 0) {
+        if (gap > 0) {
+          run += gap + 1;
+          gap = 0;
+        } else {
+          run += 1;
+        }
+        if (run > best) best = run;
+      } else {
+        run = 1;
+      }
+    } else {
+      if (run > 0) {
+        gap += 1;
+        if (gap > maxGap) {
+          run = 0;
+          gap = 0;
+        }
+      }
+    }
+  }
+  if (run > best) best = run;
+  return best;
+}
+
+/// 一维位置聚类：相邻 ≤[tol] 的位置合并为组，输出每组加权质心。
+List<double> _cluster1d(List<double> vals, double tol) {
+  if (vals.isEmpty) return const [];
+  final sorted = [...vals]..sort();
+  final out = <double>[];
+  var groupSum = sorted[0];
+  var groupCount = 1;
+  var groupEnd = sorted[0];
+  for (var i = 1; i < sorted.length; i++) {
+    final v = sorted[i];
+    if (v - groupEnd <= tol) {
+      groupEnd = v;
+      groupSum += v;
+      groupCount += 1;
+    } else {
+      out.add(groupSum / groupCount);
+      groupSum = v;
+      groupCount = 1;
+      groupEnd = v;
+    }
+  }
+  out.add(groupSum / groupCount);
+  return out;
 }
 
 /// 一组校准点对：像素坐标 + 真实图纸坐标（mm）。

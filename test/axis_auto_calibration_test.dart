@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui' show Offset;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -138,6 +139,120 @@ void main() {
         minInliers: 10,
       );
       expect(res.success, isFalse, reason: '无对应数据应判定失败');
+    });
+  });
+
+  group('detectAxisLines v2（最长连续暗段 + 容缺 + 聚类）', () {
+    /// 构造一张白底图：画 3 横 + 4 竖（长线）+ 中间有 1-2px 短缺口 + 一些噪点。
+    /// 验证 v2 能稳定识别出这 7 条长线，对噪声稳健。
+    Uint8List makeImage(int W, int H, void Function(int x, int y) draw) {
+      final bytes = Uint8List(W * H * 4);
+      for (var i = 0; i < bytes.length; i += 4) {
+        bytes[i] = 255;
+        bytes[i + 1] = 255;
+        bytes[i + 2] = 255;
+        bytes[i + 3] = 255;
+      }
+      for (var y = 0; y < H; y++) {
+        for (var x = 0; x < W; x++) {
+          draw(x, y);
+        }
+      }
+      // 把 draw 回调施加的"暗色像素"写回
+      return bytes;
+    }
+
+    test('识别 3 横 + 4 竖（长线带 1-2px 缺口）', () {
+      const W = 1000, H = 600;
+      // 画线：横线 y=100,300,500；竖线 x=200,400,600,800
+      // 在 5% 长度处插入 2px 缺口（"图框"位置）
+      // + 在 y=200 加 30 段短线（噪声）
+      final dark = <int>{};
+      void setDark(int x, int y) {
+        final i = (y * W + x) * 4;
+        dark.add(i);
+      }
+      // 横线
+      for (final y in [100, 300, 500]) {
+        for (var x = 0; x < W; x++) {
+          if (x > 200 && x < 203) continue; // 2px 缺口
+          setDark(x, y);
+        }
+      }
+      // 竖线
+      for (final x in [200, 400, 600, 800]) {
+        for (var y = 0; y < H; y++) {
+          if (y > 250 && y < 253) continue; // 2px 缺口
+          setDark(x, y);
+        }
+      }
+      // 噪声短线段（10px 一段）
+      var seed = 0xACE1;
+      int rnd() {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed;
+      }
+      for (var n = 0; n < 30; n++) {
+        final sy = rnd() % H;
+        final sx = rnd() % (W - 10);
+        for (var k = 0; k < 10; k++) {
+          setDark(sx + k, sy);
+        }
+      }
+      final rgba = Uint8List(W * H * 4);
+      // 背景白 (255,255,255,255)
+      for (var i = 0; i < rgba.length; i += 4) {
+        rgba[i] = 255;
+        rgba[i + 1] = 255;
+        rgba[i + 2] = 255;
+        rgba[i + 3] = 255;
+      }
+      // 线设为黑 (0,0,0,255)
+      for (final i in dark) {
+        rgba[i] = 0;
+        rgba[i + 1] = 0;
+        rgba[i + 2] = 0;
+      }
+      final grid = detectAxisLines(
+        rgba, W, H,
+        sampleW: 500, minRatio: 0.5, maxGap: 4, clusterTol: 5,
+      );
+      expect(grid.horizontals.length, greaterThanOrEqualTo(3),
+          reason: '应检出 3 条横线');
+      expect(grid.verticals.length, greaterThanOrEqualTo(4),
+          reason: '应检出 4 条竖线');
+      // 验质心位置（允许 ±5px）
+      final hY = grid.horizontals.map((l) => l.a.dy).toList()..sort();
+      expect((hY[0] - 100).abs() < 5, isTrue, reason: '第一条横线 y≈100');
+      expect((hY[1] - 300).abs() < 5, isTrue, reason: '第二条横线 y≈300');
+      expect((hY[2] - 500).abs() < 5, isTrue, reason: '第三条横线 y≈500');
+      final vX = grid.verticals.map((l) => l.a.dx).toList()..sort();
+      expect((vX[0] - 200).abs() < 5, isTrue, reason: '第一条竖线 x≈200');
+      expect((vX[3] - 800).abs() < 5, isTrue, reason: '第四条竖线 x≈800');
+    });
+
+    test('纯噪声：应返回空线集（不误检）', () {
+      const W = 500, H = 300;
+      final rgba = Uint8List(W * H * 4);
+      var seed = 0xBEEF;
+      for (var i = 0; i < rgba.length; i += 4) {
+        // 5% 像素设为暗（不形成贯穿行/列的稀疏噪声）
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        if ((seed & 0x3F) == 0) {
+          rgba[i] = 0;
+          rgba[i + 1] = 0;
+          rgba[i + 2] = 0;
+        } else {
+          rgba[i] = 255;
+          rgba[i + 1] = 255;
+          rgba[i + 2] = 255;
+        }
+      }
+      final grid = detectAxisLines(
+        rgba, W, H, sampleW: 400, minRatio: 0.5, maxGap: 4, clusterTol: 5,
+      );
+      expect(grid.horizontals.length, 0, reason: '纯噪声不应检出横线');
+      expect(grid.verticals.length, 0, reason: '纯噪声不应检出竖线');
     });
   });
 }
