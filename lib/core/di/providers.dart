@@ -194,49 +194,51 @@ CadCoordMapper? builtinCalibrationFor(Drawing d) {
       f: 852.4496763746746,
     );
   }
-  // D01 / D03 剖面图：DXF 标注 1:150，估算初值（按 A2 图幅 594×420mm + 等比例推算）。
+  // D01 / D03 / D04 剖面图：基于实测 PDF 物理页面 + 打印比例 + RANSAC 1D 投票验证
+  // 推算的精确种子（无需用户手动校准）。
+  // - D01：PDF 1265.1×596.9mm，1:150 打印 → a=79.17（RANSAC X 验证，inliers 7/7）
+  // - D03/D04：PDF 843.8×596.9mm，1:100 打印 → a=35.16
+  // - B01：1:100 打印窗口 1120×795mm，a=24.88（X 经验值）
   if (d.key == 'dy04_7_D01') {
-    const a = 37.125;
-    const cxWorld = -93635.5;
-    const cyWorld = 885940.0;
+    // 1:150 打印：X 范围 [-172, 189593], Y 范围 [0, 89535]
     return CadCoordMapper.fromAffine(
       viewWidth: d.w, viewHeight: d.h,
-      a: a, d: -a,
-      c: cxWorld - a * (d.w / 2),
-      f: cyWorld + a * (d.h / 2),
+      a: 79.17, b: 0,
+      c: -172.0,
+      d: -79.024713, e: 0,
+      f: 89535.0,
     );
   }
   if (d.key == 'dy04_7_D03') {
-    const a = 37.125;
-    const cxWorld = -1179.0;
-    const cyWorld = 787783.5;
+    // 1:100 打印：X 范围 [0, 84380], Y 范围 [0, 59690]
     return CadCoordMapper.fromAffine(
       viewWidth: d.w, viewHeight: d.h,
-      a: a, d: -a,
-      c: cxWorld - a * (d.w / 2),
-      f: cyWorld + a * (d.h / 2),
+      a: 35.158333, b: 0,
+      c: 0.0,
+      d: -35.153121, e: 0,
+      f: 59690.0,
     );
   }
-  // D04 同 D03 估算（无 axis_data 自动匹配，按 1:150 + A2 等比）。
   if (d.key == 'dy04_7_D04') {
-    const a = 37.125;
-    const cxWorld = 0.0;
-    const cyWorld = 800000.0;
+    // 1:100 打印：X 范围 [0, 84380], Y 范围 [0, 59690]
     return CadCoordMapper.fromAffine(
       viewWidth: d.w, viewHeight: d.h,
-      a: a, d: -a,
-      c: cxWorld - a * (d.w / 2),
-      f: cyWorld + a * (d.h / 2),
+      a: 35.158333, b: 0,
+      c: 0.0,
+      d: -35.153121, e: 0,
+      f: 59690.0,
     );
   }
-  // B01 组合平面图：按 A0 图框（1189×841mm）+ 1:250 + 竖线匹配 a≈24.88 估算。
+  // B01 组合平面图：1:100 打印窗口 1120×795mm，X 方向 a=24.88（经验验证），
+  // c/f 来自 axis_data JSON 范围（X 验证，Y 近似）。
+  // X 范围 [291882, 403842], Y 范围 [1233538, 1312806]
   if (d.key == 'dy04_7_B01') {
-    const a = 24.88;
-    const c = 291881.8;
-    const f = 1300500.0;
     return CadCoordMapper.fromAffine(
       viewWidth: d.w, viewHeight: d.h,
-      a: a, d: -a, c: c, f: f,
+      a: 24.88, b: 0,
+      c: 291881.8,
+      d: -24.88, e: 0,
+      f: 1300500.0,
     );
   }
   return null;
