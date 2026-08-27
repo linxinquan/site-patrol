@@ -62,3 +62,12 @@ server/ocf_cache.zip
 *.dxf
 # 轴网交点提取中间产物（正式数据在 assets/axis_data/）
 server/axis_data/
+
+# 防止误将 build/web 构建产物复制进 web/ 源码目录（旧产物会覆盖新编译结果）
+# web/ 下只应保留：index.html、manifest.json、favicon.png、icons/、自定义 html/SDK
+web/main.dart.js
+web/flutter.js
+web/flutter_bootstrap.js
+web/version.json
+web/canvaskit/
+web/assets/
