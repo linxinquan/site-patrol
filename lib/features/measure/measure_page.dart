@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app_settings/app_settings.dart';
 
 import '../../core/cad/cad_calibration.dart';
 import '../../core/di/providers.dart';
@@ -15,6 +16,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
+import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_snack.dart';
@@ -144,13 +146,49 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     }
   }
 
+  /// 相机权限被拒 → 弹窗引导前往系统设置。
+  void _showPermissionGuide() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('相机权限被拒绝'),
+        content: const Text('拍照量尺需要相机权限。请在系统设置中开启，再回来继续测量。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              AppSettings.openAppSettings();
+            },
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ——— ② 照片取图 ———
   Future<void> _pickPhoto() async {
-    final picker = ImagePicker();
-    final source = kIsWeb ? ImageSource.gallery : ImageSource.camera;
+    XFile? x;
+    if (kIsWeb) {
+      // Web：相册选图。
+      x = await ImagePicker()
+          .pickImage(source: ImageSource.gallery, maxWidth: 1920, imageQuality: 85);
+    } else {
+      // 移动端：通用相机兜底（权限引导 + 相机失败改用相册）。
+      x = await pickPhotoRobust(
+        context,
+        onDenied: _showPermissionGuide,
+        maxWidth: 1920,
+        imageQuality: 85,
+      );
+    }
+    if (x == null) return;
     try {
-      final x = await picker.pickImage(source: source, maxWidth: 1920, imageQuality: 85);
-      if (x == null) return;
       final bytes = await x.readAsBytes();
       // 解析尺寸（轻量：用 decodeImageFromList 拿宽高）。
       final ui.Image? img = await decodeImageFromListSafe(bytes);
@@ -430,8 +468,15 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                       )
                     else
                       const Center(child: Text('无图纸底图')),
-                    // 选点标记
-                    ..._drawPicks.map((p) => _pickDot(p, Colors.blue)),
+                    // 选点标记（P0-2：整图坐标→显示坐标，避免错位）
+                    LayoutBuilder(
+                      builder: (ctx, c) => Stack(
+                        children: [
+                          ..._drawPicks.map((p) => _pickDot(
+                              imageToDisplay(p, c.biggest, _imageSize!), Colors.blue)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -476,6 +521,18 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       w = box.height * r;
     }
     return Size(w, h);
+  }
+
+  /// P0-2 标记错位修复：把整图像素坐标换算成显示坐标（BoxFit.contain 逆变换）。
+  /// 供图纸蓝点/照片橙点/红点渲染前使用，保证点击处与标记重合。
+  Offset imageToDisplay(Offset p, Size box, Size imageSize) {
+    final contain = _containSize(box, imageSize);
+    final offX = (box.width - contain.width) / 2;
+    final offY = (box.height - contain.height) / 2;
+    return Offset(
+      p.dx / imageSize.width * contain.width + offX,
+      p.dy / imageSize.height * contain.height + offY,
+    );
   }
 
   Widget _photoPanel() {
@@ -566,8 +623,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                               Positioned.fill(
                                 child: Image.memory(_photoBytes!, fit: BoxFit.contain),
                               ),
-                              ..._refPicks.map((p) => _pickDot(p, Colors.orange)),
-                              ..._photoPicks.map((p) => _pickDot(p, Colors.red)),
+                              ..._refPicks.map((p) => _pickDot(
+                                  imageToDisplay(p, c.biggest, _photoSize!), Colors.orange)),
+                              ..._photoPicks.map((p) => _pickDot(
+                                  imageToDisplay(p, c.biggest, _photoSize!), Colors.red)),
                             ],
                           ),
                         ),

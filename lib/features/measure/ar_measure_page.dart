@@ -2,19 +2,21 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:app_settings/app_settings.dart';
 
 import '../../core/ar/ar_measure_service.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
+import '../../core/utils/camera_pick.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// AR 量尺（LiDAR，iPhone 12 Pro+）。
 ///
-/// 交互（AR_UX_SMOOTH.md 覆盖版，手势驱动连续测量）：
-/// 进入即连续测量 → 单击采点A(蓝) → 再单击采点B(红)+连线 → 自动出距离 →
-/// 保留上一组视觉，下次单击开新组；长按清除；暂停/继续开关；加入校对写入会话。
+/// 交互：进入即连续测量 → 单击采点A(蓝) → 再单击采点B(红)+连线 → 自动出距离 →
+/// 保留上一组视觉，下次单击开新组；支持多点测量，可删除单条后批量保存到会话。
 class ArMeasurePage extends StatefulWidget {
   final MeasureArgs args;
   const ArMeasurePage({super.key, required this.args});
@@ -29,6 +31,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
 
   late final ArMeasureService _svc;
   double? _lastMm;
+  final List<double> _measurements = [];
   bool _supported = false;
   bool _paused = false;
   String _hint = '点屏幕采点A';
@@ -48,7 +51,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       if (mounted) {
         setState(() {
           _lastMm = mm;
-          _hint = '测量完成，可继续测下一组，或加入校对';
+          _measurements.add(mm);
+          _hint = '已测 ${_measurements.length} 组，可继续测或保存';
         });
       }
     } else if (call.method == 'onPointA') {
@@ -57,6 +61,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       if (mounted) {
         setState(() {
           _lastMm = null;
+          _measurements.clear();
           _hint = '点屏幕采点A';
         });
       }
@@ -65,6 +70,33 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
         AppSnack.show(context, call.arguments?.toString() ?? '测量失败',
             kind: AppSnackKind.danger);
       }
+    } else if (call.method == 'onCameraDenied') {
+      if (mounted) _showPermissionGuide();
+    }
+  }
+
+  /// 相机权限被拒 → 引导去系统设置（与 capture_page 同款）。
+  Future<void> _showPermissionGuide() async {
+    if (!mounted) return;
+    final goSettings = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('相机权限被拒绝'),
+        content: const Text('AR量尺需要相机权限。请在系统设置中开启，再回来继续测量。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
+    );
+    if (goSettings == true) {
+      AppSettings.openAppSettings();
     }
   }
 
@@ -80,32 +112,20 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     _supported = await _svc.isSupported();
     if (!mounted) return;
     if (!_supported) {
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('需要 LiDAR 设备'),
-          content: const Text('AR量尺需 iPhone 12 Pro 及以上机型，请改用照片量尺。'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('知道了'),
-            ),
-          ],
-        ),
-      );
+      setState(() {});
       return;
     }
     // 原生默认进入连续模式，无需再 setMode。
     await _svc.startSession();
   }
 
-  Future<void> _addToSession() async {
-    final drawingMm = double.tryParse(_drawingCtl.text);
-    if (_lastMm == null || drawingMm == null || drawingMm <= 0) {
-      AppSnack.show(context, '请先完成AR测量并填写图纸尺寸',
-          kind: AppSnackKind.danger);
+  /// 批量保存：把 _measurements 全部写入会话。
+  Future<void> _saveAll() async {
+    if (_measurements.isEmpty) {
+      AppSnack.show(context, '暂无测量结果', kind: AppSnackKind.danger);
       return;
     }
+    final drawingMm = double.tryParse(_drawingCtl.text);
     var s = await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
     s ??= MeasureSession(
       id: '${widget.args.projectKey}_${widget.args.drawingKey}_ar',
@@ -113,33 +133,27 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       drawingKey: widget.args.drawingKey,
       floor: widget.args.floor,
     );
-    final item = MeasureItem(
-      name: _nameCtl.text.trim().isEmpty ? 'AR实测' : _nameCtl.text.trim(),
-      drawingMm: drawingMm,
-      photoMm: _lastMm!,
-      source: 'ar_lidar',
-    );
-    await MeasureStore.save(s.copyWith(items: [...s.items, item]));
+    final items = [
+      for (var i = 0; i < _measurements.length; i++)
+        MeasureItem(
+          name: 'AR-${i + 1}',
+          drawingMm: (drawingMm ?? 0),
+          photoMm: _measurements[i],
+          source: 'ar_lidar',
+        ),
+    ];
+    await MeasureStore.save(s.copyWith(items: [...s.items, ...items]));
     if (mounted) {
-      AppSnack.show(context, '已加入校对清单');
+      AppSnack.show(context, '已保存 ${items.length} 条测量');
       Navigator.of(context).pop();
     }
   }
 
-  /// Web/非 iOS 平台 Fallback：调相机/相册拍一张照片 + 录入参考物实际尺寸 →
-  /// 估算照片中两点之间的物理距离（按屏幕 px 与参考物 mm 比例简化计算）。
-  /// 精度低于 LiAR LiDAR，但能满足"打开即用"的工程验收需求。
-  Widget _buildWebFallback() {
-    final picker = ImagePicker();
-    final refMm = TextEditingController();
-    final drawingMm = TextEditingController();
-    String shotName = '';
-    String result = '';
-
-    return StatefulBuilder(builder: (ctx, setSt) {
-      return Scaffold(
+  /// 非 iOS / Web：LiDAR 不可用 → 提供「拍照→照片量尺」入口（接入 camera_pick 相机兜底）。
+  Widget _buildUnsupported() {
+    return Scaffold(
       appBar: AppBar(
-        title: const Text('AR量尺（Web 拍照版）'),
+        title: const Text('AR量尺'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -147,147 +161,71 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppTokens.space3),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppTokens.space4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.phone_iphone, size: 56, color: AppTokens.muted),
+              const SizedBox(height: AppTokens.space3),
+              const Text(
+                'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
-              child: const Text(
-                '提示：Web 端无 LiDAR，请拍一张含已知尺寸参考物的照片，'
-                '输入参考物实际尺寸（mm），系统会按比例估算照片中'
-                '两点之间的物理距离。',
-                style: TextStyle(fontSize: 13, color: AppTokens.fg),
-              ),
-            ),
-            const SizedBox(height: AppTokens.space3),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.camera_alt_outlined),
-              label: Text(shotName.isEmpty ? '拍/选照片（调用相机）' : '重新拍摄'),
-              onPressed: () async {
-                try {
-                  final source = kIsWeb
-                      ? ImageSource.gallery
-                      : ImageSource.camera;
-                  final f = await picker.pickImage(
-                    source: source,
-                    maxWidth: 1600,
-                    imageQuality: 85,
-                  );
-                  if (f != null) {
-                    setSt(() {
-                      shotName = f.name;
-                      result = '';
-                    });
-                  }
-                } on PlatformException catch (e) {
-                  if (mounted) {
-                    AppSnack.show(context,
-                        '无法调用相机/相册：${e.message ?? e.code}',
-                        kind: AppSnackKind.danger);
-                  }
-                } catch (_) {
-                  if (mounted) {
-                    AppSnack.show(context, '无法调用相机/相册，请检查权限',
-                        kind: AppSnackKind.danger);
-                  }
-                }
-              },
-            ),
-            if (shotName.isNotEmpty) ...[
               const SizedBox(height: AppTokens.space2),
-              Text('已选：$shotName', style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+              const Text(
+                '当前设备不支持 LiDAR，请拍照后到照片量尺完成现场测量。',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: AppTokens.muted),
+              ),
+              const SizedBox(height: AppTokens.space4),
+              FilledButton.icon(
+                onPressed: _captureForPhotoMeasure,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('拍照并前往照片量尺'),
+              ),
+              const SizedBox(height: AppTokens.space2),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('关闭并返回'),
+              ),
             ],
-            const SizedBox(height: AppTokens.space3),
-            TextField(
-              controller: refMm,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: '参考物真实尺寸 (mm)',
-                hintText: '如卡片 85.6',
-              ),
-            ),
-            const SizedBox(height: AppTokens.space2),
-            TextField(
-              controller: drawingMm,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: '图纸侧尺寸 (mm)',
-                hintText: '按 CAD 量取',
-              ),
-            ),
-            const SizedBox(height: AppTokens.space3),
-            ElevatedButton(
-              onPressed: () async {
-                if (shotName.isEmpty) {
-                  AppSnack.show(context, '请先拍照', kind: AppSnackKind.danger);
-                  return;
-                }
-                final ref = double.tryParse(refMm.text);
-                final drw = double.tryParse(drawingMm.text);
-                if (ref == null || drw == null || ref <= 0) {
-                  AppSnack.show(context, '请填写参考物与图纸尺寸（mm）',
-                      kind: AppSnackKind.danger);
-                  return;
-                }
-                // 简化估算：参考物 1mm 约 1px（保守占位）；iOS 真机请用 LiDAR AR。
-                final pxPerMm = ref / 100;
-                final estMm = drw;
-                setSt(() {
-                  result = '参考物 ${ref}mm → 估算 mm/px ≈ ${pxPerMm.toStringAsFixed(3)}\n'
-                      '图纸侧 ${drw}mm 与照片实测的偏差由 mm/px 决定';
-                });
-                var s = await MeasureStore.load(
-                    widget.args.projectKey, widget.args.drawingKey);
-                s ??= MeasureSession(
-                  id: '${widget.args.projectKey}_${widget.args.drawingKey}_ar',
-                  projectKey: widget.args.projectKey,
-                  drawingKey: widget.args.drawingKey,
-                  floor: widget.args.floor,
-                );
-                final item = MeasureItem(
-                  name: _nameCtl.text.trim().isEmpty
-                      ? 'AR实测(Web)'
-                      : _nameCtl.text.trim(),
-                  drawingMm: drw,
-                  photoMm: estMm,
-                  source: 'ar_web',
-                );
-                await MeasureStore.save(s.copyWith(items: [...s.items, item]));
-                if (mounted) {
-                  AppSnack.show(context, '已加入校对清单');
-                }
-              },
-              child: const Text('计算并加入校对'),
-            ),
-            const SizedBox(height: AppTokens.space3),
-            if (result.isNotEmpty)
-              Container(
-                padding: const EdgeInsets.all(AppTokens.space3),
-                decoration: BoxDecoration(
-                  color: AppTokens.surface,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                ),
-                child: Text(result,
-                    style: const TextStyle(fontSize: 13, color: AppTokens.fg)),
-              ),
-          ],
+          ),
         ),
       ),
-      );
-    });
+    );
+  }
+
+  /// 调用 camera_pick 拍照，成功后跳转到照片量尺（CapturePage）继续。
+  Future<void> _captureForPhotoMeasure() async {
+    final file = await pickPhotoRobust(
+      context,
+      onDenied: _showPermissionGuide,
+      maxWidth: 1920.0,
+      imageQuality: 88,
+    );
+    if (file == null || !mounted) return;
+    // 跳转到照片量尺：复用拍照记录流程，选点后关联刚拍的照片。
+    context.push(
+      '/capture',
+      extra: CaptureArgs(
+        projectId: widget.args.projectKey,
+        floor: widget.args.floor,
+        anchorLabel: 'AR量尺·现场照片',
+        x: 0.5,
+        y: 0.5,
+        drawingKey: widget.args.drawingKey,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (kIsWeb || !Platform.isIOS) {
-      // Web/非 iOS：LiDAR 不可用，退化为"拍照+选参考物"简易量尺。
-      return _buildWebFallback();
+      // Web / 非 iOS：LiDAR 不可用，直接提示，不提供假估算。
+      return _buildUnsupported();
     }
     return Scaffold(
       appBar: AppBar(title: const Text('AR量尺（LiDAR）')),
@@ -296,19 +234,21 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           Expanded(
             child: Stack(
               children: [
-                UiKitView(
-                  viewType: _viewType,
-                  onPlatformViewCreated: _onViewCreated,
-                  creationParams: null,
-                  creationParamsCodec: const StandardMessageCodec(),
-                ),
+                if (_supported)
+                  UiKitView(
+                    viewType: _viewType,
+                    onPlatformViewCreated: _onViewCreated,
+                    creationParams: null,
+                    creationParamsCodec: const StandardMessageCodec(),
+                  )
+                else
+                  _buildLiDARPlaceholder(),
                 Positioned(
                   top: AppTokens.space4,
                   left: 0,
                   right: 0,
                   child: Column(
                     children: [
-                      // 动态提示条
                       Container(
                         margin: const EdgeInsets.symmetric(horizontal: 32),
                         padding: const EdgeInsets.symmetric(
@@ -350,11 +290,13 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () async {
-                          _paused = !_paused;
-                          await _svc.setMode(_paused ? 0 : 1);
-                          setState(() {});
-                        },
+                        onPressed: _supported
+                            ? () async {
+                                _paused = !_paused;
+                                await _svc.setMode(_paused ? 0 : 1);
+                                setState(() {});
+                              }
+                            : null,
                         icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
                         label: Text(_paused ? '继续' : '暂停'),
                       ),
@@ -362,13 +304,16 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                     const SizedBox(width: AppTokens.space2),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await _svc.clear();
-                          setState(() {
-                            _lastMm = null;
-                            _hint = '点屏幕采点A';
-                          });
-                        },
+                        onPressed: _supported
+                            ? () async {
+                                await _svc.clear();
+                                setState(() {
+                                  _lastMm = null;
+                                  _measurements.clear();
+                                  _hint = '点屏幕采点A';
+                                });
+                              }
+                            : null,
                         icon: const Icon(Icons.delete_outline),
                         label: const Text('清除'),
                       ),
@@ -376,11 +321,44 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                     const SizedBox(width: AppTokens.space2),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _lastMm == null ? null : _addToSession,
-                        child: const Text('加入校对'),
+                        onPressed: _supported && _measurements.isNotEmpty
+                            ? _saveAll
+                            : null,
+                        child: const Text('保存'),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: AppTokens.space2),
+                // 测量列表
+                Container(
+                  height: 180,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: ListView.builder(
+                    itemCount: _measurements.length,
+                    itemBuilder: (ctx, i) {
+                      final m = _measurements[i];
+                      return ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Text(
+                          '${i + 1}.',
+                          style: const TextStyle(color: AppTokens.muted),
+                        ),
+                        title: Text('实测 ${m.toStringAsFixed(1)} mm'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.remove_circle_outline,
+                              size: 20, color: AppTokens.danger),
+                          onPressed: () {
+                            setState(() {
+                              _measurements.removeAt(i);
+                              if (_measurements.isEmpty) _lastMm = null;
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(height: AppTokens.space2),
                 Row(
@@ -388,8 +366,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                     Expanded(
                       child: TextField(
                         controller: _nameCtl,
+                        enabled: false,
                         decoration: const InputDecoration(
-                            labelText: '量尺项名称',
+                            labelText: '量尺项名称（批量保存用 AR-N）',
                             isDense: true,
                             border: OutlineInputBorder()),
                       ),
@@ -401,7 +380,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                         keyboardType: const TextInputType.numberWithOptions(
                             decimal: true),
                         decoration: const InputDecoration(
-                            labelText: '图纸尺寸(mm)',
+                            labelText: '图纸尺寸(mm，可选)',
                             isDense: true,
                             border: OutlineInputBorder()),
                       ),
@@ -410,6 +389,25 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiDARPlaceholder() {
+    return Container(
+      color: const Color(0xFF0A0A0A),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(AppTokens.space4),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.view_in_ar, size: 56, color: Colors.white54),
+          SizedBox(height: AppTokens.space3),
+          Text(
+            '正在检测 LiDAR 支持…',
+            style: TextStyle(color: Colors.white70, fontSize: 15),
           ),
         ],
       ),

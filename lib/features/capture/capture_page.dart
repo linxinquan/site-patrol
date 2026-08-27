@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../../core/utils/camera_pick.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -301,7 +303,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     setState(() {
       _x = nx;
       _y = ny;
-      _anchorLabel = '待选点';
+      _anchorLabel = '已选点';
       _snapToNearestAnchor();
     });
   }
@@ -321,6 +323,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     if (best == null) return;
     if (bestDist < 0.12 || force) {
       _anchorLabel = best.label;
+    } else {
+      _anchorLabel = '已选点 (${(_x * 100).toStringAsFixed(0)}%, ${(_y * 100).toStringAsFixed(0)}%)';
     }
   }
 
@@ -332,37 +336,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// - Android/iOS：真实相机，并做原生压缩（maxWidth / imageQuality）。
   ///   移动端提高清晰度（1920/88），验收照片需保留更多细节；Web 保持 1280/82 兼容。
   Future<XFile?> _pickImage() async {
-    const source = kIsWeb ? ImageSource.gallery : ImageSource.camera;
-    // 移动端提高分辨率与质量；Web 用保守值避免超大文件。
-    final maxWidth = kIsWeb ? 1280.0 : 1920.0;
-    final imageQuality = kIsWeb ? 82 : 88;
-    try {
-      return await _picker.pickImage(
-        source: source,
-        maxWidth: maxWidth,
-        imageQuality: imageQuality,
-        preferredCameraDevice: CameraDevice.rear,
+    if (kIsWeb) {
+      // Web：相册选图（桌面浏览器无法直接调相机，走文件上传）。
+      return _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1280.0,
+        imageQuality: 82,
       );
-    } on PlatformException catch (e) {
-      // 权限被拒绝（cameraPermission / photoLibrary 等）→ 引导去系统设置。
-      if (mounted) {
-        final denied = e.code.contains('permission') ||
-            e.code.contains('Permission') ||
-            e.code.contains('denied');
-        if (denied) {
-          _showPermissionGuide();
-        } else {
-          AppSnack.show(context, '无法调用相机：${e.message ?? e.code}',
-              kind: AppSnackKind.danger);
-        }
-      }
-      return null;
-    } catch (_) {
-      if (mounted) {
-        AppSnack.show(context, '无法调用相机/相册，请检查权限', kind: AppSnackKind.danger);
-      }
-      return null;
     }
+    // 移动端：通用相机兜底（权限引导 + 相机失败允改用相册）。
+    return pickPhotoRobust(
+      context,
+      onDenied: _showPermissionGuide,
+      maxWidth: 1920.0,
+      imageQuality: 88,
+    );
   }
 
   /// 权限被拒绝时，弹窗引导用户前往系统设置开启。
@@ -961,8 +949,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           ..._anchors.map((a) => _buildPin(a)),
                         // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
                         if (_drawing != null &&
-                            _step != _CaptureStep.selectFloor)
+                            _step != _CaptureStep.selectFloor) ...[
                           _buildCrosshair(),
+                          _buildPickPin(),
+                        ],
                         // 顶部提示条
                         Positioned(
                           top: AppTokens.space3,
@@ -1306,6 +1296,49 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               // 十字线
               _line(44, 1, Axis.horizontal),
               _line(1, 44, Axis.vertical),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 选点图钉：在当前选点 (_x,_y) 处渲染固定图钉。
+  Widget _buildPickPin() {
+    return Positioned.fill(
+      child: Align(
+        alignment: Alignment(_x * 2 - 1, _y * 2 - 1),
+        child: IgnorePointer(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                ),
+                child: Text(
+                  _anchorLabel,
+                  style: const TextStyle(fontSize: 10, color: Colors.white, height: 1.2),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: AppTokens.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTokens.accent.withValues(alpha: 0.6),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

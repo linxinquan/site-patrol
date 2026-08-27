@@ -1,4 +1,5 @@
 import ARKit
+import AVFoundation
 import Flutter
 import UIKit
 
@@ -66,14 +67,38 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     }
 
     private func startSession() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                DispatchQueue.main.async {
+                    granted ? self?.runSession() : self?.denyCamera()
+                }
+            }
+        case .denied, .restricted:
+            denyCamera()
+        case .authorized:
+            runSession()
+        @unknown default:
+            runSession()
+        }
+    }
+
+    private func denyCamera() {
+        channel.invokeMethod("onCameraDenied", arguments: "相机权限被拒绝，请在系统设置中开启")
+    }
+
+    private func runSession() {
         let cfg = ARWorldTrackingConfiguration()
         if ARWorldTrackingConfiguration.supportsFrameSemantics([.sceneDepth, .smoothedSceneDepth]) {
             cfg.frameSemantics = [.sceneDepth, .smoothedSceneDepth]
         }
         cfg.planeDetection = [.horizontal, .vertical]
-        sceneView.session.run(cfg, options: [.resetTracking, .removeExistingAnchors])
-        // 默认进入连续测量模式（无需 Flutter 先 setMode）
-        mode = .continuous
+        do {
+            sceneView.session.run(cfg, options: [.resetTracking, .removeExistingAnchors])
+            mode = .continuous
+        } catch {
+            channel.invokeMethod("onError", arguments: "AR会话启动失败：\(error.localizedDescription)")
+        }
     }
 
     private func clearPicks() {
