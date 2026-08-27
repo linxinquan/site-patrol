@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
@@ -25,6 +26,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/voice_input.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
 const double _defaultTolMm = 10;
@@ -80,14 +82,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 烧录后图片 SHA-256 指纹（防篡改留痕）。
   String? _photoHash;
 
-  /// 拍摄来源描述（文件名，不含文件大小）。
-  String _shotCaption = '';
-
   /// 当前选择的附近定位（工程水印相机风格，用户可切换）。
   SiteLocation _location = siteLocations.first;
 
   bool _scanning = false;
   List<VlDefect> _defects = const [];
+
+  /// 用户描述（手打 / 语音追加），保存时一并写入记录。
+  final TextEditingController _noteController = TextEditingController();
 
   /// 识别失败的原因（null = 未失败或进行中）。UI 据此展示错误提示。
   String? _scanError;
@@ -178,6 +180,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   void dispose() {
     _scanTimer?.cancel();
     _drawingTransform.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -269,17 +272,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     }
   }
 
-  /// 确认已选坐标 → 进入拍照步骤。
-  /// 用户选点后直接调用相机（一步到位），不再要求锚点吸附成功：
-  /// 选点本身已足以定位，「已选部位:待选点」只是用户没在最近锚点 0.12 半径内，
-  /// 不应阻塞拍照。
-  Future<void> _confirmPointAndCapture() async {
-    // _x 默认 0，但选点后会 setState 到具体值；这里用 _anchorLabel 仍为初始'待选点'
-    // 的旧值不可靠，改成不再校验（_x 在 _onTapDrawing 里必被赋值）。
-    setState(() => _step = _CaptureStep.capture);
-    await _doCapture();
-  }
-
   // —— 图纸坐标换算 ——
   String get _drawingKey {
     if (_selectedFloorKey.isNotEmpty) return _selectedFloorKey;
@@ -300,11 +292,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   void _onTapDrawing(Offset local, Size size) {
     final nx = (local.dx / size.width).clamp(0.02, 0.98).toDouble();
     final ny = (local.dy / size.height).clamp(0.02, 0.98).toDouble();
+    final inSelectStep = _step == _CaptureStep.selectPoint;
     setState(() {
       _x = nx;
       _y = ny;
       _anchorLabel = '已选点';
       _snapToNearestAnchor();
+      // 选点完成后直接进入拍照步骤，由圆快门负责实际拍照，
+      // 避免与「开始拍照」按钮/圆按钮重复触发相机。
+      if (inSelectStep) _step = _CaptureStep.capture;
     });
   }
 
@@ -448,7 +444,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           _watermarkedPhoto = watermarked;
           _watermarkMeta = meta;
           _photoHash = imageSha256(finalPhoto);
-          _shotCaption = shot.name;
           _defects = const [];
           _pendingShot = null;
         });
@@ -490,8 +485,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     // Mock 开关开启：秒级返回「上次真实模型返回」还原数据，便于验证 UI。
     if (_useMock) {
       result = vlPreset(_anchorLabel, replayReal: true);
-      // Mock 模式同样暂存，保证「刷新页面仍可查看」提示一致（修复①）。
-      _persistResult(result);
     } else if (_shotPhoto != null) {
       try {
         final vision = await VisionService().recognizeDefects(_shotPhoto!);
@@ -505,8 +498,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   desc: d.desc,
                 ))
             .toList();
-        // 无论模型是否识别到缺陷都暂存：无缺陷也留痕（修复②）。
-        _persistResult(result);
+        // 无论模型是否识别到缺陷都出结果（暂存由「保存记录」按钮触发）。
       } on TimeoutException catch (e) {
         if (mounted) {
           setState(() =>
@@ -530,20 +522,47 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     });
   }
 
-  /// 把一条视觉识别结果追加到暂存列表并持久化（Web localStorage）。
+  /// 把一条视觉识别结果追加到暂存列表并持久化（跨端）。
   /// 接收页面内的 [VlDefect] 列表（不再依赖 VisionResult），
   /// 无论是否识别到缺陷都会暂存（无缺陷记 count=0，仅留痕）。
-  void _persistResult(List<VlDefect> defects) {
+  /// 保存当前记录到本地暂存（由「保存记录」按钮触发，不再自动）。
+  /// 聚合：水印照片（移动端落盘）、AI 分析结果、用户描述、图纸归属。
+  Future<void> _saveRecordToStorage() async {
+    if (_shotPhoto == null) {
+      if (mounted) {
+        AppSnack.show(context, '请先拍照或选择照片', kind: AppSnackKind.danger);
+      }
+      return;
+    }
     final now = DateTime.now();
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
         '${_two(now.hour)}:${_two(now.minute)}:${_two(now.second)}';
+    final note = _noteController.text.trim();
     final entry = <String, dynamic>{
+      'id': now.microsecondsSinceEpoch.toString(),
+      'drawingKey': _drawingKey,
+      'worldX': widget.args.drawPointWorldX,
+      'worldY': widget.args.drawPointWorldY,
       'ts': ts,
       'anchor': _anchorLabel,
       'floor': _floor,
-      'count': defects.length,
-      'defects': defects.map((d) => d.toJson()).toList(),
+      'count': _defects.length,
+      'defects': _defects
+          .map((d) => {...d.toJson(), 'status': 'pending'})
+          .toList(),
+      'note': note,
     };
+    // 移动端：把压缩照片落盘，entry 记相对路径（JSON 不支持二进制，故不内联字节）。
+    // Web 无文件系统，仅存文字结果。
+    if (!kIsWeb && _shotPhoto != null) {
+      final rel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
+      try {
+        await LocalStorage.instance.writeFile(rel, _shotPhoto!);
+        entry['photo'] = rel;
+      } catch (_) {
+        // 写照片失败不应阻断结构化结果暂存。
+      }
+    }
     setState(() {
       _storedResults = [entry, ..._storedResults];
     });
@@ -556,9 +575,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     if (mounted) {
       AppSnack.show(
         context,
-        defects.isEmpty
-            ? '已暂存：本次未识别到缺陷'
-            : '识别结果已暂存（刷新页面仍可查看）',
+        _defects.isEmpty ? '记录已保存（未分析）' : '记录已保存',
         kind: AppSnackKind.brand,
       );
     }
@@ -571,8 +588,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       _defects = const [];
       _scanError = null;
       _scanning = false;
+      _saved = false;
     });
-    AppSnack.show(context, '已重拍，请再次按下快门');
+    AppSnack.show(context, '已重拍，请再次拍摄/分析后保存');
   }
 
   void _addPoint() {
@@ -583,84 +601,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注', kind: AppSnackKind.brand);
   }
 
-  void _saveRecord() {
+  /// 「保存记录」按钮：把当前记录写入本地暂存（不入库缺陷列表）。
+  /// 本期拍照记录与缺陷工单解耦；转工单（多一层处理）后续实现。
+  Future<void> _saveRecord() async {
     if (_scanning) return;
-    if (_shotPhoto == null) {
-      AppSnack.show(context, '请先按下快门拍摄现场照片', kind: AppSnackKind.danger);
-      return;
-    }
     if (_saved) return;
-
-    final repo = ref.read(repositoryProvider);
-
-    // 未识别到缺陷：仅提示，不生成空工单污染列表
-    if (_defects.isEmpty) {
-      AppSnack.show(context, '未识别到缺陷，记录已留痕', kind: AppSnackKind.success);
-      _saved = true;
-      Navigator.of(context).pop();
-      return;
+    await _saveRecordToStorage();
+    if (mounted) {
+      setState(() => _saved = true);
     }
-
-    // 将每条识别结果转为缺陷工单写入仓库
-    final now = DateTime.now();
-    final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
-        '${_two(now.hour)}:${_two(now.minute)}';
-    for (var i = 0; i < _defects.length; i++) {
-      final vl = _defects[i];
-      repo.addDefect(Defect(
-        id: 'v${now.millisecondsSinceEpoch}_$i',
-        part: '$_floor · $_anchorLabel · ${vl.name}',
-        type: vl.name,
-        category: _guessCategory(vl.name),
-        severity: vl.severity,
-        status: DefectStatus.draft,
-        anchor: _anchorLabel,
-        floor: _floor,
-        ts: ts,
-        gps: _location.gpsText,
-        alt: '${_location.altitude.toStringAsFixed(1)}m',
-        resp: '待指派',
-        respUnit: '待指派',
-        reporter: '现场拍照',
-        tags: const ['AI 识别'],
-        note: vl.desc ?? '',
-        seed: String.fromCharCode(97 + (i % 6)), // a~f 轮替，水印配色多样
-        // 关联图纸坐标：图钉 → 拍照生成的缺陷自动继承真实图纸坐标
-        drawingKey: widget.args.drawingKey,
-        worldX: widget.args.drawPointWorldX,
-        worldY: widget.args.drawPointWorldY,
-        // 防篡改留痕：水印照片哈希 + 凭证号
-        photoHash: _photoHash,
-        watermarkSerial: _watermarkMeta?.serial,
-      ));
-    }
-
-    // 刷新缺陷列表，使新工单在 DefectsPage 立即可见
-    ref.invalidate(defectsProvider);
-
-    AppSnack.show(context, '已生成 ${_defects.length} 条缺陷工单（$_anchorLabel）',
-        kind: AppSnackKind.success);
-    _saved = true;
-    Navigator.of(context).pop();
-  }
-
-  /// 根据 AI 识别的缺陷名粗略推断专业分类（无法判断时归为「其他」）。
-  DefectCategory _guessCategory(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('裂缝') || n.contains('钢筋') || n.contains('沉降') ||
-        n.contains('梁') || n.contains('柱') || n.contains('板')) {
-      return DefectCategory.structure;
-    }
-    if (n.contains('渗') || n.contains('水') || n.contains('漏')) {
-      return DefectCategory.water;
-    }
-    if (n.contains('电') || n.contains('线')) {
-      return DefectCategory.electric;
-    }
-    if (n.contains('空鼓') || n.contains('涂') || n.contains('砖')) {
-      return DefectCategory.decoration;
-    }
-    return DefectCategory.other;
   }
 
   // —— 渲染 ——
@@ -681,25 +630,26 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: AppTokens.space3),
-              child: Row(
-                children: [
-                  Text('Mock',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color:
-                              _useMock ? AppTokens.accent : AppTokens.muted)),
-                  const SizedBox(width: 4),
-                  Switch(
-                    value: _useMock,
-                    onChanged: (v) => setState(() => _useMock = v),
-                    activeThumbColor: AppTokens.accent,
-                  ),
-                ],
-              ),
-            ),
+            // TODO: 待删 —— Mock 开关（_useMock）仅为联调/验证 UI 用，正式环境移除。
+            // Padding(
+            //   padding: const EdgeInsets.only(right: AppTokens.space3),
+            //   child: Row(
+            //     children: [
+            //       Text('Mock',
+            //           style: TextStyle(
+            //               fontSize: 12,
+            //               fontWeight: FontWeight.w400,
+            //               color:
+            //                   _useMock ? AppTokens.accent : AppTokens.muted)),
+            //       const SizedBox(width: 4),
+            //       Switch(
+            //         value: _useMock,
+            //         onChanged: (v) => setState(() => _useMock = v),
+            //         activeThumbColor: AppTokens.accent,
+            //       ),
+            //     ],
+            //   ),
+            // ),
           ],
         ),
         body: Column(
@@ -718,15 +668,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     const SizedBox(height: AppTokens.space3),
                     _buildWatermark(),
                     const SizedBox(height: AppTokens.space3),
-                    _buildResultPanel(),
+                    _buildPhotoPanel(),
                     if (_defects.isNotEmpty) ...[
                       const SizedBox(height: AppTokens.space3),
-                    _buildDefectSection(),
-                  ],
+                      _buildDefectSection(),
+                    ],
+                    const SizedBox(height: AppTokens.space3),
+                    _buildNoteField(),
                     const SizedBox(height: AppTokens.space3),
                     _buildScaleCheckSection(),
                     const SizedBox(height: AppTokens.space3),
                     _buildControls(),
+                    const SizedBox(height: AppTokens.space3),
+                    _buildStoredResults(),
                     const SizedBox(height: AppTokens.space6),
                   ],
                 ),
@@ -1082,44 +1036,33 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             Text('在图纸上点击可重新选择部位',
                 style: TextStyle(fontSize: 12, color: AppTokens.muted)),
             const SizedBox(height: AppTokens.space3),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      final defaultFloor = _floorOptions.cast<Floor?>().firstWhere(
-                            (f) => f!.key == _defaultFloorKey,
-                            orElse: () => _floorOptions.firstOrNull,
-                          );
-                      setState(() {
-                        _step = _CaptureStep.selectFloor;
-                        _selectedFloorKey = defaultFloor?.key ?? '';
-                        _floor = defaultFloor?.floor ?? '';
-                        _anchorLabel = '待选点';
-                        _drawing = _resolveDrawing(
-                            ref.read(drawingsProvider).valueOrNull ?? {});
-                        _remotePngUrl = null;
-                        _remotePngError = null;
-                      });
-                      if (_drawing != null &&
-                          _drawing!.src.isEmpty &&
-                          (_drawing!.cadOcfKey?.isNotEmpty ?? false)) {
-                        _ensureRemotePng(_drawing!);
-                      }
-                    },
-                    icon: const Icon(LucideIcons.arrowLeft, size: 16),
-                    label: const Text('重选图纸'),
-                  ),
-                ),
-                const SizedBox(width: AppTokens.space3),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _confirmPointAndCapture,
-                    icon: const Icon(LucideIcons.camera, size: 16),
-                    label: const Text('开始拍照'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  final defaultFloor = _floorOptions.cast<Floor?>().firstWhere(
+                        (f) => f!.key == _defaultFloorKey,
+                        orElse: () => _floorOptions.firstOrNull,
+                      );
+                  setState(() {
+                    _step = _CaptureStep.selectFloor;
+                    _selectedFloorKey = defaultFloor?.key ?? '';
+                    _floor = defaultFloor?.floor ?? '';
+                    _anchorLabel = '待选点';
+                    _drawing = _resolveDrawing(
+                        ref.read(drawingsProvider).valueOrNull ?? {});
+                    _remotePngUrl = null;
+                    _remotePngError = null;
+                  });
+                  if (_drawing != null &&
+                      _drawing!.src.isEmpty &&
+                      (_drawing!.cadOcfKey?.isNotEmpty ?? false)) {
+                    _ensureRemotePng(_drawing!);
+                  }
+                },
+                icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                label: const Text('重选图纸'),
+              ),
             ),
           ],
         ),
@@ -2097,8 +2040,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   String _two(int v) => v.toString().padLeft(2, '0');
 
-  /// 结果面板：缩略图 + 识别状态（不含文件大小与置信度数字）。
-  Widget _buildResultPanel() {
+  /// 照片预览面板（图纸下方独立卡片）：
+  /// 拍后确认卡 → 拍照控制行（加点/快门/重拍/标注）→ 已拍大图 → AI 分析按钮。
+  Widget _buildPhotoPanel() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppTokens.space3),
@@ -2106,109 +2050,181 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
-      child: _shotPhoto == null
-          ? const Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1) 拍后确认卡（在 AI 分析之前，提示"重拍 / 使用"）
+          if (_pendingShot != null) _buildPendingPreview(),
+          // 2) 拍照控制行：两端控件 + 中央快门（Stack 叠放让快门始终水平居中）
+          SizedBox(
+            height: 80,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // 底层：左「加点」+ 右「重拍 / 标注」
+                Row(
+                  children: [
+                    _buildControlBtn(LucideIcons.plus, '加点', _addPoint),
+                    const Spacer(),
+                    _buildControlBtn(LucideIcons.rotateCcw, '重拍', _retake),
+                    _buildControlBtn(LucideIcons.penTool, '标注', _annotate),
+                  ],
+                ),
+                // 顶层：快门圆按钮水平居中
+                _buildShutter(),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppTokens.space3),
+          if (_shotPhoto == null)
+            const Row(
               children: [
                 Icon(LucideIcons.image, size: 16, color: AppTokens.muted),
                 SizedBox(width: AppTokens.space2),
                 Expanded(
-                  child: Text('尚未拍摄：按下快门拍摄现场照片后自动识别',
+                  child: Text('尚未拍摄：按下快门或选择照片后，可点「AI 分析」',
                       style: TextStyle(fontSize: 13, color: AppTokens.muted)),
                 ),
               ],
             )
-          : Row(
+          else ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+              child: Image.memory(
+                _shotPhoto!,
+                width: double.infinity,
+                height: 200,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: AppTokens.space2),
+            Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                  child: Image.memory(
-                    _shotPhoto!,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
+                Expanded(
+                  child: Text(
+                    _scanError ??
+                        (_defects.isEmpty
+                            ? '已拍摄，等待识别…'
+                            : '已识别 ${_defects.length} 处缺陷'),
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _scanError != null
+                            ? const Color(0xFFDC2626)
+                            : AppTokens.fg),
                   ),
                 ),
-                const SizedBox(width: AppTokens.space3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _scanError ??
-                            (_defects.isEmpty
-                                ? '已拍摄，等待识别…'
-                                : '已识别 ${_defects.length} 处缺陷'),
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: _scanError != null
-                                ? const Color(0xFFDC2626)
-                                : AppTokens.fg),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$_anchorLabel · $_floor · $_shotCaption',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 11, color: AppTokens.muted),
-                      ),
-                    ],
-                  ),
+                TextButton(
+                  onPressed: _retake,
+                  child: const Text('重拍 / 重选',
+                      style: TextStyle(fontSize: 12)),
                 ),
               ],
             ),
-    );
-  }
-
-  /// 控制条 + 快门。
-  Widget _buildControls() {
-    // 选平面 / 选坐标步骤：快门与保存等拍照控件暂不显示。
-    if (_step != _CaptureStep.capture) {
-      return Container(
-        height: 56,
-        alignment: Alignment.center,
-        child: Text(
-          _step == _CaptureStep.selectFloor
-              ? '请先选择上方图纸'
-              : '点击「开始拍照」进入拍摄',
-          style: TextStyle(color: AppTokens.muted, fontSize: 13),
-        ),
-      );
-    }
-    return Column(
-      children: [
-        // 拍后预览确认：使用 / 重拍（移动端原生相机优化）。
-        if (_pendingShot != null) _buildPendingPreview(),
-        Row(
-          children: [
-            _buildControlBtn(LucideIcons.scanSearch, '识别', _runScan),
-            _buildControlBtn(LucideIcons.plus, '加点', _addPoint),
-            const Spacer(),
-            _buildShutter(),
-            const Spacer(),
-            _buildControlBtn(LucideIcons.rotateCcw, '重拍', _retake),
-            _buildControlBtn(LucideIcons.penTool, '标注', _annotate),
           ],
-        ),
-        const SizedBox(height: AppTokens.space3),
-        // 保存验收记录（大按钮组件：满宽 / 高 48 / 纯文字不带图标，字号统一 lg 档 16）
-        AppButton(
-          size: AppButtonSize.lg,
-          width: double.infinity,
-          label: '保存验收记录',
-          onPressed: _saveRecord,
-        ),
-        if (_storedResults.isNotEmpty) ...[
-          const SizedBox(height: AppTokens.space3),
-          _buildStoredResults(),
+          const SizedBox(height: AppTokens.space2),
+          // 3) AI 分析按钮（点击才调用，未拍照置灰）
+          SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              label: _scanning ? '分析中…' : 'AI 分析',
+              onPressed: (_shotPhoto == null || _scanning) ? null : _runScan,
+            ),
+          ),
         ],
-      ],
+      ),
     );
   }
 
-  /// 暂存识别结果列表（测试用，置于保存按钮下方）。
+  /// 问题描述输入区：手打文本框 + 语音录入（结果追加到 note）。
+  Widget _buildNoteField() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('问题描述',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTokens.fg)),
+          const SizedBox(height: AppTokens.space2),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _noteController,
+                  maxLines: 3,
+                  minLines: 1,
+                  style: const TextStyle(fontSize: 13, color: AppTokens.fg),
+                  decoration: InputDecoration(
+                    hintText: '记录现场情况，或点右侧麦克风语音输入…',
+                    hintStyle:
+                        TextStyle(fontSize: 12, color: AppTokens.muted),
+                    filled: true,
+                    fillColor: AppTokens.surface2,
+                    contentPadding: const EdgeInsets.all(AppTokens.space2),
+                    border: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusMd),
+                      borderSide: BorderSide(color: AppTokens.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusMd),
+                      borderSide: BorderSide(color: AppTokens.border),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppTokens.space2),
+              VoiceInputButton(
+                holdToTalk: false,
+                size: 44,
+                iconSize: 20,
+                onResult: (t) {
+                  final cur = _noteController.text;
+                  _noteController.text =
+                      cur.isEmpty ? t : '$cur${cur.endsWith(' ') ? '' : ' '}$t';
+                  _noteController.selection = TextSelection.fromPosition(
+                    TextPosition(offset: _noteController.text.length),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 「保存记录」主按钮（仅拍照步骤显示）。
+  Widget _buildControls() {
+    if (_step != _CaptureStep.capture) return const SizedBox.shrink();
+    return SizedBox(
+      width: double.infinity,
+      child: AppButton(
+        size: AppButtonSize.lg,
+        width: double.infinity,
+        label: _saved ? '已保存（可继续拍摄）' : '保存记录',
+        onPressed: _saved ? null : _saveRecord,
+      ),
+    );
+  }
+
+  /// 当前图纸的拍照记录列表（按 drawingKey 过滤）。
+  List<Map<String, dynamic>> get _filteredStoredResults =>
+      _storedResults.where((e) => (e['drawingKey'] as String? ?? '') == _drawingKey).toList();
+
+  /// 拍照记录列表（按当前图纸筛选，置于页内底部）。
   Widget _buildStoredResults() {
+    final items = _filteredStoredResults;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -2224,18 +2240,25 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const Icon(LucideIcons.history,
                   size: 15, color: AppTokens.accent),
               const SizedBox(width: 6),
-              const Text('暂存识别结果',
+              const Text('本图纸拍照记录',
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppTokens.fg)),
               const Spacer(),
-              Text('${_storedResults.length} 条',
+              Text('${items.length} 条',
                   style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
-          ..._storedResults.map((e) => _buildStoredResultTile(e)),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10),
+              child: Text('本图纸暂无拍照记录',
+                  style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+            )
+          else
+            ...items.map((e) => _buildStoredResultTile(e)),
         ],
       ),
     );
@@ -2250,11 +2273,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         .map((d) => d['name']?.toString() ?? '')
         .where((n) => n.isNotEmpty)
         .join('、');
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final note = (e['note'] as String? ?? '').trim();
+    return InkWell(
+      onTap: () => _openStoredDetail(e),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildStoredPhoto(e),
           Container(
             width: 8,
             height: 8,
@@ -2283,13 +2310,108 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('识别 $count 处缺陷 · $names',
-                    style:
-                        const TextStyle(fontSize: 11, color: AppTokens.muted)),
+                Text(
+                  '识别 $count 处缺陷 · $names'
+                  '${note.isNotEmpty ? ' · 含描述' : ''}',
+                  style:
+                      const TextStyle(fontSize: 11, color: AppTokens.muted)),
               ],
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 18),
+            color: AppTokens.muted,
+            tooltip: '删除该暂存记录',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _confirmDeleteStored(e),
+          ),
         ],
+      ),
+      ),
+    );
+  }
+
+  /// 删除暂存条目前二次确认（避免误删照片文件）。
+  Future<void> _confirmDeleteStored(Map<String, dynamic> e) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除暂存记录'),
+        content: const Text('将同时删除该记录及关联照片，确定？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await _deleteStoredResult(e);
+  }
+
+  /// 删除一条暂存记录：从列表移除、重写本地文档，并清理移动端照片文件。
+  Future<void> _deleteStoredResult(Map<String, dynamic> e) async {
+    final photo = e['photo'] as String?;
+    setState(() {
+      _storedResults =
+          _storedResults.where((x) => !identical(x, e)).toList();
+    });
+    unawaited(
+      LocalStorage.instance
+          .writeDoc(_storageKey, jsonEncode(_storedResults))
+          .catchError((_) {}),
+    );
+    // 移动端：回收已落盘的照片文件，避免占用 Documents 空间。
+    if (photo != null) {
+      unawaited(
+        LocalStorage.instance.deleteFile(photo).catchError((_) {}),
+      );
+    }
+    if (mounted) {
+      AppSnack.show(context, '已删除该暂存记录', kind: AppSnackKind.brand);
+    }
+  }
+
+  /// 暂存条目的照片缩略图：移动端从 LocalStorage 读文件，Web 无图则不显示。
+  Widget _buildStoredPhoto(Map<String, dynamic> e) {
+    final rel = e['photo'] as String?;
+    if (rel == null) return const SizedBox.shrink();
+    return FutureBuilder<Uint8List?>(
+      future: LocalStorage.instance.readFile(rel),
+      builder: (ctx, snap) {
+        final bytes = snap.data;
+        if (bytes == null || bytes.isEmpty) return const SizedBox.shrink();
+        return Container(
+          width: 56,
+          height: 56,
+          margin: const EdgeInsets.only(right: AppTokens.space2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            border: Border.all(color: AppTokens.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Image.memory(bytes, fit: BoxFit.cover),
+        );
+      },
+    );
+  }
+
+  /// 打开拍照记录详情底部弹层。
+  void _openStoredDetail(Map<String, dynamic> e) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTokens.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => StoredDetailSheet(
+        entry: e,
+        onDelete: () => _confirmDeleteStored(e),
       ),
     );
   }
@@ -2474,6 +2596,205 @@ class _IconBtn extends StatelessWidget {
           width: 36,
           height: 36,
           child: Icon(icon, size: 18, color: AppTokens.fg),
+        ),
+      ),
+    );
+  }
+}
+
+/// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除。
+class StoredDetailSheet extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  final VoidCallback onDelete;
+
+  const StoredDetailSheet({
+    super.key,
+    required this.entry,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final defects = (entry['defects'] as List? ?? const [])
+        .map((d) => d is Map<String, dynamic> ? d : const <String, dynamic>{})
+        .toList();
+    final count = entry['count'] as int? ?? defects.length;
+    final note = (entry['note'] as String? ?? '').trim();
+    final photo = entry['photo'] as String?;
+
+    return SafeArea(
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.92,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (_, scroll) => SingleChildScrollView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 拖拽条
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: AppTokens.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // 头部：部位·楼层·时间 + 关闭
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${entry['anchor']} · ${entry['floor']}',
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppTokens.fg),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.x,
+                        color: AppTokens.muted, size: 18),
+                    onPressed: () => Navigator.of(context).pop(),
+                    splashRadius: 16,
+                  ),
+                ],
+              ),
+              Text('${entry['ts']}',
+                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+              const SizedBox(height: 14),
+              // 照片大图
+              if (photo != null)
+                FutureBuilder<Uint8List?>(
+                  future: LocalStorage.instance.readFile(photo),
+                  builder: (ctx, snap) {
+                    final bytes = snap.data;
+                    if (bytes == null || bytes.isEmpty) {
+                      return Container(
+                        width: double.infinity,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: AppTokens.surface2,
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusMd),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text('照片不可用',
+                            style: TextStyle(
+                                fontSize: 12, color: AppTokens.muted)),
+                      );
+                    }
+                    return ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusMd),
+                      child: Image.memory(bytes, fit: BoxFit.cover),
+                    );
+                  },
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface2,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text('无照片（Web 端不落盘）',
+                      style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+                ),
+              const SizedBox(height: 16),
+              // AI 识别结果
+              const Text('AI 识别结果',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.fg)),
+              const SizedBox(height: 8),
+              if (count == 0)
+                const Text('未分析 / 未识别到缺陷',
+                    style: TextStyle(fontSize: 12, color: AppTokens.muted))
+              else
+                ...defects.map((d) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(AppTokens.space2),
+                      decoration: BoxDecoration(
+                        color: AppTokens.surface2,
+                        borderRadius:
+                            BorderRadius.circular(AppTokens.radiusMd),
+                        border: Border.all(color: AppTokens.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(d['name']?.toString() ?? '',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTokens.fg)),
+                                if ((d['desc'] as String? ?? '').isNotEmpty)
+                                  Padding(
+                                    padding:
+                                        const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      d['desc'] as String,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTokens.muted),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${((d['conf'] as num? ?? 0) * 100).toInt()}%',
+                            style: const TextStyle(
+                                fontSize: 11, color: AppTokens.muted),
+                          ),
+                        ],
+                      ),
+                    )),
+              const SizedBox(height: 16),
+              // 问题描述
+              const Text('问题描述',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTokens.fg)),
+              const SizedBox(height: 6),
+              Text(
+                note.isEmpty ? '无描述' : note,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: note.isEmpty ? AppTokens.muted : AppTokens.fg2,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // 删除
+              SizedBox(
+                width: double.infinity,
+                child: AppButton(
+                  text: true,
+                  label: '删除该记录',
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onDelete();
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

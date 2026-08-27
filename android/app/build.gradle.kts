@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.gongdi_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     // NDK 已注释：本项目为纯 Dart 项目，无原生代码，避免 Windows 下 NDK 路径过长导致下载/解压失败
     // ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
