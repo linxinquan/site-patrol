@@ -109,9 +109,14 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   }
 
   Future<void> _onViewCreated(int id) async {
-    _supported = await _svc.isSupported();
+    // UiKitView 创建后 channel 才注册；先放行渲染，再去查设备支持。
+    _supported = true;
+    if (mounted) setState(() {});
+    final supported = await _svc.isSupported();
     if (!mounted) return;
-    if (!_supported) {
+    if (!supported) {
+      // 不支持 LiDAR → 收回渲染权限，show 占位
+      _supported = false;
       setState(() {});
       return;
     }
