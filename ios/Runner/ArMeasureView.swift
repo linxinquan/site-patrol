@@ -18,7 +18,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
 
     init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
         sceneView = ARSCNView(frame: frame)
-        channel = FlutterMethodChannel(name: "ar_measure_\(viewId)",
+        // channel 用固定名，与 Dart 端 ArMeasureService 保持一致；
+        // 不拼接 viewId，避免两端 id 不一致导致通道对不上。
+        channel = FlutterMethodChannel(name: "ar_measure_channel",
                                        binaryMessenger: messenger)
         super.init()
         setup()
