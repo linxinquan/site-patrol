@@ -109,12 +109,11 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   }
 
   Future<void> _onViewCreated(int id) async {
-    _supported = await _svc.isSupported();
+    // view 已创建、channel 已注册，此时查询设备支持才可靠。
+    final supported = await _svc.isSupported();
     if (!mounted) return;
-    if (!_supported) {
-      setState(() {});
-      return;
-    }
+    setState(() => _supported = supported);
+    if (!supported) return;
     // 原生默认进入连续模式，无需再 setMode。
     await _svc.startSession();
   }
@@ -234,15 +233,15 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           Expanded(
             child: Stack(
               children: [
-                if (_supported)
-                  UiKitView(
-                    viewType: _viewType,
-                    onPlatformViewCreated: _onViewCreated,
-                    creationParams: null,
-                    creationParamsCodec: const StandardMessageCodec(),
-                  )
-                else
-                  _buildLiDARPlaceholder(),
+                // UiKitView 必须无条件渲染：只有 view 先创建，原生 ArMeasureView
+                // 才会注册 channel，随后 _onViewCreated 才能查到 LiDAR 支持。
+                UiKitView(
+                  viewType: _viewType,
+                  onPlatformViewCreated: _onViewCreated,
+                  creationParams: null,
+                  creationParamsCodec: const StandardMessageCodec(),
+                ),
+                if (!_supported) _buildLiDARPlaceholder(),
                 Positioned(
                   top: AppTokens.space4,
                   left: 0,
