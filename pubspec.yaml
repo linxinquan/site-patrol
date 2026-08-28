@@ -17,7 +17,7 @@ dependencies:
   image_picker: ^1.1.2
   image: ^4.2.0
   speech_to_text: ^7.0.0 # 设备端离线/在线语音识别（含中文），无需后端/Key
-  app_settings: ^6.0.0
+  app_settings: ^9.0.0
   http: ^1.6.0
   flutter_secure_storage: ^9.2.0
   hive: ^2.2.3
