@@ -21,6 +21,7 @@ import '../../core/storage/local_storage.dart';
 import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
+import '../../data/repository/mock_repository.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
@@ -469,6 +470,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return u.name;
   }
 
+  /// 严重程度严重性排序：red 最严重（rank 0），green 最轻（rank 3）。
+  /// 用于一次拍照多条识别项聚合时取最严重等级。
+  static int _severityRank(DefectSeverity s) {
+    switch (s) {
+      case DefectSeverity.red:
+        return 0;
+      case DefectSeverity.orange:
+        return 1;
+      case DefectSeverity.yellow:
+        return 2;
+      case DefectSeverity.green:
+        return 3;
+    }
+  }
+
   Future<void> _runScan() async {
     if (_scanning) return;
     setState(() {
@@ -493,7 +509,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   name: d.name,
                   // severity 模型尚未返回，暂默认 orange；后端补返回严重程度后再映射
                   severity: DefectSeverity.orange,
-                  // A 修复：传真实置信度，低 conf 会在卡片/工单中提示人工复核
+                  // A 修复：传真实置信度，低 conf 会在卡片/问题清单中提示人工复核
                   conf: d.conf,
                   desc: d.desc,
                 ))
@@ -527,12 +543,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 无论是否识别到缺陷都会暂存（无缺陷记 count=0，仅留痕）。
   /// 保存当前记录到本地暂存（由「保存记录」按钮触发，不再自动）。
   /// 聚合：水印照片（移动端落盘）、AI 分析结果、用户描述、图纸归属。
-  Future<void> _saveRecordToStorage() async {
+  /// 返回 true 表示已执行保存（写入暂存并同步问题清单），false 表示未满足保存条件。
+  Future<bool> _saveRecordToStorage() async {
     if (_shotPhoto == null) {
       if (mounted) {
         AppSnack.show(context, '请先拍照或选择照片', kind: AppSnackKind.danger);
       }
-      return;
+      return false;
     }
     final now = DateTime.now();
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
@@ -552,16 +569,88 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           .toList(),
       'note': note,
     };
-    // 移动端：把压缩照片落盘，entry 记相对路径（JSON 不支持二进制，故不内联字节）。
-    // Web 无文件系统，仅存文字结果。
-    if (!kIsWeb && _shotPhoto != null) {
-      final rel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
+    // 把压缩照片落盘（JSON 不支持二进制，故 entry 只记相对路径）：
+    // - 移动端/桌面：写入应用 Documents 目录，可长期保存；
+    // - Web：写入会话内存（当前页面刷新前可用），保证「拍照 → 导出报告」链路内
+    //   缺陷照片能被报告读取内嵌。
+    String? photoRel;
+    if (_shotPhoto != null) {
+      photoRel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
       try {
-        await LocalStorage.instance.writeFile(rel, _shotPhoto!);
-        entry['photo'] = rel;
+        await LocalStorage.instance.writeFile(photoRel, _shotPhoto!);
+        entry['photo'] = photoRel;
       } catch (_) {
         // 写照片失败不应阻断结构化结果暂存。
+        photoRel = null;
       }
+    }
+    // 打通「拍照记录 → 现场问题记录」：保存带照片的记录时生成一条问题记录
+    // （报告「现场问题清单及闭环情况」章节据此渲染现场照片，交付说明增强项 3）。
+    //
+    // **一次拍照聚合为一条记录**：VL 识别常对同一张现场照返回多条观察（多个问
+    // 题），但现场一次观察即一次整改，拆成多条会在报告/列表里重复出现（同时间
+    // 同位置同照片）。这里合并为单条 Defect：描述叠加、严重程度取最高、识别项
+    // 名称作为标签，照片只挂一次。
+    //
+    // **没有识别结果也要入列表**：保证拍照留痕可追溯（避免"拍了看不到"）。
+    // **照片落盘失败也要入列表**：照片缺失只影响报告配图，记录本身必须同步
+    // （photoPath 为空时报告端显示占位）。
+    {
+      final repo = ref.read(repositoryProvider);
+      // 归入当前项目，避免新增记录串到另一个项目。
+      if (repo is MockRepository) {
+        repo.currentIs7 = ref.read(is7DongProjectProvider);
+      }
+      final gpsText = _location.gpsText;
+      final altText = '海拔 ${_location.altitude.toStringAsFixed(1)}m';
+      final anchor = '$_anchorLabel · $_floor';
+      final names = _defects
+          .map((v) => v.name)
+          .where((n) => n.isNotEmpty)
+          .toList();
+      final descs = _defects
+          .map((v) => v.desc ?? '')
+          .where((d) => d.isNotEmpty)
+          .toList();
+      // 严重程度取最高（rank 越小越严重）；无识别结果时降级为「暂未发现问题」
+      final sev = _defects.isEmpty
+          ? DefectSeverity.green
+          : _defects
+              .map((v) => v.severity)
+              .reduce((a, b) => _severityRank(a) <= _severityRank(b) ? a : b);
+      final primary = names.isNotEmpty ? names.first : '现场拍照记录';
+      final mergedNote = [
+        if (_defects.isEmpty) '本次拍照未识别出缺陷（仅现场留痕）',
+        if (photoRel == null) '照片未落盘，仅保留现场记录信息',
+        descs.join('；'),
+        note,
+      ].where((s) => s.isNotEmpty).join('\n');
+      await repo.addDefect(Defect(
+        id: 'cap_${now.microsecondsSinceEpoch}',
+        part: names.length > 1
+            ? '${anchor}·${primary}等${names.length}项'
+            : '${anchor}·${primary}',
+        type: primary,
+        category: DefectCategory.other,
+        severity: sev,
+        status: DefectStatus.draft,
+        anchor: anchor,
+        floor: _floor,
+        ts: ts,
+        gps: gpsText,
+        alt: altText,
+        resp: '待指派',
+        reporter: _currentUser,
+        tags: ['拍照记录', ...names],
+        note: mergedNote,
+        seed: 'capture',
+        drawingKey: _drawingKey,
+        worldX: widget.args.drawPointWorldX,
+        worldY: widget.args.drawPointWorldY,
+        photoPath: photoRel,
+      ));
+      // 刷新缺陷列表，使「问题清单」tab 立即出现新记录。
+      ref.invalidate(defectsProvider);
     }
     setState(() {
       _storedResults = [entry, ..._storedResults];
@@ -579,6 +668,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         kind: AppSnackKind.brand,
       );
     }
+    return true;
   }
 
   void _retake() {
@@ -601,13 +691,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注', kind: AppSnackKind.brand);
   }
 
-  /// 「保存记录」按钮：把当前记录写入本地暂存（不入库缺陷列表）。
-  /// 本期拍照记录与缺陷工单解耦；转工单（多一层处理）后续实现。
+  /// 「保存记录」按钮：把当前记录写入本地暂存；识别出缺陷时同时生成问题清单记录
+  /// （带现场照片，供「导出报告」渲染缺陷照片）。
+  ///
+  /// 仅在真正执行了保存后才锁定按钮；首次误触（未拍照）不锁定，允许补拍后再存。
   Future<void> _saveRecord() async {
     if (_scanning) return;
     if (_saved) return;
-    await _saveRecordToStorage();
-    if (mounted) {
+    final ok = await _saveRecordToStorage();
+    if (ok && mounted) {
       setState(() => _saved = true);
     }
   }

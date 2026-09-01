@@ -9,7 +9,7 @@ import '../../shared/widgets/app_card.dart';
 import 'defects_page.dart' show StatusPill;
 
 /// 记录详情页（静态版）。
-/// 数据来源：当前缺陷工单 mock（按 defectId 取）。
+/// 数据来源：当前问题清单 mock（按 defectId 取）。
 /// 待 P3 接真实后端后改为 record 资源。
 class RecordDetailPage extends ConsumerWidget {
   final String defectId;

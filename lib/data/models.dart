@@ -395,6 +395,9 @@ class Defect {
   final String? photoHash;
   /// 水印凭证号（拍摄流水，唯一）。
   final String? watermarkSerial;
+  /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。
+  /// 报告导出时按此路径读取照片字节内嵌到 PDF / Word / HTML。
+  final String? photoPath;
   const Defect({
     required this.id,
     required this.part,
@@ -418,7 +421,67 @@ class Defect {
     this.worldY,
     this.photoHash,
     this.watermarkSerial,
+    this.photoPath,
   });
+
+  /// 序列化（拍照/图纸打点新增记录的本地持久化用）。
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'part': part,
+        'type': type,
+        'category': category.name,
+        'severity': severity.name,
+        'status': status.name,
+        'anchor': anchor,
+        'floor': floor,
+        'ts': ts,
+        'gps': gps,
+        'alt': alt,
+        'resp': resp,
+        'respUnit': respUnit,
+        'reporter': reporter,
+        'tags': tags,
+        'note': note,
+        'seed': seed,
+        'drawingKey': drawingKey,
+        'worldX': worldX,
+        'worldY': worldY,
+        'photoHash': photoHash,
+        'watermarkSerial': watermarkSerial,
+        'photoPath': photoPath,
+      };
+
+  /// 反序列化：缺字段给安全默认值（兼容旧数据），不抛错。
+  factory Defect.fromJson(Map<String, dynamic> m) => Defect(
+        id: m['id']?.toString() ?? '',
+        part: m['part']?.toString() ?? '',
+        type: m['type']?.toString() ?? '',
+        category: DefectCategory.values.firstWhere(
+            (e) => e.name == m['category'],
+            orElse: () => DefectCategory.other),
+        severity: DefectSeverity.values.firstWhere(
+            (e) => e.name == m['severity'],
+            orElse: () => DefectSeverity.green),
+        status: DefectStatus.values.firstWhere((e) => e.name == m['status'],
+            orElse: () => DefectStatus.draft),
+        anchor: m['anchor']?.toString() ?? '',
+        floor: m['floor']?.toString() ?? '',
+        ts: m['ts']?.toString() ?? '',
+        gps: m['gps']?.toString() ?? '',
+        alt: m['alt']?.toString() ?? '',
+        resp: m['resp']?.toString() ?? '待指派',
+        respUnit: m['respUnit']?.toString() ?? '',
+        reporter: m['reporter']?.toString() ?? '现场记录',
+        tags: (m['tags'] as List?)?.whereType<String>().toList() ?? const [],
+        note: m['note']?.toString() ?? '',
+        seed: m['seed']?.toString() ?? 'capture',
+        drawingKey: m['drawingKey']?.toString(),
+        worldX: (m['worldX'] as num?)?.toDouble(),
+        worldY: (m['worldY'] as num?)?.toDouble(),
+        photoHash: m['photoHash']?.toString(),
+        watermarkSerial: m['watermarkSerial']?.toString(),
+        photoPath: m['photoPath']?.toString(),
+      );
 
   /// 是否有 CAD 图纸坐标（可回溯定位）。
   bool get hasCadCoord => drawingKey != null && worldX != null && worldY != null;
