@@ -1,5 +1,6 @@
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import 'report_content.dart';
 
 /// 报告导出格式（导出方式弹层选项）。
 enum ReportExportFormat {
@@ -21,7 +22,7 @@ enum ReportExportFormat {
 ///   → 机电施工进度（楼栋 × 进度描述）
 ///   → 图档台账 / 变更台账 / 设计交底 / 技术协调
 ///   → 待沟通协调问题
-///   → 现场问题清单及闭环情况（APP 现场数据）
+///   → 巡场清单及闭环情况（APP 现场数据）
 ///
 /// 输出**自包含 HTML**（内联 CSS、照片 base64 内嵌），可直接打印为 PDF。
 /// 所有分组、统计、排版均由本模块完成，用户导出后无需再手工整理。
@@ -98,7 +99,7 @@ String buildWeeklyReportHtml(
     chapters.add(_issuesSection('待沟通协调问题', report.filledIssues));
   }
 
-  // ===== 现场问题清单及闭环（APP 现场数据）=====
+  // ===== 巡场清单及闭环（APP 现场数据）=====
   final defects = report.defects;
   if (defects.isNotEmpty) {
     chapters.add(_defectsSection(defects, photoBase64));
@@ -141,11 +142,16 @@ String buildWeeklyReportHtml(
       .length;
   final doneCount =
       defects.where((d) => d.status == DefectStatus.done).length;
+  // 巡场报告单「重要等级」维度：重要紧急条目数（最需优先处置）。
+  final urgentCount = defects
+      .where((d) => d.effectiveImportance == DefectImportance.urgentImportant)
+      .length;
   buf.writeln('<section class="overview">');
   buf.writeln(_statCard('现场照片', '${report.photos.length}', '#0284E8', '#E8F4FE'));
   buf.writeln(_statCard('进度楼栋', '${report.progress.length}', '#0AA0C0', '#E2F5FA'));
   buf.writeln(_statCard('待协调问题', '${report.filledIssues.length}', '#C77700', '#FFF4E2'));
-  buf.writeln(_statCard('现场问题', '${defects.length}', '#E0342B', '#FFE9E7'));
+  buf.writeln(_statCard('巡场问题', '${defects.length}', '#E0342B', '#FFE9E7'));
+  buf.writeln(_statCard('重要紧急', '$urgentCount', '#D93025', '#FCE8E6'));
   buf.writeln(_statCard('未闭环', '$openDefects', '#D98A00', '#FFF2DC'));
   buf.writeln(_statCard('已闭环', '$doneCount', '#1E9E4E', '#E4F6EB'));
   buf.writeln('</section>');
@@ -257,6 +263,9 @@ String _progressDetail(String detail) {
               '</tbody></table>',
     );
 
+/// 巡场清单及闭环情况（版式对齐 LDI 设计院巡场报告单）：
+/// 分组按楼栋（无栋号信息时回退按严重程度），每条问题按
+/// 「巡场意见 → 整改回复 → 闭合确认」三段呈现，末尾附销项汇总表。
 ({String title, String body}) _defectsSection(
     List<Defect> defects, Map<String, String> photoBase64) {
   final list = [...defects]
@@ -268,7 +277,14 @@ String _progressDetail(String detail) {
 
   final buf = StringBuffer();
 
-  // 严重程度分布
+  // 重要等级分布 + 严重程度分布（巡场报告单按等级分派处置优先级）
+  buf.writeln('<div class="bars">');
+  for (final i in kImportanceOrder) {
+    final n = list.where((d) => d.effectiveImportance == i).length;
+    if (n == 0) continue;
+    buf.writeln(_barItem(i.label, n, list.length, importanceFg(i)));
+  }
+  buf.writeln('</div>');
   buf.writeln('<div class="bars">');
   for (final s in _severityOrder) {
     final n = list.where((d) => d.severity == s).length;
@@ -276,42 +292,50 @@ String _progressDetail(String detail) {
   }
   buf.writeln('</div>');
 
-  // 按严重程度分组明细
+  // 分组明细：楼栋优先，回退严重程度
   var idx = 0;
-  for (final s in _severityOrder) {
-    final group = list.where((d) => d.severity == s).toList();
-    if (group.isEmpty) continue;
+  for (final g in groupDefects(defects)) {
     buf.writeln('<div class="group">');
-    buf.writeln('<div class="group-head" style="background:${_severityHex(s)};'
-        'color:${_severityFg(s)}"><span>${_esc(s.label)}</span>'
-        '<span class="group-action">${_esc(s.action)} · ${group.length} 项</span></div>');
-    for (final d in group) {
+    final bg = g.colorHex ?? kBrandHex;
+    final fg = g.colorHex == null
+        ? '#FFFFFF'
+        : (g.colorHex!.toUpperCase() == '#F5C518' ? '#5B4A00' : '#FFFFFF');
+    final right = g.subtitle ?? '${g.items.length} 项';
+    buf.writeln('<div class="group-head" style="background:$bg;color:$fg">'
+        '<span>${_esc(g.title)}</span>'
+        '<span class="group-action">${_esc(right)}</span></div>');
+    for (final d in g.items) {
       idx++;
       buf.writeln(_defectCard(idx, d, photoBase64));
     }
     buf.writeln('</div>');
   }
 
-  // 状态汇总表
+  // 销项汇总表（对齐巡场报告单列：序号 / 部位 / 重要等级 / 状态 / 责任人 / 时间）
   buf.writeln('<table class="report-table sum-table"><thead><tr><th class="col-no">序号</th>'
-      '<th>部位 / 缺陷</th><th>严重程度</th><th>状态</th><th>责任人</th>'
-      '<th>发现时间</th></tr></thead><tbody>');
+      '<th>部位 / 缺陷</th><th>重要等级</th><th>严重程度</th><th>状态</th>'
+      '<th>是否闭合</th><th>责任人</th><th>发现时间</th></tr></thead><tbody>');
   var i2 = 0;
   for (final st in _statusOrder) {
     for (final d in list.where((e) => e.status == st)) {
       i2++;
+      final imp = d.effectiveImportance;
       buf.writeln('<tr><td class="col-no">$i2</td>'
           '<td>${_esc(d.part)}<div class="sub-cell">${_esc(d.anchor)} · ${_esc(d.floor)}</div></td>'
+          '<td><span class="pill" style="background:${importanceBg(imp)};'
+          'color:${importanceFg(imp)}">${_esc(imp.label)}</span></td>'
           '<td><span class="pill" style="background:${_severityHex(d.severity)};'
           'color:${_severityFg(d.severity)}">${_esc(d.severity.label)}</span></td>'
-          '<td>${_esc(d.status.label)}</td><td>${_esc(d.resp)}</td>'
+          '<td>${_esc(d.status.label)}</td>'
+          '<td>${d.closed ? '<span class="pill st-done">是</span>' : '<span class="pill st-draft">否</span>'}</td>'
+          '<td>${_esc(d.resp)}</td>'
           '<td>${_esc(d.ts)}</td></tr>');
     }
   }
   buf.writeln('</tbody></table>');
 
   return (
-    title: '现场问题清单及闭环情况',
+    title: '巡场清单及闭环情况',
     body: buf.toString(),
   );
 }
@@ -332,20 +356,65 @@ String _barItem(String label, int n, int total, String color) {
       '</div>';
 }
 
+/// 现场照片 / 整改回复照片（base64 内嵌，缺失时渲染占位不阻断导出。
+/// 未挂照片的问题（如台账导入项）不渲染照片区）。
+String _photoBlock(
+  String? rel,
+  Map<String, String> photoBase64,
+  String alt,
+  String emptyText,
+) {
+  if (rel == null || rel.isEmpty) return '';
+  final b64 = photoBase64[rel];
+  return '<div class="defect-photo">${b64 != null ? '<img src="data:image/jpeg;base64,$b64" alt="${_esc(alt)}">' : '<span class="ph-empty">$emptyText</span>'}</div>';
+}
+
+/// 缺陷卡（巡场报告单三段式）：巡场意见 → 整改回复 → 闭合确认。
 String _defectCard(int idx, Defect d, Map<String, String> photoBase64) {
   final tags = d.tags.map((t) => '<span class="tag">${_esc(t)}</span>').join('');
   final coord = d.coordText;
-  final photoTag = (() {
-    final rel = d.photoPath;
-    if (rel == null || rel.isEmpty) return '';
-    final b64 = photoBase64[rel];
-    return b64 != null
-        ? '<div class="defect-photo"><img src="data:image/jpeg;base64,$b64" alt="${_esc(d.part)}现场照片"></div>'
-        : '<div class="defect-photo"><span class="ph-empty">现场照片未加载</span></div>';
-  })();
+  final imp = d.effectiveImportance;
+
+  // —— 一、巡场意见 ——
+  final suggestion = (d.suggestion ?? '').trim().isEmpty
+      ? ''
+      : '<div class="note-text ai">AI整改建议（施工单位）：${_esc(d.suggestion!)}</div>';
+  final opinion = '<div class="dsec">'
+      '<div class="dsec-h">巡场意见</div>'
+      '<div class="dsec-b"><div class="note-text">${_esc(d.note)}</div>'
+      '$suggestion'
+      '${_photoBlock(d.photoPath, photoBase64, '${d.part}现场照片', '现场照片未加载')}'
+      '</div></div>';
+
+  // —— 二、整改回复 ——
+  final reply = (d.reply == null || d.reply!.trim().isEmpty) &&
+          (d.replyPhotoPath == null || d.replyPhotoPath!.isEmpty)
+      ? ''
+      : '<div class="dsec">'
+          '<div class="dsec-h">整改回复</div>'
+          '<div class="dsec-b">'
+          '${(d.reply ?? '').trim().isNotEmpty ? '<div class="note-text">${_esc(d.reply!)}</div>' : ''}'
+          '${_photoBlock(d.replyPhotoPath, photoBase64, '${d.part}整改后照片', '回复照片未加载')}'
+          '${((d.replyBy ?? '').trim().isNotEmpty || (d.replyTs ?? '').trim().isNotEmpty) ? '<div class="reply-meta">${_esc([if ((d.replyBy ?? '').trim().isNotEmpty) d.replyBy!, if ((d.replyTs ?? '').trim().isNotEmpty) d.replyTs!].join(' · '))}</div>' : ''}'
+          '</div></div>';
+
+  // —— 三、闭合确认 ——
+  final closeChips = [
+    '<span class="close-chip">${d.closed ? '是否闭合：是' : '是否闭合：否'}</span>',
+    if ((d.completion ?? '').trim().isNotEmpty)
+      '<span class="close-chip">完成状态：${_esc(d.completion!)}</span>',
+  ].join('');
+  final close = '<div class="dsec">'
+      '<div class="dsec-h">闭合确认</div>'
+      '<div class="dsec-b"><div class="close-row">$closeChips</div>'
+      '${(d.closeNote ?? '').trim().isNotEmpty ? '<div class="note-text warn">${_esc(d.closeNote!)}</div>' : ''}'
+      '</div></div>';
+
   return '<div class="defect">'
       '<div class="defect-title"><span class="no">$idx</span>'
       '<span class="part">${_esc(d.part)}</span>'
+      '<span class="pill" style="background:${importanceBg(imp)};'
+      'color:${importanceFg(imp)}">${_esc(imp.label)}</span>'
       '<span class="pill" style="background:${_severityHex(d.severity)};'
       'color:${_severityFg(d.severity)}">${_esc(d.severity.label)} · ${_esc(d.severity.action)}</span>'
       '<span class="pill st-${d.status.name}">${_esc(d.status.label)}</span>'
@@ -361,9 +430,8 @@ String _defectCard(int idx, Defect d, Map<String, String> photoBase64) {
       '<div class="field"><span class="k">GPS / 海拔</span><span class="v">${_esc(d.gps)} · ${_esc(d.alt)}</span></div>'
       '${coord != null ? '<div class="field"><span class="k">图纸坐标</span><span class="v">${_esc(coord)}</span></div>' : ''}'
       '${tags.isNotEmpty ? '<div class="field"><span class="k">标签</span><span class="v">$tags</span></div>' : ''}'
-      '<div class="field full"><span class="k">问题描述</span><span class="v note">${_esc(d.note)}</span></div>'
       '</div>'
-      '$photoTag'
+      '$opinion$reply$close'
       '</div>';
 }
 
@@ -534,9 +602,24 @@ body > * { max-width: 900px; margin-left: auto; margin-right: auto; }
 .field .v { color: #202224; word-break: break-all; }
 .field .v.note { background: #EEF0F3; padding: 6px 10px; border-radius: 8px; flex: 1; }
 .tag { display: inline-block; background: #EEF0F3; color: #60656B; border-radius: 6px; padding: 1px 6px; font-size: 12px; margin-right: 4px; }
-.defect-photo { margin-top: 10px; }
+.defect-photo { margin-top: 8px; }
 .defect-photo img { display: block; max-width: 280px; max-height: 200px; border-radius: 10px; border: none; object-fit: cover; }
 .defect-photo .ph-empty { display: inline-block; background: #EEF0F3; color: #919499; border-radius: 8px; padding: 10px 14px; font-size: 12px; }
+
+/* ---- 巡场报告单三段式：巡场意见 / 整改回复 / 闭合确认 ---- */
+.dsec { margin-top: 11px; }
+.dsec-h {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; color: #0273CC; margin-bottom: 5px;
+}
+.dsec-h::before { content: ''; width: 3px; height: 11px; background: #0395FF; border-radius: 2px; }
+.dsec-b { font-size: 13px; color: #202224; }
+.note-text { background: #F2F4F6; border-radius: 8px; padding: 8px 11px; white-space: pre-wrap; }
+.note-text.ai { background: #E8F4FE; color: #02519E; margin-top: 6px; }
+.note-text.warn { background: #FFF6E8; color: #7A4E00; }
+.reply-meta { margin-top: 5px; font-size: 12px; color: #919499; }
+.close-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.close-chip { background: #F2F4F6; color: #60656B; border-radius: 6px; padding: 3px 9px; font-size: 12px; }
 
 footer {
   text-align: center; color: #B8BCC2; font-size: 12px;

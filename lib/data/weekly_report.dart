@@ -121,7 +121,7 @@ class WeeklyReport {
   /// 纯文字说明（如「设计交底及会审情况：本周无」）。
   final List<WeeklyNote> notes;
 
-  /// 关联的问题清单（报告末尾的问题清单，由 APP 侧按项目注入）。
+  /// 关联的巡场清单（报告末尾的巡场清单，由 APP 侧按项目注入）。
   final List<Defect> defects;
 
   const WeeklyReport({

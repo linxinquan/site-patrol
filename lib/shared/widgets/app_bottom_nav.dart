@@ -50,7 +50,7 @@ class AppBottomNav extends StatelessWidget {
                       onTap: () => context.go(_routes[2]),
                     ),
                     _TabItem(
-                      label: '问题清单',
+                      label: '巡场清单',
                       selected: currentIndex == 3,
                       onTap: () => context.go(_routes[3]),
                     ),

@@ -70,7 +70,7 @@ void main() {
     expect(xml, contains('现场施工进度情况'));
     expect(xml, contains('现场（机电）施工进度情况'));
     expect(xml, contains('待沟通协调问题'));
-    expect(xml, contains('现场问题清单及闭环情况'));
+    expect(xml, contains('巡场清单及闭环情况'));
     // 空板块剔除（与 HTML 端同规则）
     expect(xml, isNot(contains('本周无')));
     expect(xml, isNot(contains('图档台账')));
@@ -120,7 +120,7 @@ void main() {
       '现场施工进度情况',
       '现场（机电）施工进度情况',
       '待沟通协调问题',
-      '现场问题清单及闭环情况',
+      '巡场清单及闭环情况',
     ]);
   });
 

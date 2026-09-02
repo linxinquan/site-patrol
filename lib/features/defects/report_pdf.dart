@@ -169,7 +169,8 @@ pw.Widget _overview(ReportStats s) {
     ('现场照片', '${s.photos}', kBrandHex),
     ('进度楼栋', '${s.buildings}', kBrandHex),
     ('待协调问题', '${s.issues}', '#FF9500'),
-    ('现场问题', '${s.defects}', '#FF3B30'),
+    ('巡场问题', '${s.defects}', '#FF3B30'),
+    ('重要紧急', '${s.urgent}', '#D93025'),
     ('未闭环', '${s.open}', '#FF9500'),
     ('已闭环', '${s.done}', '#34C759'),
   ];
@@ -441,7 +442,7 @@ List<pw.Widget> _issues(List<WeeklyIssue> items) => [
       ),
     ];
 
-// ---------------- 四、现场问题清单及闭环情况 ----------------
+// ---------------- 四、巡场清单及闭环情况 ----------------
 
 List<pw.Widget> _defects(
     List<Defect> defects, Map<String, Uint8List> photoBytes) {
@@ -479,29 +480,30 @@ List<pw.Widget> _defects(
   ));
   out.add(pw.SizedBox(height: 12));
 
-  // 按严重程度分组的缺陷卡
+  // 分组明细：优先按楼栋（巡场销项表版式），无栋号信息时回退严重程度
   var idx = 0;
-  for (final s in kSeverityOrder) {
-    final group = list.where((d) => d.severity == s).toList();
-    if (group.isEmpty) continue;
+  for (final g in groupDefects(defects)) {
+    final bg = g.colorHex ?? kBrandHex;
+    final fg = g.colorHex == null
+        ? '#FFFFFF'
+        : (g.colorHex!.toUpperCase() == '#F5C518' ? '#5B4A00' : '#FFFFFF');
     out.add(pw.Container(
       margin: const pw.EdgeInsets.only(bottom: 7),
       padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: pw.BoxDecoration(
-        color: _c(severityHex(s)),
+        color: _c(bg),
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
-          pw.Text(s.label,
-              style: _ts(size: 10, color: _c(severityFg(s)), bold: true)),
-          pw.Text('${s.action} · ${group.length} 项',
-              style: _ts(size: 8, color: _c(severityFg(s)))),
+          pw.Text(g.title, style: _ts(size: 10, color: _c(fg), bold: true)),
+          pw.Text(g.subtitle ?? '${g.items.length} 项',
+              style: _ts(size: 8, color: _c(fg))),
         ],
       ),
     ));
-    for (final d in group) {
+    for (final d in g.items) {
       idx++;
       out.add(pw.Padding(
         padding: const pw.EdgeInsets.only(bottom: 6),
@@ -516,24 +518,28 @@ List<pw.Widget> _defects(
     }
   }
 
-  // 状态汇总表
+  // 销项汇总表（对齐巡场报告单：重要等级 / 状态 / 是否闭合）
   out.add(pw.SizedBox(height: 6));
   out.add(pw.Table(
     border: _gridBorder(),
     columnWidths: const {
-      0: pw.FixedColumnWidth(22),
-      1: pw.FlexColumnWidth(2.4),
-      2: pw.FixedColumnWidth(44),
-      3: pw.FixedColumnWidth(40),
-      4: pw.FlexColumnWidth(1.6),
-      5: pw.FixedColumnWidth(66),
+      0: pw.FixedColumnWidth(20),
+      1: pw.FlexColumnWidth(2.2),
+      2: pw.FixedColumnWidth(46),
+      3: pw.FixedColumnWidth(38),
+      4: pw.FixedColumnWidth(32),
+      5: pw.FixedColumnWidth(28),
+      6: pw.FlexColumnWidth(1.3),
+      7: pw.FixedColumnWidth(58),
     },
     children: [
       pw.TableRow(children: [
         _th('序号', align: pw.Alignment.center),
         _th('部位 / 缺陷'),
+        _th('重要等级'),
         _th('严重程度'),
         _th('状态'),
+        _th('闭合'),
         _th('责任人'),
         _th('发现时间'),
       ]),
@@ -554,8 +560,15 @@ List<pw.Widget> _defects(
                 ],
               ),
             ),
+            _pill(d.effectiveImportance.label,
+                importanceBg(d.effectiveImportance),
+                importanceFg(d.effectiveImportance)),
             _pill(d.severity.label, severityHex(d.severity), severityFg(d.severity)),
             _pill(d.status.label, statusBg(d.status), statusFg(d.status)),
+            _cell(d.closed ? '是' : '否',
+                size: 7.5,
+                color: d.closed ? _c('#1E9E4E') : _c('#E0342B'),
+                align: pw.Alignment.center),
             _cell(d.resp, size: 7.5),
             _cell(d.ts, size: 7, color: _fg2),
           ]),
@@ -620,6 +633,9 @@ pw.Widget _defectCard(
               pw.Expanded(
                   child: pw.Text(d.part,
                       style: _ts(size: 9, bold: true))),
+              _pill(d.effectiveImportance.label,
+                  importanceBg(d.effectiveImportance),
+                  importanceFg(d.effectiveImportance)),
               _pill('${d.severity.label} · ${d.severity.action}',
                   severityHex(d.severity), severityFg(d.severity)),
               _pill(d.status.label, statusBg(d.status), statusFg(d.status)),
@@ -630,28 +646,151 @@ pw.Widget _defectCard(
             padding: const pw.EdgeInsets.fromLTRB(8, 6, 8, 0),
             child: _defectFields(d),
           ),
-          // 现场照片（拍照记录写入的相对路径 → photoBytes）
+          // 一、巡场意见：现场照片（拍照记录写入的相对路径 → photoBytes）
           if (d.photoPath != null)
             pw.Padding(
               padding: const pw.EdgeInsets.fromLTRB(8, 8, 8, 0),
               child: _defectPhoto(d, photoBytes),
             ),
-          // 问题描述
+          // 巡场意见：问题描述
           pw.Padding(
             padding: const pw.EdgeInsets.all(8),
-            child: pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(7),
-              decoration: pw.BoxDecoration(
-                color: _bg,
-                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Container(
+                  width: double.infinity,
+                  padding: const pw.EdgeInsets.all(7),
+                  decoration: pw.BoxDecoration(
+                    color: _bg,
+                    borderRadius:
+                        const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.RichText(
+                    text: pw.TextSpan(children: [
+                      pw.TextSpan(
+                          text: '巡场意见：', style: _ts(size: 7.5, color: _muted)),
+                      pw.TextSpan(text: d.note, style: _ts(size: 8)),
+                    ]),
+                  ),
+                ),
+                // AI 整改建议（给施工单位）
+                if ((d.suggestion ?? '').trim().isNotEmpty)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 5),
+                    child: pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.all(7),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColor.fromInt(0xFFE8F4FE),
+                        borderRadius:
+                            const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      ),
+                      child: pw.RichText(
+                        text: pw.TextSpan(children: [
+                          pw.TextSpan(
+                              text: 'AI整改建议（施工单位）：',
+                              style: _ts(size: 7.5, color: _c('#0273CC'))),
+                          pw.TextSpan(
+                              text: d.suggestion!, style: _ts(size: 8)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // 二、整改回复（有回复内容或回复照片时渲染）
+          if ((d.reply ?? '').trim().isNotEmpty ||
+              (d.replyPhotoPath ?? '').isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if ((d.reply ?? '').trim().isNotEmpty)
+                    pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.all(7),
+                      decoration: pw.BoxDecoration(
+                        color: _bg,
+                        borderRadius:
+                            const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      ),
+                      child: pw.RichText(
+                        text: pw.TextSpan(children: [
+                          pw.TextSpan(
+                              text: '整改回复：',
+                              style: _ts(size: 7.5, color: _muted)),
+                          pw.TextSpan(text: d.reply!, style: _ts(size: 8)),
+                        ]),
+                      ),
+                    ),
+                  if ((d.replyPhotoPath ?? '').isNotEmpty)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 6),
+                      child: _replyPhoto(d, photoBytes),
+                    ),
+                  if ((d.replyBy ?? '').trim().isNotEmpty ||
+                      (d.replyTs ?? '').trim().isNotEmpty)
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.only(top: 3),
+                      child: pw.Text(
+                        [
+                          if ((d.replyBy ?? '').trim().isNotEmpty) d.replyBy!,
+                          if ((d.replyTs ?? '').trim().isNotEmpty) d.replyTs!,
+                        ].join(' · '),
+                        style: _ts(size: 7, color: _muted),
+                      ),
+                    ),
+                ],
               ),
-              child: pw.RichText(
-                text: pw.TextSpan(children: [
-                  pw.TextSpan(text: '问题描述：', style: _ts(size: 7.5, color: _muted)),
-                  pw.TextSpan(text: d.note, style: _ts(size: 8)),
-                ]),
-              ),
+            ),
+          // 三、闭合确认
+          pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.RichText(
+                  text: pw.TextSpan(children: [
+                    pw.TextSpan(
+                        text: '是否闭合：', style: _ts(size: 7.5, color: _muted)),
+                    pw.TextSpan(
+                      text: d.closed ? '是' : '否',
+                      style: _ts(
+                          size: 8,
+                          bold: true,
+                          color: d.closed ? _c('#1E9E4E') : _c('#E0342B')),
+                    ),
+                    if ((d.completion ?? '').trim().isNotEmpty)
+                      pw.TextSpan(
+                          text: '　完成状态：${d.completion!}',
+                          style: _ts(size: 7.5, color: _fg2)),
+                  ]),
+                ),
+                if ((d.closeNote ?? '').trim().isNotEmpty)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 4),
+                    child: pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.all(7),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColor.fromInt(0xFFFFF6E8),
+                        borderRadius:
+                            const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      ),
+                      child: pw.RichText(
+                        text: pw.TextSpan(children: [
+                          pw.TextSpan(
+                              text: '未闭合说明：',
+                              style: _ts(size: 7.5, color: _muted)),
+                          pw.TextSpan(text: d.closeNote!, style: _ts(size: 8)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],
@@ -679,6 +818,32 @@ pw.Widget _defectPhoto(Defect d, Map<String, Uint8List> photoBytes) {
       pw.MemoryImage(bytes),
       width: _contentW * 0.55,
       height: 100,
+      fit: pw.BoxFit.cover,
+    ),
+  );
+}
+
+/// 整改回复照片（缺失字节时渲染占位，不阻断导出）。
+pw.Widget _replyPhoto(Defect d, Map<String, Uint8List> photoBytes) {
+  final bytes = photoBytes[d.replyPhotoPath!];
+  if (bytes == null) {
+    return pw.Container(
+      width: _contentW * 0.5,
+      padding: const pw.EdgeInsets.all(8),
+      decoration: pw.BoxDecoration(
+        color: _bg,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+      ),
+      child: pw.Text('回复照片未加载', style: _ts(size: 7.5, color: _muted)),
+    );
+  }
+  return pw.ClipRRect(
+    horizontalRadius: 4,
+    verticalRadius: 4,
+    child: pw.Image(
+      pw.MemoryImage(bytes),
+      width: _contentW * 0.5,
+      height: 92,
       fit: pw.BoxFit.cover,
     ),
   );

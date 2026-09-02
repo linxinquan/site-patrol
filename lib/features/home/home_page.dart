@@ -989,7 +989,7 @@ class _TodoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 头部单行：待办 · N（左） | 日期 | 查看全部 + 右箭头（右，整体可点跳转问题清单页）
+        // 头部单行：待办 · N（左） | 日期 | 查看全部 + 右箭头（右，整体可点跳转巡场清单页）
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1198,7 +1198,7 @@ Widget _catTag(DefectCategory c) => Container(
     );
 
 /// 状态标签（12/W700 白字，圆角 6，padding 2·8）：实色底不套 5% 规则。
-/// 与问题清单页 StatusPill 四色一致：待整改 #FF3B30 / 整改中 #FF9500 / 已销项 #34C759 / 已拒绝 #0395FF。
+/// 与巡场清单页 StatusPill 四色一致：待整改 #FF3B30 / 整改中 #FF9500 / 已销项 #34C759 / 已拒绝 #0395FF。
 Widget _statusTag(DefectStatus s) {
   final Color c;
   switch (s) {

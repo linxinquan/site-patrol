@@ -831,7 +831,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     // 退出拾取模式
     ref.read(cadPickModeProvider.notifier).state = false;
 
-    // 打通巡查记录：新建一条问题清单记录（带真实图纸坐标 worldX/worldY）
+    // 打通巡查记录：新建一条巡场清单记录（带真实图纸坐标 worldX/worldY）
     _createDefectFromPick(ann, world);
   }
 

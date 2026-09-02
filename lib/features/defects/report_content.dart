@@ -84,6 +84,29 @@ String statusFg(DefectStatus s) {
   }
 }
 
+/// 重要等级标签样式（底 / 字），配色沿用巡场报告单分级语义：
+/// 重要紧急=红、重要不紧急=橙、紧急不重要=蓝、普通=灰。
+const Map<DefectImportance, ({String bg, String fg})> kImportanceStyle = {
+  DefectImportance.urgentImportant: (bg: '#FFE9E7', fg: '#E0342B'),
+  DefectImportance.importantNotUrgent: (bg: '#FFF2DC', fg: '#D98A00'),
+  DefectImportance.urgentNotImportant: (bg: '#E6F5FF', fg: '#0273CC'),
+  DefectImportance.normal: (bg: '#EEF0F3', fg: '#60656B'),
+};
+
+/// 重要等级排序（重要紧急在前）。
+const List<DefectImportance> kImportanceOrder = [
+  DefectImportance.urgentImportant,
+  DefectImportance.importantNotUrgent,
+  DefectImportance.urgentNotImportant,
+  DefectImportance.normal,
+];
+
+String importanceBg(DefectImportance i) =>
+    kImportanceStyle[i]?.bg ?? '#EEF0F3';
+
+String importanceFg(DefectImportance i) =>
+    kImportanceStyle[i]?.fg ?? '#60656B';
+
 /// `#RRGGBB` → `0xAARRGGBB`（package:pdf 的 PdfColor 用）。
 int hexToArgb(String hex) {
   var h = hex.replaceFirst('#', '');
@@ -148,14 +171,14 @@ final class IssuesBlock extends ReportBlock {
   String get title => '待沟通协调问题';
 }
 
-/// 现场问题清单及闭环情况。
+/// 巡场清单及闭环情况。
 final class DefectsBlock extends ReportBlock {
   DefectsBlock(this.defects);
 
   final List<Defect> defects;
 
   @override
-  String get title => '现场问题清单及闭环情况';
+  String get title => '巡场清单及闭环情况';
 }
 
 /// 按周报版式排出正文板块顺序，并剔除无实质内容的板块。
@@ -201,6 +224,8 @@ class ReportStats {
     required this.defects,
     required this.open,
     required this.done,
+    required this.urgent,
+    required this.replied,
   });
 
   final int photos;
@@ -209,6 +234,10 @@ class ReportStats {
   final int defects;
   final int open;
   final int done;
+  /// 重要紧急条目数（巡场报告单「重要等级」列）。
+  final int urgent;
+  /// 已有整改回复的条目数。
+  final int replied;
 }
 
 ReportStats buildReportStats(WeeklyReport report) {
@@ -223,6 +252,11 @@ ReportStats buildReportStats(WeeklyReport report) {
             d.status == DefectStatus.draft || d.status == DefectStatus.doing)
         .length,
     done: defects.where((d) => d.status == DefectStatus.done).length,
+    urgent: defects
+        .where((d) => d.effectiveImportance == DefectImportance.urgentImportant)
+        .length,
+    replied:
+        defects.where((d) => (d.reply ?? '').trim().isNotEmpty).length,
   );
 }
 
@@ -232,6 +266,99 @@ List<Defect> sortDefects(List<Defect> defects) => [...defects]..sort((a, b) {
       final sb = kSeverityOrder.indexOf(b.severity);
       return sa != sb ? sa - sb : a.ts.compareTo(b.ts);
     });
+
+// ==================== 巡场销项分组 ====================
+
+/// 巡场报告单式的问题分组。
+class DefectGroup {
+  DefectGroup({
+    required this.title,
+    required this.items,
+    this.colorHex,
+    this.subtitle,
+  });
+
+  /// 组标题（楼栋名，或回退时的严重程度名）。
+  final String title;
+
+  /// 组内问题（已排序）。
+  final List<Defect> items;
+
+  /// 组头底色（按严重程度分组时有；按楼栋分组时为空，用品牌色）。
+  final String? colorHex;
+
+  /// 组头右侧摘要（如「共 5 条 · 未闭合 3」）。
+  final String? subtitle;
+}
+
+/// 组内排序：重要等级（重要紧急在前）→ 严重程度 → 发现时间。
+List<Defect> _sortByImportance(List<Defect> list) => [...list]..sort((a, b) {
+      final ia = kImportanceOrder.indexOf(a.effectiveImportance);
+      final ib = kImportanceOrder.indexOf(b.effectiveImportance);
+      if (ia != ib) return ia - ib;
+      final sa = kSeverityOrder.indexOf(a.severity);
+      final sb = kSeverityOrder.indexOf(b.severity);
+      return sa != sb ? sa - sb : a.ts.compareTo(b.ts);
+    });
+
+/// 楼栋名中的数字（「9栋」→ 9，「7栋、8栋」→ 7），用于自然排序；无数字返回大值。
+int _buildingNum(String name) {
+  final m = RegExp(r'\d+').firstMatch(name);
+  return m == null ? 1 << 30 : int.parse(m.group(0)!);
+}
+
+/// 按巡场报告单版式分组：**优先按楼栋**（有栋号信息时，栋号自然升序），
+/// 否则回退按严重程度分组（兼容未标注楼栋的历史数据）。
+List<DefectGroup> groupDefects(List<Defect> defects) {
+  final list = [...defects];
+  final named = list.where((d) => d.buildingOrEmpty.isNotEmpty).toList();
+
+  if (named.isNotEmpty) {
+    final byBuilding = <String, List<Defect>>{};
+    for (final d in list) {
+      final key = d.buildingOrEmpty.isEmpty ? '其他' : d.buildingOrEmpty;
+      byBuilding.putIfAbsent(key, () => []).add(d);
+    }
+    final keys = byBuilding.keys.toList()
+      ..sort((a, b) {
+        // 「其他」永远排最后
+        if (a == '其他') return 1;
+        if (b == '其他') return -1;
+        final na = _buildingNum(a);
+        final nb = _buildingNum(b);
+        return na != nb ? na - nb : a.compareTo(b);
+      });
+    return [
+      for (final k in keys) _groupOf(k, byBuilding[k]!),
+    ];
+  }
+
+  return [
+    for (final s in kSeverityOrder)
+      ...() {
+        final g = list.where((d) => d.severity == s).toList();
+        if (g.isEmpty) return <DefectGroup>[];
+        return <DefectGroup>[
+          DefectGroup(
+            title: s.label,
+            items: _sortByImportance(g),
+            colorHex: severityHex(s),
+            subtitle: null,
+          ),
+        ];
+      }(),
+  ];
+}
+
+DefectGroup _groupOf(String building, List<Defect> items) {
+  final sorted = _sortByImportance(items);
+  final open = sorted.where((d) => !d.closed).length;
+  return DefectGroup(
+    title: building,
+    items: sorted,
+    subtitle: '共 ${sorted.length} 条 · 未闭合 $open',
+  );
+}
 
 // ==================== 文本工具 ====================
 
@@ -266,6 +393,9 @@ List<({String tag, String text})> splitProgressDetail(String detail) =>
     }).toList();
 
 /// 缺陷卡片展示的字段（键 → 值），空值自动跳过。
+///
+/// 字段集对齐 LDI 巡场报告单：巡场意见（描述/照片）→ 整改回复（内容/照片）
+/// → 闭合确认（是否闭合 / 未闭合说明 / 完成状态）。
 List<(String, String)> defectFields(Defect d) => [
       ('缺陷类型', d.type),
       ('专业分类', d.category.label),
@@ -277,4 +407,19 @@ List<(String, String)> defectFields(Defect d) => [
       ('GPS / 海拔', '${d.gps} · ${d.alt}'),
       if (d.coordText != null) ('图纸坐标', d.coordText!),
       if (d.tags.isNotEmpty) ('标签', d.tags.join(' / ')),
+      ('是否闭合', d.closed ? '是' : '否'),
+      if (d.completion != null && d.completion!.trim().isNotEmpty)
+        ('完成状态', d.completion!),
+      if (d.closeNote != null && d.closeNote!.trim().isNotEmpty)
+        ('未闭合说明', d.closeNote!),
+      if (d.reply != null && d.reply!.trim().isNotEmpty) ('整改回复', d.reply!),
+      if ((d.replyBy != null && d.replyBy!.trim().isNotEmpty) ||
+          (d.replyTs != null && d.replyTs!.trim().isNotEmpty))
+        (
+          '回复人 / 时间',
+          [
+            if (d.replyBy != null && d.replyBy!.trim().isNotEmpty) d.replyBy!,
+            if (d.replyTs != null && d.replyTs!.trim().isNotEmpty) d.replyTs!,
+          ].join(' · ')
+        ),
     ].where((e) => e.$2.trim().isNotEmpty).toList();

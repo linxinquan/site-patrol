@@ -23,8 +23,8 @@ import 'report_builder.dart';
 import 'report_docx.dart';
 import 'report_pdf.dart';
 
-/// 问题清单页（对齐 Figma 新 UI：问题列表页）。
-/// 结构：标题栏(问题清单·N / F9·闭环管理 + 头像) → 筛选条(5 等分按钮) → 缺陷卡列表。
+/// 巡场清单页（对齐 Figma 新 UI：巡场问题列表页）。
+/// 结构：标题栏(巡场清单·N / F9·闭环管理 + 头像) → 筛选条(5 等分按钮) → 缺陷卡列表。
 class DefectsPage extends ConsumerWidget {
   const DefectsPage({super.key});
 
@@ -52,7 +52,7 @@ class DefectsPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('问题清单 · $open',
+                Text('巡场清单 · $open',
                     style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
@@ -65,7 +65,7 @@ class DefectsPage extends ConsumerWidget {
               ],
             );
           },
-          orElse: () => const Text('问题清单'),
+          orElse: () => const Text('巡场清单'),
         ),
         actions: [
           // 导出报告：一键生成结构化 HTML 报告（自动分组汇总，无需人工整理）
@@ -162,7 +162,7 @@ class DefectsPage extends ConsumerWidget {
     );
   }
 
-  /// 把周报引用的现场照片 + 问题清单照片读成原始字节（缺失时报告内显示占位）。
+  /// 把周报引用的现场照片 + 巡场清单照片读成原始字节（缺失时报告内显示占位）。
   Future<Map<String, Uint8List>> _loadPhotoBytes(WeeklyReport report) async {
     final map = <String, Uint8List>{};
     for (final p in report.photos) {
@@ -253,7 +253,7 @@ class DefectsPage extends ConsumerWidget {
                             color: AppTokens.fg)),
                     const SizedBox(height: 8),
                     Text(
-                      '报告自动整合现场照片、机电进度、台账与问题清单，按周报版式排版，'
+                      '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
                       '可选 PDF / Word / HTML 三种格式，导出后无需再手工整理。',
                       style: const TextStyle(fontSize: 13, color: AppTokens.fg2),
                     ),

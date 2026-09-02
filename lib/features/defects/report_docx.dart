@@ -134,7 +134,8 @@ class _DocxDoc {
       ('现场照片', '${s.photos}', '0395FF'),
       ('进度楼栋', '${s.buildings}', '0395FF'),
       ('待协调问题', '${s.issues}', 'FF9500'),
-      ('现场问题', '${s.defects}', 'FF3B30'),
+      ('巡场问题', '${s.defects}', 'FF3B30'),
+      ('重要紧急', '${s.urgent}', 'D93025'),
       ('未闭环', '${s.open}', 'FF9500'),
       ('已闭环', '${s.done}', '34C759'),
     ];
@@ -352,33 +353,45 @@ class _DocxDoc {
     ]));
     _body.write(_spacer(160));
 
-    // 按严重程度分组的缺陷卡
+    // 分组明细：优先按楼栋（巡场销项表版式），无栋号信息时回退严重程度
     var idx = 0;
-    for (final s in kSeverityOrder) {
-      final group = list.where((d) => d.severity == s).toList();
-      if (group.isEmpty) continue;
+    for (final g in groupDefects(defects)) {
+      final bg = g.colorHex ?? kBrandHex;
+      final fg = g.colorHex == null
+          ? '#FFFFFF'
+          : (g.colorHex!.toUpperCase() == '#F5C518' ? '#5B4A00' : '#FFFFFF');
       _body.write(_table([_contentW], [
         [
           _Cell(
-            _p(_r(s.label, bold: true, color: _noHash(severityFg(s))) +
-                    _r('    ${s.action} · ${group.length} 项',
-                        color: _noHash(severityFg(s))),
+            _p(_r(g.title, bold: true, color: _noHash(fg)) +
+                    _r('    ${g.subtitle ?? '${g.items.length} 项'}',
+                        color: _noHash(fg)),
                 after: 0),
-            shade: _noHash(severityHex(s)),
+            shade: _noHash(bg),
           ),
         ],
       ]));
-      for (final d in group) {
+      for (final d in g.items) {
         idx++;
         _body.write(_defectCard(idx, d));
       }
       _body.write(_spacer(120));
     }
 
-    // 状态汇总表
-    _body.write(_table([700, 2900, 1200, 1200, 2200, _contentW - 8200], [
+    // 销项汇总表（对齐巡场报告单：重要等级 / 状态 / 是否闭合）
+    _body.write(
+        _table([700, 2600, 1300, 1100, 1100, 800, 2000, _contentW - 9600], [
       [
-        for (final h in const ['序号', '部位 / 缺陷', '严重程度', '状态', '责任人', '发现时间'])
+        for (final h in const [
+          '序号',
+          '部位 / 缺陷',
+          '重要等级',
+          '严重程度',
+          '状态',
+          '闭合',
+          '责任人',
+          '发现时间'
+        ])
           _Cell(_p(_r(h, bold: true, color: '60656B'), after: 0), shade: 'F4F6F7'),
       ],
       for (final st in kStatusOrder)
@@ -387,6 +400,10 @@ class _DocxDoc {
             _Cell(_p(_r('${list.indexOf(d) + 1}', color: '919499'), after: 0)),
             _Cell(_p(_r(d.part, bold: true), after: 0) +
                 _p(_r('${d.anchor} · ${d.floor}', size: 18, color: '919499'), after: 0)),
+            _Cell(_p(_r(d.effectiveImportance.label,
+                bold: true,
+                color: _noHash(importanceFg(d.effectiveImportance)),
+                shade: _noHash(importanceBg(d.effectiveImportance))), after: 0)),
             _Cell(_p(_r(d.severity.label,
                 bold: true,
                 color: _noHash(severityFg(d.severity)),
@@ -394,6 +411,9 @@ class _DocxDoc {
             _Cell(_p(_r(d.status.label,
                 color: _noHash(statusFg(d.status)),
                 shade: _noHash(statusBg(d.status))), after: 0)),
+            _Cell(_p(_r(d.closed ? '是' : '否',
+                bold: true,
+                color: d.closed ? '1E9E4E' : 'E0342B'), after: 0)),
             _Cell(_p(_r(d.resp), after: 0)),
             _Cell(_p(_r(d.ts, size: 18), after: 0)),
           ],
@@ -432,7 +452,7 @@ class _DocxDoc {
       rows.add(row);
     }
 
-    // 现场照片行（拍照记录写入的相对路径 → photoBytes；缺失时渲染占位文字）
+    // 一、巡场意见：现场照片行（相对路径 → photoBytes；缺失时渲染占位文字）
     final photoRow = d.photoPath != null && d.photoPath!.isNotEmpty
         ? [
             [
@@ -443,12 +463,74 @@ class _DocxDoc {
           ]
         : <List<_Cell>>[];
 
+    // 二、整改回复（有回复内容或回复照片时渲染）
+    final replyRow = ((d.reply ?? '').trim().isEmpty &&
+            (d.replyPhotoPath ?? '').isEmpty)
+        ? <List<_Cell>>[]
+        : <List<_Cell>>[
+            [
+              _Cell(
+                  _p(
+                      _r('整改回复：', color: '919499', size: 20) +
+                          _r(d.reply ?? '', size: 20) +
+                          ((d.replyBy ?? '').trim().isNotEmpty ||
+                                  (d.replyTs ?? '').trim().isNotEmpty
+                              ? _r(
+                                  '    ${[
+                                    if ((d.replyBy ?? '').trim().isNotEmpty) d.replyBy!,
+                                    if ((d.replyTs ?? '').trim().isNotEmpty) d.replyTs!,
+                                  ].join(' · ')}',
+                                  size: 18,
+                                  color: '919499')
+                              : ''),
+                      after: 0),
+                  shade: 'F4F6F7'),
+            ],
+            if ((d.replyPhotoPath ?? '').isNotEmpty)
+              [
+                _Cell(_p(_r('整改后照片', color: '919499', size: 20), after: 0),
+                    shade: 'F4F6F7', width: 1400),
+                _Cell(_photoCell(d.replyPhotoPath!, '${d.part} 整改后照片'),
+                    shade: 'F4F6F7'),
+              ],
+          ];
+
+    // 三、闭合确认
+    final closeRow = <List<_Cell>>[
+      [
+        _Cell(
+            _p(
+                _r('是否闭合：', color: '919499', size: 20) +
+                    _r(d.closed ? '是' : '否',
+                        bold: true,
+                        color: d.closed ? '1E9E4E' : 'E0342B',
+                        size: 20) +
+                    ((d.completion ?? '').trim().isNotEmpty
+                        ? _r('    完成状态：${d.completion!}',
+                            size: 20, color: '60656B')
+                        : ''),
+                after: 0),
+            shade: 'F4F6F7'),
+      ],
+      if ((d.closeNote ?? '').trim().isNotEmpty)
+        [
+          _Cell(_p(_r('未闭合说明：', color: '919499', size: 20) +
+                  _r(d.closeNote!, size: 20),
+              after: 0),
+              shade: 'FFF6E8'),
+        ],
+    ];
+
     return _table([_contentW], [
       [
         _Cell(
           _p(_r('$idx  ', bold: true, color: '0395FF') +
                   _r(d.part, bold: true) +
-                  _r('    ${d.severity.label} · ${d.severity.action}',
+                  _r('  ${d.effectiveImportance.label}',
+                      bold: true,
+                      color: _noHash(importanceFg(d.effectiveImportance)),
+                      shade: _noHash(importanceBg(d.effectiveImportance))) +
+                  _r('  ${d.severity.label} · ${d.severity.action}',
                       bold: true,
                       color: _noHash(severityFg(d.severity)),
                       shade: _noHash(severityHex(d.severity))) +
@@ -465,10 +547,20 @@ class _DocxDoc {
       ],
       ...photoRow,
       [
-        _Cell(_p(_r('问题描述：', color: '919499', size: 20) + _r(d.note, size: 20),
+        _Cell(_p(_r('巡场意见：', color: '919499', size: 20) + _r(d.note, size: 20),
                 after: 0),
             shade: 'F4F6F7'),
       ],
+      // AI 整改建议（给施工单位）
+      if ((d.suggestion ?? '').trim().isNotEmpty)
+        [
+          _Cell(_p(_r('AI整改建议：', color: '0273CC', size: 20) +
+                  _r(d.suggestion!, size: 20),
+              after: 0),
+              shade: 'E8F4FE'),
+        ],
+      ...replyRow,
+      ...closeRow,
     ]);
   }
 

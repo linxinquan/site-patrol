@@ -11,6 +11,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/defect_suggestions.dart';
 import 'package:app_settings/app_settings.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -509,9 +510,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   name: d.name,
                   // severity 模型尚未返回，暂默认 orange；后端补返回严重程度后再映射
                   severity: DefectSeverity.orange,
-                  // A 修复：传真实置信度，低 conf 会在卡片/问题清单中提示人工复核
+                  // A 修复：传真实置信度，低 conf 会在卡片/巡场清单中提示人工复核
                   conf: d.conf,
                   desc: d.desc,
+                  // AI 整改建议：模型返回优先，未返回时按缺陷名走本地建议库兜底
+                  suggestion: (d.suggestion?.trim().isNotEmpty ?? false)
+                      ? d.suggestion
+                      : suggestionFor(d.name, d.desc),
                 ))
             .toList();
         // 无论模型是否识别到缺陷都出结果（暂存由「保存记录」按钮触发）。
@@ -543,7 +548,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 无论是否识别到缺陷都会暂存（无缺陷记 count=0，仅留痕）。
   /// 保存当前记录到本地暂存（由「保存记录」按钮触发，不再自动）。
   /// 聚合：水印照片（移动端落盘）、AI 分析结果、用户描述、图纸归属。
-  /// 返回 true 表示已执行保存（写入暂存并同步问题清单），false 表示未满足保存条件。
+  /// 返回 true 表示已执行保存（写入暂存并同步巡场清单），false 表示未满足保存条件。
   Future<bool> _saveRecordToStorage() async {
     if (_shotPhoto == null) {
       if (mounted) {
@@ -584,8 +589,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         photoRel = null;
       }
     }
-    // 打通「拍照记录 → 现场问题记录」：保存带照片的记录时生成一条问题记录
-    // （报告「现场问题清单及闭环情况」章节据此渲染现场照片，交付说明增强项 3）。
+    // 打通「拍照记录 → 巡场问题记录」：保存带照片的记录时生成一条问题记录
+    // （报告「巡场清单及闭环情况」章节据此渲染现场照片，交付说明增强项 3）。
     //
     // **一次拍照聚合为一条记录**：VL 识别常对同一张现场照返回多条观察（多个问
     // 题），但现场一次观察即一次整改，拆成多条会在报告/列表里重复出现（同时间
@@ -625,6 +630,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         descs.join('；'),
         note,
       ].where((s) => s.isNotEmpty).join('\n');
+      // AI 整改建议聚合（给施工单位）：多条建议按「缺陷名：建议」合并。
+      final mergedSuggestion = [
+        for (final v in _defects)
+          if ((v.suggestion ?? '').trim().isNotEmpty)
+            names.length > 1 ? '${v.name}：${v.suggestion!}' : v.suggestion!,
+      ].join('\n');
       await repo.addDefect(Defect(
         id: 'cap_${now.microsecondsSinceEpoch}',
         part: names.length > 1
@@ -648,8 +659,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         worldX: widget.args.drawPointWorldX,
         worldY: widget.args.drawPointWorldY,
         photoPath: photoRel,
+        suggestion: mergedSuggestion.isEmpty ? null : mergedSuggestion,
       ));
-      // 刷新缺陷列表，使「问题清单」tab 立即出现新记录。
+      // 刷新缺陷列表，使「巡场清单」tab 立即出现新记录。
       ref.invalidate(defectsProvider);
     }
     setState(() {
@@ -691,7 +703,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注', kind: AppSnackKind.brand);
   }
 
-  /// 「保存记录」按钮：把当前记录写入本地暂存；识别出缺陷时同时生成问题清单记录
+  /// 「保存记录」按钮：把当前记录写入本地暂存；识别出缺陷时同时生成巡场清单记录
   /// （带现场照片，供「导出报告」渲染缺陷照片）。
   ///
   /// 仅在真正执行了保存后才锁定按钮；首次误触（未拍照）不锁定，允许补拍后再存。
@@ -1864,6 +1876,22 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   Text(d.desc!,
                       style: const TextStyle(
                           fontSize: 12, height: 1.4, color: AppTokens.muted)),
+                ],
+                if (d.suggestion != null && d.suggestion!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTokens.brandTint,
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusSm),
+                    ),
+                    child: Text('AI整改建议：${d.suggestion!}',
+                        style: const TextStyle(
+                            fontSize: 12, height: 1.45, color: AppTokens.fg)),
+                  ),
                 ],
               ],
             ),

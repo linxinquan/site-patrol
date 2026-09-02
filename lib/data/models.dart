@@ -76,6 +76,32 @@ extension DefectCategoryX on DefectCategory {
 /// 文字用直白等级词（严重/较重/一般/轻微），避免"红区/橙区"等
 /// 非标准说法让人看不懂；红=重要且紧急(停工+上报)、
 /// 橙=重要不紧急(限期整改)、黄=紧急不重要(即改)、绿=不重要不紧急(观察)。
+/// 重要等级（四象限），对齐 LDI 设计院巡场报告单「重要等级」列。
+///
+/// 与 [DefectSeverity]（处置优先级：停工→观察）互补：
+/// severity 回答「多严重、怎么处置」，importance 回答「多急、要不要先办」。
+enum DefectImportance {
+  urgentImportant,
+  importantNotUrgent,
+  urgentNotImportant,
+  normal,
+}
+
+extension DefectImportanceX on DefectImportance {
+  String get label {
+    switch (this) {
+      case DefectImportance.urgentImportant:
+        return '重要紧急';
+      case DefectImportance.importantNotUrgent:
+        return '重要不紧急';
+      case DefectImportance.urgentNotImportant:
+        return '紧急不重要';
+      case DefectImportance.normal:
+        return '普通';
+    }
+  }
+}
+
 enum DefectSeverity { red, orange, yellow, green }
 
 extension DefectSeverityX on DefectSeverity {
@@ -398,6 +424,24 @@ class Defect {
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。
   /// 报告导出时按此路径读取照片字节内嵌到 PDF / Word / HTML。
   final String? photoPath;
+  /// 重要等级（巡场报告单「重要等级」列）。为空时按 [severity] 推导。
+  final DefectImportance? importance;
+  /// 楼栋 / 栋号（巡场销项表按此分组，如「9栋」「7栋、8栋」）。
+  final String? building;
+  /// 整改回复内容（施工单位回复 / 整改说明，对应巡场报告单「回复内容」）。
+  final String? reply;
+  /// 回复人（整改回复的责任方 / 回复单位）。
+  final String? replyBy;
+  /// 回复时间（格式同 [ts]）。
+  final String? replyTs;
+  /// 整改回复照片相对路径（整改后现场照片，对应「回复·截图」列）。
+  final String? replyPhotoPath;
+  /// 未闭合说明（对应巡场报告单「如未，填写意见」）。
+  final String? closeNote;
+  /// AI 整改建议（给施工单位的处置建议，AI 识别生成 / 人工修订）。
+  final String? suggestion;
+  /// 完成状态（对应巡场报告单「完成状态」，如 已完成 / 进行中 / 未开始）。
+  final String? completion;
   const Defect({
     required this.id,
     required this.part,
@@ -422,6 +466,15 @@ class Defect {
     this.photoHash,
     this.watermarkSerial,
     this.photoPath,
+    this.importance,
+    this.building,
+    this.reply,
+    this.replyBy,
+    this.replyTs,
+    this.replyPhotoPath,
+    this.closeNote,
+    this.completion,
+    this.suggestion,
   });
 
   /// 序列化（拍照/图纸打点新增记录的本地持久化用）。
@@ -449,6 +502,15 @@ class Defect {
         'photoHash': photoHash,
         'watermarkSerial': watermarkSerial,
         'photoPath': photoPath,
+        'importance': importance?.name,
+        'building': building,
+        'reply': reply,
+        'replyBy': replyBy,
+        'replyTs': replyTs,
+        'replyPhotoPath': replyPhotoPath,
+        'closeNote': closeNote,
+        'completion': completion,
+        'suggestion': suggestion,
       };
 
   /// 反序列化：缺字段给安全默认值（兼容旧数据），不抛错。
@@ -481,7 +543,35 @@ class Defect {
         photoHash: m['photoHash']?.toString(),
         watermarkSerial: m['watermarkSerial']?.toString(),
         photoPath: m['photoPath']?.toString(),
+        importance: DefectImportance.values
+            .where((e) => e.name == m['importance'])
+            .cast<DefectImportance?>()
+            .firstOrNull,
+        building: m['building']?.toString(),
+        reply: m['reply']?.toString(),
+        replyBy: m['replyBy']?.toString(),
+        replyTs: m['replyTs']?.toString(),
+        replyPhotoPath: m['replyPhotoPath']?.toString(),
+        closeNote: m['closeNote']?.toString(),
+        completion: m['completion']?.toString(),
+        suggestion: m['suggestion']?.toString(),
       );
+
+  /// 未显式指定重要等级时按严重程度推导（红→重要紧急 … 绿→普通）。
+  DefectImportance get effectiveImportance =>
+      importance ??
+      switch (severity) {
+        DefectSeverity.red => DefectImportance.urgentImportant,
+        DefectSeverity.orange => DefectImportance.importantNotUrgent,
+        DefectSeverity.yellow => DefectImportance.urgentNotImportant,
+        DefectSeverity.green => DefectImportance.normal,
+      };
+
+  /// 是否闭合（已销项视为闭合，对应巡场报告单「是否闭合」列）。
+  bool get closed => status == DefectStatus.done;
+
+  /// 楼栋分组名（未标注楼栋时回退到空串，由渲染端归到「其他」）。
+  String get buildingOrEmpty => (building ?? '').trim();
 
   /// 是否有 CAD 图纸坐标（可回溯定位）。
   bool get hasCadCoord => drawingKey != null && worldX != null && worldY != null;
@@ -536,11 +626,14 @@ class VlDefect {
   final double conf;
   /// 缺陷描述（真实模型返回；mock 阶段为空）。
   final String? desc;
+  /// AI 整改建议（给施工单位的处置建议；模型未返回时由本地建议库兜底）。
+  final String? suggestion;
   const VlDefect({
     required this.name,
     required this.severity,
     required this.conf,
     this.desc,
+    this.suggestion,
   });
 
   Map<String, dynamic> toJson() => {
@@ -548,6 +641,7 @@ class VlDefect {
         'severity': severity.name,
         'conf': conf,
         'desc': desc,
+        'suggestion': suggestion,
       };
 
   factory VlDefect.fromJson(Map<String, dynamic> map) => VlDefect(
@@ -558,6 +652,7 @@ class VlDefect {
         ),
         conf: (map['conf'] as num?)?.toDouble() ?? 0.0,
         desc: map['desc']?.toString(),
+        suggestion: map['suggestion']?.toString(),
       );
 }
 

@@ -56,7 +56,7 @@ void main() {
     // 机电进度按专业拆行（标签式）
     expect(html, contains('pg-tag'));
     // 缺陷章节
-    expect(html, contains('现场问题清单及闭环情况'));
+    expect(html, contains('巡场清单及闭环情况'));
     expect(html, contains('西楼1F门诊大厅墙面空鼓'));
     // 照片已内嵌
     expect(html, contains('data:image/jpeg;base64,'));
