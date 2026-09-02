@@ -2,28 +2,14 @@
 
 ## 一、今日完成
 
-### 1. AR 量尺 LiDAR 死锁修复（lib/features/measure/ar_measure_page.dart）
-- **问题**：进入 AR 量尺页面一直停在"正在检测 LiDAR 支持…"占位，LiDAR 调用不上。上一版（93ecf4f）还好，回退到最新 main 后失效。
-- **根因**：UiKitView 渲染条件与设备支持查询形成死锁：
-  - `_supported` 默认为 `false`
-  - `build()` 见 `_supported=false` → 走占位图，**UiKitView 不创建**
-  - UiKitView 不创建 → `onPlatformViewCreated` 回调不触发 → `_onViewCreated` 不执行 → `_svc.isSupported()` 永远查不到 → `_supported` 永远 `false`
-- **修复**：进入页面后**无条件先渲染** UiKitView，channel 注册后立刻设 `_supported=true` 放行；再异步查 `isSupported()`；非 LiDAR 设备回退占位。
-  ```dart
-  Future<void> _onViewCreated(int id) async {
-    _supported = true;
-    if (mounted) setState(() {});
-    final supported = await _svc.isSupported();
-    if (!mounted) return;
-    if (!supported) {
-      _supported = false;
-      setState(() {});
-      return;
-    }
-    await _svc.startSession();
-  }
-  ```
-- **iOS 端（ArMeasureView.swift）无需改动**：原权限检查、深度采样、raycast 逻辑均齐全。
+### 1. AR 量尺 LiDAR 无法调用（两个根因，已彻底修复）
+- **问题**：进入 AR 量尺页面一直停在"正在检测 LiDAR 支持…"占位，LiDAR 调用不上。上一版（70e436c）还好，93ecf4f 之后失效。
+- **根因1（死锁）**：`UiKitView` 被 `if(_supported)` 包裹，而 `_supported` 初始 `false` → view 永不创建 → 原生 channel 永不注册 → `isSupported()` 永远查不到 → 永远卡占位图。上一版能工作是因为 `UiKitView` 无条件渲染。
+- **根因2（channel 名错配）**：Dart 端写死 `ar_measure_0`，Swift 端用引擎分配的 platform view id 拼接 `ar_measure_<id>`，仅碰巧首个 view id=0 才匹配。
+- **修复**：
+  - `ar_measure_page.dart`：`UiKitView` 恢复无条件渲染；`_onViewCreated` 恢复主动查 `isSupported()`。
+  - `ArMeasureView.swift` + `ar_measure_service.dart`：channel 统一固定名 `ar_measure_channel`，不再拼接 viewId。
+- **验证**：✅ 真机（iPhone Pro）测试通过，AR 量尺可正常调用 LiDAR 测距。
 
 ### 2. 远程同步 + Web 重建
 - `git fetch` + `git checkout main` + `git pull origin main`（更新到 237c0b9，快进 2 提交）。
@@ -46,5 +32,9 @@
 
 ## 三、本次提交
 
-- `fix(ar): 修复 AR 量尺页面 UiKitView 死锁，LiDAR 通道无法建立`
-  - `lib/features/measure/ar_measure_page.dart` `_onViewCreated` 重写
+- `98aa118` `fix(ar): 修复 AR 量尺页面 UiKitView 死锁，LiDAR 通道无法建立`（首次修复，未完全解决）
+- `b64d14c` `fix(ar): 彻底修复 AR 量尺 LiDAR 无法调用（UiKitView 死锁 + channel 名错配）`
+  - `ios/Runner/ArMeasureView.swift`：channel 固定名 `ar_measure_channel`
+  - `lib/core/ar/ar_measure_service.dart`：channel 固定名
+  - `lib/features/measure/ar_measure_page.dart`：UiKitView 无条件渲染 + 主动查支持
+  - **真机验证通过** ✅

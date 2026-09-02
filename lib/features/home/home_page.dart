@@ -905,7 +905,7 @@ class _TodoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 头部单行：待办 · N（左） | 日期 | 查看全部 + 右箭头（右，整体可点跳转工单页）
+        // 头部单行：待办 · N（左） | 日期 | 查看全部 + 右箭头（右，整体可点跳转巡场清单页）
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

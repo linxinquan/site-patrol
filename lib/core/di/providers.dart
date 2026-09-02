@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
+import '../../data/mock/weekly_report_mock.dart';
+import '../../data/weekly_report.dart';
 import '../../data/repository/repository.dart';
 import '../../data/repository/mock_repository.dart';
 import '../../data/repository/remote_repository.dart';
@@ -272,6 +274,30 @@ void refreshDefects(Ref ref) {
 
 /// 缺陷列表筛选状态（null = 全部）。
 final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);
+
+/// 当前项目的周报素材（「导出报告」数据源）。
+/// - 腾讯大铲湾 7栋：设计院周报真实素材（现场照片 / 机电进度 / 台账 / 待协调问题）；
+/// - 南科大项目：用本地现场照片（photoAnchors）构造照片墙，缺陷清单照常注入。
+final weeklyReportProvider = Provider<WeeklyReport>((ref) {
+  final is7 = ref.watch(is7DongProjectProvider);
+  if (is7) return dy04WeeklyReport;
+  return WeeklyReport(
+    project: project.name,
+    title: '现场施工进度汇报',
+    period: '2026-06-01 ~ 2026-08-31',
+    org: 'Arcadis（凯迪思）· 现场团队',
+    photos: [
+      for (final anchors in photoAnchors.values)
+        for (final a in anchors)
+          for (final p in a.photos)
+            WeeklyPhoto(
+              file: 'assets/photos/${p.file}',
+              date: p.date,
+              caption: '${a.label} · ${p.caption}',
+            ),
+    ],
+  );
+});
 
 /// 图纸缓存进度（key → 0~100）。初始按 mock 数据；未缓存图纸点击后模拟下载递增。
 /// P4 接真实后端后改为实际下载/缓存逻辑。
