@@ -120,8 +120,9 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        // 不写死 toolbarHeight：交给 Flutter 系统默认（kToolbarHeight=56），
-        // 且系统会自动在工具栏上方叠加状态栏留白，自动适配无刘海/刘海/灵动岛。
+        // 工具栏高度统一 44dp（贴合 iOS 原生 44pt，iOS/安卓一致）；
+        // AppBar 在 Scaffold 中会额外叠加状态栏留白，44 只控工具栏本身高度。
+        toolbarHeight: 44,
         titleTextStyle: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
@@ -226,16 +227,16 @@ ThemeData get lightTheme => ThemeData(
       ),
     );
 
-/// 巡场深色沉浸主题。
+/// 巡场主题（已统一浅色，与其余页面一致；当前未被直接引用，token 改浅后备用）。
 ThemeData get patrolDarkTheme => ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      // 巡场深色页同样关闭悬浮提示
+      brightness: Brightness.light,
+      // 巡场页同样关闭悬浮提示
       tooltipTheme: const TooltipThemeData(triggerMode: TooltipTriggerMode.manual),
       scaffoldBackgroundColor: AppTokens.patrolBg,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppTokens.accent,
-        brightness: Brightness.dark,
+        brightness: Brightness.light,
         primary: AppTokens.accent,
         surface: AppTokens.patrolSurface,
       ),

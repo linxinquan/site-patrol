@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/speech_recognizer.dart';
 import '../../core/di/providers.dart';
@@ -115,7 +115,7 @@ class _VoiceInputButtonState extends ConsumerState<VoiceInputButton> {
     final active = listening || _busy;
     final color = active ? AppTokens.danger : AppTokens.accent;
     final child = Icon(
-      listening ? LucideIcons.audioLines : LucideIcons.mic,
+      listening ? MingCuteIcons.voiceLine : MingCuteIcons.micLine,
       color: active ? AppTokens.onAccent : AppTokens.accent,
       size: widget.iconSize,
     );
@@ -191,14 +191,14 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
             // 标题
             Row(
               children: [
-                const Icon(LucideIcons.mic, color: AppTokens.accent, size: 18),
+                const Icon(MingCuteIcons.micLine, color: AppTokens.accent, size: 18),
                 const SizedBox(width: 8),
                 const Text('语音记录',
                     style: TextStyle(
                         fontSize: 16, fontWeight: FontWeight.w700, color: AppTokens.fg)),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(LucideIcons.x, color: AppTokens.muted, size: 18),
+                  icon: const Icon(MingCuteIcons.closeLine, color: AppTokens.muted, size: 18),
                   onPressed: () => Navigator.of(context).pop(),
                   splashRadius: 16,
                 ),

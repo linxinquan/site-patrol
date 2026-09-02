@@ -12,7 +12,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/utils/camera_pick.dart';
 import 'package:app_settings/app_settings.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/image_compress.dart';
@@ -27,6 +26,7 @@ import '../../core/di/providers.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/voice_input.dart';
+import '../../shared/widgets/user_switcher.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
 const double _defaultTolMm = 10;
@@ -620,36 +620,23 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Scaffold(
         backgroundColor: AppTokens.bg,
         appBar: AppBar(
-          title: const Text('拍照记录',
+          title: const Text('验收',
               style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: AppTokens.fg)),
+                  color: AppTokens.fg,
+                  height: 28 / 20)),
           centerTitle: false,
           backgroundColor: AppTokens.bg,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          actions: [
-            // TODO: 待删 —— Mock 开关（_useMock）仅为联调/验证 UI 用，正式环境移除。
-            // Padding(
-            //   padding: const EdgeInsets.only(right: AppTokens.space3),
-            //   child: Row(
-            //     children: [
-            //       Text('Mock',
-            //           style: TextStyle(
-            //               fontSize: 12,
-            //               fontWeight: FontWeight.w400,
-            //               color:
-            //                   _useMock ? AppTokens.accent : AppTokens.muted)),
-            //       const SizedBox(width: 4),
-            //       Switch(
-            //         value: _useMock,
-            //         onChanged: (v) => setState(() => _useMock = v),
-            //         activeThumbColor: AppTokens.accent,
-            //       ),
-            //     ],
-            //   ),
-            // ),
+          toolbarHeight: 44,
+          titleSpacing: 12,
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: UserSwitcher(),
+            ),
           ],
         ),
         body: Column(
@@ -657,6 +644,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             _buildAnchorBar(),
             Expanded(
               child: SingleChildScrollView(
+                primary: false,
                 padding: const EdgeInsets.fromLTRB(
                     AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
                 child: Column(
@@ -709,7 +697,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         ),
         child: Row(
           children: [
-            const Icon(LucideIcons.mapPin, size: 16, color: AppTokens.accent),
+            const Icon(MingCuteIcons.mapPinLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
             Expanded(
               child: Text.rich(
@@ -754,7 +742,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.fileX, size: 48, color: AppTokens.muted),
+          Icon(MingCuteIcons.fileLine, size: 48, color: AppTokens.muted),
           const SizedBox(height: AppTokens.space2),
           Text(
             _remotePngLoading ? '正在生成 PNG 底图…' : '该图纸暂无 PNG 底图',
@@ -781,7 +769,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             const SizedBox(height: AppTokens.space2),
             TextButton.icon(
               onPressed: () => _ensureRemotePng(_drawing!),
-              icon: Icon(LucideIcons.refreshCw, size: 14, color: AppTokens.accent),
+              icon: Icon(MingCuteIcons.refresh1Line, size: 14, color: AppTokens.accent),
               label: Text('重新生成', style: TextStyle(color: AppTokens.accent)),
             ),
           ],
@@ -868,7 +856,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.map,
+                                Icon(MingCuteIcons.mapLine,
                                     size: 48, color: AppTokens.muted),
                                 const SizedBox(height: AppTokens.space2),
                                 Text('未选择图纸',
@@ -923,7 +911,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(LucideIcons.mousePointerClick,
+                                const Icon(MingCuteIcons.cursorLine,
                                     size: 12, color: Colors.white),
                                 const SizedBox(width: 6),
                                 Text(stepHint,
@@ -980,7 +968,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           children: [
             const Row(
               children: [
-                Icon(LucideIcons.layers, size: 16, color: AppTokens.accent),
+                Icon(MingCuteIcons.layersLine, size: 16, color: AppTokens.accent),
                 SizedBox(width: AppTokens.space2),
                 Text('选择图纸',
                     style:
@@ -1022,7 +1010,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           children: [
             Row(
               children: [
-                const Icon(LucideIcons.mapPin,
+                const Icon(MingCuteIcons.mapPinLine,
                     size: 16, color: AppTokens.accent),
                 const SizedBox(width: AppTokens.space2),
                 Expanded(
@@ -1060,7 +1048,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     _ensureRemotePng(_drawing!);
                   }
                 },
-                icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                icon: const Icon(MingCuteIcons.arrowLeftLine, size: 16),
                 label: const Text('重选图纸'),
               ),
             ),
@@ -1078,7 +1066,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         padding: const EdgeInsets.all(AppTokens.space3),
         child: Row(
           children: [
-            const Icon(LucideIcons.camera, size: 16, color: AppTokens.accent),
+            const Icon(MingCuteIcons.cameraLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
             Expanded(
               child: Text('${_drawing?.title ?? '—'} · ${_anchorLabel}',
@@ -1087,7 +1075,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
             TextButton.icon(
               onPressed: () => setState(() => _step = _CaptureStep.selectPoint),
-              icon: const Icon(LucideIcons.arrowLeft, size: 14),
+              icon: const Icon(MingCuteIcons.arrowLeftLine, size: 14),
               label: const Text('重选', style: TextStyle(fontSize: 12)),
             ),
           ],
@@ -1164,7 +1152,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             children: [
               Row(
                 children: [
-                  const Icon(LucideIcons.mapPin,
+                  const Icon(MingCuteIcons.mapPinLine,
                       size: 14, color: AppTokens.accent),
                   const SizedBox(width: 6),
                   Text('${a.label} · 历史照片',
@@ -1354,7 +1342,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.scanSearch,
+              const Icon(MingCuteIcons.scanLine,
                   size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('视觉识别结果',
@@ -1395,7 +1383,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.ruler, size: 14, color: AppTokens.accent),
+              const Icon(MingCuteIcons.rulerLine, size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('拍照量尺校对',
                   style:
@@ -1415,7 +1403,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   );
                 },
-                icon: const Icon(LucideIcons.ruler, size: 14),
+                icon: const Icon(MingCuteIcons.rulerLine, size: 14),
                 label: const Text('智能量尺校对',
                     style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
@@ -1498,7 +1486,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _addScaleCheck,
-              icon: const Icon(LucideIcons.plus, size: 14),
+              icon: const Icon(MingCuteIcons.addLine, size: 14),
               label: const Text('添加量尺项',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
@@ -1592,7 +1580,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
               IconButton(
                 onPressed: () => setState(() => _scaleChecks.removeAt(index)),
-                icon: const Icon(LucideIcons.trash2,
+                icon: const Icon(MingCuteIcons.deleteLine,
                     size: 16, color: AppTokens.danger),
                 visualDensity: VisualDensity.compact,
               ),
@@ -1624,7 +1612,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 ),
                 child: Column(
                   children: [
-                    Icon(ok ? LucideIcons.check : LucideIcons.x,
+                    Icon(ok ? MingCuteIcons.checkLine : MingCuteIcons.closeLine,
                         size: 14,
                         color: ok ? AppTokens.success : AppTokens.danger),
                     Text(ok ? '合格' : '超差',
@@ -1734,7 +1722,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               color: bucket.bg,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
-            child: Icon(LucideIcons.alertTriangle, size: 16, color: bucket.fg),
+            child: Icon(MingCuteIcons.alertLine, size: 16, color: bucket.fg),
           ),
           const SizedBox(width: AppTokens.space3),
           Expanded(
@@ -1820,7 +1808,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.mapPin,
+                  const Icon(MingCuteIcons.mapPinLine,
                       size: 14, color: AppTokens.accent),
                   const SizedBox(width: 4),
                   ConstrainedBox(
@@ -1836,7 +1824,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(LucideIcons.chevronDown,
+                  const Icon(MingCuteIcons.arrowDownLine,
                       size: 12, color: Colors.white54),
                 ],
               ),
@@ -1872,10 +1860,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           if (burned)
             const Tooltip(
               message: '防篡改水印已烧录进照片像素，裁剪/涂抹即破坏原始画面',
-              child: Icon(LucideIcons.shieldCheck, size: 14, color: Color(0xFF34D399)),
+              child: Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFF34D399)),
             )
           else
-            const Icon(LucideIcons.shieldAlert, size: 14, color: Color(0xFFFBBF24)),
+            const Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFFFBBF24)),
           const SizedBox(width: AppTokens.space2),
           Text(ts, style: const TextStyle(fontSize: 10, color: Colors.white70)),
           const SizedBox(width: AppTokens.space3),
@@ -1915,7 +1903,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             children: [
               Row(
                 children: [
-                  const Icon(LucideIcons.navigation,
+                  const Icon(MingCuteIcons.navigationLine,
                       size: 15, color: AppTokens.accent),
                   const SizedBox(width: 6),
                   const Text('选择附近定位',
@@ -1989,8 +1977,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
               child: Icon(
                 selected
-                    ? LucideIcons.mapPinCheck
-                    : LucideIcons.mapPin,
+                    ? MingCuteIcons.mapPinLine
+                    : MingCuteIcons.mapPinLine,
                 size: 16,
                 color: selected ? Colors.white : AppTokens.muted,
               ),
@@ -2064,10 +2052,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 // 底层：左「加点」+ 右「重拍 / 标注」
                 Row(
                   children: [
-                    _buildControlBtn(LucideIcons.plus, '加点', _addPoint),
+                    _buildControlBtn(MingCuteIcons.addLine, '加点', _addPoint),
                     const Spacer(),
-                    _buildControlBtn(LucideIcons.rotateCcw, '重拍', _retake),
-                    _buildControlBtn(LucideIcons.penTool, '标注', _annotate),
+                    _buildControlBtn(MingCuteIcons.cameraRotateLine, '重拍', _retake),
+                    _buildControlBtn(MingCuteIcons.penLine, '标注', _annotate),
                   ],
                 ),
                 // 顶层：快门圆按钮水平居中
@@ -2079,7 +2067,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           if (_shotPhoto == null)
             const Row(
               children: [
-                Icon(LucideIcons.image, size: 16, color: AppTokens.muted),
+                Icon(MingCuteIcons.photoAlbumLine, size: 16, color: AppTokens.muted),
                 SizedBox(width: AppTokens.space2),
                 Expanded(
                   child: Text('尚未拍摄：按下快门或选择照片后，可点「AI 分析」',
@@ -2237,7 +2225,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.history,
+              const Icon(MingCuteIcons.historyLine,
                   size: 15, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('本图纸拍照记录',
@@ -2319,7 +2307,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: const Icon(MingCuteIcons.deleteLine, size: 18),
             color: AppTokens.muted,
             tooltip: '删除该暂存记录',
             visualDensity: VisualDensity.compact,
@@ -2451,7 +2439,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.circleCheck,
+              const Icon(MingCuteIcons.checkCircleLine,
                   size: 16, color: AppTokens.brand),
               const SizedBox(width: AppTokens.space2),
               const Text('拍照完成，请确认',
@@ -2484,7 +2472,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _committing ? null : _cancelPending,
-                  icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                  icon: const Icon(MingCuteIcons.cameraRotateLine, size: 16),
                   label: const Text('重拍'),
                 ),
               ),
@@ -2492,7 +2480,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _committing ? null : _commitPhoto,
-                  icon: const Icon(LucideIcons.check, size: 16),
+                  icon: const Icon(MingCuteIcons.checkLine, size: 16),
                   label: const Text('使用'),
                 ),
               ),
@@ -2527,7 +2515,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
-        child: const Icon(LucideIcons.camera, color: Colors.white, size: 28),
+        child: const Icon(MingCuteIcons.cameraLine, color: Colors.white, size: 28),
       ),
     );
   }
@@ -2563,11 +2551,11 @@ class _ZoomToolbar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _IconBtn(icon: Icons.zoom_out, onTap: onZoomOut, tooltip: '缩小'),
+          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut, tooltip: '缩小'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.fullscreen, onTap: onReset, tooltip: '复位'),
+          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset, tooltip: '复位'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.zoom_in, onTap: onZoomIn, tooltip: '放大'),
+          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn, tooltip: '放大'),
         ],
       ),
     );
@@ -2659,7 +2647,7 @@ class StoredDetailSheet extends StatelessWidget {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(LucideIcons.x,
+                    icon: const Icon(MingCuteIcons.closeLine,
                         color: AppTokens.muted, size: 18),
                     onPressed: () => Navigator.of(context).pop(),
                     splashRadius: 16,

@@ -1,5 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -152,6 +154,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   Widget _buildUnsupported() {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine),
         title: const Text('AR量尺'),
         actions: [
           TextButton(
@@ -166,7 +170,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.phone_iphone, size: 56, color: AppTokens.muted),
+              const Icon(MingCuteIcons.phoneLine, size: 56, color: AppTokens.muted),
               const SizedBox(height: AppTokens.space3),
               const Text(
                 'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
@@ -182,7 +186,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
               const SizedBox(height: AppTokens.space4),
               FilledButton.icon(
                 onPressed: _captureForPhotoMeasure,
-                icon: const Icon(Icons.camera_alt),
+                icon: const Icon(MingCuteIcons.cameraLine),
                 label: const Text('拍照并前往照片量尺'),
               ),
               const SizedBox(height: AppTokens.space2),
@@ -227,7 +231,11 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       return _buildUnsupported();
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('AR量尺（LiDAR）')),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        title: const Text('AR量尺（LiDAR）'),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -296,7 +304,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                                 setState(() {});
                               }
                             : null,
-                        icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+                        icon: Icon(_paused ? MingCuteIcons.playLine : MingCuteIcons.pauseLine),
                         label: Text(_paused ? '继续' : '暂停'),
                       ),
                     ),
@@ -313,7 +321,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                                 });
                               }
                             : null,
-                        icon: const Icon(Icons.delete_outline),
+                        icon: const Icon(MingCuteIcons.deleteLine),
                         label: const Text('清除'),
                       ),
                     ),
@@ -346,7 +354,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                         ),
                         title: Text('实测 ${m.toStringAsFixed(1)} mm'),
                         trailing: IconButton(
-                          icon: const Icon(Icons.remove_circle_outline,
+                          icon: const Icon(MingCuteIcons.minusCircleLine,
                               size: 20, color: AppTokens.danger),
                           onPressed: () {
                             setState(() {
@@ -402,7 +410,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       child: const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.view_in_ar, size: 56, color: Colors.white54),
+          Icon(MingCuteIcons.cubeLine, size: 56, color: Colors.white54),
           SizedBox(height: AppTokens.space3),
           Text(
             '正在检测 LiDAR 支持…',

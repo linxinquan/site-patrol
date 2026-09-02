@@ -240,7 +240,7 @@ class _ToggleButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  phoneMode ? Icons.smartphone : Icons.desktop_windows,
+                  phoneMode ? MingCuteIcons.cellphoneLine : MingCuteIcons.computerLine,
                   size: 16,
                   color: Colors.white,
                 ),

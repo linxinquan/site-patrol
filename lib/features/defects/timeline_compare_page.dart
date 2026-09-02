@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
@@ -76,6 +77,8 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
         titleSpacing: 12,
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

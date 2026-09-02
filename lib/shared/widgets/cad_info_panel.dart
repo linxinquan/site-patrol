@@ -114,7 +114,7 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
                         color: AppTokens.fg)),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close,
+                  icon: const Icon(MingCuteIcons.closeLine,
                       size: 20, color: AppTokens.muted),
                   onPressed: () => Navigator.pop(context),
                 ),

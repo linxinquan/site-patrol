@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/design_tokens.dart';
 
 /// iOS/抖音 风格底部导航（tab bar）：
-/// 纯白底（无顶部描边/分割线）+ 纯文字 Tab，扁平化。中间常驻主色「拍照/新增」按钮。
+/// 纯白底（无顶部描边/分割线）+ 纯文字 Tab，扁平化。5 个等宽文字 Tab。
 class AppBottomNav extends StatelessWidget {
   final int currentIndex;
   final bool cameraActive;
@@ -27,43 +27,33 @@ class AppBottomNav extends StatelessWidget {
           top: false,
           child: SizedBox(
             height: AppTokens.tabbarH,
-            child: Stack(
+            child: Row(
               children: [
-                // —— 4 个纯文字 Tab（铺满）——
-                Row(
-                  children: [
-                    _TabItem(
-                      label: '项目',
-                      selected: currentIndex == 0,
-                      onTap: () => context.go(_routes[0]),
-                    ),
-                    _TabItem(
-                      label: '图纸',
-                      selected: currentIndex == 1,
-                      onTap: () => context.go(_routes[1]),
-                    ),
-                    // 中间留白，供常驻按钮居中
-                    const Expanded(child: SizedBox()),
-                    _TabItem(
-                      label: '巡场',
-                      selected: currentIndex == 2,
-                      onTap: () => context.go(_routes[2]),
-                    ),
-                    _TabItem(
-                      label: '工单',
-                      selected: currentIndex == 3,
-                      onTap: () => context.go(_routes[3]),
-                    ),
-                  ],
+                // 5 个纯文字 Tab（等宽）
+                _TabItem(
+                  label: '项目',
+                  selected: currentIndex == 0,
+                  onTap: () => context.go(_routes[0]),
                 ),
-                // —— 中间常驻按钮（与 tab 栏水平 + 垂直居中）——
-                // 拍照验收是一级页面（与 4 个 tab 同级），用 go 而非 push，避免成为带返回的二级页。
-                Align(
-                  alignment: Alignment.center,
-                  child: _CenterCaptureButton(
-                    active: cameraActive,
-                    onTap: () => context.go('/capture'),
-                  ),
+                _TabItem(
+                  label: '图纸',
+                  selected: currentIndex == 1,
+                  onTap: () => context.go(_routes[1]),
+                ),
+                _TabItem(
+                  label: '验收',
+                  selected: cameraActive,
+                  onTap: () => context.go('/capture'),
+                ),
+                _TabItem(
+                  label: '巡场',
+                  selected: currentIndex == 2,
+                  onTap: () => context.go(_routes[2]),
+                ),
+                _TabItem(
+                  label: '工单',
+                  selected: currentIndex == 3,
+                  onTap: () => context.go(_routes[3]),
                 ),
               ],
             ),
@@ -92,79 +82,9 @@ class _TabItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: selected ? AppTokens.brand : AppTokens.muted,
               ),
-            ),
-          ),
-        ),
-      );
-}
-
-/// 中间常驻「拍照 / 新增」按钮（验收）。
-/// - 未激活：42×30 圆角 8 的【主色 #428BF7 底】，中央白色加号。
-/// - 激活（处于拍照验收一级页）：主色「验收」文字（16·W700·#428BF7）。
-/// 图标 ↔ 文字 切换瞬间完成（无动画），与 4 个 tab 的切换保持一致。
-class _CenterCaptureButton extends StatelessWidget {
-  final VoidCallback onTap;
-  final bool active;
-  const _CenterCaptureButton({
-    required this.onTap,
-    this.active = false,
-  });
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
-          child: active ? _buildLabel() : _buildIcon(),
-        ),
-      );
-
-  /// 未激活：42×30 圆角 8 的【主色 #428BF7 底】，中央白色加号（圆头端点，长度 12）。
-  Widget _buildIcon() => Container(
-        width: 42,
-        height: 30,
-        decoration: BoxDecoration(
-          color: AppTokens.brand,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 2,
-              height: 12,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-            Container(
-              width: 12,
-              height: 2,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ],
-        ),
-      );
-
-  /// 激活态：金色图标 → 文字「验收」（主色 #428BF7），标示当前正处于拍照验收页。
-  Widget _buildLabel() => const SizedBox(
-        width: 42,
-        height: 30,
-        child: Center(
-          child: Text(
-            '验收',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTokens.brand,
             ),
           ),
         ),

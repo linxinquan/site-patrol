@@ -69,6 +69,7 @@ class AppButton extends StatelessWidget {
         fontWeight: FontWeight.w700,
         letterSpacing: 0,
         height: (fs + 8) / fs,
+        leadingDistribution: TextLeadingDistribution.even,
         color: fg,
       ),
       side: outlined ? const BorderSide(color: AppTokens.accent) : null,

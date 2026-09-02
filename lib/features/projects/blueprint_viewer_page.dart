@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/mock/mock_data.dart';
 
@@ -47,6 +48,8 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
         backgroundColor: const Color(0xFF0B1220),
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine, color: Colors.white),
         title: const Text('蓝图原稿',
             style: TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w600)),

@@ -25,36 +25,17 @@ class DefectsPage extends ConsumerWidget {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 44,
+        centerTitle: false,
         titleSpacing: 12,
-        title: defects.maybeWhen(
-          data: (ds) {
-            // 标题数字 = 未闭环工单数（待整改 + 整改中），已销项/已拒绝为终态不计入。
-            final open = ds
-                .where((d) =>
-                    d.status == DefectStatus.draft ||
-                    d.status == DefectStatus.doing)
-                .length;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('工单 · $open',
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTokens.fg)),
-                const Text('F9 · 闭环管理',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        color: AppTokens.fg2)),
-              ],
-            );
-          },
-          orElse: () => const Text('工单'),
-        ),
+        title: const Text('工单',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.fg,
+                height: 28 / 20)),
         actions: const [
-          // 头像：与首页一致，点击弹出用户列表切换身份
           Padding(
             padding: EdgeInsets.only(right: 12),
             child: UserSwitcher(),
@@ -69,9 +50,10 @@ class DefectsPage extends ConsumerWidget {
               : ds.where((d) => d.status == filter).toList();
           // 筛选条作为列表首个 item，随内容滚动（不吸顶）；间距统一 8。
           return ListView.separated(
+            primary: false,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
             itemCount: list.length + 2, // 筛选条 + 卡片 + OfflineBar
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               if (i == 0) return _FilterChips(current: filter);
               if (i == list.length + 1) return OfflineBar.defects;
@@ -154,7 +136,9 @@ class _FilterBtn extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 14,
+              height: 34 / 14,
               fontWeight: FontWeight.w600,
+              leadingDistribution: TextLeadingDistribution.even,
               color: selected ? AppTokens.brand : AppTokens.note,
             ),
           ),
@@ -168,30 +152,32 @@ class _DefectCard extends StatelessWidget {
   final Defect d;
   const _DefectCard(this.d);
 
-  /// 严重程度文本色（规范分区色）：严重 #FF3B30 / 较重 #FF9500 / 一般 #FADC19 / 轻微 #34C759。
+  /// 严重程度文本色（规范分区色）：严重 #FF4444 / 较重 #FF9500 / 一般 #FF9500 / 轻微 #34C759。
+  /// 注：设计稿 Frame 2147228012 中「一般」档取值为 #FF9500（与较重同橙），故 yellow 档对齐使用 warning。
   static Color _severityColor(DefectSeverity s) {
     switch (s) {
       case DefectSeverity.red:
-        return AppTokens.danger;
+        return const Color(0xFF4444);
       case DefectSeverity.orange:
         return AppTokens.warning;
       case DefectSeverity.yellow:
-        return const Color(0xFFFADC19);
+        return AppTokens.warning;
       case DefectSeverity.green:
         return AppTokens.success;
     }
   }
 
-  /// 字段行：名称固定 70 宽（辅助灰 #919499）+ 值（次级文字 #60656B / 严重度带色），行高 22。
+  /// 字段行：名称固定 56 宽（辅助灰 #919499）+ 与值间隔 16 + 值（次级文字 #60656B / 严重度带色），行高 22。
   Widget _field(String name, String value, {Color? valueColor}) {
     return Row(
       children: [
         SizedBox(
-          width: 70,
+          width: 56,
           child: Text(name,
               style: const TextStyle(
                   fontSize: 14, color: AppTokens.muted, height: 22 / 14)),
         ),
+        const SizedBox(width: 16),
         Expanded(
           child: Text(
             value,
@@ -209,6 +195,7 @@ class _DefectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppCard(
+        radius: AppTokens.radiusSm,
         onTap: () => context.push('/defects/record/${d.id}'),
         padding: const EdgeInsets.all(AppTokens.space3),
         child: Column(
@@ -238,22 +225,22 @@ class _DefectCard extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _field('缺陷类型：', d.type),
+                _field('问题缺陷', d.type),
                 const SizedBox(height: 6),
-                _field('严重程度：', d.severity.label,
+                _field('严重程度', d.severity.label,
                     valueColor: _severityColor(d.severity)),
                 const SizedBox(height: 6),
-                _field('缺陷位置：', d.anchor),
+                _field('缺陷位置', d.anchor),
                 const SizedBox(height: 6),
-                _field('记录人：', d.reporter),
+                _field('记录人', d.reporter),
                 const SizedBox(height: 6),
-                _field('发现时间：', d.ts),
+                _field('发现时间', d.ts),
                 const SizedBox(height: 6),
-                _field('责任人：', d.resp),
+                _field('责任人', d.resp),
               ],
             ),
             const SizedBox(height: 8),
-            // 备注块（灰底内嵌）
+            // 备注块（灰底内嵌，文字左对齐、次级灰）
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(8),
@@ -264,7 +251,7 @@ class _DefectCard extends StatelessWidget {
               child: Text(
                 d.note,
                 style: const TextStyle(
-                    fontSize: 14, color: AppTokens.fg, height: 22 / 14),
+                    fontSize: 14, color: AppTokens.fg2, height: 22 / 14),
               ),
             ),
           ],
@@ -272,10 +259,10 @@ class _DefectCard extends StatelessWidget {
       );
 }
 
-/// 缺陷状态标签（设计稿 Frame 2131330662：实色底白字，圆角 6，12/600）。
-///   draft  → 待整改（红 #FF3B30）
+/// 缺陷状态标签（设计稿 Frame 2131330662：实色底白字，圆角 6，12/500，高 22）。
+///   draft  → 待整改（红 #FF4444）
 ///   doing  → 整改中（橙 #FF9500）
-///   done   → 已销项（绿 #34C759）
+///   done   → 已销项（绿 #00B84A）
 ///   reject → 已拒绝（品牌蓝 #0395FF）
 class StatusPill extends StatelessWidget {
   final DefectStatus status;
@@ -284,11 +271,11 @@ class StatusPill extends StatelessWidget {
   Color get _bg {
     switch (status) {
       case DefectStatus.draft:
-        return AppTokens.danger;
+        return const Color(0xFF4444);
       case DefectStatus.doing:
         return AppTokens.warning;
       case DefectStatus.done:
-        return AppTokens.success;
+        return const Color(0xFF00B84A);
       case DefectStatus.reject:
         return AppTokens.brand;
     }
@@ -296,16 +283,22 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        width: 52,
+        height: 22,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
         decoration: BoxDecoration(
           color: _bg,
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           status.label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              height: 20 / 12,
+              fontWeight: FontWeight.w500,
+              leadingDistribution: TextLeadingDistribution.even,
               color: AppTokens.surface),
         ),
       );

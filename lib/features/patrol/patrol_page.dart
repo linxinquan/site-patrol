@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/cad/wall_lines.dart';
@@ -417,27 +418,37 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        centerTitle: false,
+        titleSpacing: 12,
         title: const Text('巡场',
             style: TextStyle(
                 color: AppTokens.patrolFg,
-                fontSize: 16,
-                fontWeight: FontWeight.w600)),
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                height: 28 / 20)),
         actions: [
           if (_plan != null)
-            IconButton(
+            NavIconButton(
               tooltip: '复位',
-              icon: const Icon(MingCuteIcons.fullscreenLine,
-                  size: 20, color: AppTokens.patrolFg),
+              icon: MingCuteIcons.liveLocationLine,
+              color: AppTokens.patrolFg,
+              size: 24,
               onPressed: _resetView,
             ),
           if (_plan != null)
-            IconButton(
-              tooltip: '编辑路线',
-              icon: const Icon(MingCuteIcons.editLine,
-                  size: 20, color: AppTokens.patrolFg),
-              onPressed: () => context.push(
-                '/patrol-editor',
-                extra: PatrolArgs(planId: _plan!.id),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: NavIconButton(
+                tooltip: '编辑路线',
+                icon: MingCuteIcons.editLine,
+                color: AppTokens.patrolFg,
+                size: 24,
+                onPressed: () => context.push(
+                  '/patrol-editor',
+                  extra: PatrolArgs(planId: _plan!.id),
+                ),
               ),
             ),
         ],
@@ -453,53 +464,89 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
 
   Widget _buildPatrolBody(Drawing drawing) {
     final plan = _plan!;
+    // 状态胶囊配置（Frame 2147228032，随 _PatrolStatus 切换）
+    final (double pillW, Color pillBg, IconData pillIcon, String pillLabel) =
+        switch (_status) {
+      _PatrolStatus.idle => (
+        60.0,
+        const Color(0xFFFF4444),
+        MingCuteIcons.circleDashLine,
+        '待机'
+      ),
+      _PatrolStatus.running => (
+        72.0,
+        const Color(0xFF00B84A),
+        MingCuteIcons.camcorder3Line,
+        '记录中'
+      ),
+      _PatrolStatus.paused => (
+        72.0,
+        const Color(0xFFFF9500),
+        MingCuteIcons.pauseCircleLine,
+        '已暂停'
+      ),
+      _PatrolStatus.finished => (
+        72.0,
+        const Color(0xFF0395FF),
+        MingCuteIcons.checkCircleLine,
+        '已完成'
+      ),
+    };
     return Column(
       children: [
-        // 顶部：离线提示 + 记录中
+        // 顶部：离线提示 + 状态（Frame 2147228032）
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
+              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角）
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                width: 195,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTokens.patrolSurface2,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(MingCuteIcons.wifiOffLine,
-                        size: 12, color: AppTokens.patrolMuted),
-                    SizedBox(width: 5),
-                    Text('离线 · 工地信号弱（GPS 仍记录）',
-                        style: TextStyle(
-                            fontSize: 12, color: AppTokens.patrolMuted)),
+                    const Icon(MingCuteIcons.wifiOffLine,
+                        size: 16, color: Color(0xFFFF4444)),
+                    const SizedBox(width: 4),
+                    Text('离线（工地信号弱，GPS仍记录）',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 20 / 12,
+                            leadingDistribution: TextLeadingDistribution.even,
+                            color: Color(0xFFFF4444))),
                   ],
                 ),
               ),
               const Spacer(),
+              // 状态胶囊（随状态变化：配色/图标/宽）
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                width: pillW,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  // 标签浅底 = 原色 5% 透明度（深色沉浸主题下呈暗红微底）
-                  color: AppTokens.dangerTint,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                  color: pillBg,
+                  borderRadius: BorderRadius.circular(999),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const _BlinkDot(active: true),
-                    const SizedBox(width: 5),
-                    Text(_status == _PatrolStatus.running ? '记录中' : '待机',
-                        style: TextStyle(
+                    Icon(pillIcon, size: 16, color: Colors.white),
+                    const SizedBox(width: 4),
+                    Text(pillLabel,
+                        style: const TextStyle(
                             fontSize: 12,
-                            color: _status == _PatrolStatus.running
-                                ? AppTokens.danger
-                                : AppTokens.patrolMuted,
-                            fontWeight: FontWeight.w400)),
+                            fontWeight: FontWeight.w500,
+                            height: 20 / 12,
+                            leadingDistribution: TextLeadingDistribution.even,
+                            color: Colors.white)),
                   ],
                 ),
               ),
@@ -519,32 +566,39 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                   : '待命',
         ),
         const SizedBox(height: 10),
-        // 地图
+        // 地图（占满剩余高度的显示区域：宽=屏宽，高=可用高度；图 contain 不拉伸）
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final boxW = constraints.maxWidth; // 屏宽（body 全宽）
+              final boxH = constraints.maxHeight; // 剩余可用高度（由 Expanded 提供）
               final planW = drawing.w, planH = drawing.h;
               final ar = planW / planH;
-              var pw = constraints.maxWidth;
-              var ph = pw / ar;
-              if (ph > constraints.maxHeight) {
-                ph = constraints.maxHeight;
-                pw = ph * ar;
+              // 图 contain 在 boxW×boxH 内（不拉伸、按居中留白）
+              double dispW, dispH, offX, offY;
+              if (boxW / ar <= boxH) {
+                dispW = boxW;
+                dispH = boxW / ar;
+                offX = 0;
+                offY = (boxH - dispH) / 2;
+              } else {
+                dispH = boxH;
+                dispW = boxH * ar;
+                offY = 0;
+                offX = (boxW - dispW) / 2;
               }
-              final pts = _planOffsets
-                  .map((p) => Offset(p.dx * pw / 100, p.dy * ph / 100))
-                  .toList();
+              Offset toPx(p) =>
+                  Offset(offX + p.dx * dispW / 100, offY + p.dy * dispH / 100);
+              final pts = _planOffsets.map(toPx).toList();
               // 历史轨迹首次绘制时按当前底图尺寸像素化。
-              _ensureHistoryPixelized(pw, ph);
+              _ensureHistoryPixelized(dispW, dispH);
               // idle 时把"当前位置"放在路径起点（与 prototype 一致）；
               // running/paused/finished 时跟随 _progress（已 ease-in-out）。
               final progressForCurrent =
                   _status == _PatrolStatus.idle ? 0.0 : _progress;
               // 沿样条按弧长插值 → 像素坐标（先做 0~100 空间的样条插值，再缩放到底图）。
               final samples = _getPlanSamples(); // 0~100 空间的样条采样
-              final samplesPx = samples
-                  .map((p) => Offset(p.dx * pw / 100, p.dy * ph / 100))
-                  .toList();
+              final samplesPx = samples.map(toPx).toList();
               final curPx = pointAtProgress(samplesPx, progressForCurrent);
               return Center(
                 // P0：InteractiveViewer 支持双指捏合/滚轮放大 12× 与单指/鼠标拖动平移。
@@ -552,17 +606,17 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                   transformationController: _transformController,
                   minScale: 1.0,
                   maxScale: 12.0,
-                  boundaryMargin: const EdgeInsets.all(160),
+                  boundaryMargin: EdgeInsets.zero,
                   clipBehavior: Clip.hardEdge,
                   child: SizedBox(
-                    width: pw,
-                    height: ph,
+                    width: boxW,
+                    height: boxH,
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
                         Image.asset(
                           drawing.src,
-                          fit: BoxFit.fill,
+                          fit: BoxFit.contain,
                         ),
                         CustomPaint(
                           painter: PatrolOverlayPainter(
@@ -683,15 +737,21 @@ class _StatChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _Chip(label: '楼层', value: floorKey),
-            _Chip(label: '里程', value: '${distKm.toStringAsFixed(2)} km'),
-            _Chip(label: '点数', value: '$pointCount'),
-            _Chip(label: '时长', value: duration),
-            _Chip(label: '模式', value: mode),
-          ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Expanded(child: _Chip(label: '楼层', value: floorKey)),
+              Expanded(child: _Chip(label: '里程', value: '${distKm.toStringAsFixed(2)} km')),
+              Expanded(child: _Chip(label: '点数', value: '$pointCount')),
+              Expanded(child: _Chip(label: '时长', value: duration)),
+              Expanded(child: _Chip(label: '模式', value: mode)),
+            ],
+          ),
         ),
       );
 }
@@ -703,16 +763,19 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(value,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: AppTokens.patrolFg)),
           const SizedBox(height: 2),
           Text(label,
+              textAlign: TextAlign.center,
               style: const TextStyle(
-                  fontSize: 10, color: AppTokens.patrolMuted)),
+                  fontSize: 12, color: Color(0xFF60656B))),
         ],
       );
 }
@@ -739,98 +802,156 @@ class _PatrolPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRunning = status == _PatrolStatus.running;
-    final isPaused = status == _PatrolStatus.paused;
-    final isFinished = status == _PatrolStatus.finished;
-    final (String label, VoidCallback action) = switch (status) {
-      _PatrolStatus.idle => ('开始巡场', onStart),
-      _PatrolStatus.running => ('暂停巡场', onPause),
-      _PatrolStatus.paused => ('继续巡场', onResume),
-      _PatrolStatus.finished => ('重新巡场', onRestart),
-    };
-    return Container(
-      color: AppTokens.patrolSurface,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 主操作（大按钮组件：满宽 / 高 48 / 纯文字不带图标；巡场深色底上品牌蓝）
-          AppButton(
-            size: AppButtonSize.lg,
-            width: double.infinity,
-            label: label,
-            onPressed: action,
+    // 过渡动画：开始巡场←→(暂停/结束) 切换时，5 个按钮常驻，用隐式动画做位移动画：
+    // 历史轨迹左移、标记问题右移、开始巡场在中央淡出、暂停/结束从中央一分为二向两侧分开。
+    final started = status == _PatrolStatus.running ||
+        status == _PatrolStatus.paused;
+
+    Widget slot({
+      required double idleLeft,
+      required double runLeft,
+      required bool visible,
+      required Widget child,
+    }) {
+      final left = started ? runLeft : idleLeft;
+      return AnimatedPositioned(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+        left: left,
+        top: 0,
+        width: 56,
+        height: 84,
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            opacity: visible ? 1 : 0,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOutCubic,
+              scale: visible ? 1 : 0.6,
+              child: child,
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
+        ),
+      );
+    }
+
+    final history = _RoundBtn(
+      icon: MingCuteIcons.history2Line,
+      fill: Colors.white,
+      iconColor: const Color(0xFF202224),
+      label: '历史轨迹',
+      onTap: onHistory,
+    );
+    final mark = _RoundBtn(
+      icon: MingCuteIcons.markupLine,
+      fill: Colors.white,
+      iconColor: const Color(0xFF202224),
+      label: '标记问题',
+      onTap: onMark,
+    );
+    final start = _RoundBtn(
+      icon: status == _PatrolStatus.finished
+          ? MingCuteIcons.refresh2Line
+          : MingCuteIcons.playFill,
+      fill: status == _PatrolStatus.finished
+          ? const Color(0xFFFF9500)
+          : const Color(0xFF0395FF),
+      iconColor: Colors.white,
+      label: status == _PatrolStatus.finished ? '重新巡场' : '开始巡场',
+      onTap: status == _PatrolStatus.finished ? onRestart : onStart,
+    );
+    final pause = _RoundBtn(
+      icon: status == _PatrolStatus.running
+          ? MingCuteIcons.pauseFill
+          : MingCuteIcons.playFill,
+      fill: const Color(0xFF00B84A),
+      iconColor: Colors.white,
+      label: status == _PatrolStatus.running ? '暂停' : '继续',
+      onTap: status == _PatrolStatus.running ? onPause : onResume,
+    );
+    final end = _RoundBtn(
+      icon: MingCuteIcons.stopFill,
+      fill: const Color(0xFFFF4444),
+      iconColor: Colors.white,
+      label: '结束',
+      onTap: onFinish,
+    );
+
+    return Center(
+      child: Container(
+        width: 366,
+        color: const Color(0xFFF4F6F7),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: SizedBox(
+          height: 84,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Expanded(
-                child: _SubBtn(
-                  icon: MingCuteIcons.squareLine,
-                  label: isFinished ? '已结束' : '结束巡场',
-                  enabled: isRunning || isPaused,
-                  onTap: onFinish,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SubBtn(
-                  icon: MingCuteIcons.historyLine,
-                  label: '历史轨迹',
-                  onTap: onHistory,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SubBtn(
-                  icon: MingCuteIcons.mapLine,
-                  label: '标记问题点',
-                  onTap: onMark,
-                ),
-              ),
+              // 历史轨迹：idle 居中偏左(39) → running 最左(0)
+              slot(idleLeft: 39, runLeft: 0, visible: true, child: history),
+              // 开始 / 重新巡场：常驻中央(155)，切换时淡出缩小
+              slot(idleLeft: 155, runLeft: 155, visible: !started, child: start),
+              // 暂停 / 继续：从中央(155)向左分开到(103.3)
+              slot(idleLeft: 155, runLeft: 103.3, visible: started, child: pause),
+              // 结束：从中央(155)向右分开到(206.7)
+              slot(idleLeft: 155, runLeft: 206.7, visible: started, child: end),
+              // 标记问题：idle 居中偏右(271) → running 最右(310)
+              slot(idleLeft: 271, runLeft: 310, visible: true, child: mark),
             ],
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _SubBtn extends StatelessWidget {
+/// 圆形图标操作按钮（对齐 Frame 2147228045）：56×56 圆 + 下方 12px 辅文标签。
+class _RoundBtn extends StatelessWidget {
   final IconData icon;
+  final Color fill;
+  final Color iconColor;
   final String label;
   final VoidCallback onTap;
-  final bool enabled;
-  const _SubBtn({
+  const _RoundBtn({
     required this.icon,
+    required this.fill,
+    required this.iconColor,
     required this.label,
     required this.onTap,
-    this.enabled = true,
   });
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTokens.patrolSurface2,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            border: Border.all(
-                color: enabled
-                    ? AppTokens.patrolBorder
-                    : AppTokens.patrolBorder.withValues(alpha: 0.4)),
-          ),
+  Widget build(BuildContext context) => SizedBox(
+        width: 56,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: fill,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 24, color: iconColor),
+              ),
+              const SizedBox(height: 8),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: enabled
-                          ? AppTokens.patrolFg
-                          : AppTokens.patrolMuted.withValues(alpha: 0.5))),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 20 / 12,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    color: Color(0xFF60656B),
+                  )),
             ],
           ),
         ),

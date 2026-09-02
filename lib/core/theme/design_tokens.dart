@@ -49,13 +49,13 @@ class AppTokens {
   static const Color onAccent = Color(0xFFFFFFFF); // 蓝底白字（原浅金底深字已废弃）
   static const Color onBrand = Color(0xFFFFFFFF); // 蓝底白字
 
-  // —— 巡场深色沉浸主题（占位，P5 用）——
-  static const Color patrolBg = Color(0xFF0B1220);
-  static const Color patrolSurface = Color(0xFF111A2E);
-  static const Color patrolSurface2 = Color(0xFF1A2540);
-  static const Color patrolFg = Color(0xFFE8EEF6);
-  static const Color patrolMuted = Color(0xFF94A3B8);
-  static const Color patrolBorder = Color(0xFF1E293B);
+  // —— 巡场主题（已统一为浅色，与其余页面一致）——
+  static const Color patrolBg = Color(0xFFF4F6F7); // 页面背景 = bg
+  static const Color patrolSurface = Color(0xFFFFFFFF); // 卡片/表面 = surface
+  static const Color patrolSurface2 = Color(0xFFE9EAEB); // 次级嵌入填充 = surface3
+  static const Color patrolFg = Color(0xFF202224); // 主文字 = fg
+  static const Color patrolMuted = Color(0xFF919499); // 辅助文字 = muted
+  static const Color patrolBorder = Color(0xFFE9EAEB); // 分割线/边框 = border
 
   // —— 间距（4px 网格：4 / 8 / 12 / 16 / 24 / 32 / 48）——
   static const double space1 = 4;
