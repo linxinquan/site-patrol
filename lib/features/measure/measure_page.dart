@@ -21,6 +21,7 @@ import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_snack.dart';
 import 'ar_measure_page.dart';
 
@@ -464,7 +465,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                             final box = c.biggest;
                             return GestureDetector(
                               onTapDown: (e) => _onDrawTap(e.localPosition, box),
-                              child: Image.asset(src, fit: BoxFit.contain),
+                              child: DrawingImage(src, fit: BoxFit.contain),
                             );
                           },
                         ),

@@ -447,6 +447,14 @@ class Defect {
   final String? suggestion;
   /// 完成状态（对应巡场报告单「完成状态」，如 已完成 / 进行中 / 未开始）。
   final String? completion;
+  /// 设计师处置动作：null=未处置 / remoteFix=远程已解决(销项) / remoteConfirm=远程已答复 / onsite=需到场。
+  final String? designerAction;
+  /// 设计师处置说明。
+  final String? designerNote;
+  /// 处置设计师（默认当前用户）。
+  final String? designerBy;
+  /// 设计师处置时间（格式同 [ts]）。
+  final String? designerTs;
   const Defect({
     required this.id,
     required this.part,
@@ -482,6 +490,10 @@ class Defect {
     this.closeNote,
     this.completion,
     this.suggestion,
+    this.designerAction,
+    this.designerNote,
+    this.designerBy,
+    this.designerTs,
   });
 
   /// 序列化（拍照/图纸打点新增记录的本地持久化用）。
@@ -562,6 +574,10 @@ class Defect {
         closeNote: m['closeNote']?.toString(),
         completion: m['completion']?.toString(),
         suggestion: m['suggestion']?.toString(),
+        designerAction: m['designerAction']?.toString(),
+        designerNote: m['designerNote']?.toString(),
+        designerBy: m['designerBy']?.toString(),
+        designerTs: m['designerTs']?.toString(),
       );
 
   /// 未显式指定重要等级时按严重程度推导（红→重要紧急 … 绿→普通）。
@@ -576,6 +592,74 @@ class Defect {
 
   /// 是否闭合（已销项视为闭合，对应巡场报告单「是否闭合」列）。
   bool get closed => status == DefectStatus.done;
+
+  /// 是否"待设计师处置"：尚未有设计师处置动作且未闭合（供列表筛选）。
+  bool get pendingDesignerDisposal =>
+      designerAction == null && status != DefectStatus.done;
+
+  /// 设计师处置动作的可读中文标签（null 返回空串）。
+  String get designerActionLabel => switch (designerAction) {
+        'remoteFix' => '远程已解决',
+        'remoteConfirm' => '远程已答复',
+        'onsite' => '需到场',
+        _ => '',
+      };
+
+  /// 复制并覆盖字段（处置/回复等局部更新用；仅传需改的字段，null 保持原值）。
+  Defect copyWith({
+    DefectStatus? status,
+    String? resp,
+    String? building,
+    String? reply,
+    String? replyBy,
+    String? replyTs,
+    String? replyPhotoPath,
+    String? closeNote,
+    String? completion,
+    String? suggestion,
+    String? designerAction,
+    String? designerNote,
+    String? designerBy,
+    String? designerTs,
+  }) =>
+      Defect(
+        id: id,
+        part: part,
+        type: type,
+        category: category,
+        severity: severity,
+        status: status ?? this.status,
+        anchor: anchor,
+        floor: floor,
+        ts: ts,
+        gps: gps,
+        alt: alt,
+        resp: resp ?? this.resp,
+        respUnit: respUnit,
+        reporter: reporter,
+        tags: tags,
+        note: note,
+        seed: seed,
+        drawingKey: drawingKey,
+        worldX: worldX,
+        worldY: worldY,
+        photoHash: photoHash,
+        watermarkSerial: watermarkSerial,
+        photoPath: photoPath,
+        importance: importance,
+        building: building ?? this.building,
+        reply: reply ?? this.reply,
+        replyBy: replyBy ?? this.replyBy,
+        replyTs: replyTs ?? this.replyTs,
+        replyPhotoPath: replyPhotoPath ?? this.replyPhotoPath,
+        closeNote: closeNote ?? this.closeNote,
+        completion: completion ?? this.completion,
+        suggestion: suggestion ?? this.suggestion,
+        designerAction: designerAction ?? this.designerAction,
+        designerNote: designerNote ?? this.designerNote,
+        designerBy: designerBy ?? this.designerBy,
+        designerTs: designerTs ?? this.designerTs,
+      );
 
   /// 楼栋分组名（未标注楼栋时回退到空串，由渲染端归到「其他」）。
   String get buildingOrEmpty => (building ?? '').trim();
@@ -1287,6 +1371,30 @@ class PatrolPlan {
       );
 }
 
+/// 巡场检查点打卡（任务2：检查点打卡制）。[pointIdx] 对应 PatrolPlan.points 下标。
+class CheckIn {
+  final int pointIdx; // 对应 PatrolPlan.points 下标
+  final int tsMs; // 打卡时间（ms）
+  final String? note; // 备注（可空）
+  const CheckIn({required this.pointIdx, required this.tsMs, this.note});
+
+  CheckIn copyWith({int? pointIdx, int? tsMs, String? note}) => CheckIn(
+        pointIdx: pointIdx ?? this.pointIdx,
+        tsMs: tsMs ?? this.tsMs,
+        note: note ?? this.note,
+      );
+
+  Map<String, dynamic> toJson() =>
+      {'pointIdx': pointIdx, 'tsMs': tsMs, 'note': note};
+
+  /// 旧数据读取缺字段一律给默认值，不抛错。
+  factory CheckIn.fromJson(Map<String, dynamic> m) => CheckIn(
+        pointIdx: (m['pointIdx'] as num?)?.toInt() ?? 0,
+        tsMs: (m['tsMs'] as num?)?.toInt() ?? 0,
+        note: m['note'] as String?,
+      );
+}
+
 /// 一次巡场记录（⑦历史用）。
 class PatrolRecord {
   final String id;
@@ -1300,6 +1408,10 @@ class PatrolRecord {
   final int pointCount; // 采样点数
   final int issueCount; // 标记问题数
   final List<Map<String, double>> track; // GPS 轨迹 [{lat,lng,ts}]
+  // 任务2：检查点打卡记录（按打卡先后顺序追加，一个点一次）。
+  final List<CheckIn> checkins;
+  // 任务2：路线检查点总数（达成率分母，= 对应 PatrolPlan.checkpointIdxs.length）。
+  final int checkpointTotal;
   const PatrolRecord({
     required this.id,
     required this.planId,
@@ -1312,6 +1424,8 @@ class PatrolRecord {
     required this.pointCount,
     required this.issueCount,
     this.track = const [],
+    this.checkins = const [],
+    this.checkpointTotal = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -1326,6 +1440,8 @@ class PatrolRecord {
         'pointCount': pointCount,
         'issueCount': issueCount,
         'track': track,
+        'checkins': checkins.map((c) => c.toJson()).toList(),
+        'checkpointTotal': checkpointTotal,
       };
 
   /// 旧数据读取一律给默认值，缺字段不抛错。
@@ -1345,6 +1461,68 @@ class PatrolRecord {
             .map((e) => e.map(
                 (k, v) => MapEntry(k.toString(), (v as num).toDouble())))
             .toList(),
+        checkins: (m['checkins'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(CheckIn.fromJson)
+            .toList(),
+        checkpointTotal: (m['checkpointTotal'] as num? ?? 0).toInt(),
+      );
+}
+
+/// 用户上传 DWG 转换登记（任务3：DWG 自助上传 → OCF 手机查看）。
+class UploadedDrawing {
+  final String key; // drawingKey / OCF 缓存 key
+  final String name; // 展示名（原始文件名去 .dwg）
+  final String fileName; // 原始文件名（含扩展）
+  final int sizeBytes;
+  final int tsMs;
+  /// 底图 PNG 像素宽/高（后端渲染时返回；0 = 旧数据未记录）。
+  final int width;
+  final int height;
+  /// CAD 坐标范围 "xmin,ymin,xmax,ymax"（mm，供后续自动校准）。
+  final String? bounds;
+  /// 'converting'（转换中）/ 'done'（已转换）/ 'failed'（失败）。
+  final String status;
+  final String? error; // failed 时给可读错误
+  const UploadedDrawing({
+    required this.key,
+    required this.name,
+    required this.fileName,
+    this.sizeBytes = 0,
+    this.tsMs = 0,
+    this.width = 0,
+    this.height = 0,
+    this.bounds,
+    this.status = 'converting',
+    this.error,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'name': name,
+        'fileName': fileName,
+        'sizeBytes': sizeBytes,
+        'tsMs': tsMs,
+        'width': width,
+        'height': height,
+        'bounds': bounds,
+        'status': status,
+        'error': error,
+      };
+
+  /// 旧数据读取缺字段一律给默认值。
+  factory UploadedDrawing.fromJson(Map<String, dynamic> m) =>
+      UploadedDrawing(
+        key: m['key']?.toString() ?? '',
+        name: m['name']?.toString() ?? '',
+        fileName: m['fileName']?.toString() ?? '',
+        sizeBytes: (m['sizeBytes'] as num? ?? 0).toInt(),
+        tsMs: (m['tsMs'] as num? ?? 0).toInt(),
+        width: (m['width'] as num? ?? 0).toInt(),
+        height: (m['height'] as num? ?? 0).toInt(),
+        bounds: m['bounds']?.toString(),
+        status: m['status']?.toString() ?? 'done',
+        error: m['error']?.toString(),
       );
 }
 

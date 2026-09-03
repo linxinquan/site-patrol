@@ -226,6 +226,7 @@ class ReportStats {
     required this.done,
     required this.urgent,
     required this.replied,
+    required this.designerFixed,
   });
 
   final int photos;
@@ -238,6 +239,8 @@ class ReportStats {
   final int urgent;
   /// 已有整改回复的条目数。
   final int replied;
+  /// 设计师远程解决的条目数（designerAction == 'remoteFix'）。
+  final int designerFixed;
 }
 
 ReportStats buildReportStats(WeeklyReport report) {
@@ -257,6 +260,8 @@ ReportStats buildReportStats(WeeklyReport report) {
         .length,
     replied:
         defects.where((d) => (d.reply ?? '').trim().isNotEmpty).length,
+    designerFixed:
+        defects.where((d) => d.designerAction == 'remoteFix').length,
   );
 }
 

@@ -16,6 +16,8 @@ import '../../core/utils/speech_recognizer.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/session_store.dart';
 import '../../core/storage/patrol_plan_store.dart';
+import '../../core/storage/patrol_record_store.dart';
+import '../../core/storage/uploaded_drawing_store.dart';
 import '../../features/capture_records/capture_records_controller.dart';
 
 /// 数据仓库：dev 用 Mock，prod 用 Remote（后端就绪后实现）。UI 只依赖此 Provider。
@@ -52,17 +54,52 @@ final is7DongProjectProvider = Provider<bool>((ref) {
   return p.id == tencentProject.id;
 });
 
-/// 当前项目的图纸楼层列表（按项目区分）。
-/// 7栋项目 → dy7Floors（真实 CAD）；南科大 → floors（PNG）。
-final floorsProvider = FutureProvider<List<Floor>>((ref) {
+/// 上传图纸 → 动态 Floor（图纸库列表展示；分组「我的上传」）。
+Floor _uploadedToFloor(UploadedDrawing u) => Floor(
+      key: 'up_${u.key}',
+      name: u.name,
+      index: 0,
+      cached: true,
+      progress: 100,
+      building: '我的上传',
+      floor: 'DWG',
+    );
+
+/// 上传图纸 → 动态 Drawing（底图为网络 PNG；查看器/巡场/打点/量尺复用预置链路）。
+Drawing _uploadedToDrawing(UploadedDrawing u) => Drawing(
+      key: 'up_${u.key}',
+      title: u.name,
+      crumb: '我的上传',
+      variant: 'DWG',
+      src: '${CadService.host}/api/ocf/${u.key}.png',
+      w: (u.width > 0 ? u.width : 1024).toDouble(),
+      h: (u.height > 0 ? u.height : 768).toDouble(),
+      hotspots: const [],
+    );
+
+/// 当前项目的图纸楼层列表（按项目区分 + 合并本地转换的上传图纸）。
+/// 7栋项目 → dy7Floors（真实 CAD）；南科大 → floors（PNG）；上传图追加在后。
+final floorsProvider = FutureProvider<List<Floor>>((ref) async {
   final is7 = ref.watch(is7DongProjectProvider);
-  return Future.value(is7 ? dy7Floors : floors);
+  final projectId = ref.watch(currentProjectIdProvider) ?? '';
+  final ups = await UploadedDrawingStore.list(projectId);
+  return [
+    ...(is7 ? dy7Floors : floors),
+    for (final u in ups)
+      if (u.status == 'done') _uploadedToFloor(u),
+  ];
 });
 
-/// 当前项目的图纸字典（按项目区分）。
-final drawingsProvider = FutureProvider<Map<String, Drawing>>((ref) {
+/// 当前项目的图纸字典（按项目区分 + 合并上传图纸，key 前缀 up_）。
+final drawingsProvider = FutureProvider<Map<String, Drawing>>((ref) async {
   final is7 = ref.watch(is7DongProjectProvider);
-  return Future.value(is7 ? dy7Drawings : drawings);
+  final projectId = ref.watch(currentProjectIdProvider) ?? '';
+  final ups = await UploadedDrawingStore.list(projectId);
+  final map = Map<String, Drawing>.of(is7 ? dy7Drawings : drawings);
+  for (final u in ups) {
+    if (u.status == 'done') map['up_${u.key}'] = _uploadedToDrawing(u);
+  }
+  return map;
 });
 
 /// 浩辰云图 CAD 服务（图层/布局/OCF 解析）。
@@ -287,6 +324,9 @@ final captureRecordsProvider = StateNotifierProvider<
 /// 验收记录筛选状态（时间窗口 + 楼层 + AI 仅）。
 final captureRecordsFilterProvider =
     StateProvider<CaptureRecordsFilter>((ref) => const CaptureRecordsFilter());
+
+/// 缺陷特殊筛选（任务4/5）：null=无 / designer=待设计师处置 / reply=待施工方回复。
+final defectSpecialFilterProvider = StateProvider<String?>((ref) => null);
 /// 当前项目的周报素材（「导出报告」数据源）。
 /// - 腾讯大铲湾 7栋：设计院周报真实素材（现场照片 / 机电进度 / 台账 / 待协调问题）；
 /// - 南科大项目：用本地现场照片（photoAnchors）构造照片墙，缺陷清单照常注入。
@@ -397,10 +437,19 @@ final patrolPlansProvider =
   (ref, projectId) => PatrolPlanStore.list(projectId),
 );
 
-/// 当前项目的巡场历史记录列表（⑦历史用；阶段三接真实存储）。
-/// 当前返回 mock 演示数据，便于历史面板真实展示。
+/// 当前项目的巡场完成记录列表（⑦历史用；任务2 起接真实存储）。
+/// 优先返回真实完成记录；为空时回退 mock 演示数据，便于历史面板真实展示。
 final patrolRecordsProvider =
     FutureProvider.family<List<PatrolRecord>, String>(
-  (ref, projectId) async =>
-      seedPatrolRecords.where((r) => r.projectId == projectId).toList(),
+  (ref, projectId) async {
+    final stored = await PatrolRecordStore.list(projectId);
+    if (stored.isNotEmpty) return stored;
+    return seedPatrolRecords.where((r) => r.projectId == projectId).toList();
+  },
+);
+
+/// 用户上传的 DWG 图纸登记（任务3）。真实转换需 CAD 服务(8800) + 浩辰配额。
+final uploadedDrawingsProvider =
+    FutureProvider.family<List<UploadedDrawing>, String>(
+  (ref, projectId) => UploadedDrawingStore.list(projectId),
 );

@@ -10,10 +10,12 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/cad/wall_lines.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/drawing_image.dart';
 import '../../utils/geo.dart';
 import '../../utils/path_metrics.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../core/storage/patrol_record_store.dart';
 
 /// 巡场状态机。
 enum _PatrolStatus { idle, running, paused, finished }
@@ -53,6 +55,10 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
 
   // P1：巡场页穿墙段下标（路线不变时只算一次）。
   Set<int> _crossingSegs = const {};
+
+  // 任务2：本次巡场检查点打卡（一个点最多一次；完成时写入 PatrolRecord）。
+  final List<CheckIn> _checkins = [];
+  bool _recordSaved = false;
 
   // 历史巡场轨迹（已按底图缩放的绝对坐标序列），用于底图叠加显示。
   // 默认隐藏（空），用户从「历史轨迹」面板勾选后才会注入。
@@ -294,6 +300,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _progress = 1.0;
       _pausedAt = null;
     });
+    if (!_recordSaved) _saveRecord();
     _showSummary();
   }
 
@@ -304,16 +311,104 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _elapsed = Duration.zero;
       _pausedTotal = Duration.zero;
       _startedAt = null;
+      _checkins.clear();
+      _recordSaved = false;
     });
     AppSnack.show(context, '已重置巡场轨迹', kind: AppSnackKind.muted);
   }
 
   void _showSummary() {
+    final t = _checkpointTotal;
+    final d = _checkedInIdxs.length;
+    final ck =
+        t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
     AppSnack.show(
       context,
-      '巡场完成：${_distKm.toStringAsFixed(2)} km · $_pointCount 点 · $_durationStr',
+      '巡场完成：${_distKm.toStringAsFixed(2)} km · $_pointCount 点 · $_durationStr$ck',
       kind: AppSnackKind.success,
     );
+  }
+
+  // —— 任务2：检查点打卡 ——
+  /// 路线检查点总数（达成率分母）。
+  int get _checkpointTotal => _plan?.checkpointIdxs.length ?? 0;
+  /// 已打卡的检查点下标集合。
+  Set<int> get _checkedInIdxs => {for (final c in _checkins) c.pointIdx};
+  /// 顶点 idx 沿折线的累计弧长占比（0~1，pointAtProgress 同体系）。
+  double _arcFracAt(int idx) {
+    final pts = _planOffsets;
+    if (pts.length < 2) return 0;
+    var total = 0.0, cum = 0.0;
+    for (var i = 1; i < pts.length; i++) {
+      final d = (pts[i] - pts[i - 1]).distance;
+      total += d;
+      if (i <= idx) cum += d;
+    }
+    return total <= 0 ? 0 : cum / total;
+  }
+
+  /// 到达打卡：对"当前已到达且未打卡"的最近检查点打卡。
+  void _checkInHere() {
+    final plan = _plan;
+    if (plan == null) return;
+    if (_status != _PatrolStatus.running && _status != _PatrolStatus.paused) {
+      AppSnack.show(context, '请先开始巡场再打卡', kind: AppSnackKind.muted);
+      return;
+    }
+    final reached = plan.checkpointIdxs
+        .where((i) => _arcFracAt(i) <= _progress + 1e-6)
+        .toList();
+    if (reached.isEmpty) {
+      AppSnack.show(context, '尚未到达检查点，请沿路线继续前进',
+          kind: AppSnackKind.muted);
+      return;
+    }
+    final already = _checkedInIdxs;
+    final pending = reached.where((i) => !already.contains(i)).toList()
+      ..sort((a, b) => _arcFracAt(b).compareTo(_arcFracAt(a)));
+    if (pending.isEmpty) {
+      AppSnack.show(context, '当前已达检查点均已打卡', kind: AppSnackKind.muted);
+      return;
+    }
+    final idx = pending.first;
+    final pos = plan.checkpointIdxs.indexOf(idx);
+    setState(() {
+      _checkins.add(
+          CheckIn(pointIdx: idx, tsMs: DateTime.now().millisecondsSinceEpoch));
+    });
+    AppSnack.show(context, '已打卡 检查点${pos + 1}/共${plan.checkpointIdxs.length}',
+        kind: AppSnackKind.brand);
+  }
+
+  /// 完成时把本次记录（含打卡）持久化，照 PatrolPlanStore 模式。
+  Future<void> _saveRecord() async {
+    final plan = _plan;
+    final start = _startedAt;
+    if (plan == null || start == null || _recordSaved) return;
+    _recordSaved = true;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final record = PatrolRecord(
+      id: 'rec_$now',
+      planId: plan.id,
+      projectId: plan.projectId,
+      drawingKey: plan.drawingKey,
+      name: plan.name,
+      startedAt: start.millisecondsSinceEpoch,
+      finishedAt: now,
+      distKm: _distKm,
+      pointCount: _pointCount,
+      issueCount: 0,
+      checkins: List.of(_checkins),
+      checkpointTotal: plan.checkpointIdxs.length,
+    );
+    try {
+      final existing = await PatrolRecordStore.list(plan.projectId);
+      await PatrolRecordStore.save(plan.projectId, [record, ...existing]);
+      if (!mounted) return;
+      ref.invalidate(patrolRecordsProvider(plan.projectId));
+    } catch (_) {
+      // 存储失败不打断巡场流程
+    }
   }
 
   // —— 实时统计 ——
@@ -611,7 +706,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.asset(
+                        DrawingImage(
                           drawing.src,
                           fit: BoxFit.contain,
                         ),
@@ -625,6 +720,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                             crossingSegs: _crossingSegs,
                             historyTracks: _historyTracks,
                             historyColors: _historyColors,
+                            checkedInIdxs: _checkedInIdxs,
                           ),
                         ),
                       ],
@@ -635,6 +731,15 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
             },
           ),
         ),
+        // 任务2：到达打卡栏（运行/暂停中且路线含检查点时显示）
+        if ((_status == _PatrolStatus.running ||
+                _status == _PatrolStatus.paused) &&
+            _checkpointTotal > 0)
+          _CheckInBar(
+            done: _checkedInIdxs.length,
+            total: _checkpointTotal,
+            onCheckIn: _checkInHere,
+          ),
         // 控制面板
         _PatrolPanel(
           status: _status,
@@ -775,6 +880,83 @@ class _Chip extends StatelessWidget {
                   fontSize: 12, color: Color(0xFF60656B))),
         ],
       );
+}
+
+/// 任务2：到达打卡栏（巡场运行/暂停时显示实时达成率 + 打卡按钮）。
+class _CheckInBar extends StatelessWidget {
+  final int done;
+  final int total;
+  final VoidCallback onCheckIn;
+  const _CheckInBar({
+    required this.done,
+    required this.total,
+    required this.onCheckIn,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = total == 0 ? 0 : (done / total * 100).round();
+    final allDone = total > 0 && done >= total;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        decoration: BoxDecoration(
+          color: AppTokens.patrolSurface2,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: AppTokens.patrolBorder.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+                allDone
+                    ? MingCuteIcons.checkCircleLine
+                    : MingCuteIcons.mapPinLine,
+                size: 18,
+                color: allDone
+                    ? const Color(0xFF16A34A)
+                    : AppTokens.patrolFg),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '到达打卡 已到 $done/$total（$pct%）',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: allDone
+                        ? const Color(0xFF16A34A)
+                        : AppTokens.patrolFg),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: allDone ? null : onCheckIn,
+              borderRadius: BorderRadius.circular(999),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: allDone
+                      ? AppTokens.patrolMuted.withValues(alpha: 0.3)
+                      : const Color(0xFF0395FF),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  allDone ? '全部完成' : '到达打卡',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color:
+                          allDone ? AppTokens.patrolMuted : Colors.white),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PatrolPanel extends StatelessWidget {
@@ -1188,6 +1370,15 @@ class _HistorySheetState extends State<_HistorySheet> {
                                         label: '问题',
                                         value: '${r.issueCount}',
                                         highlight: r.issueCount > 0),
+                                    if (r.checkpointTotal > 0) ...[
+                                      const SizedBox(width: 8),
+                                      _MetricChip(
+                                          label: '打卡',
+                                          value:
+                                              '${r.checkins.length}/${r.checkpointTotal}',
+                                          highlight: r.checkins.length >=
+                                              r.checkpointTotal),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 4),

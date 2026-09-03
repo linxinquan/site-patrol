@@ -138,6 +138,7 @@ class _DocxDoc {
       ('重要紧急', '${s.urgent}', 'D93025'),
       ('未闭环', '${s.open}', 'FF9500'),
       ('已闭环', '${s.done}', '34C759'),
+      ('设计师远程解决', '${s.designerFixed}', '0E7A35'),
     ];
     final col = (_contentW / items.length).round();
     _body.write(_table(

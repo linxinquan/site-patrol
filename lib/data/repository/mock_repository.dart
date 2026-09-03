@@ -87,10 +87,12 @@ class MockRepository implements Repository {
     // 按项目返回：当前项目的预置 mock + 本项目运行期新增的缺陷。
     final is7 = _currentIs7;
     final base = is7 ? dy7Defects : defects;
-    final list = [
-      ...base,
-      ..._added.where((e) => e.$2 == is7).map((e) => e.$1),
-    ];
+    // 按 id 合并：运行期新增/更新（含设计师处置、施工方回复）覆盖预置 mock，保持 base 顺序。
+    final byId = <String, Defect>{for (final b in base) b.id: b};
+    for (final e in _added.where((e) => e.$2 == is7)) {
+      byId[e.$1.id] = e.$1;
+    }
+    final list = byId.values.toList();
     final filtered =
         status == null ? list : list.where((d) => d.status == status).toList();
     return _delay(filtered);
@@ -117,6 +119,18 @@ class MockRepository implements Repository {
   Future<void> addDefect(Defect defect) async {
     // 归入「新增时的当前项目」，避免跨项目串数据。
     _added.add((defect, _currentIs7));
+    await _persistAdded();
+  }
+
+  @override
+  Future<void> updateDefect(Defect updated) async {
+    // 同 id 已存在（含对预置 mock 的首次更新）→ 覆盖；否则按当前项目追加。
+    final idx = _added.indexWhere((e) => e.$1.id == updated.id);
+    if (idx >= 0) {
+      _added[idx] = (updated, _added[idx].$2);
+    } else {
+      _added.add((updated, _currentIs7));
+    }
     await _persistAdded();
   }
 

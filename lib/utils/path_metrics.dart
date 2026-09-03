@@ -204,6 +204,8 @@ class PatrolOverlayPainter extends CustomPainter {
   final List<List<Offset>> historyTracks;
   // 历史轨迹颜色（与 historyTracks 一一对应）。
   final List<Color> historyColors;
+  // 任务2：已打卡的检查点下标集合。空时保持原蓝色绘制（向后兼容）。
+  final Set<int> checkedInIdxs;
   const PatrolOverlayPainter({
     required this.pts,
     required this.cpIdxs,
@@ -213,7 +215,23 @@ class PatrolOverlayPainter extends CustomPainter {
     this.crossingSegs = const {},
     this.historyTracks = const [],
     this.historyColors = const [],
+    this.checkedInIdxs = const {},
   });
+
+  /// 检查点颜色：绿=已打卡；红=已经过但未打卡（漏检）；蓝=未到达。
+  /// 按折线弧长 fraction 与当前进度比较判定"是否已经过"。
+  Color _cpColor(int idx, double p) {
+    if (checkedInIdxs.contains(idx)) return const Color(0xFF16A34A);
+    if (pts.length < 2) return const Color(0xFF1D4ED8);
+    var total = 0.0, cum = 0.0;
+    for (var i = 1; i < pts.length; i++) {
+      final d = (pts[i] - pts[i - 1]).distance;
+      total += d;
+      if (i <= idx) cum += d;
+    }
+    if (total <= 0) return const Color(0xFF1D4ED8);
+    return cum / total <= p ? const Color(0xFFEF4444) : const Color(0xFF1D4ED8);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -278,15 +296,14 @@ class PatrolOverlayPainter extends CustomPainter {
       canvas.drawPath(walked, walkedPaint);
     }
 
-    // 3. 检查点（橙色实心圆 + 白边 + 白心）：与编辑页同一套视觉
-    final cpFill = Paint()..color = const Color(0xFFF97316);
+    // 3. 检查点（实心圆 + 白边 + 白心）：绿=已打卡 / 红=已过未打(漏检) / 蓝=未到达
     final cpStroke = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     for (final i in cpIdxs) {
       canvas.drawCircle(pts[i], 7, cpStroke);
-      canvas.drawCircle(pts[i], 6.5, cpFill);
+      canvas.drawCircle(pts[i], 6.5, Paint()..color = _cpColor(i, p));
       canvas.drawCircle(pts[i], 2.2, Paint()..color = const Color(0xFFFFFFFF));
     }
 

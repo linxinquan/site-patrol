@@ -32,6 +32,7 @@ class DefectsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(defectFilterProvider);
+    final special = ref.watch(defectSpecialFilterProvider);
     final defects = ref.watch(defectsProvider);
 
     return Scaffold(
@@ -76,9 +77,11 @@ class DefectsPage extends ConsumerWidget {
       body: AsyncState(
         value: defects,
         builder: (ds) {
-          final list = filter == null
-              ? ds
-              : ds.where((d) => d.status == filter).toList();
+          final list = ds.where((d) {
+            if (special == 'designer') return d.pendingDesignerDisposal;
+            if (special == 'reply') return (d.reply ?? '').isEmpty;
+            return filter == null || d.status == filter;
+          }).toList();
           // 筛选条作为列表首个 item，随内容滚动（不吸顶）；间距统一 8。
           return ListView.separated(
             primary: false,
@@ -607,6 +610,7 @@ class _FilterChips extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final special = ref.watch(defectSpecialFilterProvider);
     const options = [
       (null, '全部'),
       (DefectStatus.draft, '待整改'),
@@ -614,24 +618,61 @@ class _FilterChips extends ConsumerWidget {
       (DefectStatus.done, '已销项'),
       (DefectStatus.reject, '已拒绝'),
     ];
+
+    // 任务4/5 快捷筛选：与状态筛选互斥；重复点击同一项取消。
+    void tapStatus(DefectStatus? s) {
+      ref.read(defectFilterProvider.notifier).state = s;
+      ref.read(defectSpecialFilterProvider.notifier).state = null;
+    }
+
+    void tapSpecial(String? s) {
+      if (s != null) ref.read(defectFilterProvider.notifier).state = null;
+      ref.read(defectSpecialFilterProvider.notifier).state =
+          special == s ? null : s;
+    }
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
-      child: Row(
+      child: Column(
         children: [
-          for (final (s, label) in options) ...[
-            if (s != null) const SizedBox(width: 4),
-            Expanded(
-              child: _FilterBtn(
-                label: label,
-                selected: s == current,
-                onTap: () => ref.read(defectFilterProvider.notifier).state = s,
+          Row(
+            children: [
+              for (final (s, label) in options) ...[
+                if (s != null) const SizedBox(width: 4),
+                Expanded(
+                  child: _FilterBtn(
+                    label: label,
+                    selected: special == null && s == current,
+                    onTap: () => tapStatus(s),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _FilterBtn(
+                  label: '待设计师处置',
+                  selected: special == 'designer',
+                  onTap: () => tapSpecial('designer'),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Expanded(
+                child: _FilterBtn(
+                  label: '待施工方回复',
+                  selected: special == 'reply',
+                  onTap: () => tapSpecial('reply'),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -778,6 +819,45 @@ class _DefectCard extends StatelessWidget {
                     fontSize: 14, color: AppTokens.fg2, height: 22 / 14),
               ),
             ),
+            // 任务4：设计师处置结果条（处置过才显示）
+            if (d.designerAction != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x120395FF),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                ),
+                child: Text(
+                  '设计师${d.designerActionLabel} · ${d.designerBy ?? ''}'
+                  '${(d.designerNote ?? '').isNotEmpty ? '：${d.designerNote}' : ''}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF0395FF)),
+                ),
+              ),
+            ],
+            // 任务5：整改回复条（已回复才显示）
+            if ((d.reply ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x1416A34A),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                ),
+                child: Text(
+                  '整改回复（${d.replyBy ?? ''} · ${d.replyTs ?? ''}）：${d.reply}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFF0E7A35)),
+                ),
+              ),
+            ],
           ],
         ),
       );

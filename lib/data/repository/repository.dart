@@ -12,6 +12,9 @@ abstract class Repository {
   Future<List<Defect>> getDefects({DefectStatus? status});
   /// 新增一条巡场清单记录（拍照识别后由 CapturePage 调用）。
   Future<void> addDefect(Defect defect);
+  /// 更新一条缺陷（处置/回复/状态流转）。按 id 覆盖。
+  /// mock 下持久化到 added_defects_v1；remote 待后端实现。
+  Future<void> updateDefect(Defect updated);
   Future<List<TimelinePhoto>> getTimeline(String anchor);
 
   /// 保存一次拍照量尺校对会话（后端落库）。dev/Mock 下为内存实现。

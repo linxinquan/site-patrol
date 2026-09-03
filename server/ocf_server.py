@@ -281,6 +281,8 @@ class Handler(BaseHTTPRequestHandler):
         ctype = "application/octet-stream"
         if path.endswith(".png"):
             ctype = "image/png"
+        elif path.endswith(".svg"):
+            ctype = "image/svg+xml"
         elif path.endswith(".ocf"):
             ctype = "application/octet-stream"
         self.send_response(200)
@@ -434,11 +436,23 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     # ---- GET ----
+    def do_OPTIONS(self):
+        """CORS 预检：Web 端(8765)跨端口调用本服务上传/转换所需。"""
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_GET(self):
+        import urllib.parse as _up
         path = self.path.split("?")[0]
+        # 浏览器对中文路径会 percent-encode，解码后才能匹配 ocf_cache 真实文件名。
+        path = _up.unquote(path)
         if path.startswith("/api/ocf/"):
             key = path.split("/api/ocf/", 1)[1]
-            # 支持 .png（图片）与 .ocf（矢量）分发
+            # 支持 .png（图片）/ .svg（矢量+文字）/ .ocf（CAD 矢量）分发
             if key.endswith(".png"):
                 p = os.path.join(OCF_DIR, key)
                 if os.path.exists(p):
@@ -446,6 +460,14 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     self._send_json(404, {"error": "PNG_NOT_FOUND", "key": key,
                                           "hint": "先调 POST /api/cad/saveAsImage 生成"})
+                return
+            if key.endswith(".svg"):
+                p = os.path.join(OCF_DIR, key)
+                if os.path.exists(p):
+                    self._send_file(p)
+                else:
+                    self._send_json(404, {"error": "SVG_NOT_FOUND", "key": key,
+                                          "hint": "先调本地转换 POST /api/upload-dwg-local 生成"})
                 return
             p = os.path.join(OCF_DIR, f"{key}.ocf")
             if os.path.exists(p):
@@ -456,6 +478,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/ocf-meta/"):
             key = path.split("/api/ocf-meta/", 1)[1]
+            key = _up.unquote(key)
             meta_path = os.path.join(OCF_DIR, f"{key}_meta.json")
             if os.path.exists(meta_path):
                 try:
@@ -533,6 +556,40 @@ class Handler(BaseHTTPRequestHandler):
                         "hint": "已转换并缓存，本次消耗 1 次套餐"}})
                     return
                 self._send_json(200, {"rtnCode": "0000000", "bizData": biz})
+            except Exception as e:
+                self._send_json(500, {"rtnCode": "9999999", "msg": str(e)})
+            return
+        if path == "/api/upload-dwg-local":
+            # 任务3(本地优先)：DWG → ODA→DXF → ezdxf 图层JSON+PNG 底图（零配额）。
+            # 产物与浩辰路径同构（ocf_cache/{key}.png + {key}_meta.json），前端协议不变。
+            body = self._read_body()
+            fileName = body.get("fileName")
+            fileBase64 = body.get("fileBase64")
+            if not fileName or not fileBase64:
+                self._send_json(400, {"rtnCode": "0000003",
+                                      "msg": "缺少 fileName/fileBase64"})
+                return
+            import base64 as _b64
+            import time as _time
+            import cad_local
+            if not cad_local.local_available():
+                self._send_json(500, {"rtnCode": "9999999", "msg":
+                    "本地转换不可用：需 ODA File Converter + ezdxf/matplotlib"})
+                return
+            base = fileName.rsplit(".", 1)[0] if "." in fileName else fileName
+            key = body.get("key") or (
+                "%s_%d" % (cad_local.sanitize_key(base), int(_time.time())))
+            try:
+                info = cad_local.convert_local(key, _b64.b64decode(fileBase64))
+                self._send_json(200, {"rtnCode": "0000000", "bizData": {
+                    "status": 2, "resultCode": 0, "key": info["key"],
+                    "local": True, "png": "/api/ocf/%s.png" % info["key"],
+                    "svg": "/api/ocf/%s.svg" % info["key"],
+                    "layers": info["layers_count"], "layouts": info["layouts"],
+                    "size_mb": info["size_mb"],
+                    "png_w": info["png_w"], "png_h": info["png_h"],
+                    "bounds": info["bounds"],
+                    "hint": "本地转换完成，未消耗浩辰配额"}})
             except Exception as e:
                 self._send_json(500, {"rtnCode": "9999999", "msg": str(e)})
             return

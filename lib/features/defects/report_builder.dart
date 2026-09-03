@@ -147,6 +147,9 @@ String buildWeeklyReportHtml(
   final urgentCount = defects
       .where((d) => d.effectiveImportance == DefectImportance.urgentImportant)
       .length;
+  // 设计师远程解决（remoteFix 销项）条目数。
+  final designerFixedCount =
+      defects.where((d) => d.designerAction == 'remoteFix').length;
   buf.writeln('<section class="overview">');
   buf.writeln(_statCard('现场照片', '${report.photos.length}', '#0284E8', '#E8F4FE'));
   buf.writeln(_statCard('进度楼栋', '${report.progress.length}', '#0AA0C0', '#E2F5FA'));
@@ -155,6 +158,8 @@ String buildWeeklyReportHtml(
   buf.writeln(_statCard('重要紧急', '$urgentCount', '#D93025', '#FCE8E6'));
   buf.writeln(_statCard('未闭环', '$openDefects', '#D98A00', '#FFF2DC'));
   buf.writeln(_statCard('已闭环', '$doneCount', '#1E9E4E', '#E4F6EB'));
+  buf.writeln(
+      _statCard('设计师远程解决', '$designerFixedCount', '#0E7A35', '#E4F6EB'));
   buf.writeln('</section>');
 
   // ===== 各章节 =====

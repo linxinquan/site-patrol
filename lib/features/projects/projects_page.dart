@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../shared/widgets/nav_icon_button.dart';
@@ -14,6 +16,12 @@ import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/maskable_name.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../data/models.dart';
+// 选文件：web 端用 dart:html 自实现（file_picker 在 Flutter Web HTML 渲染器下不可用），
+// io（Android/iOS）继续用 file_picker。
+import '_dwg_picker_io.dart' if (dart.library.html) '_dwg_picker_web.dart'
+    as picker;
+import '../../data/cad_service.dart';
+import '../../core/storage/uploaded_drawing_store.dart';
 
 class ProjectsPage extends ConsumerStatefulWidget {
   const ProjectsPage({super.key});
@@ -33,6 +41,58 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
     }
     _downloadTimers.clear();
     super.dispose();
+  }
+
+  /// 任务3：上传中状态（转圈 + 防重复点击）。
+  bool _uploading = false;
+
+  /// 任务3：选择 .dwg 上传 → 本地 ODA+ezdxf 转 OCF → 登记到「我的上传」。
+  Future<void> _uploadDwg() async {
+    if (_uploading) return;
+    final projectId = ref.read(currentProjectIdProvider) ?? '';
+    final picked = await picker.pickerDwg();
+    final bytes = picked.bytes;
+    final fileName = picked.name;
+    if (bytes == null || fileName == null) {
+      AppSnack.show(context, '未选择 .dwg 文件', kind: AppSnackKind.muted);
+      return;
+    }
+    setState(() => _uploading = true);
+    AppSnack.show(context, '本地转换中（ODA→DXF→底图），不消耗浩辰配额…',
+        kind: AppSnackKind.brand);
+    try {
+      final base =
+          fileName.replaceAll(RegExp(r'\.dwg$', caseSensitive: false), '');
+      final biz = await CadService().uploadDwgLocal(
+        fileName: fileName,
+        fileBase64: base64Encode(bytes),
+      );
+      final ocfKey = (biz['key'] as String?) ?? base;
+      final existing = await UploadedDrawingStore.list(projectId);
+      await UploadedDrawingStore.save(projectId, [
+        UploadedDrawing(
+          key: ocfKey,
+          name: base,
+          fileName: fileName,
+          sizeBytes: bytes.length,
+          tsMs: DateTime.now().millisecondsSinceEpoch,
+          width: (biz['png_w'] as num?)?.toInt() ?? 0,
+          height: (biz['png_h'] as num?)?.toInt() ?? 0,
+          bounds: (biz['bounds'] as List?)?.join(','),
+          status: 'done',
+        ),
+        ...existing,
+      ]);
+      if (!mounted) return;
+      ref.invalidate(uploadedDrawingsProvider(projectId));
+      AppSnack.show(context, '转换成功，已加入「我的上传」',
+          kind: AppSnackKind.success);
+    } catch (e) {
+      if (!mounted) return;
+      AppSnack.show(context, '上传失败：$e', kind: AppSnackKind.danger);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
   }
 
   /// 模拟下载：每 220ms 进度 +20，到 100 视为缓存完成（对齐 HTML 模拟逻辑）。
@@ -122,6 +182,10 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                       onTap: () => AppSnack.show(
                           context, '已选择 1 份 PDF 图纸，开始解析并生成索引',
                           kind: AppSnackKind.accent)),
+                  const SizedBox(height: AppTokens.space2),
+                  // 任务3：DWG 自助上传 → OCF 手机查看
+                  _UploadDwgCard(uploading: _uploading, onPick: _uploadDwg),
+                  const _UploadedDrawingsSection(),
                   const SizedBox(height: AppTokens.space2),
                   // 楼层列表（卡间距统一 8）
                   ...fs.map((f) {
@@ -321,6 +385,241 @@ class _FloorHeader extends StatelessWidget {
                       color: AppTokens.fg)),
             ),
           ],
+        ),
+      );
+}
+
+/// 任务3：DWG 自助上传入口卡（含转换中状态）。
+class _UploadDwgCard extends StatelessWidget {
+  final bool uploading;
+  final VoidCallback onPick;
+  const _UploadDwgCard({
+    required this.uploading,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: AppTokens.space2),
+        padding: const EdgeInsets.all(AppTokens.space3),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        ),
+        child: uploading
+            ? const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text('DWG 转换中…约 1-2 分钟（消耗浩辰配额），请勿关闭页面',
+                        style: TextStyle(fontSize: 13, color: AppTokens.fg2)),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  const Icon(Icons.upload_file,
+                      size: 20, color: AppTokens.brand),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('上传 DWG，自动转 OCF 手机查看（图层/测量可用）',
+                        style: TextStyle(
+                            fontSize: 13, color: AppTokens.fg2)),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppTokens.brand,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    onPressed: onPick,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('上传 DWG'),
+                  ),
+                ],
+              ),
+      );
+}
+
+/// 任务3：已上传 DWG 登记列表（含转换状态；真实渲染需 CAD 服务 + 配额）。
+class _UploadedDrawingsSection extends ConsumerWidget {
+  const _UploadedDrawingsSection();
+
+  static String _time(int ms) {
+    if (ms <= 0) return '';
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    String t(int v) => v.toString().padLeft(2, '0');
+    return '${t(d.month)}-${t(d.day)} ${t(d.hour)}:${t(d.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projectId = ref.watch(currentProjectIdProvider) ?? '';
+    final items = ref.watch(uploadedDrawingsProvider(projectId)).maybeWhen(
+          data: (l) => l,
+          orElse: () => const <UploadedDrawing>[],
+        );
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTokens.space2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('我的上传（DWG→OCF）',
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppTokens.muted)),
+          const SizedBox(height: 6),
+          ...items.map((e) {
+            final (String label, Color color) = switch (e.status) {
+              'done' => ('已转换', const Color(0xFF16A34A)),
+              'converting' => ('转换中', AppTokens.brand),
+              _ => ('失败', AppTokens.danger),
+            };
+            return InkWell(
+              onTap: e.status == 'done'
+                  ? () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            _LocalDwgPreviewPage(ocfKey: e.key, name: e.name),
+                      ))
+                  : null,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              child: Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.description_outlined,
+                      size: 18, color: AppTokens.muted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(e.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTokens.fg)),
+                        Text(
+                          'key: ${e.key} · ${_time(e.tsMs)}'
+                          '${e.status == 'failed' && e.error != null ? ' · ${e.error}' : ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppTokens.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(label,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: color)),
+                  ),
+                ],
+              ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// 本地转换 DWG 底图预览：默认 PNG（快、稳），右上角可切到 SVG（含文字/标注，大图较慢）。
+class _LocalDwgPreviewPage extends StatefulWidget {
+  final String ocfKey;
+  final String name;
+  const _LocalDwgPreviewPage({required this.ocfKey, required this.name});
+
+  @override
+  State<_LocalDwgPreviewPage> createState() => _LocalDwgPreviewPageState();
+}
+
+class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
+  bool _useSvg = false; // 默认 PNG；SVG 大文件渲染慢让用户主动切
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(widget.name,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          actions: [
+            IconButton(
+              tooltip: _useSvg
+                  ? '当前：SVG（含文字/标注） · 点击切到 PNG（快）'
+                  : '当前：PNG（几何） · 点击切到 SVG（含文字/标注）',
+              icon: Icon(_useSvg ? Icons.text_fields : Icons.image),
+              onPressed: () => setState(() => _useSvg = !_useSvg),
+            ),
+          ],
+        ),
+        body: InteractiveViewer(
+          maxScale: 12,
+          child: Center(
+            child: _useSvg
+                ? SvgPicture.network(
+                    '${CadService.host}/api/ocf/${widget.ocfKey}.svg',
+                    fit: BoxFit.contain,
+                    placeholderBuilder: (_) => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('SVG 加载中（约 30-40MB，浏览器需解析…）',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white70)),
+                      ),
+                    ),
+                    errorBuilder: (_, __, ___) => Image.network(
+                      '${CadService.host}/api/ocf/${widget.ocfKey}.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Text(
+                        '底图加载失败：请确认 CAD 服务(8800)已启动',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    '${CadService.host}/api/ocf/${widget.ocfKey}.png',
+                    fit: BoxFit.contain,
+                    loadingBuilder: (ctx, child, p) => p == null
+                        ? child
+                        : const Center(
+                            child: CircularProgressIndicator(color: Colors.white)),
+                    errorBuilder: (_, __, ___) => const Text(
+                      '底图加载失败：请确认 CAD 服务(8800)已启动',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+          ),
         ),
       );
 }

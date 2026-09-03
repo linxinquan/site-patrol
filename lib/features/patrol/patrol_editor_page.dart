@@ -10,6 +10,7 @@ import '../../core/cad/wall_lines.dart';
 import '../../core/storage/patrol_plan_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../utils/geo.dart';
 import '../../utils/path_metrics.dart';
@@ -554,7 +555,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: Image.asset(
+                      child: DrawingImage(
                         drawing.src,
                         fit: BoxFit.contain,
                       ),

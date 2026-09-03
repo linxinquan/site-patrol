@@ -82,6 +82,10 @@ class RemoteRepository implements Repository {
       throw UnimplementedError('RemoteRepository.addDefect 待实现');
 
   @override
+  Future<void> updateDefect(Defect updated) =>
+      throw UnimplementedError('RemoteRepository.updateDefect 待实现');
+
+  @override
   Future<List<TimelinePhoto>> getTimeline(String anchor) =>
       throw UnimplementedError('RemoteRepository.getTimeline 待实现');
 }

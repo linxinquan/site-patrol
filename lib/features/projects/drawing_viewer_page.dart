@@ -19,6 +19,7 @@ import '../../core/cad/axis_auto_calibration.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/cad_info_panel.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/drawing_image.dart';
 import '../../data/repository/mock_repository.dart';
 
 /// 图纸查看器：缩放/平移/工具条 + 热点跳转确认 + 长按锚定。
@@ -1092,15 +1093,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
                           clipBehavior: Clip.none,
                           children: [
                             // 底图：按 contain 自然尺寸显示。
-                            // CAD/OCF 图纸：有截图底图 src 时用 Image.asset 渲染（截图底图+矢量坐标方案，
-                            // 离线可用、精度已校验 <2mm）；无底图时回退待渲染占位。
+                            // CAD/OCF 图纸：有截图底图 src 时渲染（截图底图+矢量坐标方案；
+                            // 预置图为 assets，上传图为网络 PNG——DrawingImage 自适应）。
                             Positioned.fill(
                               child: d.src.isNotEmpty
-                                  ? Image.asset(
+                                  ? DrawingImage(
                                       d.src,
                                       fit: BoxFit.fill,
-                                      errorBuilder: (_, __, ___) =>
-                                          _CadPlaceholder(
+                                      errorWidget: _CadPlaceholder(
                                         ocfKey: d.cadOcfKey ?? d.key,
                                         title: d.title,
                                       ),

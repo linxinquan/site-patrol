@@ -21,6 +21,7 @@ import '../../core/storage/local_storage.dart';
 import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/drawing_image.dart';
 import '../../data/repository/mock_repository.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -963,10 +964,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           ClipRRect(
                             borderRadius:
                                 BorderRadius.circular(AppTokens.radiusLg),
-                            child: Image.asset(
+                            child: DrawingImage(
                               _drawing!.src,
                               fit: BoxFit.fill,
-                              filterQuality: FilterQuality.medium,
                             ),
                           )
                         else if (_drawing != null &&

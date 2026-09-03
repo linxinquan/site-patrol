@@ -95,6 +95,7 @@ class _XlsxBook {
       ['已闭环', '${s.done}'],
       ['重要紧急', '${s.urgent}'],
       ['已回复', '${s.replied}'],
+      ['设计师远程解决', '${s.designerFixed}'],
     ];
     for (var i = 0; i < pairs.length; i++) {
       rows.add(_Row(r1++, [
