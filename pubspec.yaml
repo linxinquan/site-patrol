@@ -13,11 +13,10 @@ dependencies:
   flutter_riverpod: ^2.5.1
   go_router: ^14.2.7
   flutter_mingcute: ^2.9.72
-  lucide_icons_flutter: ^3.1.15
   image_picker: ^1.1.2
   image: ^4.2.0
   speech_to_text: ^7.0.0 # 设备端离线/在线语音识别（含中文），无需后端/Key
-  app_settings: ^6.0.0
+  app_settings: ^9.0.0
   http: ^1.6.0
   flutter_secure_storage: ^9.2.0
   hive: ^2.2.3
@@ -25,6 +24,10 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
   crypto: ^3.0.3
+  pdf: ^3.13.0
+  archive: ^4.0.9
+  printing: ^5.15.0
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
@@ -41,10 +44,9 @@ flutter:
     - assets/walls/
     - assets/fonts/
     - assets/axis_data/
+    # 周报现场照片：由 _tools/pptx_report_extract.py 从设计院周报 PPTX 抽取
+    - assets/site_photos/
   fonts:
     - family: MingCute
       fonts:
         - asset: assets/fonts/mingcute.ttf
-    - family: Lucide
-      fonts:
-        - asset: assets/fonts/lucide.ttf

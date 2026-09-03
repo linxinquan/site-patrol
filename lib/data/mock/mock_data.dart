@@ -263,12 +263,12 @@ const Map<String, List<PhotoAnchor>> photoAnchors = {
 };
 
 const List<Defect> defects = [
-  Defect(id: 'd1', part: '西楼1F门诊大厅墙面空鼓', type: '空鼓', category: DefectCategory.decoration, severity: DefectSeverity.orange, status: DefectStatus.draft, anchor: '西楼1F-左病房翼', floor: '西楼1F', ts: '2026-08-08 14:32', gps: '22.5936°N 113.9798°E', alt: '海拔 18.2m', resp: '深圳市建工集团 王工', respUnit: '深圳市建工集团', reporter: '现场监理 陈工', tags: ['精装修', '注浆处理'], note: '空鼓面积约 0.4㎡，需注浆处理', seed: 'a'),
-  Defect(id: 'd2', part: '东楼4F标准层病房渗漏', type: '渗漏', category: DefectCategory.water, severity: DefectSeverity.yellow, status: DefectStatus.done, anchor: '东楼4F-住院部', floor: '东楼4F', ts: '2026-08-06 09:15', gps: '22.5938°N 113.9801°E', alt: '海拔 32.5m', resp: '深圳市建工集团 李工', respUnit: '深圳市建工集团', reporter: '现场监理 王工', tags: ['渗漏', '已闭环'], note: '已注浆封堵，复查无渗水', seed: 'b'),
-  Defect(id: 'd3', part: '感染楼1F 防火墙洞口偏差', type: '洞口偏差', category: DefectCategory.architecture, severity: DefectSeverity.orange, status: DefectStatus.reject, anchor: '感染楼1F-医辅区', floor: '感染楼1F', ts: '2026-08-05 16:40', gps: '22.5934°N 113.9803°E', alt: '海拔 16.8m', resp: '中海监理 张工', respUnit: '中海监理', reporter: 'Arcadis PMO 李工', tags: ['消防', '复核'], note: '经复核偏差在允许范围内，驳回', seed: 'c'),
-  Defect(id: 'd4', part: '西楼B1地下车库顶棚裂缝', type: '裂缝', category: DefectCategory.structure, severity: DefectSeverity.red, status: DefectStatus.doing, anchor: '西楼B1-车库', floor: '西楼B1', ts: '2026-08-07 11:08', gps: '22.5936°N 113.9799°E', alt: '海拔 -4.2m', resp: '深圳市建工集团 王工', respUnit: '深圳市建工集团', reporter: 'Arcadis PMO 李工', tags: ['结构安全', '挂网处理'], note: '已挂网处理，待复检', seed: 'd'),
-  Defect(id: 'd5', part: '连廊1F屋面女儿墙泛水开裂', type: '开裂', category: DefectCategory.architecture, severity: DefectSeverity.orange, status: DefectStatus.draft, anchor: '连廊1F-屋面', floor: '连廊1F', ts: '2026-08-08 10:22', gps: '22.5937°N 113.9800°E', alt: '海拔 19.5m', resp: '防水班组 赵工', respUnit: '防水班组', reporter: '现场监理 王工', tags: ['防水', '屋面'], note: '需重新做泛水节点', seed: 'e'),
-  Defect(id: 'd6', part: '东楼1F门诊大厅地砖空鼓', type: '空鼓', category: DefectCategory.decoration, severity: DefectSeverity.green, status: DefectStatus.done, anchor: '东楼1F-门诊大厅', floor: '东楼1F', ts: '2026-08-04 15:30', gps: '22.5938°N 113.9801°E', alt: '海拔 18.5m', resp: '深圳市建安（集团）股份 周工', respUnit: '深圳市建安集团', reporter: '现场监理 陈工', tags: ['精装修', '观感'], note: '已更换并重铺', seed: 'f'),
+  Defect(id: 'd1', part: '西楼1F门诊大厅墙面空鼓', type: '空鼓', category: DefectCategory.decoration, severity: DefectSeverity.orange, status: DefectStatus.draft, anchor: '西楼1F-左病房翼', floor: '西楼1F', ts: '2026-08-08 14:32', gps: '22.5936°N 113.9798°E', alt: '海拔 18.2m', resp: '深圳市建工集团 王工', respUnit: '深圳市建工集团', reporter: '现场监理 陈工', tags: ['精装修', '注浆处理'], note: '空鼓面积约 0.4㎡，需注浆处理', seed: 'a', building: '西楼', completion: '未开始', closeNote: '待总包排期整改，计划下周进场', suggestion: '1）空鼓范围画线标记并全部剔除至密实基层；2）基层清理湿润后用同标号砂浆修复；3）养护期满逐块敲击复验，严禁边角虚贴。'),
+  Defect(id: 'd2', part: '东楼4F标准层病房渗漏', type: '渗漏', category: DefectCategory.water, severity: DefectSeverity.yellow, status: DefectStatus.done, anchor: '东楼4F-住院部', floor: '东楼4F', ts: '2026-08-06 09:15', gps: '22.5938°N 113.9801°E', alt: '海拔 32.5m', resp: '深圳市建工集团 李工', respUnit: '深圳市建工集团', reporter: '现场监理 王工', tags: ['渗漏', '已闭环'], note: '已注浆封堵，复查无渗水', seed: 'b', building: '东楼', importance: DefectImportance.importantNotUrgent, reply: '已完成注浆封堵，48h 闭水试验无渗漏，附整改后照片。', replyBy: '深圳市建工集团 李工', replyTs: '2026-08-10 16:20', completion: '已完成'),
+  Defect(id: 'd3', part: '感染楼1F 防火墙洞口偏差', type: '洞口偏差', category: DefectCategory.architecture, severity: DefectSeverity.orange, status: DefectStatus.reject, anchor: '感染楼1F-医辅区', floor: '感染楼1F', ts: '2026-08-05 16:40', gps: '22.5934°N 113.9803°E', alt: '海拔 16.8m', resp: '中海监理 张工', respUnit: '中海监理', reporter: 'Arcadis PMO 李工', tags: ['消防', '复核'], note: '经复核偏差在允许范围内，驳回', seed: 'c', building: '感染楼', reply: '实测偏差 8mm，在规范允许范围（≤10mm）内，申请予以销项。', replyBy: '中海监理 张工', replyTs: '2026-08-09 10:05', completion: '已完成', closeNote: '顾问复核：偏差在允许范围内，同意销项'),
+  Defect(id: 'd4', part: '西楼B1地下车库顶棚裂缝', type: '裂缝', category: DefectCategory.structure, severity: DefectSeverity.red, status: DefectStatus.doing, anchor: '西楼B1-车库', floor: '西楼B1', ts: '2026-08-07 11:08', gps: '22.5936°N 113.9799°E', alt: '海拔 -4.2m', resp: '深圳市建工集团 王工', respUnit: '深圳市建工集团', reporter: 'Arcadis PMO 李工', tags: ['结构安全', '挂网处理'], note: '已挂网处理，待复检', seed: 'd', building: '西楼', importance: DefectImportance.urgentImportant, reply: '已完成裂缝注浆与碳纤维布加固，待第三方检测复检。', replyBy: '深圳市建工集团 王工', replyTs: '2026-08-12 09:30', completion: '进行中', closeNote: '待第三方检测报告出具后闭合', suggestion: '1）裂缝性质判定：报设计出具加固方案（结构性）；2）沿缝注浆+碳纤维布加固；3）处理后委托第三方检测，报告报监理备案。'),
+  Defect(id: 'd5', part: '连廊1F屋面女儿墙泛水开裂', type: '开裂', category: DefectCategory.architecture, severity: DefectSeverity.orange, status: DefectStatus.draft, anchor: '连廊1F-屋面', floor: '连廊1F', ts: '2026-08-08 10:22', gps: '22.5937°N 113.9800°E', alt: '海拔 19.5m', resp: '防水班组 赵工', respUnit: '防水班组', reporter: '现场监理 王工', tags: ['防水', '屋面'], note: '需重新做泛水节点', seed: 'e', building: '连廊', importance: DefectImportance.importantNotUrgent, completion: '未开始', closeNote: '需先确认泛水节点做法，待设计出具节点详图'),
+  Defect(id: 'd6', part: '东楼1F门诊大厅地砖空鼓', type: '空鼓', category: DefectCategory.decoration, severity: DefectSeverity.green, status: DefectStatus.done, anchor: '东楼1F-门诊大厅', floor: '东楼1F', ts: '2026-08-04 15:30', gps: '22.5938°N 113.9801°E', alt: '海拔 18.5m', resp: '深圳市建安（集团）股份 周工', respUnit: '深圳市建安集团', reporter: '现场监理 陈工', tags: ['精装修', '观感'], note: '已更换并重铺', seed: 'f', building: '东楼', reply: '空鼓地砖已全部更换并重铺，复检合格。', replyBy: '深圳市建安集团 周工', replyTs: '2026-08-07 17:40', completion: '已完成'),
 ];
 
 const Map<String, List<TimelinePhoto>> timeline = {
@@ -287,12 +287,14 @@ const List<VlDefect> realSteelDefects = [
     severity: DefectSeverity.red,
     conf: 1.0,
     desc: '柱筋上部箍筋及部分竖向钢筋表面锈蚀明显，呈黄褐色，超出正常浮锈范围，绑扎前未进行除锈处理，需除锈并复验后方可浇筑。',
+    suggestion: '1）对锈蚀钢筋除锈至露出金属光泽并涂刷阻锈剂；2）核实保护层垫块设置；3）除锈完成后报隐蔽验收，合格后方可浇筑。',
   ),
   VlDefect(
     name: '斜置散置钢筋（支撑固定不规范）',
     severity: DefectSeverity.orange,
     conf: 1.0,
     desc: '一根钢筋斜搭于柱钢筋笼上，仅中部一处用扎丝简单绑扎，两端均未与柱笼或板面钢筋网有效锚固固定，不能起到定尺撑稳固作用，属散置乱摆钢筋，应清除或按防倾倒措施要求重新固定。',
+    suggestion: '1）清除散置乱摆钢筋；2）确需用作支撑的按方案重新绑扎固定并加设定位筋；3）绑扎完成后报钢筋隐蔽验收。',
   ),
 ];
 
@@ -309,13 +311,33 @@ List<VlDefect> vlPreset(String anchor, {bool replayReal = false}) {
   }
   if (kw.contains('裂缝') || kw.contains('顶棚')) {
     return const [
-      VlDefect(name: '结构性裂缝', severity: DefectSeverity.orange, conf: 0.93),
-      VlDefect(name: '表面裂缝', severity: DefectSeverity.green, conf: 0.81),
+      VlDefect(
+          name: '结构性裂缝',
+          severity: DefectSeverity.orange,
+          conf: 0.93,
+          suggestion:
+              '1）判断裂缝性质：结构性裂缝报设计出具加固方案；2）表面裂缝剔凿 V 形槽聚合物砂浆修补；3）处理前后拍照留档并报监理复核。'),
+      VlDefect(
+          name: '表面裂缝',
+          severity: DefectSeverity.green,
+          conf: 0.81,
+          suggestion:
+              '1）沿缝剔凿 V 形槽并清理浮灰；2）聚合物修补砂浆填实压光；3）养护后复查是否重新开裂。'),
     ];
   }
   return const [
-    VlDefect(name: '墙面空鼓', severity: DefectSeverity.orange, conf: 0.91),
-    VlDefect(name: '表面裂缝', severity: DefectSeverity.green, conf: 0.79),
+    VlDefect(
+        name: '墙面空鼓',
+        severity: DefectSeverity.orange,
+        conf: 0.91,
+        suggestion:
+            '1）空鼓范围画线标记并全部剔除至密实基层；2）基层清理湿润后用同标号砂浆修复；3）养护期满逐块敲击复验，严禁边角虚贴。'),
+    VlDefect(
+        name: '表面裂缝',
+        severity: DefectSeverity.green,
+        conf: 0.79,
+        suggestion:
+            '1）沿缝剔凿 V 形槽并清理浮灰；2）聚合物修补砂浆填实压光；3）养护后复查是否重新开裂。'),
   ];
 }
 
@@ -417,7 +439,11 @@ const List<Defect> dy7Defects = [
       reporter: 'Arcadis PMO 李工',
       tags: ['结构安全', '深基坑区域'],
       note: '顶板出现多条贯穿裂缝，需加固处理',
-      seed: 'dy7a'),
+      seed: 'dy7a',
+      building: '7栋',
+      importance: DefectImportance.urgentImportant,
+      completion: '未开始',
+      closeNote: '需先出加固方案并经设计确认'),
   Defect(
       id: 'dy7_2', part: 'B1-电梯井 渗漏',
       type: '渗漏',
@@ -434,7 +460,12 @@ const List<Defect> dy7Defects = [
       reporter: '现场监理 王工',
       tags: ['渗漏', '注浆处理'],
       note: '已注浆封堵，复查中',
-      seed: 'dy7b'),
+      seed: 'dy7b',
+      building: '7栋',
+      reply: '已完成电梯井注浆封堵，观察 7 天无渗漏。',
+      replyBy: '防水班组 赵工',
+      replyTs: '2026-08-20 15:10',
+      completion: '进行中'),
   Defect(
       id: 'dy7_3', part: '1-1剖面 楼板钢筋外露',
       type: '钢筋外露',
@@ -451,7 +482,11 @@ const List<Defect> dy7Defects = [
       reporter: 'Arcadis PMO 李工',
       tags: ['结构安全', '钢筋工程'],
       note: '楼板底部钢筋外露 50cm 长度，需补强',
-      seed: 'dy7c'),
+      seed: 'dy7c',
+      building: '7栋',
+      importance: DefectImportance.urgentImportant,
+      completion: '未开始',
+      closeNote: '钢筋除锈后需报隐蔽验收'),
   Defect(
       id: 'dy7_4', part: '墙身详图 防水层破损',
       type: '防水破损',
@@ -468,7 +503,12 @@ const List<Defect> dy7Defects = [
       reporter: '现场监理 王工',
       tags: ['防水', '已闭环'],
       note: '已修复并验收通过',
-      seed: 'dy7d'),
+      seed: 'dy7d',
+      building: '7栋',
+      reply: '防水层已修补并做闭水试验，验收通过。',
+      replyBy: '防水班组 赵工',
+      replyTs: '2026-08-18 11:05',
+      completion: '已完成'),
   Defect(
       id: 'dy7_5', part: '楼梯详图 踏步高度偏差',
       type: '尺寸偏差',
@@ -485,7 +525,12 @@ const List<Defect> dy7Defects = [
       reporter: '现场监理 陈工',
       tags: ['精装修', '观感'],
       note: '踏步高度偏差 5mm，调整中',
-      seed: 'dy7e'),
+      seed: 'dy7e',
+      building: '7栋',
+      reply: '已剔凿找平，踏步高度复测合格。',
+      replyBy: '精装单位 周工',
+      replyTs: '2026-08-19 14:25',
+      completion: '进行中'),
   Defect(
       id: 'dy7_6', part: '门窗详图 框体安装偏位',
       type: '安装偏位',
@@ -502,7 +547,13 @@ const List<Defect> dy7Defects = [
       reporter: '现场监理 陈工',
       tags: ['幕墙', '安装精度'],
       note: '复测在允许范围内，驳回',
-      seed: 'dy7f'),
+      seed: 'dy7f',
+      building: '7栋',
+      reply: '复测偏位 3mm，满足规范要求，申请销项。',
+      replyBy: '方大建科 吴工',
+      replyTs: '2026-08-17 09:50',
+      completion: '已完成',
+      closeNote: '顾问复核：同意销项'),
 ];
 
 /// ==================== 巡场计划（PatrolPlan 种子）====================

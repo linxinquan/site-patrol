@@ -6,6 +6,7 @@ import 'core/di/providers.dart';
 import 'data/models.dart';
 import 'shared/widgets/device_frame.dart';
 import 'features/home/home_page.dart';
+import 'core/navigation/route_observer.dart';
 import 'features/projects/projects_page.dart';
 import 'features/projects/drawing_viewer_page.dart';
 import 'features/patrol/patrol_page.dart';
@@ -32,6 +33,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.listen<Object?>(authStateProvider, (_, __) => refresh.value = Object());
 
   return GoRouter(
+    observers: [routeObserver],
     refreshListenable: refresh,
     redirect: (context, state) {
       final loggedIn = ref.read(authStateProvider) != null;

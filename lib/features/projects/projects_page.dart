@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_card.dart';
@@ -11,6 +12,7 @@ import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/maskable_name.dart';
+import '../../shared/widgets/user_switcher.dart';
 import '../../data/models.dart';
 
 class ProjectsPage extends ConsumerStatefulWidget {
@@ -73,31 +75,26 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 44,
+        centerTitle: false,
         titleSpacing: 12,
-        title: project.maybeWhen(
-          data: (p) => const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('项目图纸',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTokens.fg)),
-              Text('F1 · 图纸文件夹与离线管理',
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: AppTokens.fg2,
-                      fontWeight: FontWeight.w400)),
-            ],
-          ),
-          orElse: () => const Text('项目图纸'),
-        ),
+        title: const Text('图纸',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.fg,
+                height: 28 / 20)),
         actions: [
-          IconButton(
+          NavIconButton(
             onPressed: () => AppSnack.show(context, '按楼层 / 索引号检索图纸',
                 kind: AppSnackKind.brand),
-            icon: const Icon(MingCuteIcons.searchLine),
+            icon: MingCuteIcons.searchLine,
+          ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: const UserSwitcher(),
           ),
         ],
       ),
@@ -107,6 +104,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
           children: [
             Expanded(
               child: ListView(
+                primary: false,
                 padding: const EdgeInsets.fromLTRB(
                     AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
                 children: [
@@ -395,6 +393,7 @@ class _Tag extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 height: 20 / 12,
+                leadingDistribution: TextLeadingDistribution.even,
                 color: fg)),
       );
 }

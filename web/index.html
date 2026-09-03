@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <base href="/">
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -25,6 +25,8 @@
   <!-- Web 使用 HTML 渲染器：Flutter 文字即为真实 DOM 文字，下方 CSS 字体栈才会生效。
        这样 Windows 显示微软雅黑、macOS 显示苹方，使用系统默认字体，无需打包字体文件。 -->
   <script>
+    // 禁止浏览器恢复历史滚动位置，避免 Web 端切回/进入首页时自动滚到上次位置。
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     window.flutterWebRenderer = 'html';
   </script>
 

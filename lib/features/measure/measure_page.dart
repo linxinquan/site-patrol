@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -287,10 +289,12 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     final drawing = drawingsAsync.valueOrNull?[_drawingKey];
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine),
         title: const Text('拍照量尺校对'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.save_outlined),
+          NavIconButton(
+            icon: MingCuteIcons.saveLine,
             tooltip: '保存会话',
             onPressed: () async {
               await _persist();
@@ -376,7 +380,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               const SizedBox(width: AppTokens.space3),
               ElevatedButton.icon(
                 onPressed: _addItem,
-                icon: const Icon(Icons.add),
+                icon: const Icon(MingCuteIcons.addLine),
                 label: const Text('加入校对'),
               ),
             ],
@@ -402,7 +406,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 16),
+            const Icon(MingCuteIcons.checkCircleLine, color: Colors.green, size: 16),
             const SizedBox(width: AppTokens.space1),
             Expanded(
               child: Text(
@@ -422,7 +426,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       ),
       child: const Row(
         children: [
-          Icon(Icons.warning_amber, color: Colors.orange, size: 16),
+          Icon(MingCuteIcons.warningLine, color: Colors.orange, size: 16),
           SizedBox(width: AppTokens.space1),
           Expanded(
             child: Text('图纸未校准：请在图纸查看页完成坐标校准后再来量尺',
@@ -543,7 +547,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           children: [
             ElevatedButton.icon(
               onPressed: _pickPhoto,
-              icon: const Icon(Icons.camera_alt_outlined),
+              icon: const Icon(MingCuteIcons.cameraLine),
               label: const Text('拍/选照片'),
             ),
             const SizedBox(width: AppTokens.space3),
@@ -554,7 +558,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                     builder: (_) => ArMeasurePage(args: widget.args),
                   ),
                 ),
-                icon: const Icon(Icons.view_in_ar_outlined),
+                icon: const Icon(MingCuteIcons.cubeLine),
                 label: const Text('AR量尺（iPhone Pro）'),
               ),
             if (kIsWeb || Platform.isIOS) const SizedBox(width: AppTokens.space3),
@@ -704,7 +708,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         return Card(
           margin: const EdgeInsets.only(bottom: AppTokens.space2),
           child: ListTile(
-            leading: Icon(ok ? Icons.check_circle : Icons.error,
+            leading: Icon(ok ? MingCuteIcons.checkCircleLine : MingCuteIcons.closeCircleLine,
                 color: ok ? Colors.green : Colors.red),
             title: Text(e.name),
             subtitle: Text(
@@ -713,7 +717,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               style: const TextStyle(fontSize: 12),
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18),
+              icon: const Icon(MingCuteIcons.deleteLine, size: 18),
               onPressed: () {
                 setState(() {
                   final items = [..._session!.items]..removeAt(i);
@@ -808,11 +812,11 @@ class _ZoomToolbar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _IconBtn(icon: Icons.zoom_out, onTap: onZoomOut, tooltip: '缩小'),
+          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut, tooltip: '缩小'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.fullscreen, onTap: onReset, tooltip: '复位'),
+          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset, tooltip: '复位'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.zoom_in, onTap: onZoomIn, tooltip: '放大'),
+          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn, tooltip: '放大'),
         ],
       ),
     );

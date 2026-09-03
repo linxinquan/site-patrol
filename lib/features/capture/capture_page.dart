@@ -11,8 +11,8 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/defect_suggestions.dart';
 import 'package:app_settings/app_settings.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/image_compress.dart';
@@ -21,12 +21,14 @@ import '../../core/storage/local_storage.dart';
 import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
+import '../../data/repository/mock_repository.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/voice_input.dart';
+import '../../shared/widgets/user_switcher.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
 const double _defaultTolMm = 10;
@@ -511,6 +513,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return u.name;
   }
 
+  /// 严重程度严重性排序：red 最严重（rank 0），green 最轻（rank 3）。
+  /// 用于一次拍照多条识别项聚合时取最严重等级。
+  static int _severityRank(DefectSeverity s) {
+    switch (s) {
+      case DefectSeverity.red:
+        return 0;
+      case DefectSeverity.orange:
+        return 1;
+      case DefectSeverity.yellow:
+        return 2;
+      case DefectSeverity.green:
+        return 3;
+    }
+  }
+
   Future<void> _runScan() async {
     if (_scanning) return;
     setState(() {
@@ -537,9 +554,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   name: d.name,
                   // severity 模型尚未返回，暂默认 orange；后端补返回严重程度后再映射
                   severity: DefectSeverity.orange,
-                  // A 修复：传真实置信度，低 conf 会在卡片/工单中提示人工复核
+                  // A 修复：传真实置信度，低 conf 会在卡片/巡场清单中提示人工复核
                   conf: d.conf,
                   desc: d.desc,
+                  // AI 整改建议：模型返回优先，未返回时按缺陷名走本地建议库兜底
+                  suggestion: (d.suggestion?.trim().isNotEmpty ?? false)
+                      ? d.suggestion
+                      : suggestionFor(d.name, d.desc),
                 ))
             .toList();
         // 无论模型是否识别到缺陷都出结果（暂存由「保存记录」按钮触发）。
@@ -571,12 +592,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 无论是否识别到缺陷都会暂存（无缺陷记 count=0，仅留痕）。
   /// 保存当前记录到本地暂存（由「保存记录」按钮触发，不再自动）。
   /// 聚合：水印照片（移动端落盘）、AI 分析结果、用户描述、图纸归属。
-  Future<void> _saveRecordToStorage() async {
+  /// 返回 true 表示已执行保存（写入暂存并同步巡场清单），false 表示未满足保存条件。
+  Future<bool> _saveRecordToStorage() async {
     if (_shotPhoto == null) {
       if (mounted) {
         AppSnack.show(context, '请先拍照或选择照片', kind: AppSnackKind.danger);
       }
-      return;
+      return false;
     }
     final now = DateTime.now();
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
@@ -596,19 +618,96 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           .toList(),
       'note': note,
     };
-    // 跨端统一把照片写入 LocalStorage：
-    // - 移动端：写真实文件（持久化到 Hive），entry 记相对路径。
-    // - Web（演示实现）：写内存 Map（同会话内可读，刷新即丢——Web 演示特性），
-    //   但 entry 也能拿到 photo 字段，验收记录页能展示。
-    // JSON 不支持二进制内联，故统一走相对路径 + 写文件接口。
+    // 跨端统一把压缩照片落盘（JSON 不支持二进制，故 entry 只记相对路径）：
+    // - 移动端/桌面：写入应用目录的真实文件，可长期保存；
+    // - Web（演示实现）：写入内存 Map，当前会话内可读（刷新即丢——Web 演示特性），
+    //   但 entry 也能拿到 photo 字段，验收记录页可展示，且「拍照 → 导出报告」
+    //   链路内缺陷照片能被报告读取内嵌。
+    String? photoRel;
     if (_shotPhoto != null) {
-      final rel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
+      photoRel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
       try {
-        await LocalStorage.instance.writeFile(rel, _shotPhoto!);
-        entry['photo'] = rel;
+        await LocalStorage.instance.writeFile(photoRel, _shotPhoto!);
+        entry['photo'] = photoRel;
       } catch (_) {
         // 写照片失败不应阻断结构化结果暂存。
+        photoRel = null;
       }
+    }
+    // 打通「拍照记录 → 巡场问题记录」：保存带照片的记录时生成一条问题记录
+    // （报告「巡场清单及闭环情况」章节据此渲染现场照片，交付说明增强项 3）。
+    //
+    // **一次拍照聚合为一条记录**：VL 识别常对同一张现场照返回多条观察（多个问
+    // 题），但现场一次观察即一次整改，拆成多条会在报告/列表里重复出现（同时间
+    // 同位置同照片）。这里合并为单条 Defect：描述叠加、严重程度取最高、识别项
+    // 名称作为标签，照片只挂一次。
+    //
+    // **没有识别结果也要入列表**：保证拍照留痕可追溯（避免"拍了看不到"）。
+    // **照片落盘失败也要入列表**：照片缺失只影响报告配图，记录本身必须同步
+    // （photoPath 为空时报告端显示占位）。
+    {
+      final repo = ref.read(repositoryProvider);
+      // 归入当前项目，避免新增记录串到另一个项目。
+      if (repo is MockRepository) {
+        repo.currentIs7 = ref.read(is7DongProjectProvider);
+      }
+      final gpsText = _location.gpsText;
+      final altText = '海拔 ${_location.altitude.toStringAsFixed(1)}m';
+      final anchor = '$_anchorLabel · $_floor';
+      final names = _defects
+          .map((v) => v.name)
+          .where((n) => n.isNotEmpty)
+          .toList();
+      final descs = _defects
+          .map((v) => v.desc ?? '')
+          .where((d) => d.isNotEmpty)
+          .toList();
+      // 严重程度取最高（rank 越小越严重）；无识别结果时降级为「暂未发现问题」
+      final sev = _defects.isEmpty
+          ? DefectSeverity.green
+          : _defects
+              .map((v) => v.severity)
+              .reduce((a, b) => _severityRank(a) <= _severityRank(b) ? a : b);
+      final primary = names.isNotEmpty ? names.first : '现场拍照记录';
+      final mergedNote = [
+        if (_defects.isEmpty) '本次拍照未识别出缺陷（仅现场留痕）',
+        if (photoRel == null) '照片未落盘，仅保留现场记录信息',
+        descs.join('；'),
+        note,
+      ].where((s) => s.isNotEmpty).join('\n');
+      // AI 整改建议聚合（给施工单位）：多条建议按「缺陷名：建议」合并。
+      final mergedSuggestion = [
+        for (final v in _defects)
+          if ((v.suggestion ?? '').trim().isNotEmpty)
+            names.length > 1 ? '${v.name}：${v.suggestion!}' : v.suggestion!,
+      ].join('\n');
+      await repo.addDefect(Defect(
+        id: 'cap_${now.microsecondsSinceEpoch}',
+        part: names.length > 1
+            ? '${anchor}·${primary}等${names.length}项'
+            : '${anchor}·${primary}',
+        type: primary,
+        category: DefectCategory.other,
+        severity: sev,
+        status: DefectStatus.draft,
+        anchor: anchor,
+        floor: _floor,
+        ts: ts,
+        gps: gpsText,
+        alt: altText,
+        resp: '待指派',
+        reporter: _currentUser,
+        tags: ['拍照记录', ...names],
+        note: mergedNote,
+        seed: 'capture',
+        drawingKey: _drawingKey,
+        worldX: widget.args.drawPointWorldX,
+        worldY: widget.args.drawPointWorldY,
+        photoPath: photoRel,
+        suggestion: mergedSuggestion.isEmpty ? null : mergedSuggestion,
+      ));
+      // 刷新缺陷列表，使「巡场清单」tab 立即出现新记录。
+      ref.invalidate(defectsProvider);
     }
     setState(() {
       _storedResults = [entry, ..._storedResults];
@@ -626,6 +725,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         kind: AppSnackKind.brand,
       );
     }
+    return true;
   }
 
   void _retake() {
@@ -650,13 +750,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     AppSnack.show(context, '标注功能预留：后续支持圈选/语音备注', kind: AppSnackKind.brand);
   }
 
-  /// 「保存记录」按钮：把当前记录写入本地暂存（不入库缺陷列表）。
-  /// 本期拍照记录与缺陷工单解耦；转工单（多一层处理）后续实现。
+  /// 「保存记录」按钮：把当前记录写入本地暂存；识别出缺陷时同时生成巡场清单记录
+  /// （带现场照片，供「导出报告」渲染缺陷照片）。
+  ///
+  /// 仅在真正执行了保存后才锁定按钮；首次误触（未拍照）不锁定，允许补拍后再存。
   Future<void> _saveRecord() async {
     if (_scanning) return;
     if (_saved) return;
-    await _saveRecordToStorage();
-    if (mounted) {
+    final ok = await _saveRecordToStorage();
+    if (ok && mounted) {
       setState(() => _saved = true);
     }
   }
@@ -669,36 +771,23 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Scaffold(
         backgroundColor: AppTokens.bg,
         appBar: AppBar(
-          title: const Text('拍照记录',
+          title: const Text('验收',
               style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 20,
                   fontWeight: FontWeight.w600,
-                  color: AppTokens.fg)),
+                  color: AppTokens.fg,
+                  height: 28 / 20)),
           centerTitle: false,
           backgroundColor: AppTokens.bg,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          actions: [
-            // TODO: 待删 —— Mock 开关（_useMock）仅为联调/验证 UI 用，正式环境移除。
-            // Padding(
-            //   padding: const EdgeInsets.only(right: AppTokens.space3),
-            //   child: Row(
-            //     children: [
-            //       Text('Mock',
-            //           style: TextStyle(
-            //               fontSize: 12,
-            //               fontWeight: FontWeight.w400,
-            //               color:
-            //                   _useMock ? AppTokens.accent : AppTokens.muted)),
-            //       const SizedBox(width: 4),
-            //       Switch(
-            //         value: _useMock,
-            //         onChanged: (v) => setState(() => _useMock = v),
-            //         activeThumbColor: AppTokens.accent,
-            //       ),
-            //     ],
-            //   ),
-            // ),
+          toolbarHeight: 44,
+          titleSpacing: 12,
+          actions: const [
+            Padding(
+              padding: EdgeInsets.only(right: 12),
+              child: UserSwitcher(),
+            ),
           ],
         ),
         body: Column(
@@ -706,6 +795,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             _buildAnchorBar(),
             Expanded(
               child: SingleChildScrollView(
+                primary: false,
                 padding: const EdgeInsets.fromLTRB(
                     AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
                 child: Column(
@@ -759,7 +849,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         ),
         child: Row(
           children: [
-            const Icon(LucideIcons.mapPin, size: 16, color: AppTokens.accent),
+            const Icon(MingCuteIcons.mapPinLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
             Expanded(
               child: Text.rich(
@@ -804,7 +894,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.fileX, size: 48, color: AppTokens.muted),
+          Icon(MingCuteIcons.fileLine, size: 48, color: AppTokens.muted),
           const SizedBox(height: AppTokens.space2),
           Text(
             _remotePngLoading ? '正在生成 PNG 底图…' : '该图纸暂无 PNG 底图',
@@ -831,7 +921,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             const SizedBox(height: AppTokens.space2),
             TextButton.icon(
               onPressed: () => _ensureRemotePng(_drawing!),
-              icon: Icon(LucideIcons.refreshCw, size: 14, color: AppTokens.accent),
+              icon: Icon(MingCuteIcons.refresh1Line, size: 14, color: AppTokens.accent),
               label: Text('重新生成', style: TextStyle(color: AppTokens.accent)),
             ),
           ],
@@ -918,7 +1008,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(LucideIcons.map,
+                                Icon(MingCuteIcons.mapLine,
                                     size: 48, color: AppTokens.muted),
                                 const SizedBox(height: AppTokens.space2),
                                 Text('未选择图纸',
@@ -973,7 +1063,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(LucideIcons.mousePointerClick,
+                                const Icon(MingCuteIcons.cursorLine,
                                     size: 12, color: Colors.white),
                                 const SizedBox(width: 6),
                                 Text(stepHint,
@@ -1030,7 +1120,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           children: [
             const Row(
               children: [
-                Icon(LucideIcons.layers, size: 16, color: AppTokens.accent),
+                Icon(MingCuteIcons.layersLine, size: 16, color: AppTokens.accent),
                 SizedBox(width: AppTokens.space2),
                 Text('选择图纸',
                     style:
@@ -1072,7 +1162,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           children: [
             Row(
               children: [
-                const Icon(LucideIcons.mapPin,
+                const Icon(MingCuteIcons.mapPinLine,
                     size: 16, color: AppTokens.accent),
                 const SizedBox(width: AppTokens.space2),
                 Expanded(
@@ -1110,7 +1200,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     _ensureRemotePng(_drawing!);
                   }
                 },
-                icon: const Icon(LucideIcons.arrowLeft, size: 16),
+                icon: const Icon(MingCuteIcons.arrowLeftLine, size: 16),
                 label: const Text('重选图纸'),
               ),
             ),
@@ -1128,7 +1218,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         padding: const EdgeInsets.all(AppTokens.space3),
         child: Row(
           children: [
-            const Icon(LucideIcons.camera, size: 16, color: AppTokens.accent),
+            const Icon(MingCuteIcons.cameraLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
             Expanded(
               child: Text('${_drawing?.title ?? '—'} · ${_anchorLabel}',
@@ -1137,7 +1227,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
             TextButton.icon(
               onPressed: () => setState(() => _step = _CaptureStep.selectPoint),
-              icon: const Icon(LucideIcons.arrowLeft, size: 14),
+              icon: const Icon(MingCuteIcons.arrowLeftLine, size: 14),
               label: const Text('重选', style: TextStyle(fontSize: 12)),
             ),
           ],
@@ -1214,7 +1304,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             children: [
               Row(
                 children: [
-                  const Icon(LucideIcons.mapPin,
+                  const Icon(MingCuteIcons.mapPinLine,
                       size: 14, color: AppTokens.accent),
                   const SizedBox(width: 6),
                   Text('${a.label} · 历史照片',
@@ -1404,7 +1494,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.scanSearch,
+              const Icon(MingCuteIcons.scanLine,
                   size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('视觉识别结果',
@@ -1445,7 +1535,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.ruler, size: 14, color: AppTokens.accent),
+              const Icon(MingCuteIcons.rulerLine, size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('拍照量尺校对',
                   style:
@@ -1465,7 +1555,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   );
                 },
-                icon: const Icon(LucideIcons.ruler, size: 14),
+                icon: const Icon(MingCuteIcons.rulerLine, size: 14),
                 label: const Text('智能量尺校对',
                     style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
@@ -1548,7 +1638,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _addScaleCheck,
-              icon: const Icon(LucideIcons.plus, size: 14),
+              icon: const Icon(MingCuteIcons.addLine, size: 14),
               label: const Text('添加量尺项',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               style: OutlinedButton.styleFrom(
@@ -1642,7 +1732,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
               IconButton(
                 onPressed: () => setState(() => _scaleChecks.removeAt(index)),
-                icon: const Icon(LucideIcons.trash2,
+                icon: const Icon(MingCuteIcons.deleteLine,
                     size: 16, color: AppTokens.danger),
                 visualDensity: VisualDensity.compact,
               ),
@@ -1674,7 +1764,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 ),
                 child: Column(
                   children: [
-                    Icon(ok ? LucideIcons.check : LucideIcons.x,
+                    Icon(ok ? MingCuteIcons.checkLine : MingCuteIcons.closeLine,
                         size: 14,
                         color: ok ? AppTokens.success : AppTokens.danger),
                     Text(ok ? '合格' : '超差',
@@ -1784,7 +1874,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               color: bucket.bg,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
-            child: Icon(LucideIcons.alertTriangle, size: 16, color: bucket.fg),
+            child: Icon(MingCuteIcons.alertLine, size: 16, color: bucket.fg),
           ),
           const SizedBox(width: AppTokens.space3),
           Expanded(
@@ -1822,6 +1912,22 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   Text(d.desc!,
                       style: const TextStyle(
                           fontSize: 12, height: 1.4, color: AppTokens.muted)),
+                ],
+                if (d.suggestion != null && d.suggestion!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTokens.brandTint,
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusSm),
+                    ),
+                    child: Text('AI整改建议：${d.suggestion!}',
+                        style: const TextStyle(
+                            fontSize: 12, height: 1.45, color: AppTokens.fg)),
+                  ),
                 ],
               ],
             ),
@@ -1870,7 +1976,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(LucideIcons.mapPin,
+                  const Icon(MingCuteIcons.mapPinLine,
                       size: 14, color: AppTokens.accent),
                   const SizedBox(width: 4),
                   ConstrainedBox(
@@ -1886,7 +1992,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(LucideIcons.chevronDown,
+                  const Icon(MingCuteIcons.arrowDownLine,
                       size: 12, color: Colors.white54),
                 ],
               ),
@@ -1922,10 +2028,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           if (burned)
             const Tooltip(
               message: '防篡改水印已烧录进照片像素，裁剪/涂抹即破坏原始画面',
-              child: Icon(LucideIcons.shieldCheck, size: 14, color: Color(0xFF34D399)),
+              child: Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFF34D399)),
             )
           else
-            const Icon(LucideIcons.shieldAlert, size: 14, color: Color(0xFFFBBF24)),
+            const Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFFFBBF24)),
           const SizedBox(width: AppTokens.space2),
           Text(ts, style: const TextStyle(fontSize: 10, color: Colors.white70)),
           const SizedBox(width: AppTokens.space3),
@@ -1965,7 +2071,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             children: [
               Row(
                 children: [
-                  const Icon(LucideIcons.navigation,
+                  const Icon(MingCuteIcons.navigationLine,
                       size: 15, color: AppTokens.accent),
                   const SizedBox(width: 6),
                   const Text('选择附近定位',
@@ -2039,8 +2145,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
               child: Icon(
                 selected
-                    ? LucideIcons.mapPinCheck
-                    : LucideIcons.mapPin,
+                    ? MingCuteIcons.mapPinLine
+                    : MingCuteIcons.mapPinLine,
                 size: 16,
                 color: selected ? Colors.white : AppTokens.muted,
               ),
@@ -2116,10 +2222,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 // 底层：左「加点」+ 右「重拍 / 标注」
                 Row(
                   children: [
-                    _buildControlBtn(LucideIcons.plus, '加点', _addPoint),
+                    _buildControlBtn(MingCuteIcons.addLine, '加点', _addPoint),
                     const Spacer(),
-                    _buildControlBtn(LucideIcons.rotateCcw, '重拍', _retake),
-                    _buildControlBtn(LucideIcons.penTool, '标注', _annotate),
+                    _buildControlBtn(MingCuteIcons.cameraRotateLine, '重拍', _retake),
+                    _buildControlBtn(MingCuteIcons.penLine, '标注', _annotate),
                   ],
                 ),
                 // 顶层：快门圆按钮水平居中
@@ -2131,7 +2237,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           if (_shotPhoto == null)
             const Row(
               children: [
-                Icon(LucideIcons.image, size: 16, color: AppTokens.muted),
+                Icon(MingCuteIcons.photoAlbumLine, size: 16, color: AppTokens.muted),
                 SizedBox(width: AppTokens.space2),
                 Expanded(
                   child: Text('尚未拍摄：按下快门或选择照片后，可点「AI 分析」',
@@ -2370,7 +2476,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.history,
+              const Icon(MingCuteIcons.historyLine,
                   size: 15, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('本图纸拍照记录',
@@ -2452,7 +2558,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 18),
+            icon: const Icon(MingCuteIcons.deleteLine, size: 18),
             color: AppTokens.muted,
             tooltip: '删除该暂存记录',
             visualDensity: VisualDensity.compact,
@@ -2584,7 +2690,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         children: [
           Row(
             children: [
-              const Icon(LucideIcons.circleCheck,
+              const Icon(MingCuteIcons.checkCircleLine,
                   size: 16, color: AppTokens.brand),
               const SizedBox(width: AppTokens.space2),
               const Text('拍照完成，请确认',
@@ -2617,7 +2723,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _committing ? null : _cancelPending,
-                  icon: const Icon(LucideIcons.rotateCcw, size: 16),
+                  icon: const Icon(MingCuteIcons.cameraRotateLine, size: 16),
                   label: const Text('重拍'),
                 ),
               ),
@@ -2625,7 +2731,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: _committing ? null : _commitPhoto,
-                  icon: const Icon(LucideIcons.check, size: 16),
+                  icon: const Icon(MingCuteIcons.checkLine, size: 16),
                   label: const Text('使用'),
                 ),
               ),
@@ -2660,7 +2766,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
-        child: const Icon(LucideIcons.camera, color: Colors.white, size: 28),
+        child: const Icon(MingCuteIcons.cameraLine, color: Colors.white, size: 28),
       ),
     );
   }
@@ -2696,11 +2802,11 @@ class _ZoomToolbar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _IconBtn(icon: Icons.zoom_out, onTap: onZoomOut, tooltip: '缩小'),
+          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut, tooltip: '缩小'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.fullscreen, onTap: onReset, tooltip: '复位'),
+          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset, tooltip: '复位'),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: Icons.zoom_in, onTap: onZoomIn, tooltip: '放大'),
+          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn, tooltip: '放大'),
         ],
       ),
     );
@@ -2843,7 +2949,7 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(LucideIcons.x,
+                    icon: const Icon(MingCuteIcons.closeLine,
                         color: AppTokens.muted, size: 18),
                     onPressed: () => Navigator.of(context).pop(),
                     splashRadius: 16,
@@ -2962,7 +3068,7 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: const [
-                                  Icon(LucideIcons.check,
+                                  Icon(MingCuteIcons.checkLine,
                                       size: 12, color: AppTokens.muted),
                                   SizedBox(width: 2),
                                   Text('已转工单',

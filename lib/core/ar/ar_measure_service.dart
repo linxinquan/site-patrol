@@ -9,7 +9,7 @@ class ArMeasureService {
   final MethodChannel channel;
 
   ArMeasureService({required int viewId})
-      : channel = MethodChannel('ar_measure_$viewId');
+      : channel = MethodChannel('ar_measure_channel');
 
   Future<bool> isSupported() async =>
       (await channel.invokeMethod<bool>('isSupported')) ?? false;

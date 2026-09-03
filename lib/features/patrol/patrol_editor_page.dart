@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -414,16 +415,22 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(
+          icon: MingCuteIcons.leftLine,
+          color: AppTokens.patrolFg,
+        ),
         title: const Text('路线编辑',
             style: TextStyle(
                 color: AppTokens.patrolFg,
                 fontSize: 16,
                 fontWeight: FontWeight.w600)),
         actions: [
-          IconButton(
+          NavIconButton(
             tooltip: '复位',
-            icon: const Icon(MingCuteIcons.fullscreenLine,
-                size: 20, color: AppTokens.patrolFg),
+            icon: MingCuteIcons.fullscreenLine,
+            color: AppTokens.patrolFg,
+            size: 20,
             onPressed: _resetView,
           ),
           TextButton(

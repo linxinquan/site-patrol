@@ -24,6 +24,7 @@ class VisionResult {
                 name: e['name']?.toString() ?? '',
                 desc: e['desc']?.toString() ?? '',
                 conf: (e['conf'] as num?)?.toDouble() ?? 0.0,
+                suggestion: e['suggestion']?.toString(),
               ))
           .toList();
       return VisionResult(count: map['count'] as int? ?? items.length, defects: items);
@@ -55,14 +56,24 @@ class DefectItem {
 
   /// 置信度 0.0~1.0：1.0 确定无需人工复核，0.0 判断错误/无法判断。
   final double conf;
-  const DefectItem({required this.name, required this.desc, this.conf = 0.0});
 
-  Map<String, dynamic> toJson() => {'name': name, 'desc': desc, 'conf': conf};
+  /// AI 整改建议（给施工单位；后端模型未返回时为空，客户端用本地建议库兜底）。
+  final String? suggestion;
+  const DefectItem({
+    required this.name,
+    required this.desc,
+    this.conf = 0.0,
+    this.suggestion,
+  });
+
+  Map<String, dynamic> toJson() =>
+      {'name': name, 'desc': desc, 'conf': conf, 'suggestion': suggestion};
 
   factory DefectItem.fromJson(Map<String, dynamic> map) => DefectItem(
         name: map['name']?.toString() ?? '',
         desc: map['desc']?.toString() ?? '',
         conf: (map['conf'] as num?)?.toDouble() ?? 0.0,
+        suggestion: map['suggestion']?.toString(),
       );
 }
 

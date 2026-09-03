@@ -7,6 +7,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_button.dart';
@@ -18,6 +19,7 @@ import '../../core/cad/axis_auto_calibration.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/cad_info_panel.dart';
 import '../../data/models.dart';
+import '../../data/repository/mock_repository.dart';
 
 /// 图纸查看器：缩放/平移/工具条 + 热点跳转确认 + 长按锚定。
 /// 进入与热点跳转均用 context.push，形成返回栈（返回退上一张图，根层才退出）。
@@ -36,6 +38,8 @@ class DrawingViewerPage extends ConsumerWidget {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: NavIconButton(icon: MingCuteIcons.leftLine),
         titleSpacing: 12,
         title: current == null
             ? const Text('图纸查看')
@@ -830,7 +834,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     // 退出拾取模式
     ref.read(cadPickModeProvider.notifier).state = false;
 
-    // 打通巡查记录：新建一条缺陷工单（带真实图纸坐标 worldX/worldY）
+    // 打通巡查记录：新建一条巡场清单记录（带真实图纸坐标 worldX/worldY）
     _createDefectFromPick(ann, world);
   }
 
@@ -861,6 +865,10 @@ class _ViewerState extends ConsumerState<_Viewer> {
     );
 
     final repo = ref.read(repositoryProvider);
+    // 归入当前项目，避免新增缺陷串到另一个项目。
+    if (repo is MockRepository) {
+      repo.currentIs7 = ref.read(is7DongProjectProvider);
+    }
     repo.addDefect(defect);
 
     final calibrated = _isCalibrated;
