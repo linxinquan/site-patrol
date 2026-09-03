@@ -14,6 +14,7 @@ import '../../core/utils/speech_recognizer.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/session_store.dart';
 import '../../core/storage/patrol_plan_store.dart';
+import '../../features/capture_records/capture_records_controller.dart';
 
 /// 数据仓库：dev 用 Mock，prod 用 Remote（后端就绪后实现）。UI 只依赖此 Provider。
 final repositoryProvider = Provider<Repository>((ref) {
@@ -272,6 +273,18 @@ void refreshDefects(Ref ref) {
 
 /// 缺陷列表筛选状态（null = 全部）。
 final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);
+
+/// 验收记录（拍照验收历史）。来源：`stored_vision_results` LocalStorage 文档，
+/// 按当前项目图纸 key 集合过滤 + ts 倒序。删除/转工单时自动写回文档。
+/// 二次筛选（时间窗口/楼层/AI 仅）由消费者调用 [applyRecordsFilter]。
+final captureRecordsProvider = StateNotifierProvider<
+    CaptureRecordsNotifier, List<Map<String, dynamic>>>(
+  (ref) => CaptureRecordsNotifier(ref),
+);
+
+/// 验收记录筛选状态（时间窗口 + 楼层 + AI 仅）。
+final captureRecordsFilterProvider =
+    StateProvider<CaptureRecordsFilter>((ref) => const CaptureRecordsFilter());
 
 /// 图纸缓存进度（key → 0~100）。初始按 mock 数据；未缓存图纸点击后模拟下载递增。
 /// P4 接真实后端后改为实际下载/缓存逻辑。

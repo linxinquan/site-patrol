@@ -776,11 +776,11 @@ class _QuickActions extends ConsumerWidget {
             ),
           ),
           _QuickCard(
-            icon: LucideIcons.layers,
-            title: '图层索引',
-            subtitle: '快速定位',
+            icon: LucideIcons.clipboardCheck,
+            title: '验收记录',
+            subtitle: '${ref.watch(captureRecordsProvider).length} 条',
             tint: AppTokens.success,
-            onTap: () => context.go('/projects'),
+            onTap: () => context.push('/capture-records'),
           ),
           _QuickCard(
             icon: LucideIcons.fileText,

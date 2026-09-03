@@ -71,10 +71,20 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 拍照后待确认的原始文件（拍后预览确认：重拍/使用）。
   XFile? _pendingShot;
   /// 提交（烧录水印 + 识别）进行中。
+  ///
+  /// 水印烧录必须在 UI isolate，期间 main thread 被阻塞 300-800ms，
+  /// `setState` 调度的 build 也会被推迟——但本字段在 setState 中立刻变化，
+  /// build 一次性执行时看到的最终态一致。
+  /// 注：流程中**不调用其他 setState**，仅在最后一次性更新 UI；
+  /// loading UI（蒙层、旋转、按钮"处理中…"）保留，未来若水印移到 isolate
+  /// 不阻塞 main thread 即可正常工作。
   bool _committing = false;
 
   /// 烧录水印后的照片字节（保存用）。
   Uint8List? _watermarkedPhoto;
+
+  /// 水印烧录前的原始压缩图（用于 AI 识别，避免水印文字/色块干扰模型判断）。
+  Uint8List? _originalPhoto;
 
   /// 水印元信息（时间/项目/部位/GPS/凭证号）。
   WatermarkMeta? _watermarkMeta;
@@ -376,6 +386,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   Future<void> _doCapture() async {
     if (_scanning || _committing) return;
 
+    // 守护：未选点（仍在 selectPoint / selectFloor 阶段）时点击拍照按钮
+    // 不触发拍照流程，只弹气泡提示，避免「保存按钮消失」之类的隐性规则。
+    if (_step != _CaptureStep.capture) {
+      if (mounted) {
+        AppSnack.show(context, '请先在图纸上选点', kind: AppSnackKind.brand);
+      }
+      return;
+    }
+
     final shot = await _pickImage();
     if (shot == null) {
       if (mounted) AppSnack.show(context, '已取消拍摄');
@@ -400,17 +419,29 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   /// 确认使用待确认照片：执行烧录水印 + 缺陷识别（原提交流程）。
+  ///
+  /// **核心约束**：水印烧录（`applyPhotoWatermark`）必须运行在 UI isolate，
+  /// 期间 main thread 被阻塞 300-800ms。`setState` 调度 build 也会被推迟——
+  /// 但 build 一次性执行时看到的最终态一致。
+  ///
+  /// 流程策略：
+  /// - 开头 setState `_committing = true`（UI 状态置位）
+  /// - 流程中**不调用任何 setState**，避免累积推迟
+  /// - 最后一次性 setState 设最终态（含 `_pendingShot = null`）
+  /// - finally setState `_committing = false`
+  /// - 取消/重拍：流程中 `_pendingShot` 被设为 null，最后 setState 检查
+  ///   `_pendingShot == shot` 跳过结果应用，避免"复活"已取消的照片
   Future<void> _commitPhoto() async {
     final shot = _pendingShot;
     if (shot == null || _committing) return;
     setState(() => _committing = true);
     try {
-      // 读取图片字节 → 简单压缩（压缩后的字节用于展示与烧录水印）。
+      // 1. 读原图字节（一次 IO，让出主线程 ~几十 ms）
       final rawBytes = await shot.readAsBytes();
-      final compressed = compressImage(rawBytes);
+      // 2. 压缩（VM isolate；Web fallback 主线程 ~100-500ms）
+      final compressed = await compressImageAsync(rawBytes);
 
       // 构造水印元信息（工程记录：时间 / 项目 / 部位 / GPS / 凭证号）。
-      // 定位信息来自用户选择的「附近定位点」（工程水印相机风格）。
       final now = DateTime.now();
       final meta = WatermarkMeta(
         project: _location.name,
@@ -428,7 +459,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             : null,
       );
 
-      // 烧录水印（失败时回退原始压缩图，避免阻断拍照流程）。
+      // 3. 烧录水印（必须 UI isolate，~300-800ms，期间 main thread 阻塞）
       Uint8List? watermarked;
       try {
         watermarked = await applyPhotoWatermark(compressed, meta);
@@ -438,12 +469,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       }
       final finalPhoto = watermarked ?? compressed;
 
-      if (mounted) {
+      // 4. SHA256
+      final hash = await imageSha256Async(finalPhoto);
+
+      // 5. 一次性 setState：所有最终态同时生效。
+      //    检查 _pendingShot == shot：若流程中被取消（_cancelPending/_retake
+      //    把 _pendingShot 设为 null），跳过结果应用，避免"复活"已取消的照片。
+      if (mounted && _pendingShot == shot) {
         setState(() {
           _shotPhoto = finalPhoto;
           _watermarkedPhoto = watermarked;
+          _originalPhoto = compressed;
           _watermarkMeta = meta;
-          _photoHash = imageSha256(finalPhoto);
+          _photoHash = hash;
           _defects = const [];
           _pendingShot = null;
         });
@@ -457,10 +495,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               : AppSnackKind.danger,
         );
       }
+    } catch (e) {
+      if (mounted && _pendingShot == shot) {
+        AppSnack.show(context, '提交失败：$e', kind: AppSnackKind.danger);
+      }
     } finally {
       if (mounted) setState(() => _committing = false);
     }
-    await _runScan();
+    // 不再自动触发 AI 分析 —— 由用户在「AI 分析」按钮上手动触发。
   }
 
   /// 当前拍摄人（复用登录用户姓名）。
@@ -487,7 +529,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       result = vlPreset(_anchorLabel, replayReal: true);
     } else if (_shotPhoto != null) {
       try {
-        final vision = await VisionService().recognizeDefects(_shotPhoto!);
+        // 优先使用无水印原始压缩图（_originalPhoto），无则回退到 _shotPhoto。
+        final bytesForAi = _originalPhoto ?? _shotPhoto!;
+        final vision = await VisionService().recognizeDefects(bytesForAi);
         result = vision.defects
             .map((d) => VlDefect(
                   name: d.name,
@@ -552,9 +596,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           .toList(),
       'note': note,
     };
-    // 移动端：把压缩照片落盘，entry 记相对路径（JSON 不支持二进制，故不内联字节）。
-    // Web 无文件系统，仅存文字结果。
-    if (!kIsWeb && _shotPhoto != null) {
+    // 跨端统一把照片写入 LocalStorage：
+    // - 移动端：写真实文件（持久化到 Hive），entry 记相对路径。
+    // - Web（演示实现）：写内存 Map（同会话内可读，刷新即丢——Web 演示特性），
+    //   但 entry 也能拿到 photo 字段，验收记录页能展示。
+    // JSON 不支持二进制内联，故统一走相对路径 + 写文件接口。
+    if (_shotPhoto != null) {
       final rel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
       try {
         await LocalStorage.instance.writeFile(rel, _shotPhoto!);
@@ -585,6 +632,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     _scanTimer?.cancel();
     setState(() {
       _shotPhoto = null;
+      _watermarkedPhoto = null;
+      _originalPhoto = null;
       _defects = const [];
       _scanError = null;
       _scanning = false;
@@ -678,8 +727,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     const SizedBox(height: AppTokens.space3),
                     _buildScaleCheckSection(),
                     const SizedBox(height: AppTokens.space3),
-                    _buildControls(),
-                    const SizedBox(height: AppTokens.space3),
+                    // 「保存记录」按钮已抽到 Scaffold.bottomNavigationBar 固定显示，
+                    // 此处不再嵌入滚动区，避免被内容推到屏幕外。
                     _buildStoredResults(),
                     const SizedBox(height: AppTokens.space6),
                   ],
@@ -688,6 +737,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
+        bottomNavigationBar: _buildControls(),
       );
   }
 
@@ -2053,7 +2103,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1) 拍后确认卡（在 AI 分析之前，提示"重拍 / 使用"）
+          // 1) 拍后确认卡（在 AI 分析之前，提示"重拍 / 使用"）。
+          //    _commitPhoto 流程中 _pendingShot 不变 → 预览卡继续显示原图。
+          //    流程结束时一次性 setState 清掉 _pendingShot，预览卡消失。
           if (_pendingShot != null) _buildPendingPreview(),
           // 2) 拍照控制行：两端控件 + 中央快门（Stack 叠放让快门始终水平居中）
           SizedBox(
@@ -2090,11 +2142,53 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           else ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              child: Image.memory(
-                _shotPhoto!,
-                width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
+              child: Stack(
+                children: [
+                  Image.memory(
+                    _shotPhoto!,
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                  ),
+                  // 提交中：覆盖半透明蒙层 + 进度提示。
+                  // 注：水印烧录期间 main thread 阻塞，build 推迟，
+                  // 蒙层实际不会显示；但保留 UI 设计，未来若水印移到 isolate
+                  // 不阻塞 main thread 即可正常工作。
+                  if (_committing)
+                    Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppTokens.bg.withValues(alpha: 0.72),
+                          borderRadius: BorderRadius.circular(
+                              AppTokens.radiusMd),
+                        ),
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
+                              ),
+                              SizedBox(height: 10),
+                              Text('正在烧录防篡改水印…',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppTokens.fg)),
+                              SizedBox(height: 2),
+                              Text('水印将作为取证凭证写入像素',
+                                  style: TextStyle(
+                                      fontSize: 11, color: AppTokens.muted)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: AppTokens.space2),
@@ -2204,16 +2298,55 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
-  /// 「保存记录」主按钮（仅拍照步骤显示）。
+  /// 「保存记录」主按钮（仅拍照步骤显示）。固定在 Scaffold 底部，
+  /// 不论滚动到哪里都始终可见，避免被图纸/输入区推到首屏外。
+  ///
+  /// 按钮禁用态：
+  /// - `_saved` → 「已保存（可继续拍摄）」（保存成功后停留）
+  /// - `_shotPhoto == null` → 「请先拍照」（未拍摄）
+  /// - `_pendingShot != null` → 「请确认使用照片」（拍了但未点「使用」）
+  /// - `_scanning` → 「分析中…」
+  /// - 其余 → 「保存记录」
   Widget _buildControls() {
     if (_step != _CaptureStep.capture) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      child: AppButton(
-        size: AppButtonSize.lg,
-        width: double.infinity,
-        label: _saved ? '已保存（可继续拍摄）' : '保存记录',
-        onPressed: _saved ? null : _saveRecord,
+    final canSave = _shotPhoto != null &&
+        _pendingShot == null &&
+        !_scanning &&
+        !_saved;
+    String label;
+    if (_saved) {
+      label = '已保存（可继续拍摄）';
+    } else if (_committing) {
+      // 注：水印烧录期间 main thread 阻塞，build 推迟，
+      // 此分支实际不会渲染；但保留 UI 设计以适配未来 isolate 化水印。
+      label = '处理中…';
+    } else if (_scanning) {
+      label = '分析中…';
+    } else if (_pendingShot != null) {
+      label = '请确认使用照片';
+    } else if (_shotPhoto == null) {
+      label = '请先拍照';
+    } else {
+      label = '保存记录';
+    }
+    return Material(
+      color: AppTokens.surface,
+      elevation: 6,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space2),
+          child: SizedBox(
+            width: double.infinity,
+            child: AppButton(
+              size: AppButtonSize.lg,
+              width: double.infinity,
+              label: label,
+              onPressed: canSave ? _saveRecord : null,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2602,25 +2735,76 @@ class _IconBtn extends StatelessWidget {
   }
 }
 
-/// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除。
-class StoredDetailSheet extends StatelessWidget {
+/// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除 + （可选）转工单。
+///
+/// 透传回调：
+/// - [onDelete]：用户点击「删除该记录」时触发（capture 与验收记录页共用）。
+/// - [onConvert]：可选；传入时显示每条 pending 缺陷的「转工单」按钮 + 底部
+///   「批量转工单（N）」。调用方负责：构造 [Defect] → `Repository.addDefect` →
+///   `refreshDefects(ref)` → 验收记录 status 回写。返回 `true` 表示至少有一条
+///   转换成功，弹层会就地刷新显示「已转工单 ✓」（不会关闭弹层）。
+class StoredDetailSheet extends StatefulWidget {
   final Map<String, dynamic> entry;
   final VoidCallback onDelete;
+
+  /// 接收待转的 defects 索引列表（弹层已按 pending 过滤）。
+  /// 返回 `true` 表示成功，弹层会就地标记这些条目为 `converted`。
+  final Future<bool> Function(List<int> pendingIdxs)? onConvert;
 
   const StoredDetailSheet({
     super.key,
     required this.entry,
     required this.onDelete,
+    this.onConvert,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final defects = (entry['defects'] as List? ?? const [])
-        .map((d) => d is Map<String, dynamic> ? d : const <String, dynamic>{})
+  State<StoredDetailSheet> createState() => _StoredDetailSheetState();
+}
+
+class _StoredDetailSheetState extends State<StoredDetailSheet> {
+  /// 内部 entry 副本；转工单成功后原地更新 defects[*].status。
+  late List<Map<String, dynamic>> _defects;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _defects = (widget.entry['defects'] as List? ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m.cast<String, dynamic>()))
         .toList();
-    final count = entry['count'] as int? ?? defects.length;
+  }
+
+  int get _pendingCount => _defects
+      .where((d) => (d['status']?.toString() ?? 'pending') != 'converted')
+      .length;
+
+  Future<void> _convert(List<int> idxs) async {
+    if (_busy || widget.onConvert == null || idxs.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      final ok = await widget.onConvert!(idxs);
+      if (ok) {
+        setState(() {
+          for (final i in idxs) {
+            if (i >= 0 && i < _defects.length) {
+              _defects[i]['status'] = 'converted';
+            }
+          }
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
     final note = (entry['note'] as String? ?? '').trim();
     final photo = entry['photo'] as String?;
+    final canConvert = widget.onConvert != null;
 
     return SafeArea(
       child: DraggableScrollableSheet(
@@ -2717,53 +2901,88 @@ class StoredDetailSheet extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: AppTokens.fg)),
               const SizedBox(height: 8),
-              if (count == 0)
+              if (_defects.isEmpty)
                 const Text('未分析 / 未识别到缺陷',
                     style: TextStyle(fontSize: 12, color: AppTokens.muted))
               else
-                ...defects.map((d) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.all(AppTokens.space2),
-                      decoration: BoxDecoration(
-                        color: AppTokens.surface2,
-                        borderRadius:
-                            BorderRadius.circular(AppTokens.radiusMd),
-                        border: Border.all(color: AppTokens.border),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(d['name']?.toString() ?? '',
+                ...List.generate(_defects.length, (i) {
+                  final d = _defects[i];
+                  final isConverted =
+                      (d['status']?.toString() ?? '') == 'converted';
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(AppTokens.space2),
+                    decoration: BoxDecoration(
+                      color: AppTokens.surface2,
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusMd),
+                      border: Border.all(color: AppTokens.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(d['name']?.toString() ?? '',
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTokens.fg)),
+                              if ((d['desc'] as String? ?? '').isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Text(
+                                    d['desc'] as String,
                                     style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTokens.fg)),
-                                if ((d['desc'] as String? ?? '').isNotEmpty)
-                                  Padding(
-                                    padding:
-                                        const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      d['desc'] as String,
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTokens.muted),
-                                    ),
+                                        fontSize: 11,
+                                        color: AppTokens.muted),
                                   ),
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${((d['conf'] as num? ?? 0) * 100).toInt()}%',
+                          style: const TextStyle(
+                              fontSize: 11, color: AppTokens.muted),
+                        ),
+                        if (canConvert) ...[
                           const SizedBox(width: 8),
-                          Text(
-                            '${((d['conf'] as num? ?? 0) * 100).toInt()}%',
-                            style: const TextStyle(
-                                fontSize: 11, color: AppTokens.muted),
-                          ),
+                          if (isConverted)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTokens.surface2,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppTokens.border),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(LucideIcons.check,
+                                      size: 12, color: AppTokens.muted),
+                                  SizedBox(width: 2),
+                                  Text('已转工单',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTokens.muted)),
+                                ],
+                              ),
+                            )
+                          else
+                            AppButton(
+                              label: '转工单',
+                              size: AppButtonSize.sm,
+                              onPressed: _busy ? null : () => _convert([i]),
+                            ),
                         ],
-                      ),
-                    )),
+                      ],
+                    ),
+                  );
+                }),
               const SizedBox(height: 16),
               // 问题描述
               const Text('问题描述',
@@ -2781,6 +3000,26 @@ class StoredDetailSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
+              // 批量转工单（仅当支持转工单时显示）
+              if (canConvert && _pendingCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: AppButton(
+                      label: '批量转工单（$_pendingCount）',
+                      onPressed: _busy
+                          ? null
+                          : () => _convert([
+                                for (var i = 0; i < _defects.length; i++)
+                                  if ((_defects[i]['status']?.toString() ??
+                                          '') !=
+                                      'converted')
+                                    i,
+                              ]),
+                    ),
+                  ),
+                ),
               // 删除
               SizedBox(
                 width: double.infinity,
@@ -2789,7 +3028,7 @@ class StoredDetailSheet extends StatelessWidget {
                   label: '删除该记录',
                   onPressed: () {
                     Navigator.of(context).pop();
-                    onDelete();
+                    widget.onDelete();
                   },
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -146,6 +147,16 @@ Uint8List? _jpegFromPng(Uint8List png, int quality) {
 
 /// 图片字节 SHA-256 校验指纹（留痕用）。
 String imageSha256(Uint8List bytes) => sha256.convert(bytes).toString();
+
+/// 在 isolate 中计算图片 SHA-256（避免 UI 线程阻塞）。
+/// Web 平台 dart:isolate 不支持，fallback 到主线程同步执行。
+Future<String> imageSha256Async(Uint8List bytes) async {
+  try {
+    return await Isolate.run(() => sha256.convert(bytes).toString());
+  } on UnsupportedError {
+    return sha256.convert(bytes).toString();
+  }
+}
 
 /// 图片字节 MD5 短指纹（供界面展示，便于人工对照）。
 String imageMd5(Uint8List bytes) => md5.convert(bytes).toString();

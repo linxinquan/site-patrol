@@ -14,6 +14,7 @@ import 'features/defects/defects_page.dart';
 import 'features/defects/record_detail_page.dart';
 import 'features/defects/timeline_compare_page.dart';
 import 'features/capture/capture_page.dart';
+import 'features/capture_records/capture_records_page.dart';
 import 'features/measure/measure_page.dart';
 import 'features/measure/ar_measure_page.dart';
 import 'features/projects/blueprint_viewer_page.dart';
@@ -76,11 +77,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             index = 2;
           } else if (loc.startsWith('/defects')) {
             index = 3;
-          } else if (loc.startsWith('/capture')) {
-            // 拍照验收是一级页面，但不属于 4 个文字 tab，故无 tab 选中高亮。
+          } else if (loc.startsWith('/capture') ||
+              loc.startsWith('/capture-records')) {
+            // 拍照验收 / 验收记录是一级页面，但不属于 4 个文字 tab，
+            // 故无 tab 选中高亮，仅底部相机按钮保留「active」反馈。
             index = -1;
           }
-          final cameraActive = loc.startsWith('/capture');
+          final cameraActive = loc.startsWith('/capture') ||
+              loc.startsWith('/capture-records');
           return Scaffold(
             body: child,
             bottomNavigationBar: AppBottomNav(
@@ -137,6 +141,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: CapturePage(
                 args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
               ),
+            ),
+          ),
+          // 验收记录（事后工作台）：与拍照验收同级，保留底部导航、无 tab 高亮。
+          GoRoute(
+            path: '/capture-records',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const CaptureRecordsPage(),
             ),
           ),
         ],

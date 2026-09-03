@@ -395,6 +395,11 @@ class Defect {
   final String? photoHash;
   /// 水印凭证号（拍摄流水，唯一）。
   final String? watermarkSerial;
+  /// 关联照片相对路径列表（验收转工单时填入验收记录的拍照水印图）。
+  final List<String> photos;
+  /// 来源拍照验收记录 id（验收转工单时填入 `${captureId}#${idx}`）；
+  /// 为空表示非验收转工单来源（图纸打点 / 手动录入等）。
+  final String? sourceCaptureId;
   const Defect({
     required this.id,
     required this.part,
@@ -418,6 +423,8 @@ class Defect {
     this.worldY,
     this.photoHash,
     this.watermarkSerial,
+    this.photos = const [],
+    this.sourceCaptureId,
   });
 
   /// 是否有 CAD 图纸坐标（可回溯定位）。

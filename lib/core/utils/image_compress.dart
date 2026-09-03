@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -26,4 +27,25 @@ Uint8List compressImage(Uint8List bytes, {int maxDim = 1280, int quality = 82}) 
     );
   }
   return Uint8List.fromList(img.encodeJpg(image, quality: quality));
+}
+
+/// 在 isolate 中执行图片压缩，避免阻塞 UI 线程。
+///
+/// - VM（iOS/Android/desktop）：走 isolate，不阻塞 UI。
+/// - Web（dart4web）：`dart:isolate` 不支持，fallback 到主线程同步执行，
+///   仍以 `Future` 形式返回（保持接口一致）。
+/// - 失败时（如解码错误）返回原始字节，与同步版本语义一致。
+Future<Uint8List> compressImageAsync(
+  Uint8List bytes, {
+  int maxDim = 1280,
+  int quality = 82,
+}) async {
+  try {
+    return await Isolate.run(
+      () => compressImage(bytes, maxDim: maxDim, quality: quality),
+    );
+  } on UnsupportedError {
+    // Web 平台不支持 dart:isolate，主线程同步执行。
+    return compressImage(bytes, maxDim: maxDim, quality: quality);
+  }
 }
