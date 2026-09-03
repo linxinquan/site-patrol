@@ -29,6 +29,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/voice_input.dart';
 import '../../shared/widgets/user_switcher.dart';
+import '../../shared/widgets/app_card.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
 const double _defaultTolMm = 10;
@@ -848,6 +849,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Icon(MingCuteIcons.mapPinLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
@@ -1111,20 +1113,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 步骤 ①：选择平面（楼层）。
   Widget _buildFloorSelector() {
-    return Card(
-      color: AppTokens.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return AppCard(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(MingCuteIcons.layersLine, size: 16, color: AppTokens.accent),
                 SizedBox(width: AppTokens.space2),
                 Text('选择图纸',
                     style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700, height: 1.2)),
               ],
             ),
             const SizedBox(height: AppTokens.space2),
@@ -1147,20 +1148,18 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
-      ),
     );
   }
 
   /// 步骤 ②：确认图纸上选中的部位。
   Widget _buildPointConfirm() {
-    return Card(
-      color: AppTokens.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.space3),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return AppCard(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(MingCuteIcons.mapPinLine,
                     size: 16, color: AppTokens.accent),
@@ -1168,7 +1167,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 Expanded(
                   child: Text('已选部位：${_anchorLabel}',
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700)),
+                          fontSize: 14, fontWeight: FontWeight.w700, height: 1.2)),
                 ),
               ],
             ),
@@ -1206,24 +1205,22 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
-      ),
     );
   }
 
   /// 步骤 ③：拍照阶段信息条。
   Widget _buildCaptureInfo() {
-    return Card(
-      color: AppTokens.surface,
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.space3),
-        child: Row(
-          children: [
+    return AppCard(
+      padding: const EdgeInsets.all(AppTokens.space3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
             const Icon(MingCuteIcons.cameraLine, size: 16, color: AppTokens.accent),
             const SizedBox(width: AppTokens.space2),
             Expanded(
               child: Text('${_drawing?.title ?? '—'} · ${_anchorLabel}',
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w600)),
+                      fontSize: 13, fontWeight: FontWeight.w600, height: 1.2)),
             ),
             TextButton.icon(
               onPressed: () => setState(() => _step = _CaptureStep.selectPoint),
@@ -1232,7 +1229,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -1486,13 +1482,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppTokens.space3),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(MingCuteIcons.scanLine,
                   size: 14, color: AppTokens.accent),
@@ -1525,7 +1522,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppTokens.space3),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
         border: Border.all(color: AppTokens.border),
         boxShadow: AppTokens.elevationOverlay,
@@ -1534,12 +1531,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(MingCuteIcons.rulerLine, size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('拍照量尺校对',
                   style:
-                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700, height: 1.1)),
               TextButton.icon(
                 onPressed: () async {
                   final projectId =
@@ -2026,10 +2024,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           ),
           const SizedBox(width: AppTokens.space3),
           if (burned)
-            const Tooltip(
-              message: '防篡改水印已烧录进照片像素，裁剪/涂抹即破坏原始画面',
-              child: Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFF34D399)),
-            )
+            const Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFF34D399))
           else
             const Icon(MingCuteIcons.shieldLine, size: 14, color: Color(0xFFFBBF24)),
           const SizedBox(width: AppTokens.space2),
@@ -2070,6 +2065,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(MingCuteIcons.navigationLine,
                       size: 15, color: AppTokens.accent),
@@ -2078,6 +2074,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
+                          height: 1.2,
                           color: AppTokens.fg)),
                   const Spacer(),
                   Text('${siteLocations.length} 处',
@@ -2236,12 +2233,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           const SizedBox(height: AppTokens.space3),
           if (_shotPhoto == null)
             const Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(MingCuteIcons.photoAlbumLine, size: 16, color: AppTokens.muted),
                 SizedBox(width: AppTokens.space2),
                 Expanded(
                   child: Text('尚未拍摄：按下快门或选择照片后，可点「AI 分析」',
-                      style: TextStyle(fontSize: 13, color: AppTokens.muted)),
+                      style: TextStyle(fontSize: 13, height: 1.2, color: AppTokens.muted)),
                 ),
               ],
             )
@@ -2475,6 +2473,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(MingCuteIcons.historyLine,
                   size: 15, color: AppTokens.accent),
@@ -2483,6 +2482,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
+                      height: 1.2,
                       color: AppTokens.fg)),
               const Spacer(),
               Text('${items.length} 条',
@@ -2560,7 +2560,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           IconButton(
             icon: const Icon(MingCuteIcons.deleteLine, size: 18),
             color: AppTokens.muted,
-            tooltip: '删除该暂存记录',
             visualDensity: VisualDensity.compact,
             onPressed: () => _confirmDeleteStored(e),
           ),
@@ -2656,19 +2655,31 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   Widget _buildControlBtn(IconData icon, String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space3, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 11, color: AppTokens.note)),
-          ],
+    final enabled = onTap != null;
+    final fg = enabled ? AppTokens.fg : AppTokens.note;
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppTokens.space2, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: fg),
+              const SizedBox(height: 4),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w400,
+                      height: 1,
+                      color: fg)),
+            ],
+          ),
         ),
       ),
     );
@@ -2689,12 +2700,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(MingCuteIcons.checkCircleLine,
                   size: 16, color: AppTokens.brand),
               const SizedBox(width: AppTokens.space2),
               const Text('拍照完成，请确认',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 13, height: 1.2)),
               const Spacer(),
               if (_committing)
                 const SizedBox(
@@ -2802,11 +2815,11 @@ class _ZoomToolbar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut, tooltip: '缩小'),
+          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset, tooltip: '复位'),
+          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn, tooltip: '放大'),
+          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn),
         ],
       ),
     );
@@ -2816,26 +2829,21 @@ class _ZoomToolbar extends StatelessWidget {
 class _IconBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final String tooltip;
 
   const _IconBtn({
     required this.icon,
     required this.onTap,
-    required this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(icon, size: 18, color: AppTokens.fg),
-        ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(icon, size: 18, color: AppTokens.fg),
       ),
     );
   }

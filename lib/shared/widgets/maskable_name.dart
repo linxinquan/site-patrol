@@ -78,10 +78,7 @@ class _MaskableNameState extends State<MaskableName> {
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: () => setState(() => _hidden = !_hidden),
-        child: Tooltip(
-          message: '点击隐藏 / 显示姓名',
-          child: nameWidget,
-        ),
+        child: nameWidget,
       ),
     );
   }

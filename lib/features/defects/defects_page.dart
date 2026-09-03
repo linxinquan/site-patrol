@@ -43,29 +43,35 @@ class DefectsPage extends ConsumerWidget {
         automaticallyImplyLeading: false,
         toolbarHeight: 44,
         centerTitle: false,
-        titleSpacing: 12,
-        title: const Text('工单',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: AppTokens.fg,
-                height: 28 / 20)),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 2),
-            child: IconButton(
-              tooltip: '导出报告',
-              icon: const Icon(MingCuteIcons.fileExportLine,
-                  size: 20, color: AppTokens.fg),
-              onPressed: () => _export(context, ref, defects),
-            ),
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: [
+              const Text('工单',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      color: AppTokens.fg,
+                      height: 28 / 20)),
+              const Spacer(),
+              // Frame 2147228050：右侧两个 24×24 图标，gap 16，右对齐
+              IconButton(
+                icon: const Icon(MingCuteIcons.fileExportLine,
+                    size: 24, color: AppTokens.fg),
+                onPressed: () => _export(context, ref, defects),
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              ),
+              const SizedBox(width: 16),
+              const UserSwitcher(),
+            ],
           ),
-          // 头像：与首页一致，点击弹出用户列表切换身份
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: UserSwitcher(),
-          ),
-        ],
+        ),
       ),
       body: AsyncState(
         value: defects,

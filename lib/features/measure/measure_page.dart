@@ -295,7 +295,6 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         actions: [
           NavIconButton(
             icon: MingCuteIcons.saveLine,
-            tooltip: '保存会话',
             onPressed: () async {
               await _persist();
               if (mounted) AppSnack.show(context, '已保存');
@@ -812,11 +811,11 @@ class _ZoomToolbar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut, tooltip: '缩小'),
+          _IconBtn(icon: MingCuteIcons.zoomOutLine, onTap: onZoomOut),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset, tooltip: '复位'),
+          _IconBtn(icon: MingCuteIcons.fullscreenLine, onTap: onReset),
           Container(width: 1, height: 28, color: AppTokens.border),
-          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn, tooltip: '放大'),
+          _IconBtn(icon: MingCuteIcons.zoomInLine, onTap: onZoomIn),
         ],
       ),
     );
@@ -826,26 +825,21 @@ class _ZoomToolbar extends StatelessWidget {
 class _IconBtn extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final String tooltip;
 
   const _IconBtn({
     required this.icon,
     required this.onTap,
-    required this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        child: SizedBox(
-          width: 36,
-          height: 36,
-          child: Icon(icon, size: 18, color: AppTokens.fg),
-        ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+      child: SizedBox(
+        width: 36,
+        height: 36,
+        child: Icon(icon, size: 18, color: AppTokens.fg),
       ),
     );
   }

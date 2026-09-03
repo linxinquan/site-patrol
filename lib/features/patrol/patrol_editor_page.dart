@@ -51,6 +51,12 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
 
   // 拖动中的点下标（null = 未在拖动）。
   int? _draggingIdx;
+  // 画布尺寸 / 图纸（供交互回调换算坐标）。
+  Size _canvasBox = Size.zero;
+  Drawing? _canvasDrawing;
+  Matrix4? _dragStartMatrix; // 拖动点起始时的变换矩阵（稳定换算，避免图纸被平移）
+  bool _dragUndoPushed = false; // 本次拖动是否已入撤销栈
+  bool _didPan = false; // 本次手势是否平移了图纸（用于吞掉松手后的误 tap）
 
   // 选中中的路点下标（null = 无选中）；用于"删点"按钮精确删除某一点。
   int? _selectedIdx;
@@ -253,9 +259,13 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
   // —— 手势 ——
 
   void _onTapUp(Offset local, Size box, Drawing drawing) {
+    if (_didPan) {
+      _didPan = false;
+      return; // 刚平移过图纸，忽略松手后的误 tap（避免多点）
+    }
     if (_draggingIdx != null) {
       _draggingIdx = null;
-      return; // 刚拖完，忽略本次 tap 的追加
+      return;
     }
     final hit = _hitIndex(local, box, drawing);
     if (hit != null) {
@@ -299,34 +309,48 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     AppSnack.show(context, '已删除第 ${hit + 1} 个路点', kind: AppSnackKind.muted);
   }
 
-  void _onPanDown(Offset local, Size box, Drawing drawing) {
-    final hit = _hitIndex(local, box, drawing);
+  // —— 拖动路点（用 InteractiveViewer 的 interaction 回调，避免与图纸平移手势冲突） ——
+  // 命中路点 → 锁定该点并临时禁用 InteractiveViewer 平移，使其跟随手指移动而图纸不动；
+  // 命中空白处 → 正常平移/缩放图纸，_didPan 标记用于吞掉松手后的误 tap。
+  void _onInteractionStart(ScaleStartDetails details) {
+    _didPan = false;
+    final scene = _transformController.toScene(details.focalPoint);
+    final hit = _hitIndex(scene, _canvasBox, _canvasDrawing!);
     if (hit != null) {
-      // 拖动手势优先于选中：拖动时取消当前选中。
-      setState(() => _selectedIdx = null);
+      _draggingIdx = hit;
+      _dragStartMatrix = Matrix4.fromList(_transformController.value.storage);
+      _dragUndoPushed = false;
+      setState(() {}); // 禁用图纸平移，专注拖点
     }
-    _draggingIdx = hit;
   }
 
-  void _onPanUpdate(Offset local, Size box, Drawing drawing) {
-    final idx = _draggingIdx;
-    if (idx == null) return;
-    final rel = _displayToRel(local, box, drawing);
+  void _onInteractionUpdate(ScaleUpdateDetails details) {
+    if (_draggingIdx == null) {
+      _didPan = true; // 空白处拖动 = 平移图纸
+      return;
+    }
+    if (!_dragUndoPushed) {
+      _pushUndo(); // 拖动开始时记一次撤销快照
+      _dragUndoPushed = true;
+    }
+    // 用拖动起始矩阵换算，保证图纸不被平移干扰
+    final scene = MatrixUtils.transformPoint(
+        Matrix4.inverted(_dragStartMatrix!), details.focalPoint);
+    final rel = _displayToRel(scene, _canvasBox, _canvasDrawing!);
     setState(() {
-      final p = _points[idx];
-      _points[idx] = PatrolPoint(
-        dx: rel.dx,
-        dy: rel.dy,
+      final p = _points[_draggingIdx!];
+      _points[_draggingIdx!] = PatrolPoint(
+        dx: rel.dx.clamp(0.0, 100.0),
+        dy: rel.dy.clamp(0.0, 100.0),
         isCheckpoint: p.isCheckpoint,
       );
     });
   }
 
-  void _onPanEnd() {
+  void _onInteractionEnd(ScaleEndDetails details) {
     if (_draggingIdx != null) {
-      // 拖动结束：把拖动前状态入栈（作为一次可撤销操作）。
-      _pushUndo();
       _draggingIdx = null;
+      setState(() {}); // 恢复图纸平移
     }
   }
 
@@ -412,34 +436,25 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     return Scaffold(
       backgroundColor: AppTokens.patrolBg,
       appBar: AppBar(
-        backgroundColor: AppTokens.patrolBg,
+        backgroundColor: const Color(0xFFF8F8F8),
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         leading: NavIconButton(
           icon: MingCuteIcons.leftLine,
           color: AppTokens.patrolFg,
+          onPressed: () => context.pop(),
         ),
+        centerTitle: true,
         title: const Text('路线编辑',
             style: TextStyle(
-                color: AppTokens.patrolFg,
+                color: Color(0xFF000000),
                 fontSize: 16,
                 fontWeight: FontWeight.w600)),
         actions: [
-          NavIconButton(
-            tooltip: '复位',
-            icon: MingCuteIcons.fullscreenLine,
-            color: AppTokens.patrolFg,
-            size: 20,
-            onPressed: _resetView,
-          ),
-          TextButton(
-            onPressed: _save,
-            child: Text(canSave ? '保存' : '保存（≥2点）',
-                style: TextStyle(
-                    color: canSave ? AppTokens.patrolFg : AppTokens.patrolMuted,
-                    fontSize: 14)),
-          ),
+          // 操作说明（替换原顶部「保存」文字按钮）
+          _HelpPill(onTap: _showHelp),
         ],
       ),
       body: drawing == null
@@ -448,271 +463,471 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                   style: TextStyle(color: AppTokens.patrolMuted)))
           : Column(
               children: [
-                // 名称 / 楼层表单
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _editField('路线名称', _nameCtl),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _editField('楼层', _floorCtl),
-                      ),
-                    ],
-                  ),
-                ),
-                // 提示条 + 显式按钮
+                const SizedBox(height: 8),
+                // 信息卡片：路线名称 / 楼层（可点击改）/ 路线点
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      const Icon(MingCuteIcons.mapLine,
-                          size: 12, color: AppTokens.patrolMuted),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          '单击/➕ 加点 · 拖动移动 · 长按删除 · 双击切检查点（蓝实心）· 当前 ${_points.length} 点',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppTokens.patrolMuted),
-                        ),
-                      ),
-                      // 显式"+ 点位"按钮：在图纸中心追加一个临时点
-                      _miniBtn(
-                        icon: MingCuteIcons.addLine,
-                        label: '加点',
-                        onTap: () => _appendAtCenter(drawing),
-                      ),
-                      const SizedBox(width: 6),
-                      // 显式"删除最后一点"按钮
-                      _miniBtn(
-                        icon: MingCuteIcons.deleteLine,
-                        label: '删点',
-                        enabled: _points.isNotEmpty,
-                        onTap: _popLastPoint,
-                      ),
-                    ],
+                  child: _InfoCard(
+                    name: _nameCtl.text.isEmpty ? '巡场路线' : _nameCtl.text,
+                    floor: _floorCtl.text.isEmpty ? _floor : _floorCtl.text,
+                    pointCount: _points.length,
+                    onEditName: () => _showEditSheet(kind: 'name'),
+                    onEditFloor: () => _showEditSheet(kind: 'floor'),
                   ),
                 ),
-                const SizedBox(height: 6),
-                // P1：穿墙警告横幅；未校准 / 无墙线时显示降级提示。
+                const SizedBox(height: 8),
+                // 穿墙警告横幅（未校准 / 有穿墙段时显示）
                 _WarningBanner(
                   wallLines: _wallLinesRel,
                   crossingCount: _crossingSegs.length,
                   attempted: _wallLinesAttempted,
                   calibrationOk: _calibrationOk,
                 ),
+                const SizedBox(height: 8),
                 // 图纸画布
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final box = constraints.biggest;
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapUp: (e) =>
-                                _onTapUp(_viewportToLocal(e.localPosition), box, drawing),
-                            onDoubleTap: () {},
-                            onDoubleTapDown: (e) => _onDoubleTap(
-                                _viewportToLocal(e.localPosition), box, drawing),
-                            onLongPressStart: (e) =>
-                                _onLongPress(_viewportToLocal(e.localPosition), box, drawing),
-                            onPanDown: (e) =>
-                                _onPanDown(_viewportToLocal(e.localPosition), box, drawing),
-                            onPanUpdate: (e) =>
-                                _onPanUpdate(_viewportToLocal(e.localPosition), box, drawing),
-                            onPanEnd: (_) => _onPanEnd(),
-                            onPanCancel: _onPanEnd,
-                            child: InteractiveViewer(
-                              transformationController: _transformController,
-                              minScale: 1.0,
-                              maxScale: 12.0,
-                              boundaryMargin: const EdgeInsets.all(160),
-                              clipBehavior: Clip.hardEdge,
-                              child: SizedBox(
-                                width: box.width,
-                                height: box.height,
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: Image.asset(
-                                        drawing.src,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    // 覆盖层：折线 + 点 + 序号
-                                    CustomPaint(
-                                      size: Size.infinite,
-                                      painter: _RouteEditorPainter(
-                                        points: [
-                                          for (final p in _points)
-                                            _relToDisplay(
-                                                Offset(p.dx, p.dy), box, drawing),
-                                    ],
-                                    checkpoints: [
-                                      for (var i = 0;
-                                          i < _points.length;
-                                          i++)
-                                        if (_points[i].isCheckpoint) i
-                                    ],
-                                    crossingSegs: _crossingSegs,
-                                    selectedIdx: _selectedIdx,
-                                  ),
-                                ),
-                              ],
-                              ),
-                            ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                    child: _buildCanvas(drawing),
                   ),
                 ),
-                // 操作按钮：撤销 / 清空
-                Container(
-                  color: AppTokens.patrolSurface,
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _editBtn(
-                            icon: MingCuteIcons.historyLine,
-                            label: '撤销',
-                            onTap: _undo,
-                            enabled: _undoStack.isNotEmpty),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _editBtn(
-                            icon: MingCuteIcons.deleteLine,
-                            label: '清空',
-                            onTap: _clearAll,
-                            enabled: _points.isNotEmpty),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _editBtn(
-                            icon: MingCuteIcons.saveLine,
-                            label: '保存',
-                            onTap: _save,
-                            enabled: canSave),
-                      ),
-                    ],
+                const SizedBox(height: 8),
+                // 加点 / 删点
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _AddRemoveBar(
+                    onAdd: () => _appendAtCenter(drawing),
+                    onRemove: _popLastPoint,
+                    canRemove: _points.isNotEmpty,
                   ),
                 ),
+                const SizedBox(height: 8),
+                // 底部操作栏：撤销 / 清空 / 复位 / 保存（通栏、无圆角）
+                _ActionBar(
+                  canSave: canSave,
+                  canUndo: _undoStack.isNotEmpty,
+                  canClear: _points.isNotEmpty,
+                  onUndo: _undo,
+                  onClear: _clearAll,
+                  onReset: _resetView,
+                  onSave: _save,
+                ),
+                const SizedBox(height: 8),
               ],
             ),
     );
   }
 
-  Widget _editField(String label, TextEditingController c) => TextField(
-        controller: c,
-        style: const TextStyle(color: AppTokens.patrolFg, fontSize: 13),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: AppTokens.patrolMuted, fontSize: 12),
-          isDense: true,
-          enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppTokens.patrolBorder),
+  // —— 画布（从 build 抽出，保持手势/绘制逻辑不变） ——
+  Widget _buildCanvas(Drawing drawing) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final box = constraints.biggest;
+        _canvasBox = box;
+        _canvasDrawing = drawing;
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (e) =>
+                _onTapUp(_viewportToLocal(e.localPosition), box, drawing),
+            onDoubleTap: () {},
+            onDoubleTapDown: (e) => _onDoubleTap(
+                _viewportToLocal(e.localPosition), box, drawing),
+            onLongPressStart: (e) =>
+                _onLongPress(_viewportToLocal(e.localPosition), box, drawing),
+            child: InteractiveViewer(
+              transformationController: _transformController,
+              minScale: 1.0,
+              maxScale: 12.0,
+              boundaryMargin: const EdgeInsets.all(160),
+              clipBehavior: Clip.hardEdge,
+              // 拖动路点时临时禁用图纸平移，避免「拖点变拖图」
+              panEnabled: _draggingIdx == null,
+              scaleEnabled: true,
+              onInteractionStart: _onInteractionStart,
+              onInteractionUpdate: _onInteractionUpdate,
+              onInteractionEnd: _onInteractionEnd,
+              child: SizedBox(
+                width: box.width,
+                height: box.height,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        drawing.src,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    CustomPaint(
+                      size: Size.infinite,
+                      painter: _RouteEditorPainter(
+                        points: [
+                          for (final p in _points)
+                            _relToDisplay(Offset(p.dx, p.dy), box, drawing),
+                        ],
+                        checkpoints: [
+                          for (var i = 0; i < _points.length; i++)
+                            if (_points[i].isCheckpoint) i
+                        ],
+                        crossingSegs: _crossingSegs,
+                        selectedIdx: _selectedIdx,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppTokens.patrolFg),
+        );
+      },
+    );
+  }
+
+  /// 顶部右上「操作说明」胶囊（白色胶囊 + 问号图标 + 品牌蓝文字）。
+  Widget _HelpPill({required VoidCallback onTap}) => Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+          child: Container(
+            height: 28,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(MingCuteIcons.questionLine,
+                    size: 16, color: AppTokens.brand),
+                const SizedBox(width: 4),
+                const Text('操作说明',
+                    style: TextStyle(
+                        fontSize: 12,
+                        height: 1,
+                        fontWeight: FontWeight.w500,
+                        color: AppTokens.brand)),
+              ],
+            ),
           ),
         ),
       );
 
-  /// 路线编辑器顶部"加点/删点"等行内小按钮。
-  Widget _miniBtn({
-    required IconData icon,
+  /// 信息卡片：路线名称 / 楼层 / 路线点。前两者可点击弹出底部弹窗修改。
+  Widget _InfoCard({
+    required String name,
+    required String floor,
+    required int pointCount,
+    required VoidCallback onEditName,
+    required VoidCallback onEditFloor,
+  }) =>
+      Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            _InfoRow(label: '路线名称', value: name, onTap: onEditName),
+            const SizedBox(height: 12),
+            _InfoRow(label: '楼层', value: floor, onTap: onEditFloor),
+            const SizedBox(height: 12),
+            _InfoRow(label: '路线点', value: '$pointCount 点'),
+          ],
+        ),
+      );
+
+  Widget _InfoRow({
     required String label,
-    required VoidCallback onTap,
-    bool enabled = true,
+    required String value,
+    VoidCallback? onTap,
   }) =>
       InkWell(
-        onTap: enabled ? onTap : null,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTokens.patrolSurface2,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-                color: enabled
-                    ? AppTokens.patrolBorder
-                    : AppTokens.patrolBorder.withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        child: SizedBox(
+          height: 22,
+            child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 13,
-                  color: enabled
-                      ? AppTokens.patrolFg
-                      : AppTokens.patrolMuted.withValues(alpha: 0.5)),
-              const SizedBox(width: 3),
               Text(label,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: enabled
-                          ? AppTokens.patrolFg
-                          : AppTokens.patrolMuted.withValues(alpha: 0.5))),
+                  style: const TextStyle(
+                      fontSize: 14, height: 1, color: AppTokens.muted)),
+              const Spacer(),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 14, height: 1, color: AppTokens.fg)),
+              if (onTap != null) ...[
+                const SizedBox(width: 8),
+                const Icon(MingCuteIcons.editLine,
+                    size: 16, color: AppTokens.fg),
+              ],
             ],
           ),
         ),
       );
 
-  Widget _editBtn({
+  /// 加点 / 删点 工具条（白底圆角，图标+文字均为弱化灰）。
+  Widget _AddRemoveBar({
+    required VoidCallback onAdd,
+    required VoidCallback onRemove,
+    required bool canRemove,
+  }) =>
+      Row(
+        children: [
+          Expanded(
+            child: _AddRemoveBtn(
+              icon: MingCuteIcons.addCircleFill,
+              label: '加点',
+              onTap: onAdd,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _AddRemoveBtn(
+              icon: MingCuteIcons.minusCircleFill,
+              label: '删点',
+              onTap: canRemove ? onRemove : null,
+            ),
+          ),
+        ],
+      );
+
+  Widget _AddRemoveBtn({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
-    bool enabled = true,
+    required VoidCallback? onTap,
   }) =>
       InkWell(
-        onTap: enabled ? onTap : null,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          height: 40,
           decoration: BoxDecoration(
-            color: AppTokens.patrolSurface2,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            border: Border.all(
-                color: enabled
-                    ? AppTokens.patrolBorder
-                    : AppTokens.patrolBorder.withValues(alpha: 0.4)),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon,
-                  size: 16,
-                  color: enabled
-                      ? AppTokens.patrolFg
-                      : AppTokens.patrolMuted.withValues(alpha: 0.5)),
-              const SizedBox(height: 2),
+                  size: 20,
+                  color: onTap == null
+                      ? AppTokens.muted.withValues(alpha: 0.5)
+                      : AppTokens.muted),
+              const SizedBox(width: 4),
               Text(label,
                   style: TextStyle(
-                      fontSize: 11,
-                      color: enabled
-                          ? AppTokens.patrolFg
-                          : AppTokens.patrolMuted.withValues(alpha: 0.5))),
+                      fontSize: 14,
+                      height: 1,
+                      color: onTap == null
+                          ? AppTokens.muted.withValues(alpha: 0.5)
+                          : AppTokens.muted)),
             ],
           ),
         ),
       );
+
+  /// 底部操作栏：撤销 / 清空 / 复位 / 保存。
+  Widget _ActionBar({
+    required bool canSave,
+    required bool canUndo,
+    required bool canClear,
+    required VoidCallback onUndo,
+    required VoidCallback onClear,
+    required VoidCallback onReset,
+    required VoidCallback onSave,
+  }) =>
+      Container(
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            _ActionItem(
+                icon: MingCuteIcons.backLine,
+                label: '撤销',
+                onTap: canUndo ? onUndo : null),
+            _ActionItem(
+                icon: MingCuteIcons.delete2Line,
+                label: '清空',
+                onTap: canClear ? onClear : null),
+            _ActionItem(
+                icon: MingCuteIcons.liveLocationLine,
+                label: '复位',
+                onTap: onReset),
+            _ActionItem(
+                icon: MingCuteIcons.fileDownloadLine,
+                label: '保存',
+                onTap: onSave,
+                isSave: true,
+                saveEnabled: canSave),
+          ],
+        ),
+      );
+
+  Widget _ActionItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool isSave = false,
+    bool saveEnabled = false,
+  }) {
+    final enabled = onTap != null;
+    final Color c = isSave
+        ? (saveEnabled ? AppTokens.brand : AppTokens.note)
+        : (enabled ? AppTokens.fg : AppTokens.muted);
+    final Color labelC = isSave
+        ? (saveEnabled ? AppTokens.brand : AppTokens.note)
+        : (enabled ? AppTokens.fg2 : AppTokens.muted);
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: c),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(fontSize: 12, color: labelC)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 路线名称 / 楼层 编辑底部弹窗（占位：交互已通，CSS 待用户后续提供后细化）。
+  void _showEditSheet({required String kind}) {
+    final isName = kind == 'name';
+    final ctl = TextEditingController(
+        text: isName ? _nameCtl.text : _floorCtl.text);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(isName ? '修改路线名称' : '修改楼层',
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctl,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: isName ? '路线名称' : '楼层',
+                labelStyle:
+                    const TextStyle(color: AppTokens.muted, fontSize: 12),
+                isDense: true,
+                enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppTokens.border)),
+                focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppTokens.brand)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    if (isName) {
+                      _nameCtl.text = ctl.text.trim();
+                    } else {
+                      _floorCtl.text = ctl.text.trim();
+                    }
+                  });
+                  Navigator.of(ctx).pop();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTokens.brand,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text('确定'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 操作说明底部弹窗：路线编辑的加点 / 删点等操作指引。
+  void _showHelp() {
+    final items = <List<String>>[
+      ['加点', '单击图纸空白处添加一个路点；或点底部「加点」在画面中央补充一个点。'],
+      ['删点', '长按路点删除；选中某点后点「删点」可精确删除该点；「清空」删除全部路点。'],
+      ['移动', '拖动路点可调整其位置。'],
+      ['检查点', '双击路点切换检查点（橙色实心），普通点为白底蓝边。'],
+      ['撤销 / 复位', '误操作可点「撤销」回退一步；「复位」恢复视图缩放。'],
+      ['保存', '路点 ≥ 2 时可保存；路线穿墙会提示确认后再保存。'],
+    ];
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('操作说明',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 12),
+            ...items.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                          text: '${e[0]}：',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTokens.brand)),
+                      TextSpan(
+                          text: e[1],
+                          style: const TextStyle(
+                              fontSize: 13, color: AppTokens.fg)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-/// P1：编辑器顶部穿墙状态横幅。
+/// 路线编辑顶部穿墙状态横幅（白底圆角、红字红图标，对齐 Figma Frame 2147228049）。
 ///  1. 未尝试加载 → 不显示（避免初次闪烁）
-///  2. 已校准但无墙线段 → 绿色"路线无穿墙"（仅在有点时显示）
-///  3. 校准成功、有穿墙段 → 红色"⚠ 有 N 段穿墙"
-///  4. 未校准 → 黄色"该图纸未校准，无法检测穿墙"
-///  5. 已校准但墙线资产缺失（Python 管线未跑）→ 黄色"该图纸暂无墙线数据，请运行 python server/cad_meta_build.py"
+///  2. 已校准但无墙线段 → 不显示
+///  3. 校准成功、有穿墙段 → 红色"⚠ 有 N 段穿墙，请沿走廊补点"
+///  4. 未校准 → 红色"该图纸未校准，无法检测穿墙"
+///  5. 已校准但墙线资产缺失（Python 管线未跑）→ 红色"该图纸暂无墙线数据，请运行 python server/cad_meta_build.py"
 class _WarningBanner extends StatelessWidget {
   final List<List<double>>? wallLines;
   final int crossingCount;
@@ -728,62 +943,41 @@ class _WarningBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!attempted) return const SizedBox.shrink();
-    // 状态 4/5：区分未校准与墙线缺失
+    final String msg;
     if (wallLines == null) {
-      final msg = calibrationOk
+      // 状态 4/5：区分未校准与墙线缺失
+      msg = calibrationOk
           ? '该图纸暂无墙线数据，请运行 python server/cad_meta_build.py 后重试'
           : '该图纸未校准，无法检测穿墙';
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEF3C7), // amber-100
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
-          ),
-          child: Row(
-            children: [
-              const Icon(MingCuteIcons.alertLine,
-                  size: 14, color: Color(0xFFB45309)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  msg,
-                  style: const TextStyle(
-                      fontSize: 12, color: Color(0xFFB45309)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (crossingCount == 0) {
-      // 状态 2：仅在有点段时显示绿色
+    } else if (crossingCount > 0) {
+      // 状态 3：红色警示
+      msg = '⚠ 有 $crossingCount 段路线穿墙，请沿走廊补点';
+    } else {
+      // 状态 2：无穿墙段 → 不显示
       return const SizedBox.shrink();
     }
-    // 状态 3：红色警示
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEE2E2), // red-100
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5)),
+          color: Colors.white, // 纯白底
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Icon(MingCuteIcons.alertLine,
-                size: 14, color: Color(0xFFB91C1C)),
-            const SizedBox(width: 6),
+            const Icon(MingCuteIcons.alertFill,
+                size: 18, color: Color(0xFFE03131)), // 实红，无透明度
+            const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                '⚠ 有 $crossingCount 段路线穿墙，请沿走廊补点',
-                style: const TextStyle(
-                    fontSize: 12, color: Color(0xFFB91C1C)),
-              ),
+              child: Text(msg,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1, // 关键：固定行高，图标与文字严格水平居中
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFFE03131),
+                  )),
             ),
           ],
         ),
@@ -792,13 +986,13 @@ class _WarningBanner extends StatelessWidget {
   }
 }
 
-/// 路线编辑覆盖层：折线 + 点（检查点蓝实心 / 普通点空心）+ 序号。
+/// 路线编辑覆盖层：折线 + 点（选中=蓝实心 / 检查点=橙实心 / 普通点=白底蓝描边）+ 序号。
 /// P1：穿墙段（crossingSegs 内）画红色粗线覆盖，警示色与正常蓝色折线并存。
 class _RouteEditorPainter extends CustomPainter {
   final List<Offset> points; // 显示坐标
   final List<int> checkpoints;
   final Set<int> crossingSegs; // 穿墙段下标（路线段 i 对应 points[i]→points[i+1]）
-  final int? selectedIdx; // 选中点下标（橙色高亮，供"删点"精确定位）
+  final int? selectedIdx; // 选中点下标（蓝色高亮，供"删点"精确定位）
   const _RouteEditorPainter({
     required this.points,
     required this.checkpoints,
@@ -820,16 +1014,16 @@ class _RouteEditorPainter extends CustomPainter {
     canvas.drawPath(
       smoothPath,
       Paint()
-        ..color = const Color(0xFF3B82F6).withValues(alpha: 0.7)
+        ..color = const Color(0xFF0395FF).withValues(alpha: 0.7) // 主色 0395FF
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4
+        ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
     // 2) 穿墙警示：每段按局部的 4 点样条切片（保留平滑视觉，不退化为直线）。
     if (crossingSegs.isNotEmpty) {
       final redPaint = Paint()
-        ..color = const Color(0xFFEF4444).withValues(alpha: 0.9)
+        ..color = const Color(0xFFEF4444).withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.0
         ..strokeCap = StrokeCap.round
@@ -873,34 +1067,51 @@ class _RouteEditorPainter extends CustomPainter {
 
   void _drawPoint(Canvas canvas, Offset p, bool isCp, int idx) {
     final isSel = idx == selectedIdx;
-    final fill = isSel
-        ? const Color(0xFFF97316) // 选中 → 橙色
-        : (isCp ? const Color(0xFF1D4ED8) : const Color(0xFFFFFFFF));
+    final Color fill;
+    final Color strokeColor;
+    final double strokeW;
+    if (isSel) {
+      fill = const Color(0xFF3B82F6); // 选中 → 蓝实心
+      strokeColor = const Color(0xFFFFFFFF); // 白描边凸显选中
+      strokeW = 2.5;
+    } else if (isCp) {
+      fill = const Color(0xFFF97316); // 检查点 → 橙实心
+      strokeColor = const Color(0xFFFFFFFF);
+      strokeW = 1.5;
+    } else {
+      fill = const Color(0xFFFFFFFF); // 普通点 → 白底
+      strokeColor = const Color(0xFF3B82F6); // 蓝描边（与路线同色）
+      strokeW = 2.0;
+    }
     canvas.drawCircle(
       p,
       7,
       Paint()
-        ..color = const Color(0xFFFFFFFF)
+        ..color = strokeColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = isSel ? 3.0 : 1.5,
+        ..strokeWidth = strokeW,
     );
     canvas.drawCircle(p, 6.5, Paint()..color = fill);
-    if (isCp) {
-      canvas.drawCircle(p, 2.2, Paint()..color = const Color(0xFFFFFFFF));
-    }
-    // 序号标签（点位右上角小数字，1/2/3...），便于"哪一段是哪一段"
+    // 序号标签：圆内水平垂直居中。
+    // 选中/检查点（蓝/橙实心）→ 纯白字；普通点 → 蓝色字，与描边同色。
+    final Color txtColor = (isSel || isCp)
+        ? const Color(0xFFFFFFFF)
+        : const Color(0xFF3B82F6);
     final tp = TextPainter(
       text: TextSpan(
         text: '${idx + 1}',
         style: TextStyle(
           fontSize: 9,
           fontWeight: FontWeight.w600,
-          color: isCp ? const Color(0xFF1D4ED8) : AppTokens.patrolFg,
+          color: txtColor,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, p + const Offset(9, -14));
+    // 用文字行度量取字形中心（em box 居中），保证数字在圆心正中央。
+    final m = tp.computeLineMetrics().first;
+    final top = p.dy - (m.ascent + m.descent) / 2;
+    tp.paint(canvas, Offset(p.dx - tp.width / 2, top));
   }
 
   @override

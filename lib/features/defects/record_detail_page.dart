@@ -141,11 +141,13 @@ class _InfoCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('严重程度',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppTokens.muted)),
+                const SizedBox(
+                    width: 56,
+                    child: Text('严重程度',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppTokens.muted))),
                 const SizedBox(width: AppTokens.space4),
                 Text(d.severity.label,
                     style: const TextStyle(
@@ -158,11 +160,13 @@ class _InfoCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('责任人',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: AppTokens.muted)),
+                const SizedBox(
+                    width: 56,
+                    child: Text('责任人',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: AppTokens.muted))),
                 const SizedBox(width: AppTokens.space4),
                 Expanded(
                   child: Text(d.resp,
@@ -316,7 +320,7 @@ class _WatermarkPhoto extends StatelessWidget {
               right: 12,
               child: verified
                   ? const _VerifiedBadge(
-                      icon: MingCuteIcons.radioboxLine,
+                      icon: MingCuteIcons.checkCircleLine,
                       label: '已效验',
                       bg: const Color(0xB300B84A),
                       fg: AppTokens.onAccent,

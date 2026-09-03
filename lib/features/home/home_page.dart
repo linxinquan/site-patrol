@@ -716,16 +716,48 @@ DateTime _prevNodeStart(List<Milestone> ms, int currentIdx) {
 }
 
 // ==================== 快捷操作（4×2 网格，自适应屏宽，不横向滑动） ====================
-/// 快捷操作图标渐变（设计稿 Frame 2147227957）：蓝（默认）/ 橙（仅拍照验收）。
-const _qaBlueGrad = LinearGradient(
+/// 快捷操作图标渐变（统一风格：同向 135° 双色渐变，深→浅同色系）。
+/// 8 个分属 8 个不同色相（蓝/橙/青/紫/粉/绿/靛/琥珀），每色最多出现在 2 个图标上，
+/// 整体读起来是一套配色。
+const _qaGradBlue = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [Color(0xFF0174F8), Color(0xFF57C2FF)],
 );
-const _qaOrangeGrad = LinearGradient(
+const _qaGradOrange = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
   colors: [Color(0xFFFE8E18), Color(0xFFFFC13F)],
+);
+const _qaGradCyan = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF00B8D9), Color(0xFF4FD8E8)],
+);
+const _qaGradPurple = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF7C5CFC), Color(0xFFB79CFF)],
+);
+const _qaGradPink = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFFF4D6D), Color(0xFFFF8FA3)],
+);
+const _qaGradGreen = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF00B84A), Color(0xFF5FD98A)],
+);
+const _qaGradIndigo = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFF3D5AFE), Color(0xFF7E91FF)],
+);
+const _qaGradAmber = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [Color(0xFFF5A623), Color(0xFFFFD27A)],
 );
 class _QuickActions extends ConsumerWidget {
   final List<Floor> floors;
@@ -741,31 +773,27 @@ class _QuickActions extends ConsumerWidget {
         childAspectRatio: 54 / 64,
         children: [
           _QuickCard(
-            icon: MingCuteIcons.navigationLine,
+            icon: MingCuteIcons.navigationFill,
             title: '工地巡场',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradBlue,
             onTap: () => context.go('/patrol'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.cameraLine,
+            icon: MingCuteIcons.cameraFill,
             title: '拍照验收',
-            gradient: _qaOrangeGrad,
-            radius: 12,
+            gradient: _qaGradOrange,
             onTap: () => context.push('/capture'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.folderOpenLine,
+            icon: MingCuteIcons.folderOpenFill,
             title: '图纸管理',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradCyan,
             onTap: () => context.go('/projects'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.boxLine,
+            icon: MingCuteIcons.boxFill,
             title: 'AR量尺',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradPurple,
             onTap: () {
               final projectKey = ref.read(currentProjectIdProvider) ?? '';
               final floor = floors.firstOrNull;
@@ -787,17 +815,15 @@ class _QuickActions extends ConsumerWidget {
             },
           ),
           _QuickCard(
-            icon: MingCuteIcons.listCheckLine,
+            icon: MingCuteIcons.listCheckFill,
             title: '缺陷工单',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradPink,
             onTap: () => context.go('/defects'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.micLine,
+            icon: MingCuteIcons.micFill,
             title: '语音记录',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradGreen,
             onTap: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
@@ -818,15 +844,19 @@ class _QuickActions extends ConsumerWidget {
           _QuickCard(
             icon: MingCuteIcons.clipboardLine,
             title: '验收记录',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradBlue,
             onTap: () => context.push('/capture-records'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.fileLine,
+            icon: MingCuteIcons.layersFill,
+            title: '图层索引',
+            gradient: _qaGradIndigo,
+            onTap: () => context.go('/projects'),
+          ),
+          _QuickCard(
+            icon: MingCuteIcons.fileFill,
             title: 'PDF原稿',
-            gradient: _qaBlueGrad,
-            radius: 8,
+            gradient: _qaGradAmber,
             onTap: () => context.push('/blueprint'),
           ),
         ],
@@ -837,13 +867,11 @@ class _QuickCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final LinearGradient gradient;
-  final double radius;
   final VoidCallback onTap;
   const _QuickCard({
     required this.icon,
     required this.title,
     required this.gradient,
-    this.radius = 8,
     required this.onTap,
   });
 
@@ -860,7 +888,7 @@ class _QuickCard extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 gradient: gradient,
-                borderRadius: BorderRadius.circular(radius),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, size: 22, color: Colors.white),
             ),

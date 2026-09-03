@@ -240,9 +240,9 @@ class PatrolOverlayPainter extends CustomPainter {
     final full = catmullRomPath(pts, samplesPerSeg: 16);
 
     final basePaint = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.55)
+      ..color = const Color(0xFF0395FF).withValues(alpha: 0.7) // 主路径线：主色 0395FF
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
+      ..strokeWidth = 3.0
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(full, basePaint);
@@ -250,7 +250,7 @@ class PatrolOverlayPainter extends CustomPainter {
     // 1.1 P1：穿墙段红色覆盖（画在蓝线之上，与橙色"已走"不冲突）
     if (crossingSegs.isNotEmpty) {
       final redPaint = Paint()
-        ..color = const Color(0xFFEF4444).withValues(alpha: 0.85)
+        ..color = const Color(0xFFEF4444).withValues(alpha: 0.7)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 4.0
         ..strokeCap = StrokeCap.round
@@ -270,7 +270,7 @@ class PatrolOverlayPainter extends CustomPainter {
           : (Path()..moveTo(pts.first.dx, pts.first.dy)).computeMetrics().first;
       final walked = metric.extractPath(0, metric.length * p);
       final walkedPaint = Paint()
-        ..color = const Color(0xFFEA580C)
+        ..color = const Color(0xFFFF9500) // 已巡场走过的路线：FF9500
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3.0
         ..strokeCap = StrokeCap.round
@@ -278,75 +278,75 @@ class PatrolOverlayPainter extends CustomPainter {
       canvas.drawPath(walked, walkedPaint);
     }
 
-    // 3. 检查点（蓝色实心圆 + 白边）：始终显眼
-    final cpFill = Paint()..color = const Color(0xFF1D4ED8);
+    // 3. 检查点（橙色实心圆 + 白边 + 白心）：与编辑页同一套视觉
+    final cpFill = Paint()..color = const Color(0xFFF97316);
     final cpStroke = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
+      ..strokeWidth = 1.5;
     for (final i in cpIdxs) {
-      canvas.drawCircle(pts[i], 3.0, cpStroke);
-      canvas.drawCircle(pts[i], 3.0, cpFill);
+      canvas.drawCircle(pts[i], 7, cpStroke);
+      canvas.drawCircle(pts[i], 6.5, cpFill);
+      canvas.drawCircle(pts[i], 2.2, Paint()..color = const Color(0xFFFFFFFF));
     }
 
-    // 4. 起点（绿）：常亮小圆
+    // 4. 起点（绿）：与检查点同尺寸语言
     canvas.drawCircle(
-        pts.first, 2.6,
-        Paint()
-          ..color = const Color(0xFF16A34A)
-          ..style = PaintingStyle.fill);
-    canvas.drawCircle(
-        pts.first, 2.6,
+        pts.first, 7,
         Paint()
           ..color = const Color(0xFFFFFFFF)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0);
+          ..strokeWidth = 1.5);
+    canvas.drawCircle(
+        pts.first, 6.5,
+        Paint()
+          ..color = const Color(0xFF00B84A) // 起点绿 00B84A
+          ..style = PaintingStyle.fill);
 
-    // 5. 终点（红）：仅巡场结束高亮
+    // 5. 终点（红）：仅巡场结束高亮，与检查点同尺寸语言
     final endPaint = Paint()
-      ..color = const Color(0xFFDC2626)
+      ..color = const Color(0xFFFF4444) // 终点红 FF4444，无透明度
       ..style = PaintingStyle.fill;
     final endStroke = Paint()
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawCircle(pts.last, 2.6, endStroke);
-    endPaint.color = endPaint.color.withValues(alpha: p >= 1 ? 1 : 0.35);
-    canvas.drawCircle(pts.last, 2.6, endPaint);
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(pts.last, 7, endStroke);
+    canvas.drawCircle(pts.last, 6.5, endPaint);
 
     // 6. 当前位置：蓝色原点 + 双层呼吸扩散圈（pulse 0~1）
     //    idle 时 currentPos == null → 默认在 pts.first
     final pos = currentPos ?? pts.first;
-    final breathR1 = 6.0 + pulse * 10.0; // 外圈：扩张+渐隐
+    final breathR1 = 12.0 + pulse * 16.0; // 外圈：基准放大，扩张+渐隐
     final breathA1 = (1 - pulse) * 0.45;
-    final breathR2 = 4.0 + pulse * 6.5; // 内圈：小一些
+    final breathR2 = 8.5 + pulse * 12.0; // 内圈：小一些，基准相应放大
     final breathA2 = (1 - pulse) * 0.7;
     canvas.drawCircle(
         pos,
         breathR1,
         Paint()
-          ..color = const Color(0xFF3B82F6).withValues(alpha: breathA1));
+          ..color = const Color(0xFF0395FF).withValues(alpha: breathA1));
     canvas.drawCircle(
         pos,
         breathR2,
         Paint()
-          ..color = const Color(0xFF60A5FA).withValues(alpha: breathA2));
-    // 中心实心蓝点 + 白边
+          ..color = const Color(0xFF0395FF).withValues(alpha: breathA2));
+    // 中心实心蓝点 + 白边（主色 0395FF，大小 6 / 描边 2）
     canvas.drawCircle(
-        pos, 3.2,
+        pos, 6.0,
         Paint()
           ..color = const Color(0xFFFFFFFF)
           ..style = PaintingStyle.fill);
     canvas.drawCircle(
-        pos, 3.2,
+        pos, 6.0,
         Paint()
-          ..color = const Color(0xFF1D4ED8)
+          ..color = const Color(0xFF0395FF)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2);
+          ..strokeWidth = 2.0);
     canvas.drawCircle(
-        pos, 1.8,
+        pos, 3.0,
         Paint()
-          ..color = const Color(0xFF1D4ED8)
+          ..color = const Color(0xFF0395FF)
           ..style = PaintingStyle.fill);
   }
 

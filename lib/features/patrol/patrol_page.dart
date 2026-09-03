@@ -431,7 +431,6 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         actions: [
           if (_plan != null)
             NavIconButton(
-              tooltip: '复位',
               icon: MingCuteIcons.liveLocationLine,
               color: AppTokens.patrolFg,
               size: 24,
@@ -440,8 +439,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
           if (_plan != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: NavIconButton(
-                tooltip: '编辑路线',
+              child:               NavIconButton(
                 icon: MingCuteIcons.editLine,
                 color: AppTokens.patrolFg,
                 size: 24,
@@ -499,9 +497,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角）
+              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，自适应内容宽度）
               Container(
-                width: 195,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -1077,7 +1074,6 @@ class _HistorySheetState extends State<_HistorySheet> {
                   icon: const Icon(MingCuteIcons.closeLine,
                       size: 18, color: AppTokens.patrolMuted),
                   onPressed: () => Navigator.of(context).pop(),
-                  tooltip: '关闭',
                 ),
               ],
             ),

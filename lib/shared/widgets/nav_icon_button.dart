@@ -9,7 +9,6 @@ class NavIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double size;
   final Color? color;
-  final String? tooltip;
 
   const NavIconButton({
     super.key,
@@ -17,13 +16,11 @@ class NavIconButton extends StatelessWidget {
     this.onPressed,
     this.size = 24,
     this.color,
-    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: tooltip,
       onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
       hoverColor: Colors.transparent,
       splashColor: Colors.transparent,
