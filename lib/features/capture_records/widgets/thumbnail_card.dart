@@ -1,12 +1,12 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../../core/storage/local_storage.dart';
 import '../../../core/theme/design_tokens.dart';
 
 /// 验收记录列表项卡片：96×96 缩略图 + 部位 · 楼层 + 时刻 · 缺陷数。
 ///
-/// Web 端 / 空记录：缩略图退化为带 Lucide 图标的占位块，列表节奏仍保持一致。
+/// Web 端 / 空记录：缩略图退化为带图标的占位块，列表节奏仍保持一致。
 class CaptureThumbnailCard extends StatelessWidget {
   final Map<String, dynamic> entry;
   final VoidCallback onTap;
@@ -65,7 +65,7 @@ class CaptureThumbnailCard extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(LucideIcons.alertTriangle,
+                              const Icon(MingCuteIcons.alertLine,
                                   size: 10, color: AppTokens.onAccent),
                               const SizedBox(width: 2),
                               Text('$defectCount',
@@ -88,7 +88,7 @@ class CaptureThumbnailCard extends StatelessWidget {
                             color: AppTokens.success,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(LucideIcons.check,
+                          child: const Icon(MingCuteIcons.checkCircleLine,
                               size: 10, color: AppTokens.onAccent),
                         ),
                       ),
@@ -157,7 +157,7 @@ class _Thumbnail extends StatelessWidget {
       return Container(
         color: AppTokens.surface2,
         alignment: Alignment.center,
-        child: const Icon(LucideIcons.imageOff,
+        child: const Icon(MingCuteIcons.photoAlbumLine,
             size: 22, color: AppTokens.muted),
       );
     }
@@ -180,7 +180,7 @@ class _Thumbnail extends StatelessWidget {
           return Container(
             color: AppTokens.surface2,
             alignment: Alignment.center,
-            child: const Icon(LucideIcons.imageOff,
+            child: const Icon(MingCuteIcons.photoAlbumLine,
                 size: 22, color: AppTokens.muted),
           );
         }

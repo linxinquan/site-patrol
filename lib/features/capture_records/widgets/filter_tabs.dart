@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../capture_records_controller.dart';
 
@@ -108,7 +108,7 @@ class _FloorButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(LucideIcons.layers,
+              const Icon(MingCuteIcons.layersLine,
                   size: 12,
                   color: AppTokens.fg2),
               const SizedBox(width: 4),
@@ -121,7 +121,7 @@ class _FloorButton extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               Icon(
-                LucideIcons.chevronDown,
+                MingCuteIcons.downSmallLine,
                 size: 12,
                 color: selected ? AppTokens.onAccent : AppTokens.fg2,
               ),

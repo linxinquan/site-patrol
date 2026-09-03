@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../capture_records_controller.dart';
 import 'thumbnail_card.dart';
@@ -118,7 +118,7 @@ class _GroupHeader extends StatelessWidget {
                     color: AppTokens.fg2)),
             const Spacer(),
             Icon(
-              collapsed ? LucideIcons.chevronDown : LucideIcons.chevronUp,
+              collapsed ? MingCuteIcons.downSmallLine : MingCuteIcons.upSmallLine,
               size: 14,
               color: AppTokens.muted,
             ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
@@ -68,7 +68,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                 fontWeight: FontWeight.w700,
                 color: AppTokens.fg)),
         leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft,
+          icon: const Icon(MingCuteIcons.arrowLeftLine,
               size: 18, color: AppTokens.fg),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
@@ -78,7 +78,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         foregroundColor: AppTokens.onAccent,
         elevation: 2,
         onPressed: () => context.push('/capture'),
-        icon: const Icon(LucideIcons.camera, size: 18),
+        icon: const Icon(MingCuteIcons.cameraLine, size: 18),
         label: const Text('拍照',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
       ),
@@ -310,7 +310,7 @@ class _EmptyState extends StatelessWidget {
                 borderRadius: BorderRadius.circular(48),
               ),
               alignment: Alignment.center,
-              child: const Icon(LucideIcons.clipboardCheck,
+              child: const Icon(MingCuteIcons.clipboardLine,
                   size: 36, color: AppTokens.muted),
             ),
             const SizedBox(height: 16),
@@ -335,7 +335,7 @@ class _EmptyState extends StatelessWidget {
                       BorderRadius.circular(AppTokens.radiusButton),
                 ),
               ),
-              icon: const Icon(LucideIcons.camera, size: 16),
+              icon: const Icon(MingCuteIcons.cameraLine, size: 16),
               label: const Text('去拍照',
                   style: TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w700)),
@@ -359,7 +359,7 @@ class _NoMatchState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 60),
-          const Icon(LucideIcons.filter,
+          const Icon(MingCuteIcons.filterLine,
               size: 32, color: AppTokens.muted),
           const SizedBox(height: 12),
           const Text('当前筛选条件下没有记录',
