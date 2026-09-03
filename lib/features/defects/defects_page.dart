@@ -22,6 +22,7 @@ import '../../data/weekly_report.dart';
 import 'report_builder.dart';
 import 'report_docx.dart';
 import 'report_pdf.dart';
+import 'report_xlsx.dart';
 
 /// 巡场清单页（对齐 Figma 新 UI：巡场问题列表页）。
 /// 结构：标题栏(巡场清单·N / F9·闭环管理 + 头像) → 筛选条(5 等分按钮) → 缺陷卡列表。
@@ -476,6 +477,17 @@ class DefectsPage extends ConsumerWidget {
     required String baseName,
   }) async {
     switch (format) {
+      case ReportExportFormat.xlsx:
+        final bytes = buildWeeklyReportXlsx(
+          report,
+          reporter: reporter,
+          generatedAt: generatedAt,
+        );
+        return (
+          '$baseName.xlsx',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          bytes,
+        );
       case ReportExportFormat.pdf:
         final font = await ref.read(reportFontProvider.future);
         final bytes = await buildWeeklyReportPdf(

@@ -4,6 +4,7 @@ import 'report_content.dart';
 
 /// 报告导出格式（导出方式弹层选项）。
 enum ReportExportFormat {
+  xlsx('Excel 销项表', '对齐设计师巡场报告单，可直接销项流转'),
   pdf('PDF', '标准打印版式，适合汇报存档'),
   docx('Word', '可继续编辑、批注流转'),
   html('HTML', '浏览器打开，可另存为 PDF');
