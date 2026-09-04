@@ -11,6 +11,7 @@ import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/open_web.dart';
@@ -249,53 +250,26 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   void _jumpConfirm(Hotspot h) {
     final target = widget.allDrawings[h.target];
-    showModalBottomSheet<void>(
+    AppBottomSheet.show<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
-      ),
-      builder: (sheetCtx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppTokens.space5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('索引 ${h.num} · ${h.label}',
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTokens.fg)),
-              const SizedBox(height: 6),
-              Text('跳转到：${target?.title ?? h.target}',
-                  style: const TextStyle(fontSize: 14, color: AppTokens.muted)),
-              const SizedBox(height: AppTokens.space4),
-              Row(
-              children: [
-                Expanded(
-                  child: AppButton(
-                    label: '取消',
-                    onPressed: () => Navigator.pop(sheetCtx),
-                    outlined: true,
-                    size: AppButtonSize.md,
-                  ),
-                ),
-                const SizedBox(width: AppTokens.space3),
-                Expanded(
-                  child: AppButton(
-                    label: '跳转',
-                    onPressed: () {
-                      Navigator.pop(sheetCtx);
-                      context.push('/projects/drawing/${h.target}');
-                    },
-                    size: AppButtonSize.md,
-                  ),
-                ),
-              ],
-              ),
-            ],
+      title: '索引 ${h.num} · ${h.label}',
+      body: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('跳转到：${target?.title ?? h.target}',
+              style: const TextStyle(fontSize: 14, color: AppTokens.muted)),
+          const SizedBox(height: AppTokens.space4),
+          AppSheetFooter.cancelSave(
+            cancelLabel: '取消',
+            saveLabel: '跳转',
+            onCancel: () => Navigator.pop(ctx),
+            onSave: () {
+              Navigator.pop(ctx);
+              context.push('/projects/drawing/${h.target}');
+            },
           ),
-        ),
+        ],
       ),
     );
   }
@@ -464,12 +438,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
     _persistedRawJson = null;
     if (!mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('已清除校准，回到内置演示坐标系'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppSnack.show(context, '已清除校准，回到内置演示坐标系',
+        kind: AppSnackKind.muted);
   }
 
   /// 开始"图上多点校准"：进入轴网拾取模式，并异步识别轴线（红线）辅助点选。
@@ -721,8 +691,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: AppTokens.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetCtx) => CadInfoPanel(
         drawingKey: widget.d.key,

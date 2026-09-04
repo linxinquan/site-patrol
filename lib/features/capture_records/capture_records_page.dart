@@ -6,6 +6,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../capture/capture_page.dart' show StoredDetailSheet;
 import 'capture_records_controller.dart';
@@ -74,7 +75,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTokens.success,
+        backgroundColor: AppTokens.accent,
         foregroundColor: AppTokens.onAccent,
         elevation: 2,
         onPressed: () => context.push('/capture'),
@@ -159,9 +160,9 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTokens.surface,
+      backgroundColor: AppTokens.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetCtx) => StoredDetailSheet(
         entry: entry,
@@ -259,13 +260,10 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
 
   Future<void> _openFloorSheet(
       List<String> floors, CaptureRecordsFilter current) async {
-    await showModalBottomSheet<void>(
+    await AppBottomSheet.show<void>(
       context: context,
-      backgroundColor: AppTokens.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => FilterSheet(
+      title: '筛选',
+      body: (_) => FilterSheet(
         availableFloors: floors,
         currentFloor: current.floor,
         currentAiOnly: current.aiOnly,
@@ -326,7 +324,7 @@ class _EmptyState extends StatelessWidget {
             FilledButton.icon(
               onPressed: onTakePhoto,
               style: FilledButton.styleFrom(
-                backgroundColor: AppTokens.success,
+                backgroundColor: AppTokens.accent,
                 foregroundColor: AppTokens.onAccent,
                 padding: const EdgeInsets.symmetric(
                     horizontal: 22, vertical: 12),
@@ -373,7 +371,7 @@ class _NoMatchState extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: AppTokens.success)),
+                    color: AppTokens.accent)),
           ),
         ],
       ),

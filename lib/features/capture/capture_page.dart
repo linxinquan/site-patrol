@@ -26,6 +26,7 @@ import '../../data/repository/mock_repository.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/voice_input.dart';
@@ -1283,63 +1284,40 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       AppSnack.show(context, '「${a.label}」暂无历史照片', kind: AppSnackKind.muted);
       return;
     }
-    showModalBottomSheet<void>(
+    AppBottomSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => SafeArea(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-          padding: const EdgeInsets.all(AppTokens.space3),
-          decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      title: '${a.label} · 历史照片',
+      body: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 150,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: a.photos.map((p) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: AppTokens.space3),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                    child: Image.asset(
+                      'assets/photos/${p.file}',
+                      width: 180,
+                      height: 150,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(MingCuteIcons.mapPinLine,
-                      size: 14, color: AppTokens.accent),
-                  const SizedBox(width: 6),
-                  Text('${a.label} · 历史照片',
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppTokens.fg)),
-                ],
-              ),
-              const SizedBox(height: AppTokens.space3),
-              SizedBox(
-                height: 150,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: a.photos.map((p) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: AppTokens.space3),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                        child: Image.asset(
-                          'assets/photos/${p.file}',
-                          width: 180,
-                          height: 150,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: AppTokens.space2),
-              Text(
-                a.photos.map((p) => '${p.date} ${p.caption}').join('\n'),
-                style: const TextStyle(
-                    fontSize: 11, color: AppTokens.muted, height: 1.5),
-              ),
-            ],
+          const SizedBox(height: AppTokens.space2),
+          Text(
+            a.photos.map((p) => '${p.date} ${p.caption}').join('\n'),
+            style: const TextStyle(
+                fontSize: 11, color: AppTokens.muted, height: 1.5),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -2049,54 +2027,34 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 打开「附近定位」选择器：列出所有定位点（含 GPS / 地址 / 距离），
   /// 用户选择后切换 [_location]，水印/照片上的定位信息随之更新。
   void _pickLocation() {
-    showModalBottomSheet<void>(
+    AppBottomSheet.show<void>(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetCtx) => SafeArea(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-          padding: const EdgeInsets.all(AppTokens.space3),
-          decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      title: '选择附近定位',
+      body: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Icon(MingCuteIcons.navigationLine,
-                      size: 15, color: AppTokens.accent),
-                  const SizedBox(width: 6),
-                  const Text('选择附近定位',
-                      style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          color: AppTokens.fg)),
-                  const Spacer(),
-                  Text('${siteLocations.length} 处',
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTokens.muted)),
-                ],
-              ),
-              const SizedBox(height: AppTokens.space2),
-              const Text('定位将烧录到照片水印中（工程取证）',
-                  style: TextStyle(
-                      fontSize: 11, color: AppTokens.muted)),
-              const SizedBox(height: AppTokens.space3),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: siteLocations.length,
-                  itemBuilder: (ctx, i) => _buildLocationTile(siteLocations[i]),
-                ),
+              Text('${siteLocations.length} 处',
+                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+              const SizedBox(width: AppTokens.space2),
+              const Expanded(
+                child: Text('定位将烧录到照片水印中（工程取证）',
+                    style: TextStyle(fontSize: 11, color: AppTokens.muted)),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: AppTokens.space3),
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: siteLocations.length,
+              itemBuilder: (ctx, i) => _buildLocationTile(siteLocations[i]),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2643,9 +2601,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTokens.surface,
+      backgroundColor: AppTokens.bg,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => StoredDetailSheet(
         entry: e,

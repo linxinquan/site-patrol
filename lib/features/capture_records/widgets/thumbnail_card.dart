@@ -28,13 +28,13 @@ class CaptureThumbnailCard extends StatelessWidget {
 
     return Material(
       color: AppTokens.surface,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             border: Border.all(color: AppTokens.border),
           ),
           child: Column(
@@ -47,7 +47,7 @@ class CaptureThumbnailCard extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10),
+                        top: Radius.circular(AppTokens.radiusSm),
                       ),
                       child: _Thumbnail(photo: photo),
                     ),

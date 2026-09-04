@@ -13,6 +13,7 @@ import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
@@ -219,36 +220,24 @@ class DefectsPage extends ConsumerWidget {
     final canPreview = canOpenWebWindow;
     final canExport = canExportReportFile;
     final today = DateTime.now();
-    showModalBottomSheet<void>(
+    AppBottomSheet.show<void>(
       context: context,
-      backgroundColor: AppTokens.surface,
+      title: '导出现场工作汇报',
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
+      body: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
           var range = initialRange;
           final list = _filterByPeriod(allDefects, range);
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('导出现场工作汇报',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppTokens.fg)),
-                    const SizedBox(height: 8),
-                    Text(
-                      '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
-                      '可选 PDF / Word / HTML 三种格式，导出后无需再手工整理。',
-                      style: const TextStyle(fontSize: 13, color: AppTokens.fg2),
-                    ),
+          return SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
+                  '可选 PDF / Word / HTML 三种格式，导出后无需再手工整理。',
+                  style: const TextStyle(fontSize: 13, color: AppTokens.fg2),
+                ),
                     const SizedBox(height: 12),
                     // 汇报周期选择（按缺陷发现时间过滤，周报语义）
                     Material(
@@ -358,9 +347,7 @@ class DefectsPage extends ConsumerWidget {
                       ),
                   ],
                 ),
-              ),
-            ),
-          );
+              );
         },
       ),
     );

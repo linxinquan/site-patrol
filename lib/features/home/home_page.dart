@@ -12,6 +12,7 @@ import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/project_switcher.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../shared/widgets/voice_input.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
@@ -184,18 +185,13 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
           const SizedBox(height: AppTokens.space4), // 项目指标 → 快捷操作 间距 16
 
-          // —— 快捷操作（4×2 网格，自适应屏宽，不横向滑动）——
-          // ListView 已带左右 12px padding；这里再叠加 12px 让图标离边缘更远（总离边 24）。
-          // 关键点：childAspectRatio 必须让每格高度 = 卡片真实内容高(图标40+间距4+文字20=64)，
-          // 否则 GridView 会把格子拉高、底部留出空白，放大「快捷操作→项目进度」的视觉间距。
-          // 当前可用宽 342、4 列 3 间距：crossAxisSpacing 42 → 列宽 54；childAspectRatio 54/64
-          // → 格高正好 64，无多余空白，该段间距才真正等于下方 SizedBox(space3=12)。四字标签 48<54 放得下。
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-            child: floors.maybeWhen(
-              data: (fs) => _QuickActions(floors: fs),
-              orElse: () => const _QuickActions(floors: _mockDataFloors),
-            ),
+          // —— 快捷操作（Frame 2147227957：5+4 网格）——
+          // 按稿：内容宽 = 屏宽 - ListView 两侧各 12 padding = 366；5 列、列间距 12、行间距 12、
+          // 每格 63.6×64；图标块 40×40 圆角 8、纯色底 + 白色面性图标 24、文字 12/W400/#202224。
+          // 此处不再叠加额外 padding，否则内容宽会偏离稿的 366，列宽被压缩。
+          floors.maybeWhen(
+            data: (fs) => _QuickActions(floors: fs),
+            orElse: () => const _QuickActions(floors: _mockDataFloors),
           ),
           const SizedBox(height: AppTokens.space3), // 快捷操作 → 项目进度 间距 12
 
@@ -715,50 +711,16 @@ DateTime _prevNodeStart(List<Milestone> ms, int currentIdx) {
   return prev ?? DateTime(2020, 1, 1);
 }
 
-// ==================== 快捷操作（4×2 网格，自适应屏宽，不横向滑动） ====================
-/// 快捷操作图标渐变（统一风格：同向 135° 双色渐变，深→浅同色系）。
-/// 8 个分属 8 个不同色相（蓝/橙/青/紫/粉/绿/靛/琥珀），每色最多出现在 2 个图标上，
-/// 整体读起来是一套配色。
-const _qaGradBlue = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF0174F8), Color(0xFF57C2FF)],
-);
-const _qaGradOrange = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFFFE8E18), Color(0xFFFFC13F)],
-);
-const _qaGradCyan = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF00B8D9), Color(0xFF4FD8E8)],
-);
-const _qaGradPurple = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF7C5CFC), Color(0xFFB79CFF)],
-);
-const _qaGradPink = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFFFF4D6D), Color(0xFFFF8FA3)],
-);
-const _qaGradGreen = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF00B84A), Color(0xFF5FD98A)],
-);
-const _qaGradIndigo = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFF3D5AFE), Color(0xFF7E91FF)],
-);
-const _qaGradAmber = LinearGradient(
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-  colors: [Color(0xFFF5A623), Color(0xFFFFD27A)],
-);
+// ==================== 快捷操作（Frame 2147227957：5+4 网格） ====================
+/// 快捷操作图标底色（Frame 2147227957）：纯色块 + 白色面性图标，圆角 8。
+/// 9 个背景色按稿，每色最多出现在 2 个图标上（蓝×2 / 红×2 / 绿·黄·青·紫·粉 各 1）。
+const _qaBlue = Color(0xFF34A8FE);
+const _qaRed = Color(0xFFFF5959);
+const _qaGreen = Color(0xFF38D06F);
+const _qaYellow = Color(0xFFFEBD07);
+const _qaCyan = Color(0xFF00D6B9);
+const _qaPurple = Color(0xFF7F83FF);
+const _qaPink = Color(0xFFFF528D);
 class _QuickActions extends ConsumerWidget {
   final List<Floor> floors;
   const _QuickActions({required this.floors});
@@ -767,40 +729,39 @@ class _QuickActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => GridView.count(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 4,
-        crossAxisSpacing: 42,
+        crossAxisCount: 5,
+        crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 54 / 64,
+        childAspectRatio: 63.6 / 64,
         children: [
           _QuickCard(
             icon: MingCuteIcons.navigationFill,
             title: '工地巡场',
-            gradient: _qaGradBlue,
+            color: _qaBlue,
             onTap: () => context.go('/patrol'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.cameraFill,
-            title: '拍照验收',
-            gradient: _qaGradOrange,
-            onTap: () => context.push('/capture'),
           ),
           _QuickCard(
             icon: MingCuteIcons.folderOpenFill,
             title: '图纸管理',
-            gradient: _qaGradCyan,
+            color: _qaRed,
             onTap: () => context.go('/projects'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.boxFill,
+            icon: MingCuteIcons.cameraFill,
+            title: '拍照验收',
+            color: _qaGreen,
+            onTap: () => context.push('/capture'),
+          ),
+          _QuickCard(
+            icon: MingCuteIcons.pencilRulerFill,
             title: 'AR量尺',
-            gradient: _qaGradPurple,
+            color: _qaBlue,
             onTap: () {
               final projectKey = ref.read(currentProjectIdProvider) ?? '';
               final floor = floors.firstOrNull;
               if (floor == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('当前项目没有可用图纸，无法使用AR量尺')),
-                );
+                AppSnack.show(context, '当前项目没有可用图纸，无法使用AR量尺',
+                    kind: AppSnackKind.danger);
                 return;
               }
               Navigator.of(context).push(MaterialPageRoute(
@@ -815,25 +776,19 @@ class _QuickActions extends ConsumerWidget {
             },
           ),
           _QuickCard(
-            icon: MingCuteIcons.listCheckFill,
+            icon: MingCuteIcons.taskFill,
             title: '缺陷工单',
-            gradient: _qaGradPink,
+            color: _qaYellow,
             onTap: () => context.go('/defects'),
           ),
           _QuickCard(
             icon: MingCuteIcons.micFill,
             title: '语音记录',
-            gradient: _qaGradGreen,
-            onTap: () => showModalBottomSheet(
+            color: _qaCyan,
+            onTap: () => AppBottomSheet.show<void>(
               context: context,
-              isScrollControlled: true,
-              backgroundColor: AppTokens.surface,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppTokens.radiusLg),
-                ),
-              ),
-              builder: (_) => VoiceInputSheet(
+              title: '语音记录',
+              body: (_) => VoiceInputSheet(
                 onResult: (text) {
                   AppSnack.show(context, '已识别：$text',
                       kind: AppSnackKind.success);
@@ -842,21 +797,21 @@ class _QuickActions extends ConsumerWidget {
             ),
           ),
           _QuickCard(
-            icon: MingCuteIcons.clipboardLine,
-            title: '验收记录',
-            gradient: _qaGradBlue,
-            onTap: () => context.push('/capture-records'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.layersFill,
+            icon: MingCuteIcons.layerFill,
             title: '图层索引',
-            gradient: _qaGradIndigo,
+            color: _qaPurple,
             onTap: () => context.go('/projects'),
           ),
           _QuickCard(
-            icon: MingCuteIcons.fileFill,
+            icon: MingCuteIcons.package2Fill,
+            title: '验收记录',
+            color: _qaPink,
+            onTap: () => context.push('/capture-records'),
+          ),
+          _QuickCard(
+            icon: MingCuteIcons.pdfFill,
             title: 'PDF原稿',
-            gradient: _qaGradAmber,
+            color: _qaRed,
             onTap: () => context.push('/blueprint'),
           ),
         ],
@@ -866,19 +821,19 @@ class _QuickActions extends ConsumerWidget {
 class _QuickCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final LinearGradient gradient;
+  final Color color;
   final VoidCallback onTap;
   const _QuickCard({
     required this.icon,
     required this.title,
-    required this.gradient,
+    required this.color,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
@@ -887,10 +842,22 @@ class _QuickCard extends StatelessWidget {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                gradient: gradient,
-                borderRadius: BorderRadius.circular(12),
+                color: color,
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 22, color: Colors.white),
+              // 白色图标：上→下渐变 FFFFFF 70% → FFFFFF 100%（顶部略透、底部实白）
+              child: ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (rect) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xB3FFFFFF), // FFFFFF 70%
+                    Color(0xFFFFFFFF), // FFFFFF 100%
+                  ],
+                ).createShader(rect),
+                child: Icon(icon, size: 24, color: Colors.white),
+              ),
             ),
             const SizedBox(height: 4),
             Text(

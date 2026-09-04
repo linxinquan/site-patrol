@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../shared/widgets/nav_icon_button.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -800,69 +802,62 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     );
   }
 
-  /// 路线名称 / 楼层 编辑底部弹窗（占位：交互已通，CSS 待用户后续提供后细化）。
+  /// 路线名称 / 楼层 编辑底部弹窗（设计稿 Frame 2147228008 风格）。
   void _showEditSheet({required String kind}) {
     final isName = kind == 'name';
     final ctl = TextEditingController(
         text: isName ? _nameCtl.text : _floorCtl.text);
-    showModalBottomSheet(
+    AppBottomSheet.show(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(isName ? '修改路线名称' : '修改楼层',
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            const SizedBox(height: 16),
-            TextField(
+      title: isName ? '修改路线名称' : '修改楼层',
+      body: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标签（#919499 / 14 / W400）
+          Text(
+            isName ? '路线名称' : '楼层',
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: AppTokens.muted),
+          ),
+          const SizedBox(height: 8),
+          // 输入框：白底 + 1px #E9EAEB 边框 + 圆角 8（Frame 2147228055）
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              border: Border.all(color: AppTokens.border),
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            ),
+            child: TextField(
               controller: ctl,
               autofocus: true,
-              decoration: InputDecoration(
-                labelText: isName ? '路线名称' : '楼层',
-                labelStyle:
-                    const TextStyle(color: AppTokens.muted, fontSize: 12),
-                isDense: true,
-                enabledBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTokens.border)),
-                focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTokens.brand)),
-              ),
+              textAlign: TextAlign.left,
+              style: const TextStyle(
+                  fontSize: 14, height: 22 / 14, color: AppTokens.fg),
+              decoration: const InputDecoration.collapsed(hintText: ''),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    if (isName) {
-                      _nameCtl.text = ctl.text.trim();
-                    } else {
-                      _floorCtl.text = ctl.text.trim();
-                    }
-                  });
-                  Navigator.of(ctx).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTokens.brand,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('确定'),
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24),
+          // 底部「取消 / 保存」双按钮（Frame 2147228056）
+          AppSheetFooter.cancelSave(
+            onCancel: () => Navigator.pop(ctx),
+            onSave: () {
+              setState(() {
+                if (isName) {
+                  _nameCtl.text = ctl.text.trim();
+                } else {
+                  _floorCtl.text = ctl.text.trim();
+                }
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -877,47 +872,36 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
       ['撤销 / 复位', '误操作可点「撤销」回退一步；「复位」恢复视图缩放。'],
       ['保存', '路点 ≥ 2 时可保存；路线穿墙会提示确认后再保存。'],
     ];
-    showModalBottomSheet(
+    AppBottomSheet.show(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('操作说明',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            const SizedBox(height: 12),
-            ...items.map(
-              (e) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                          text: '${e[0]}：',
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTokens.brand)),
-                      TextSpan(
-                          text: e[1],
-                          style: const TextStyle(
-                              fontSize: 13, color: AppTokens.fg)),
-                    ],
-                  ),
+      title: '操作说明',
+      body: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            // 每条说明用白色卡片包裹（与切换项目/选择身份卡片列表风格一致）
+            AppCard(
+              padding: const EdgeInsets.all(12),
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                        text: '${items[i][0]}：',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTokens.brand)),
+                    TextSpan(
+                        text: items[i][1],
+                        style: const TextStyle(
+                            fontSize: 13, color: AppTokens.fg)),
+                  ],
                 ),
               ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

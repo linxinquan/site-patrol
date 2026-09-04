@@ -13,6 +13,7 @@ import '../../data/models.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../utils/geo.dart';
 import '../../utils/path_metrics.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/storage/patrol_record_store.dart';
@@ -469,14 +470,10 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       AppSnack.show(context, '暂无历史巡场轨迹', kind: AppSnackKind.muted);
       return;
     }
-    showModalBottomSheet(
+    AppBottomSheet.show<void>(
       context: context,
-      backgroundColor: AppTokens.patrolSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      // sheet 关闭后强制刷新一次底图叠加（处理"关闭时清空"等场景）。
-      builder: (ctx) => _HistorySheet(
+      title: '历史巡场轨迹',
+      body: (ctx) => _HistorySheet(
         records: _historyRecords,
         initiallyVisible: _visibleHistoryIdxs,
         onChanged: (visible) {
@@ -1206,66 +1203,46 @@ class _HistorySheetState extends State<_HistorySheet> {
   @override
   Widget build(BuildContext context) {
     final n = widget.records.length;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题与关闭由 AppBottomSheet 头部提供；计数 + 全选移入内容区顶部
+        Row(
           children: [
-            // 顶栏：标题 + 计数 + 全选 + 关闭
-            Row(
-              children: [
-                const Text('历史巡场轨迹',
-                    style: TextStyle(
-                        color: AppTokens.patrolFg,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600)),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTokens.patrolSurface2,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                      '已加载 $n 条${_visible.isNotEmpty ? ' · 已选 ${_visible.length}' : ''}',
-                      style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTokens.patrolMuted)),
-                ),
-                const Spacer(),
-                TextButton(
-                  onPressed: () =>
-                      _selectAll(_visible.length < n),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: AppTokens.patrolFg,
-                  ),
-                  child: Text(
-                    _visible.length < n ? '全选' : '全不选',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(MingCuteIcons.closeLine,
-                      size: 18, color: AppTokens.patrolMuted),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTokens.patrolSurface2,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                  '已加载 $n 条${_visible.isNotEmpty ? ' · 已选 ${_visible.length}' : ''}',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppTokens.patrolMuted)),
             ),
-            const SizedBox(height: 4),
-            const Text('勾选后叠加到底图（默认不显示，保持底图干净）',
-                style: TextStyle(
-                    color: AppTokens.patrolMuted, fontSize: 12)),
-            const SizedBox(height: 12),
-            // 列表
-            ConstrainedBox(
+            const Spacer(),
+            TextButton(
+              onPressed: () => _selectAll(_visible.length < n),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: AppTokens.patrolFg,
+              ),
+              child: Text(
+                _visible.length < n ? '全选' : '全不选',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text('勾选后叠加到底图（默认不显示，保持底图干净）',
+            style: TextStyle(color: AppTokens.patrolMuted, fontSize: 12)),
+        const SizedBox(height: 12),
+        // 列表
+        ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 360),
               child: ListView.separated(
                 shrinkWrap: true,
@@ -1399,9 +1376,7 @@ class _HistorySheetState extends State<_HistorySheet> {
               ),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 }
 

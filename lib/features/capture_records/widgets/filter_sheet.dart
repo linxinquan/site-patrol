@@ -30,47 +30,26 @@ class _FilterSheetState extends State<FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: AppTokens.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                const Text('筛选',
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppTokens.fg)),
-                const Spacer(),
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _floor = null;
-                      _aiOnly = false;
-                    });
-                  },
-                  child: const Text('重置',
-                      style: TextStyle(
-                          fontSize: 12, color: AppTokens.muted)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('楼层',
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 标题「筛选」由 AppBottomSheet 头部提供；重置按钮移入内容区顶部
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: () {
+              setState(() {
+                _floor = null;
+                _aiOnly = false;
+              });
+            },
+            child: const Text('重置',
+                style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text('楼层',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -105,7 +84,7 @@ class _FilterSheetState extends State<FilterSheet> {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTokens.success,
+                  backgroundColor: AppTokens.accent,
                   minimumSize: const Size(0, 44),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(
@@ -124,9 +103,7 @@ class _FilterSheetState extends State<FilterSheet> {
               ),
             ),
           ],
-        ),
-      ),
-    );
+        );
   }
 }
 
@@ -139,7 +116,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppTokens.success : AppTokens.surface,
+      color: selected ? AppTokens.accent : AppTokens.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -149,7 +126,7 @@ class _Chip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: selected ? AppTokens.success : AppTokens.border),
+                color: selected ? AppTokens.accent : AppTokens.border),
           ),
           child: Text(label,
               style: TextStyle(
@@ -182,11 +159,12 @@ class _SwitchRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
               child: Text(label,
-                  style: const TextStyle(fontSize: 13, color: AppTokens.fg))),
+                  style: const TextStyle(
+                      fontSize: 13, color: AppTokens.fg, height: 1))),
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppTokens.success,
+            activeColor: AppTokens.accent,
           ),
         ],
       ),

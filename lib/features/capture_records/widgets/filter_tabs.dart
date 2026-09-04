@@ -62,7 +62,7 @@ class _Tab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppTokens.success : AppTokens.surface,
+      color: selected ? AppTokens.accent : AppTokens.surface,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -72,7 +72,7 @@ class _Tab extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-                color: selected ? AppTokens.success : AppTokens.border),
+                color: selected ? AppTokens.accent : AppTokens.border),
           ),
           child: Text(label,
               style: TextStyle(
@@ -93,7 +93,7 @@ class _FloorButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final selected = floor != null && floor!.isNotEmpty;
     return Material(
-      color: selected ? AppTokens.success : AppTokens.surface,
+      color: selected ? AppTokens.accent : AppTokens.surface,
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         borderRadius: BorderRadius.circular(999),
@@ -103,7 +103,7 @@ class _FloorButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-                color: selected ? AppTokens.success : AppTokens.border),
+                color: selected ? AppTokens.accent : AppTokens.border),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -117,7 +117,8 @@ class _FloorButton extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: selected ? AppTokens.onAccent : AppTokens.fg),
+                    color: selected ? AppTokens.onAccent : AppTokens.fg,
+                    height: 1),
               ),
               const SizedBox(width: 4),
               Icon(

@@ -6,6 +6,7 @@ import '../../core/di/providers.dart';
 import '../../data/models.dart';
 import '../../features/auth/auth_controller.dart';
 import 'user_switch_sheet.dart';
+import 'app_snack.dart';
 
 /// 个人中心侧边栏：点击顶部菜单图标从左侧滑出（宽 310，背景 #F4F6F7），右侧遮罩 #000 50%。
 /// 内容：个人信息 + 切换身份按钮、我的项目、其他（设置/帮助等预留）、退出登录。
@@ -377,9 +378,8 @@ class _ProfileDrawer extends ConsumerWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // TODO: 设置 / 帮助 / 添加更多账号 功能后续接入，先预留位置。
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label · 敬请期待'), duration: const Duration(seconds: 1)),
-      ),
+      onTap: () => AppSnack.show(context, '$label · 敬请期待',
+          kind: AppSnackKind.muted),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

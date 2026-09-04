@@ -181,33 +181,12 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
   @override
   Widget build(BuildContext context) {
     final hasText = _final.isNotEmpty || _partial.isNotEmpty;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 标题
-            Row(
-              children: [
-                const Icon(MingCuteIcons.micLine, color: AppTokens.accent, size: 18),
-                const SizedBox(width: 8),
-                const Text('语音记录',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700, color: AppTokens.fg)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(MingCuteIcons.closeLine, color: AppTokens.muted, size: 18),
-                  onPressed: () => Navigator.of(context).pop(),
-                  splashRadius: 16,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 实时/最终文本区
-            Container(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 实时/最终文本区（标题与关闭由 AppBottomSheet 头部提供）
+        Container(
               constraints: const BoxConstraints(minHeight: 96, maxHeight: 200),
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -283,8 +262,6 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
               ),
             ],
           ],
-        ),
-      ),
-    );
+        );
   }
 }

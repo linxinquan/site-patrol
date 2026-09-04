@@ -44,27 +44,19 @@ class AppSnack {
     switch (k) {
       case AppSnackKind.success:
         return const _SnackStyle(
-            icon: MingCuteIcons.checkCircleLine,
-            fg: AppTokens.success,
-            bg: AppTokens.successSoft);
+            icon: MingCuteIcons.checkCircleLine, fg: AppTokens.success);
       case AppSnackKind.accent:
         return const _SnackStyle(
-            icon: MingCuteIcons.documentLine, fg: AppTokens.fg, bg: AppTokens.surface2);
+            icon: MingCuteIcons.documentLine, fg: AppTokens.fg);
       case AppSnackKind.brand:
         return const _SnackStyle(
-            icon: MingCuteIcons.informationLine,
-            fg: AppTokens.brand,
-            bg: AppTokens.brandSoft);
+            icon: MingCuteIcons.informationLine, fg: AppTokens.brand);
       case AppSnackKind.danger:
         return const _SnackStyle(
-            icon: MingCuteIcons.warningLine,
-            fg: AppTokens.danger,
-            bg: AppTokens.dangerSoft);
+            icon: MingCuteIcons.warningLine, fg: AppTokens.danger);
       case AppSnackKind.muted:
         return const _SnackStyle(
-            icon: MingCuteIcons.informationLine,
-            fg: AppTokens.muted,
-            bg: AppTokens.surface2);
+            icon: MingCuteIcons.informationLine, fg: AppTokens.muted);
     }
   }
 }
@@ -72,8 +64,7 @@ class AppSnack {
 class _SnackStyle {
   final IconData icon;
   final Color fg;
-  final Color bg;
-  const _SnackStyle({required this.icon, required this.fg, required this.bg});
+  const _SnackStyle({required this.icon, required this.fg});
 }
 
 class _ToastWidget extends StatefulWidget {
@@ -133,26 +124,30 @@ class _ToastWidgetState extends State<_ToastWidget>
         const EdgeInsets.symmetric(horizontal: 12);
     final horizontal = EdgeInsets.only(left: raw.left, right: raw.right);
     return Positioned.fill(
-      child: Align(
-        alignment: Alignment.center,
-        child: FadeTransition(
-          opacity: _fade,
-          child: Material(
-            color: Colors.transparent,
-            child: Container(
-              margin: horizontal,
-              constraints: const BoxConstraints(maxWidth: 360),
-              decoration: BoxDecoration(
-                color: widget.style.bg,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+      child: SafeArea(
+        top: true,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: FadeTransition(
+              opacity: _fade,
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  margin: horizontal,
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -188,6 +183,8 @@ class _ToastWidgetState extends State<_ToastWidget>
           ),
         ),
       ),
+    ),
+  ),
     );
   }
 }
