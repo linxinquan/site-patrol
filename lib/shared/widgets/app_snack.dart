@@ -4,7 +4,7 @@ import '../../core/theme/design_tokens.dart';
 
 /// 全局自定义 Toast 提示（替代 Material SnackBar，使用自有卡片样式，非 Google UI）。
 /// 用法：`AppSnack.show(context, '内容', kind: AppSnackKind.success);`
-enum AppSnackKind { muted, success, accent, brand, danger }
+enum AppSnackKind { muted, success, accent, brand, danger, warning }
 
 class AppSnack {
   static void show(BuildContext context, String message,
@@ -57,6 +57,10 @@ class AppSnack {
       case AppSnackKind.muted:
         return const _SnackStyle(
             icon: MingCuteIcons.informationLine, fg: AppTokens.muted);
+      case AppSnackKind.warning:
+        // 新设计统一白卡底，仅用前景色区分语义（bg 字段已移除）
+        return const _SnackStyle(
+            icon: MingCuteIcons.warningLine, fg: AppTokens.warning);
     }
   }
 }

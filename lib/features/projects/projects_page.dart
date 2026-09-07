@@ -68,6 +68,19 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         fileBase64: base64Encode(bytes),
       );
       final ocfKey = (biz['key'] as String?) ?? base;
+      final localOk = biz['localOk'] != false;
+      if (!localOk) {
+        // 本地无法完整转换（天正/自定义代理对象导致 ODA 导出 DXF 损坏）
+        if (!mounted) return;
+        final note = (biz['note'] as String?) ?? '';
+        AppSnack.show(
+            context,
+            note.isNotEmpty
+                ? note
+                : '本地无法完整转换该图纸，请使用「专业看图」(云图)',
+            kind: AppSnackKind.danger);
+        return;
+      }
       final existing = await UploadedDrawingStore.list(projectId);
       await UploadedDrawingStore.save(projectId, [
         UploadedDrawing(
@@ -85,8 +98,13 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
       ]);
       if (!mounted) return;
       ref.invalidate(uploadedDrawingsProvider(projectId));
-      AppSnack.show(context, '转换成功，已加入「我的上传」',
-          kind: AppSnackKind.success);
+      final note = (biz['note'] as String?) ?? '';
+      if (note.isNotEmpty) {
+        AppSnack.show(context, note, kind: AppSnackKind.warning);
+      } else {
+        AppSnack.show(context, '转换成功，已加入「我的上传」',
+            kind: AppSnackKind.success);
+      }
     } catch (e) {
       if (!mounted) return;
       AppSnack.show(context, '上传失败：$e', kind: AppSnackKind.danger);
@@ -561,7 +579,8 @@ class _LocalDwgPreviewPage extends StatefulWidget {
 }
 
 class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
-  bool _useSvg = false; // 默认 PNG；SVG 大文件渲染慢让用户主动切
+  // 默认叠加文字层：PNG(几何) + 轻量 SVG(仅文字，几十 KB)
+  bool _showText = true;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -575,50 +594,44 @@ class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
                   const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           actions: [
             IconButton(
-              tooltip: _useSvg
-                  ? '当前：SVG（含文字/标注） · 点击切到 PNG（快）'
-                  : '当前：PNG（几何） · 点击切到 SVG（含文字/标注）',
-              icon: Icon(_useSvg ? Icons.text_fields : Icons.image),
-              onPressed: () => setState(() => _useSvg = !_useSvg),
+              tooltip: _showText ? '隐藏文字/标注层' : '显示文字/标注层',
+              icon: Icon(_showText ? Icons.text_fields : Icons.text_format),
+              onPressed: () => setState(() => _showText = !_showText),
             ),
           ],
         ),
         body: InteractiveViewer(
           maxScale: 12,
           child: Center(
-            child: _useSvg
-                ? SvgPicture.network(
-                    '${CadService.host}/api/ocf/${widget.ocfKey}.svg',
-                    fit: BoxFit.contain,
-                    placeholderBuilder: (_) => const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('SVG 加载中（约 30-40MB，浏览器需解析…）',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white70)),
-                      ),
-                    ),
-                    errorBuilder: (_, __, ___) => Image.network(
-                      '${CadService.host}/api/ocf/${widget.ocfKey}.png',
+            // Stack 大小由 PNG 决定；SVG 文字层同宽高比 contain 填充 → 精确对齐
+            child: Stack(
+              children: [
+                Image.network(
+                  '${CadService.host}/api/ocf/${widget.ocfKey}.png',
+                  fit: BoxFit.contain,
+                  loadingBuilder: (ctx, child, p) => p == null
+                      ? child
+                      : const Center(
+                          child:
+                              CircularProgressIndicator(color: Colors.white)),
+                  errorBuilder: (_, __, ___) => const Text(
+                    '底图加载失败：请确认 CAD 服务(8800)已启动',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ),
+                if (_showText)
+                  Positioned.fill(
+                    child: SvgPicture.network(
+                      '${CadService.host}/api/ocf/${widget.ocfKey}.svg',
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Text(
-                        '底图加载失败：请确认 CAD 服务(8800)已启动',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ),
-                  )
-                : Image.network(
-                    '${CadService.host}/api/ocf/${widget.ocfKey}.png',
-                    fit: BoxFit.contain,
-                    loadingBuilder: (ctx, child, p) => p == null
-                        ? child
-                        : const Center(
-                            child: CircularProgressIndicator(color: Colors.white)),
-                    errorBuilder: (_, __, ___) => const Text(
-                      '底图加载失败：请确认 CAD 服务(8800)已启动',
-                      style: TextStyle(color: Colors.white70),
+                      alignment: Alignment.center,
+                      // 文字层缺失时静默忽略（仅显示几何底图）
+                      placeholderBuilder: (_) => const SizedBox.shrink(),
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
+              ],
+            ),
           ),
         ),
       );

@@ -581,15 +581,28 @@ class Handler(BaseHTTPRequestHandler):
                 "%s_%d" % (cad_local.sanitize_key(base), int(_time.time())))
             try:
                 info = cad_local.convert_local(key, _b64.b64decode(fileBase64))
-                self._send_json(200, {"rtnCode": "0000000", "bizData": {
-                    "status": 2, "resultCode": 0, "key": info["key"],
-                    "local": True, "png": "/api/ocf/%s.png" % info["key"],
-                    "svg": "/api/ocf/%s.svg" % info["key"],
-                    "layers": info["layers_count"], "layouts": info["layouts"],
-                    "size_mb": info["size_mb"],
-                    "png_w": info["png_w"], "png_h": info["png_h"],
-                    "bounds": info["bounds"],
-                    "hint": "本地转换完成，未消耗浩辰配额"}})
+                ok = info.get("ok", True)
+                biz = {
+                    "status": 2 if ok else 0,
+                    "resultCode": 0 if ok else 1,
+                    "key": info["key"],
+                    "local": True,
+                    "localOk": ok,
+                    "png": ("/api/ocf/%s.png" % info["key"]) if ok else None,
+                    "svg": ("/api/ocf/%s.svg" % info["key"]) if ok else None,
+                    "layers": info.get("layers_count"),
+                    "layouts": info.get("layouts"),
+                    "size_mb": info.get("size_mb"),
+                    "png_w": info.get("png_w"), "png_h": info.get("png_h"),
+                    "bounds": info.get("bounds"),
+                    "proxy_count": info.get("proxy_count", 0),
+                    "tarch_proxy": info.get("tarch_proxy", False),
+                    "note": info.get("note", ""),
+                    "error": info.get("error", ""),
+                    "hint": ("本地转换完成，未消耗浩辰配额" if ok
+                             else "本地无法完整转换该图纸（天正/自定义对象）"),
+                }
+                self._send_json(200, {"rtnCode": "0000000", "bizData": biz})
             except Exception as e:
                 self._send_json(500, {"rtnCode": "9999999", "msg": str(e)})
             return

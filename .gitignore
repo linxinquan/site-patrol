@@ -60,6 +60,9 @@ _flutter_run.log
 server/dwg_cache/
 server/ocf_cache.zip
 *.dxf
+# 本地转换(DWG→ODA→DXF)临时工作目录：含 GB 级中间文件
+server/_local_work/
+server/_local_out/
 # 轴网交点提取中间产物（正式数据在 assets/axis_data/）
 server/axis_data/
 
