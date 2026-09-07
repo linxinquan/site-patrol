@@ -112,7 +112,13 @@ Slogan：**山水动脉 · 临河而治，望水而愈**
 ## 五、环境坑（沿用 09-03 结论 + 今日新增）
 
 - **`flutter analyze` 在本机必崩**：中文路径导致 analysis server JSON 解析失败。以 IDE 诊断（read_lints）为准
-- git 代理 `127.0.0.1:7897` 无监听，推拉用：`git -c http.proxy="" -c https.proxy="" push origin main`
+- **git 推送走本机代理（Clash）`127.0.0.1:7897`**（09-07 实测有效）：
+  ```
+  git -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 push origin main
+  ```
+  若代理软件没开则直连会 `Empty reply from server`。推送前先确认端口在监听：
+  `netstat -ano | findstr "LISTENING" | findstr 7897`
+  （注：09-03 日志写的"7897 无监听"是当时未开代理，以本条为准）
 - **构建 base-href**：项目自定义 `web/index.html` **没有 `$FLUTTER_BASE_HREF` 占位符**，用 `--base-href=/jianzhu/` 会报错 → 做法是**直接改源码** `web/index.html` 的 `<base href="/jianzhu/">`
 - **⚠️ 构建失败会导致资源丢失**：`flutter build web` 失败时可能清空 `build/web` 且不拷贝 assets（8/28 踩过：图纸目录变空）。**资源缺失时先 `flutter clean` 再完整重建**
 - **图标字体路径**：Flutter Web 把自定义字体输出到 `assets/assets/fonts/`，而 HTML 的 `@font-face` 若写 `assets/fonts/` 会 404 → 已修正源码为 `assets/assets/fonts/`（源码与 `build/web/index.html` 都已改）
