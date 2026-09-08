@@ -4,7 +4,7 @@ import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/mock/mock_data.dart';
 
-/// 蓝图原稿预览页（P4）：深色蓝图氛围 + InteractiveViewer 缩放 + 图纸切换。
+/// 蓝图原稿预览页（P4）：浅色（白底）原稿浏览 + InteractiveViewer 缩放 + 图纸切换。
 /// 图纸：assets/drawings 的 PNG 原稿（建施报_06 西楼一层 / 建施报_20 东楼一层 / 建施报_01 总平面图），离线可用、零新依赖。
 class BlueprintViewerPage extends StatefulWidget {
   const BlueprintViewerPage({super.key});
@@ -43,16 +43,18 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1220),
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1220),
-        foregroundColor: Colors.white,
+        backgroundColor: AppTokens.bg,
+        foregroundColor: AppTokens.fg,
         elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine, color: Colors.white),
+        leading: NavIconButton(
+            icon: MingCuteIcons.leftLine, color: const Color(0xFF09244B)),
         title: const Text('蓝图原稿',
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600)),
+                fontSize: 16, fontWeight: FontWeight.w600, color: AppTokens.fg)),
         centerTitle: false,
       ),
       body: Column(
@@ -73,16 +75,12 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
                               fontWeight: FontWeight.w400,
                               color: _index == i
                                   ? AppTokens.onAccent
-                                  : Colors.white70)),
+                                  : AppTokens.fg2)),
                       selected: _index == i,
                       onSelected: (_) => _switchTo(i),
-                      backgroundColor: Colors.white.withValues(alpha: 0.06),
-                      selectedColor: Colors.white,
-                      side: BorderSide(
-                        color: _index == i
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.18),
-                      ),
+                      backgroundColor: AppTokens.surface,
+                      selectedColor: AppTokens.brand,
+                      side: BorderSide.none,
                       showCheckmark: false,
                       shape: RoundedRectangleBorder(
                         borderRadius:
@@ -100,23 +98,23 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
             child: Row(
               children: [
                 const Icon(MingCuteIcons.documentsLine,
-                    size: 13, color: Colors.white54),
+                    size: 13, color: AppTokens.muted),
                 const SizedBox(width: 6),
                 Text(_title,
                     style: const TextStyle(
-                        fontSize: 12, color: Colors.white70)),
+                        fontSize: 12, color: AppTokens.fg2)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AppTokens.surface3,
                     borderRadius:
                         BorderRadius.circular(AppTokens.radiusPill),
                   ),
                   child: const Text('蓝图原稿 · 离线预览',
                       style: TextStyle(
-                          fontSize: 10, color: Colors.white54)),
+                          fontSize: 10, color: AppTokens.muted)),
                 ),
               ],
             ),
@@ -127,10 +125,8 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: AppTokens.surface2,
                 borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08)),
               ),
               clipBehavior: Clip.antiAlias,
               child: InteractiveViewer(
@@ -148,7 +144,7 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
           ),
           // 底部缩放工具条
           Container(
-            color: const Color(0xFF0B1220),
+            color: AppTokens.bg,
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -194,20 +190,19 @@ class _ToolBtn extends StatelessWidget {
           padding: const EdgeInsets.symmetric(
               horizontal: AppTokens.space4, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: AppTokens.surface,
             borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.white),
+              Icon(icon, size: 16, color: AppTokens.fg),
               const SizedBox(width: 6),
               Text(label,
                   style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      color: Colors.white)),
+                      color: AppTokens.fg)),
             ],
           ),
         ),

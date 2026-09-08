@@ -32,12 +32,14 @@ class AppSnack {
       ),
     );
     overlay.insert(entry);
-    // 带操作按钮时不自动消失（点击按钮后由 onActionDismiss 关闭）。
-    if (actionLabel == null || onAction == null) {
-      Future.delayed(duration ?? const Duration(seconds: 2), () {
-        key.currentState?.hide();
-      });
-    }
+    // 带操作按钮时也给较长自动消失时间（默认 4s），避免 toast 一直停在顶部。
+    final _autoHide = duration ??
+        ((actionLabel != null && onAction != null)
+            ? const Duration(seconds: 4)
+            : const Duration(seconds: 2));
+    Future.delayed(_autoHide, () {
+      key.currentState?.hide();
+    });
   }
 
   static _SnackStyle _resolve(AppSnackKind k) {
@@ -152,7 +154,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                       ),
                     ],
                   ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -163,23 +165,30 @@ class _ToastWidgetState extends State<_ToastWidget>
                         style: TextStyle(
                             color: widget.style.fg,
                             fontSize: 14,
+                            height: 22 / 14,
                             fontWeight: FontWeight.w400)),
                   ),
                   if (widget.actionLabel != null && widget.onAction != null)
-                    TextButton(
-                      onPressed: () {
+                    GestureDetector(
+                      onTap: () {
                         widget.onAction!();
                         widget.onActionDismiss?.call();
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: widget.style.fg,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        minimumSize: Size.zero,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTokens.brand,
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusSm),
+                        ),
+                        child: Text(widget.actionLabel!,
+                            style: const TextStyle(
+                                fontSize: 14,
+                                height: 22 / 14,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white)),
                       ),
-                      child: Text(widget.actionLabel!,
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w700)),
                     ),
                 ],
               ),

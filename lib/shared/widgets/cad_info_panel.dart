@@ -120,17 +120,17 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
                 ),
               ],
             ),
-            TabBar(
-              controller: _tab,
-              labelColor: AppTokens.brand,
-              unselectedLabelColor: AppTokens.muted,
-              indicatorColor: AppTokens.brand,
-              tabs: const [
-                Tab(text: '图层', icon: Icon(MingCuteIcons.layersLine, size: 16)),
-                Tab(text: '布局', icon: Icon(MingCuteIcons.layoutGridLine, size: 16)),
-              ],
+            AnimatedBuilder(
+              animation: _tab,
+              builder: (_, __) => Row(
+                children: [
+                  _segChip('图层', 0),
+                  const SizedBox(width: 8),
+                  _segChip('布局', 1),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             SizedBox(
               height: 300,
               child: TabBarView(
@@ -170,28 +170,48 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
           child: Text('暂无图层数据', style: TextStyle(color: AppTokens.muted)));
     }
     final layers = _info!.layers;
-    return ListView.builder(
+    return ListView.separated(
       itemCount: layers.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final l = layers[i];
         final on = _layerToggle[l.name] ?? true;
-        return CheckboxListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          controlAffinity: ListTileControlAffinity.leading,
-          activeColor: AppTokens.brand,
-          title: Text(l.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
-          subtitle: l.isFrozen
-              ? const Text('已冻结', style: TextStyle(fontSize: 12))
-              : (l.isLock
-                  ? const Text('已锁定', style: TextStyle(fontSize: 12))
-                  : null),
-          value: on,
-          onChanged: (v) =>
-              setState(() => _layerToggle[l.name] = v ?? true),
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
+                    if (l.isFrozen)
+                      const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text('已冻结',
+                              style: TextStyle(fontSize: 12, color: AppTokens.muted)))
+                    else if (l.isLock)
+                      const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Text('已锁定',
+                              style: TextStyle(fontSize: 12, color: AppTokens.muted))),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _RoundCheckbox(
+                value: on,
+                onChanged: (v) => setState(() => _layerToggle[l.name] = v ?? true),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -206,31 +226,98 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
     }
     final current = ref.watch(cadCurrentLayoutProvider);
     final layouts = _info!.layouts;
-    return ListView.builder(
+    return ListView.separated(
       itemCount: layouts.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final lay = layouts[i];
         final selected = current == lay.name;
-        return ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            selected ? MingCuteIcons.checkCircleLine : MingCuteIcons.circleDashLine,
-            color: selected ? AppTokens.brand : AppTokens.muted,
-            size: 20,
-          ),
-          title: Text(lay.name,
-              style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
-          subtitle: lay.handle != null
-              ? Text('句柄 ${lay.handle}',
-                  style: const TextStyle(fontSize: 12))
-              : null,
+        return GestureDetector(
           onTap: () {
             ref.read(cadCurrentLayoutProvider.notifier).state = lay.name;
             setState(() {});
           },
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              border: selected ? Border.all(color: AppTokens.brand) : null,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  selected
+                      ? MingCuteIcons.checkCircleLine
+                      : MingCuteIcons.circleDashLine,
+                  color: selected ? AppTokens.brand : AppTokens.muted,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(lay.name,
+                          style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
+                      if (lay.handle != null)
+                        Text('句柄 ${lay.handle}',
+                            style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
       },
+    );
+  }
+
+  /// 分段切换胶囊（图层 / 布局）。
+  Widget _segChip(String label, int i) {
+    final sel = _tab.index == i;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          _tab.animateTo(i);
+          setState(() {});
+        },
+        child: Container(
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: sel ? AppTokens.brand : AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: sel ? AppTokens.onAccent : AppTokens.fg)),
+        ),
+      ),
+    );
+  }
+
+  /// 自绘圆角勾选框（替代 Material Checkbox）。
+  Widget _RoundCheckbox(
+      {required bool value, required ValueChanged<bool?> onChanged}) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        width: 20,
+        height: 20,
+        decoration: BoxDecoration(
+          color: value ? AppTokens.brand : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+              color: value ? AppTokens.brand : AppTokens.muted, width: 1.5),
+        ),
+        child: value
+            ? const Icon(MingCuteIcons.checkLine, size: 14, color: Colors.white)
+            : null,
+      ),
     );
   }
 }

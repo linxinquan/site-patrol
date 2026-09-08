@@ -8,12 +8,10 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/storage/local_storage.dart';
-import '../../core/utils/open_web.dart';
-import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
-import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_date_range_picker.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
@@ -79,9 +77,11 @@ class DefectsPage extends ConsumerWidget {
         value: defects,
         builder: (ds) {
           final list = ds.where((d) {
-            if (special == 'designer') return d.pendingDesignerDisposal;
-            if (special == 'reply') return (d.reply ?? '').isEmpty;
-            return filter == null || d.status == filter;
+            final okStatus = filter == null || d.status == filter;
+            final okSpecial = special == null ||
+                (special == 'designer' && d.pendingDesignerDisposal) ||
+                (special == 'reply' && (d.reply ?? '').isEmpty);
+            return okStatus && okSpecial;
           }).toList();
           // 筛选条作为列表首个 item，随内容滚动（不吸顶）；间距统一 8。
           return ListView.separated(
@@ -90,13 +90,14 @@ class DefectsPage extends ConsumerWidget {
             itemCount: list.length + 2, // 筛选条 + 卡片 + OfflineBar
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
-              if (i == 0) return _FilterChips(current: filter);
+              if (i == 0) return _FilterChips(count: list.length);
               if (i == list.length + 1) return OfflineBar.defects;
               if (list.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 72),
                   child: Center(
-                    child: Text('该状态下暂无缺陷',
+                    child: Text('没有符合筛选条件的缺陷',
+                        textAlign: TextAlign.center,
                         style: TextStyle(color: AppTokens.muted)),
                   ),
                 );
@@ -143,14 +144,6 @@ class DefectsPage extends ConsumerWidget {
         projectName: projectName,
         reporter: '${user.name} · ${user.org} · ${user.role}',
         generatedAt: generatedAt,
-      ),
-      onPreview: (range, list) => _previewHtml(
-        ref,
-        range,
-        filtered: list,
-        reporter: '${user.name} · ${user.org} · ${user.role}',
-        generatedAt: generatedAt,
-        projectName: projectName,
       ),
     );
   }
@@ -214,10 +207,7 @@ class DefectsPage extends ConsumerWidget {
     required void Function(
             ReportExportFormat format, DateTimeRange range, List<Defect> defects)
         onPick,
-    required void Function(DateTimeRange range, List<Defect> defects)
-        onPreview,
   }) {
-    final canPreview = canOpenWebWindow;
     final canExport = canExportReportFile;
     final today = DateTime.now();
     AppBottomSheet.show<void>(
@@ -245,31 +235,28 @@ class DefectsPage extends ConsumerWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                         onTap: () async {
-                          final picked = await showDateRangePicker(
-                            context: ctx,
+                          final picked = await AppDateRangePicker.show(
+                            ctx,
                             firstDate: DateTime(2024, 1, 1),
                             lastDate:
                                 DateTime(today.year, today.month, today.day),
-                            initialDateRange: range,
-                            helpText: '选择汇报周期（按缺陷发现时间过滤）',
-                            saveText: '确定',
+                            initialRange: range,
                           );
                           if (picked != null) setSheet(() => range = picked);
                         },
                         child: Ink(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                              horizontal: 12, vertical: 12),
                           decoration: BoxDecoration(
                             color: AppTokens.surface,
                             borderRadius:
-                                BorderRadius.circular(AppTokens.radiusLg),
-                            border: Border.all(color: AppTokens.border),
+                                BorderRadius.circular(AppTokens.radiusSm),
                           ),
                           child: Row(
                             children: [
                               const Icon(MingCuteIcons.calendarLine,
-                                  size: 18, color: AppTokens.brand),
+                                  size: 18, color: AppTokens.fg),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -290,11 +277,11 @@ class DefectsPage extends ConsumerWidget {
                                   ],
                                 ),
                               ),
-                              Text('${list.length} 条',
+                              Text('${list.length}',
                                   style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTokens.brand)),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTokens.fg)),
                               const SizedBox(width: 4),
                               const Icon(MingCuteIcons.rightLine,
                                   size: 18, color: AppTokens.muted),
@@ -309,7 +296,7 @@ class DefectsPage extends ConsumerWidget {
                         child: Text(
                           '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
                           style: const TextStyle(
-                              fontSize: 12, color: AppTokens.muted),
+                              fontSize: 12, color: AppTokens.brand),
                         ),
                       ),
                     const SizedBox(height: 14),
@@ -323,22 +310,7 @@ class DefectsPage extends ConsumerWidget {
                           onPick(format, range, list);
                         },
                       ),
-                    if (canPreview)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: AppButton(
-                          label: '下载 HTML 报告（浏览器打开后可另存为 PDF）',
-                          width: double.infinity,
-                          outlined: true,
-                          onPressed: list.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.of(ctx).pop();
-                                  onPreview(range, list);
-                                },
-                        ),
-                      ),
-                    if (!canExport && !canPreview)
+                    if (!canExport)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Text('当前平台暂不支持导出，请在 Web 端使用该功能。',
@@ -353,58 +325,67 @@ class DefectsPage extends ConsumerWidget {
     );
   }
 
-  /// 单个格式选项卡片（弹层内）。
+  /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009：40×40 彩色图标 chip + 标题/副文）。
   Widget _formatTile(
       BuildContext ctx, ReportExportFormat format,
       {required VoidCallback onTap, bool enabled = true}) {
     return Opacity(
       opacity: enabled ? 1 : 0.45,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.only(bottom: 12),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             onTap: enabled ? onTap : null,
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              border: Border.all(color: AppTokens.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppTokens.brandSoft,
-                    borderRadius: BorderRadius.circular(10),
+            child: Ink(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Color(format.colorHex),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                    ),
+                    child: const Icon(MingCuteIcons.fileFill,
+                        size: 24, color: Colors.white),
                   ),
-                  child: Text(
-                    format.label,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTokens.brand),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(format.label,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
+                                color: AppTokens.fg)),
+                        const SizedBox(height: 2),
+                        Text(format.subtitle,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                height: 20 / 12,
+                                color: AppTokens.muted)),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(format.subtitle,
-                      style:
-                          const TextStyle(fontSize: 13, color: AppTokens.fg2)),
-                ),
-                const Icon(MingCuteIcons.rightLine,
-                    size: 18, color: AppTokens.muted),
-              ],
+                  const Icon(MingCuteIcons.rightLine,
+                      size: 16, color: AppTokens.muted),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -522,33 +503,6 @@ class DefectsPage extends ConsumerWidget {
     }
   }
 
-  /// 浏览器预览 HTML（Web 端「预览」入口）。
-  ///
-  /// **改为下载 HTML 文件**（原 `data:text/html` 方式在新窗口打开时，
-  /// 浏览器对 data URL 的"另存为 PDF"支持有限）。下载后双击用浏览器打开，
-  /// 即可正常 Ctrl+P → 另存为 PDF / 直接打印。
-  Future<void> _previewHtml(
-    WidgetRef ref,
-    DateTimeRange range, {
-    required List<Defect> filtered,
-    required String reporter,
-    required String generatedAt,
-    required String projectName,
-  }) async {
-    if (filtered.isEmpty) return;
-    final report = ref.read(weeklyReportProvider).copyWithDefects(filtered);
-    final photoBytes = await _loadPhotoBytes(report);
-    final html = buildWeeklyReportHtml(
-      report,
-      reporter: reporter,
-      generatedAt: generatedAt,
-      photoBase64: photoBytes.map((k, v) => MapEntry(k, base64Encode(v))),
-    );
-    final baseName =
-        '现场工作汇报_${_sanitize(projectName)}_${_fmtCompact(range.start)}-${_fmtCompact(range.end)}';
-    downloadTextFile('$baseName.html', 'text/html;charset=utf-8', html);
-  }
-
   /// 生成中蒙层：不可关闭，防重复点击。
   void _showBusy(BuildContext context, ReportExportFormat format) {
     showDialog<void>(
@@ -589,83 +543,122 @@ class DefectsPage extends ConsumerWidget {
   }
 }
 
-/// 筛选条（设计稿 Frame 2131330677）：白底圆角 12 容器，内 5 个等分小按钮。
-/// 选中 = #F4F6F7 底 + 品牌蓝字；未选中 = 白底 + 注释灰字；均 14/600、圆角 8。
+/// 筛选条（设计稿 Frame 2131330677 + 2147228081）。
+/// 两层独立筛选，可同时生效（AND）：
+/// 上：白底圆角容器，内 5 个等分状态按钮（全部/待整改/整改中/已销项/已拒绝），互斥单选。
+/// 下：筛选标题 + 两个文本筛选（待设计师处置/待施工方回复），互斥单选。两层互不影响。
 class _FilterChips extends ConsumerWidget {
-  final DefectStatus? current;
-  const _FilterChips({required this.current});
+  final int count;
+  const _FilterChips({required this.count});
+
+  static const _statusOptions = [
+    (null, '全部'),
+    (DefectStatus.draft, '待整改'),
+    (DefectStatus.doing, '整改中'),
+    (DefectStatus.done, '已销项'),
+    (DefectStatus.reject, '已拒绝'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(defectFilterProvider);
     final special = ref.watch(defectSpecialFilterProvider);
-    const options = [
-      (null, '全部'),
-      (DefectStatus.draft, '待整改'),
-      (DefectStatus.doing, '整改中'),
-      (DefectStatus.done, '已销项'),
-      (DefectStatus.reject, '已拒绝'),
-    ];
 
-    // 任务4/5 快捷筛选：与状态筛选互斥；重复点击同一项取消。
+    // 状态筛选：仅改自身，不影响特殊筛选。
     void tapStatus(DefectStatus? s) {
-      ref.read(defectFilterProvider.notifier).state = s;
-      ref.read(defectSpecialFilterProvider.notifier).state = null;
+      ref.read(defectFilterProvider.notifier).state = filter == s ? null : s;
     }
 
+    // 特殊筛选：仅改自身，不影响状态筛选。两层可叠加。
     void tapSpecial(String? s) {
-      if (s != null) ref.read(defectFilterProvider.notifier).state = null;
       ref.read(defectSpecialFilterProvider.notifier).state =
           special == s ? null : s;
     }
 
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
-      child: Column(
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Frame 2131330677：白底圆角容器 + 5 个等分状态按钮
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
             children: [
-              for (final (s, label) in options) ...[
-                if (s != null) const SizedBox(width: 4),
+              for (final (s, label) in _statusOptions) ...[
                 Expanded(
                   child: _FilterBtn(
                     label: label,
-                    selected: special == null && s == current,
+                    selected: s == filter,
                     onTap: () => tapStatus(s),
                   ),
                 ),
+                if (s != _statusOptions.last.$1) const SizedBox(width: 4),
               ],
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: _FilterBtn(
+        ),
+        const SizedBox(height: 12),
+        // Frame 2147228081：筛选标题 + 两个文本筛选
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: '筛选',
+                    style: TextStyle(
+                        fontSize: 14,
+                        height: 22 / 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black),
+                  ),
+                  TextSpan(
+                    text: ' · 共 $count 条',
+                    style: TextStyle(
+                        fontSize: 14,
+                        height: 22 / 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTokens.fg2),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _FilterText(
+                  label: '全部',
+                  selected: special == null,
+                  onTap: () => tapSpecial(null),
+                ),
+                const SizedBox(width: 12),
+                _FilterText(
                   label: '待设计师处置',
                   selected: special == 'designer',
                   onTap: () => tapSpecial('designer'),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _FilterBtn(
+                const SizedBox(width: 12),
+                _FilterText(
                   label: '待施工方回复',
                   selected: special == 'reply',
                   onTap: () => tapSpecial('reply'),
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
 
+/// 状态小按钮（Frame 2131330677）：选中 = #F4F6F7 底 + 品牌蓝字；未选 = 白底 + #B5B9BF 字。
 class _FilterBtn extends StatelessWidget {
   final String label;
   final bool selected;
@@ -679,20 +672,48 @@ class _FilterBtn extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? AppTokens.surface2 : AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            color: selected
+                ? const Color(0xFFF4F6F7)
+                : const Color(0xFFFFFFFF),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 14,
-              height: 34 / 14,
               fontWeight: FontWeight.w600,
-              leadingDistribution: TextLeadingDistribution.even,
-              color: selected ? AppTokens.brand : AppTokens.note,
+              color: selected
+                  ? const Color(0xFF0395FF)
+                  : const Color(0xFFB5B9BF),
             ),
+          ),
+        ),
+      );
+}
+
+/// 筛选标题右侧文本筛选（Frame 2147228081）：选中品牌蓝 #0395FF、未选辅助灰 #919499，均 14/w500。
+class _FilterText extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _FilterText(
+      {required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            height: 22 / 14,
+            fontWeight: FontWeight.w500,
+            color: selected
+                ? const Color(0xFF0395FF)
+                : const Color(0xFF919499),
           ),
         ),
       );

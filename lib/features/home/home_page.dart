@@ -1631,7 +1631,7 @@ void showDataLoopModal(BuildContext context) {
               onTap: () => Navigator.of(ctx).pop(),
               child: Container(
                 width: 240,
-                height: 48,
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: const Color(0xFF0395FF),
