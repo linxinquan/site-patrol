@@ -35,6 +35,9 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   bool _orthoOn = true;
   // 临时洞口（保存时归入对应 RoomWall）
   final List<({int wallIdx, WallOpening op})> _openings = [];
+  /// 点回起点完成闭合时记录的首尾缺口（≤60mm），此后闭合差以此为准
+  /// （否则开环点列 closureDelta = 首尾距离恒为大值，演示与工程口径不符）。
+  double? _closeGap;
   final _view = TransformationController();
 
   @override
@@ -62,8 +65,20 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
 
   // —— 手势 ——
   void _onTap(Offset mm) {
+    // 点回起点 = 闭合：记录首尾缺口（不再追加重复点），闭合差即此缺口。
+    if (_pts.length >= 3 && (_pts.first - mm).distance <= 60) {
+      setState(() => _closeGap = (_pts.first - mm).distance);
+      _applySnap();
+      AppSnack.show(context,
+          '已闭合（缺口 ${fmtMm(_closeGap!)}mm），可保存',
+          kind: AppSnackKind.success);
+      return;
+    }
     if (_nearPoint(mm) != null) return; // 近点交给选择/删除流程（见长按）
-    setState(() => _pts.add(mm));
+    setState(() {
+      _pts.add(mm);
+      _closeGap = null;
+    });
     _applySnap();
   }
 
@@ -83,7 +98,10 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
 
   void _undo() {
     if (_pts.isEmpty) return;
-    setState(() => _pts.removeLast());
+    setState(() {
+      _pts.removeLast();
+      _closeGap = null;
+    });
     _applySnap();
   }
 
@@ -92,6 +110,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       _pts.clear();
       _openings.clear();
       _snapped = const {};
+      _closeGap = null;
     });
   }
 
@@ -208,7 +227,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
           kind: AppSnackKind.danger);
       return;
     }
-    final delta = closureDelta(_pts);
+    final delta = _closeGap ?? closureDelta(_pts);
     if (delta > 50) {
       final ok = await showDialog<bool>(
         context: context,
@@ -278,7 +297,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     final ptsCount = _pts.length;
     final perim = ptsCount >= 2 ? _perimeterMm() : 0.0;
     final area = ptsCount >= 3 ? areaM2(_pts) : 0.0;
-    final delta = ptsCount >= 3 ? closureDelta(_pts) : 0.0;
+    final delta = _closeGap ?? (ptsCount >= 3 ? closureDelta(_pts) : 0.0);
     final ortho = _orthoOn;
     return Scaffold(
       appBar: AppBar(
@@ -333,7 +352,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
               '${_pts.length} 角 · 周长 ${_fmtM(perim)} · '
               '面积 ${area.toStringAsFixed(2)} ㎡ · '
               '闭合差 ${fmtMm(delta)}mm${delta > 15 ? '（需复核）' : ''}'
-              '   提示：单击加点 · 长按删最近点 · 双击墙段加门/窗',
+              '   提示：单击加点 · 点回起点闭合 · 长按删最近点 · 双击墙段加门/窗',
               style: const TextStyle(fontSize: 12, color: Color(0xFF4A4F5E)),
             ),
           ),
