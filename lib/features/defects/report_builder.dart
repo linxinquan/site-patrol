@@ -106,6 +106,15 @@ String buildWeeklyReportHtml(
     chapters.add(_defectsSection(defects, photoBase64));
   }
 
+  // ===== 巡场小结（0902 任务5b：APP 内手填，与 PDF/DOCX 端保持一致）=====
+  if (report.patrolSummary.trim().isNotEmpty) {
+    chapters.add(_noteSection(WeeklyNote(
+      title: '巡场小结',
+      text: report.patrolSummary,
+      page: 9999,
+    )));
+  }
+
   buf.writeln('<!DOCTYPE html>');
   buf.writeln('<html lang="zh-CN">');
   buf.writeln('<head>');

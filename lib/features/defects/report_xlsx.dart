@@ -103,6 +103,13 @@ class _XlsxBook {
         _c(pairs[i][1], i.isEven ? _sCenter : _sCenter),
       ]));
     }
+
+    // 巡场小结（0902 任务5b）：与 HTML/PDF/DOCX 端保持一致，附于概览之后。
+    if (r.patrolSummary.trim().isNotEmpty) {
+      r1++; // 空行
+      rows.add(_Row(r1++, [_c('巡场小结', _sHeader), _c('', _sHeader)]));
+      rows.add(_Row(r1++, [_c(r.patrolSummary.trim(), _sCell), _c('', _sCell)]));
+    }
     _sheets.add(_Sheet('销项汇总', rows, cols: const [22, 14]));
   }
 

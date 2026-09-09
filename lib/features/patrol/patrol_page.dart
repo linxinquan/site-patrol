@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
@@ -61,6 +63,14 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   final List<CheckIn> _checkins = [];
   bool _recordSaved = false;
 
+  // GPS 轨迹采集：`PatrolRecord.track` 字段已存在，此处补真实定位来源。
+  final List<Map<String, double>> _track = [];
+  StreamSubscription<Position>? _posSub;
+  /// 定位不可用（无权限 / 服务关闭 / 室内无信号）→ 里程回退为图纸估算。
+  bool _gpsDenied = false;
+  /// GPS 实测累计里程（km），>0 时优先于图纸估算。
+  double _gpsKm = 0;
+
   // 历史巡场轨迹（已按底图缩放的绝对坐标序列），用于底图叠加显示。
   // 默认隐藏（空），用户从「历史轨迹」面板勾选后才会注入。
   List<List<Offset>> _historyTracks = const [];
@@ -84,6 +94,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
 
   @override
   void dispose() {
+    _stopGps();
     _ticker.dispose();
     _transformController.dispose();
     super.dispose();
@@ -274,6 +285,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     });
     AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点',
         kind: AppSnackKind.brand);
+    // 尽力采集 GPS 轨迹；不可用时自动降级为图纸估算里程。
+    _startGps();
   }
 
   void _pause() {
@@ -294,6 +307,69 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     });
   }
 
+  // —— GPS 轨迹采集 ——
+  /// 开始采集定位轨迹；无权限/无服务/无信号时静默降级（里程仍按图纸估算）。
+  Future<void> _startGps() async {
+    if (_posSub != null) return;
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() => _gpsDenied = true);
+          AppSnack.show(context, '未开启定位权限，里程将按图纸估算',
+              kind: AppSnackKind.muted);
+        }
+        return;
+      }
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        if (mounted) {
+          setState(() => _gpsDenied = true);
+          AppSnack.show(context, '定位服务未开启，里程将按图纸估算',
+              kind: AppSnackKind.muted);
+        }
+        return;
+      }
+      _posSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.best,
+          distanceFilter: 5, // 移动 5m 才记一点，抑制静止漂移与点过密
+        ),
+      ).listen(_onPosition);
+    } catch (_) {
+      // 模拟器 / Web 拒绝 / 室内无信号：不打断巡场流程
+      if (mounted) setState(() => _gpsDenied = true);
+    }
+  }
+
+  void _onPosition(Position p) {
+    if (_status != _PatrolStatus.running) return;
+    final lat = p.latitude, lng = p.longitude;
+    final prev = _track.isEmpty ? null : _track.last;
+    if (prev != null) {
+      final d =
+          Geolocator.distanceBetween(prev['lat']!, prev['lng']!, lat, lng) /
+              1000.0;
+      // 单次跳动 >100m 视为定位漂移，丢弃该点
+      if (d > 0.1) return;
+      _gpsKm += d;
+    }
+    final pt = <String, double>{
+      'lat': lat,
+      'lng': lng,
+      'ts': p.timestamp.millisecondsSinceEpoch.toDouble(),
+    };
+    if (mounted) setState(() => _track.add(pt));
+  }
+
+  void _stopGps() {
+    _posSub?.cancel();
+    _posSub = null;
+  }
+
   void _finish({bool manual = true}) {
     if (_status == _PatrolStatus.finished && !manual) return;
     setState(() {
@@ -301,6 +377,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _progress = 1.0;
       _pausedAt = null;
     });
+    _stopGps();
     if (!_recordSaved) _saveRecord();
     _showSummary();
   }
@@ -314,7 +391,11 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _startedAt = null;
       _checkins.clear();
       _recordSaved = false;
+      _track.clear();
+      _gpsKm = 0;
+      _gpsDenied = false;
     });
+    _stopGps();
     AppSnack.show(context, '已重置巡场轨迹', kind: AppSnackKind.muted);
   }
 
@@ -323,9 +404,14 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     final d = _checkedInIdxs.length;
     final ck =
         t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
+    // 里程来源：GPS 实测 > 图纸估算；未取到定位时明确提示，避免误读数值。
+    final src = _gpsKm > 0
+        ? 'GPS实测'
+        : (_gpsDenied ? '未取到定位·按图纸估算' : '图纸估算');
     AppSnack.show(
       context,
-      '巡场完成：${_distKm.toStringAsFixed(2)} km · $_pointCount 点 · $_durationStr$ck',
+      '巡场完成：${_distKm.toStringAsFixed(2)} km（$src）'
+      ' · $_pointCount 点 · $_durationStr$ck',
       kind: AppSnackKind.success,
     );
   }
@@ -401,6 +487,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       issueCount: 0,
       checkins: List.of(_checkins),
       checkpointTotal: plan.checkpointIdxs.length,
+      track: List.of(_track),
     );
     try {
       final existing = await PatrolRecordStore.list(plan.projectId);
@@ -415,6 +502,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   // —— 实时统计 ——
   // 里程：优先按图纸校准实算（_realKm），未校准则用 plan.totalKm 兜底。
   double get _distKm {
+    // GPS 实测优先；无信号/未授权时回退为图纸估算（进度 × 路线总长）。
+    if (_gpsKm > 0) return _gpsKm;
     final total = _realKm ?? _plan?.totalKm ?? 0.0;
     return _progress * total;
   }

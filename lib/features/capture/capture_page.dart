@@ -12,6 +12,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/defect_suggestions.dart';
+import '../../core/utils/mm_format.dart';
 import 'package:app_settings/app_settings.dart';
 
 import '../../core/theme/design_tokens.dart';
@@ -1757,8 +1758,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '偏差 ${dev >= 0 ? '+' : ''}${dev.toStringAsFixed(1)}mm'
-              '（${devPct >= 0 ? '+' : ''}${devPct.toStringAsFixed(1)}%）',
+              '偏差 ${fmtMmSigned(dev)}mm'
+              '（${fmtPctSigned(devPct)}%）',
               style: TextStyle(
                 fontSize: 11,
                 color: ok ? AppTokens.muted : AppTokens.danger,

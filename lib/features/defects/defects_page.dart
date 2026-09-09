@@ -134,7 +134,7 @@ class DefectsPage extends ConsumerWidget {
       context,
       allDefects: all,
       initialRange: _defaultWeekRange(now),
-      onPick: (format, range, list) => _runExport(
+      onPick: (format, range, list, patrolSummary) => _runExport(
         context,
         ref,
         format,
@@ -143,14 +143,16 @@ class DefectsPage extends ConsumerWidget {
         projectName: projectName,
         reporter: '${user.name} · ${user.org} · ${user.role}',
         generatedAt: generatedAt,
+        patrolSummary: patrolSummary,
       ),
-      onPreview: (range, list) => _previewHtml(
+      onPreview: (range, list, patrolSummary) => _previewHtml(
         ref,
         range,
         filtered: list,
         reporter: '${user.name} · ${user.org} · ${user.role}',
         generatedAt: generatedAt,
         projectName: projectName,
+        patrolSummary: patrolSummary,
       ),
     );
   }
@@ -211,15 +213,18 @@ class DefectsPage extends ConsumerWidget {
     BuildContext context, {
     required List<Defect> allDefects,
     required DateTimeRange initialRange,
-    required void Function(
-            ReportExportFormat format, DateTimeRange range, List<Defect> defects)
+    required void Function(ReportExportFormat format, DateTimeRange range,
+            List<Defect> defects, String patrolSummary)
         onPick,
-    required void Function(DateTimeRange range, List<Defect> defects)
+    required void Function(
+            DateTimeRange range, List<Defect> defects, String patrolSummary)
         onPreview,
   }) {
     final canPreview = canOpenWebWindow;
     final canExport = canExportReportFile;
     final today = DateTime.now();
+    // 巡场小结：App 内手填，随报告导出（0902 任务5b）。
+    var patrolSummary = '';
     AppBottomSheet.show<void>(
       context: context,
       title: '导出现场工作汇报',
@@ -313,6 +318,24 @@ class DefectsPage extends ConsumerWidget {
                         ),
                       ),
                     const SizedBox(height: 14),
+                    // 巡场小结（0902 任务5b）：选填，渲染进报告「巡场小结」区
+                    const Text('巡场小结（选填）',
+                        style: TextStyle(fontSize: 12, color: AppTokens.fg2)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      maxLines: 3,
+                      minLines: 2,
+                      textInputAction: TextInputAction.done,
+                      decoration: const InputDecoration(
+                        hintText: '本次巡场概述：路线 / 检查点达成 / 主要问题…',
+                        hintStyle: TextStyle(fontSize: 13),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      style: const TextStyle(fontSize: 13),
+                      onChanged: (v) => patrolSummary = v,
+                    ),
+                    const SizedBox(height: 14),
                     for (final format in ReportExportFormat.values)
                       _formatTile(
                         ctx,
@@ -320,7 +343,7 @@ class DefectsPage extends ConsumerWidget {
                         enabled: list.isNotEmpty,
                         onTap: () {
                           Navigator.of(ctx).pop();
-                          onPick(format, range, list);
+                          onPick(format, range, list, patrolSummary);
                         },
                       ),
                     if (canPreview)
@@ -334,7 +357,7 @@ class DefectsPage extends ConsumerWidget {
                               ? null
                               : () {
                                   Navigator.of(ctx).pop();
-                                  onPreview(range, list);
+                                  onPreview(range, list, patrolSummary);
                                 },
                         ),
                       ),
@@ -419,6 +442,7 @@ class DefectsPage extends ConsumerWidget {
     required String projectName,
     required String reporter,
     required String generatedAt,
+    required String patrolSummary,
   }) async {
     if (!canExportReportFile) {
       AppSnack.show(context, '当前平台暂不支持导出，请在 Web 端使用该功能',
@@ -430,7 +454,9 @@ class DefectsPage extends ConsumerWidget {
           kind: AppSnackKind.muted);
       return;
     }
-    final report = ref.read(weeklyReportProvider).copyWithDefects(filtered);
+    final report = ref
+        .read(weeklyReportProvider)
+        .copyWithDefects(filtered, patrolSummary: patrolSummary);
     final photoBytes = await _loadPhotoBytes(report);
     if (!context.mounted) return;
     final baseName =
@@ -534,9 +560,12 @@ class DefectsPage extends ConsumerWidget {
     required String reporter,
     required String generatedAt,
     required String projectName,
+    required String patrolSummary,
   }) async {
     if (filtered.isEmpty) return;
-    final report = ref.read(weeklyReportProvider).copyWithDefects(filtered);
+    final report = ref
+        .read(weeklyReportProvider)
+        .copyWithDefects(filtered, patrolSummary: patrolSummary);
     final photoBytes = await _loadPhotoBytes(report);
     final html = buildWeeklyReportHtml(
       report,

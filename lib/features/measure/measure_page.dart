@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -20,7 +21,10 @@ import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
+import '../../core/utils/mm_format.dart';
+import '../../core/utils/anchor_objects.dart';
 import '../../data/models.dart';
+import '../../data/vision_service.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_snack.dart';
 import 'ar_measure_page.dart';
@@ -57,9 +61,17 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   // —— 会话 ——
   MeasureSession? _session;
   final TextEditingController _nameCtl = TextEditingController(text: '梁宽');
-  final TextEditingController _tolMmCtl = TextEditingController(text: '5');
+  final TextEditingController _tolMmCtl = TextEditingController(text: '15');
   final TextEditingController _tolPctCtl = TextEditingController(text: '2');
   final TextEditingController _refMmCtl = TextEditingController(text: '1000');
+  /// P1-1：图纸尺寸手填（图纸未校准时降级使用；已校准时可覆盖量得值）。
+  final TextEditingController _drawingMmCtl = TextEditingController();
+
+  // —— 自动标定（锚物识别，零输入主路径）——
+  bool _autoCalibBusy = false;
+  String? _autoCalibMsg; // 最近一次自动标定结果说明（null=无）
+  bool _autoTried = false; // 当前照片是否已自动尝试过（避免重复调远端）
+  bool _netOffline = false; // 联网预检失败（地下室/无信号）→ 引导手动标定
 
   // —— 缩放 ——
   final _drawingTransform = TransformationController();
@@ -81,6 +93,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     _tolMmCtl.dispose();
     _tolPctCtl.dispose();
     _refMmCtl.dispose();
+    _drawingMmCtl.dispose();
     _drawingTransform.dispose();
     _photoTransform.dispose();
     super.dispose();
@@ -122,11 +135,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               projectKey: _projectKey,
               drawingKey: _drawingKey,
               floor: widget.args.floor,
-              tolMm: 5,
+              tolMm: 15,
               tolPct: 2,
             );
-        _tolMmCtl.text = _session!.tolMm.toString();
-        _tolPctCtl.text = _session!.tolPct.toString();
+        _tolMmCtl.text = fmtNumTrim(_session!.tolMm);
+        _tolPctCtl.text = fmtNumTrim(_session!.tolPct);
       });
     }
   }
@@ -203,7 +216,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           _photoSize = size;
           _photoPicks.clear();
           _refPicks.clear();
+          _autoCalibMsg = null;
+          _autoTried = false;
         });
+        // 零输入目标：照片就绪即自动尝试锚物识别（失败静默，可手动重试）。
+        _tryAutoCalibOnce();
       }
     } catch (_) {
       if (mounted) AppSnack.show(context, '无法读取照片', kind: AppSnackKind.danger);
@@ -212,12 +229,18 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 
   // ——— ③ 添加校对项 ———
   void _addItem() {
-    if (_mapper == null || _imageSize == null) {
-      AppSnack.show(context, '图纸未校准，无法量取图纸尺寸', kind: AppSnackKind.danger);
+    // P1-1 降级：图纸尺寸优先取手填值（可覆盖量得值）；未手填时才要求图纸已校准。
+    final manualMm = double.tryParse(_drawingMmCtl.text.trim());
+    final hasManual = manualMm != null && manualMm > 0;
+    final canMeasure = _mapper != null && _imageSize != null;
+
+    if (!hasManual && !canMeasure) {
+      AppSnack.show(context, '图纸未校准：请在「图纸尺寸」处手填图纸尺寸（mm）',
+          kind: AppSnackKind.danger);
       return;
     }
-    if (_drawPicks.length < 2) {
-      AppSnack.show(context, '请先在图纸上点选两点', kind: AppSnackKind.danger);
+    if (!hasManual && _drawPicks.length < 2) {
+      AppSnack.show(context, '请先在图纸上点选两点，或手填图纸尺寸', kind: AppSnackKind.danger);
       return;
     }
     if (_photoBytes == null) {
@@ -234,8 +257,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       return;
     }
     final a = _drawPicks[0], b = _drawPicks[1];
-    final drawingMm = drawingDistanceMm(
-      _mapper!, _imageSize!.width, _imageSize!.height, a.dx, a.dy, b.dx, b.dy);
+    final drawingMm = hasManual
+        ? manualMm
+        : drawingDistanceMm(
+            _mapper!, _imageSize!.width, _imageSize!.height,
+            a.dx, a.dy, b.dx, b.dy);
     final pa = _photoPicks[0], pb = _photoPicks[1];
     final photoMm = photoMeasuredMm(calib, pa.dx, pa.dy, pb.dx, pb.dy);
 
@@ -248,6 +274,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _session = _session!.copyWith(items: [..._session!.items, item]);
       _drawPicks.clear();
       _photoPicks.clear();
+      _drawingMmCtl.clear();
     });
     _persist();
   }
@@ -281,7 +308,119 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _refPicks.clear();
     });
     _persist();
-    AppSnack.show(context, '参考物标定完成：${calib.mmPerPx.toStringAsFixed(4)} mm/px');
+    AppSnack.show(context, '参考物标定完成：${calib.mmPerPx.toStringAsFixed(3)} mm/px');
+  }
+
+  /// P1-4：清除照片标定（回到未标定状态，可重新标定）。
+  void _clearRefCalib() {
+    setState(() {
+      _session = _session!.copyWith(clearPhotoCalib: true);
+      _refPicks.clear();
+      _photoPicks.clear();
+    });
+    _persist();
+    AppSnack.show(context, '已清除标定，请在照片上重新点选参考物两端');
+  }
+
+  // —— 自动标定（锚物识别）：用户零输入的主路径 ——
+
+  /// 识别画面里的已知尺寸标准件并自动完成标定；失败静默/提示后仍可手动兜底。
+  Future<void> _autoCalib({bool manual = false}) async {
+    if (_autoCalibBusy) return;
+    if (_photoBytes == null || _photoSize == null) {
+      if (manual) {
+        AppSnack.show(context, '请先拍/选照片', kind: AppSnackKind.muted);
+      }
+      return;
+    }
+    if (_session?.photoCalib != null) {
+      if (manual) {
+        AppSnack.show(context, '已有标定，请先点标定签的 × 清除', kind: AppSnackKind.muted);
+      }
+      return;
+    }
+    // 联网预检：地下室/无信号时不白等超时，直接引导手动标定。
+    final online = await VisionService.isReachable();
+    if (!mounted) return;
+    if (!online) {
+      setState(() {
+        _netOffline = true;
+        _autoCalibMsg = null;
+      });
+      if (manual) {
+        AppSnack.show(context, '当前无网络，自动标定不可用；手动标定离线可用',
+            kind: AppSnackKind.muted);
+      }
+      return;
+    }
+    setState(() {
+      _netOffline = false;
+      _autoCalibBusy = true;
+      _autoCalibMsg = '正在识别画面中的标准件…';
+    });
+    try {
+      final d = await VisionService().detectAnchor(_photoBytes!);
+      if (!mounted) return;
+      if (d == null) {
+        setState(() => _autoCalibMsg = null);
+        if (manual) {
+          AppSnack.show(context, '未识别到标准件，请把标准件完整拍进画面，或手动标定',
+              kind: AppSnackKind.muted);
+        }
+        return;
+      }
+      _applyAnchorCalib(d);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _autoCalibMsg = null);
+      // 远端不可用 / Web 跨域等：不打断量尺流程，回退手动。
+      AppSnack.show(context, '自动标定不可用，请手动标定（$e）', kind: AppSnackKind.muted);
+    } finally {
+      if (mounted) setState(() => _autoCalibBusy = false);
+    }
+  }
+
+  /// 照片就绪后自动尝试一次（失败静默，不重复调远端）。
+  Future<void> _tryAutoCalibOnce() async {
+    if (_autoTried) return;
+    _autoTried = true;
+    await _autoCalib();
+  }
+
+  /// 用识别到的锚物合成 `PhotoCalib`（不改 models.dart，零改动复用现有模型）。
+  ///
+  /// 框横/纵各自有真实长度时，取两方向比例尺的**几何平均**作为各向同性比例尺：
+  /// 物体正对画面时精确，斜置 45° 时误差最小，且避免旧版"只看横向"的缺陷。
+  /// ax..by 为**合成**标定点（非画面真实点）：令 spanPx = boxWpx、
+  /// refMm = scale × boxWpx，使 `mmPerPx` 恰等于 scale。
+  void _applyAnchorCalib(AnchorDetection d) {
+    final img = _photoSize!;
+    final boxWpx = (d.right - d.left) * img.width;
+    final boxHpx = (d.bottom - d.top) * img.height;
+    if (boxWpx <= 1 || boxHpx <= 1) {
+      AppSnack.show(context, '识别框过小，请靠近标准件重拍', kind: AppSnackKind.danger);
+      return;
+    }
+    final scale = math.sqrt((d.realWmm / boxWpx) * (d.realHmm / boxHpx));
+    final calib = PhotoCalib(
+      refMm: scale * boxWpx,
+      ax: 0,
+      ay: 0,
+      bx: boxWpx,
+      by: 0,
+      imgW: img.width,
+      imgH: img.height,
+    );
+    setState(() {
+      _session = _session!.copyWith(photoCalib: calib);
+      _autoCalibMsg =
+          '已用「${d.name}」自动标定（置信度 ${(d.conf * 100).round()}%）';
+      _refPicks.clear();
+      _photoPicks.clear();
+    });
+    _persist();
+    AppSnack.show(context,
+        '自动标定完成（${d.name}）：${scale.toStringAsFixed(3)} mm/px');
   }
 
   @override
@@ -359,7 +498,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             Padding(
               padding: const EdgeInsets.only(top: AppTokens.space2),
               child: Text(
-                '图纸量得：${drawingDistanceMm(_mapper!, _imageSize!.width, _imageSize!.height, _drawPicks[0].dx, _drawPicks[0].dy, _drawPicks[1].dx, _drawPicks[1].dy).toStringAsFixed(1)} mm',
+                '图纸量得：${fmtMm(drawingDistanceMm(_mapper!, _imageSize!.width, _imageSize!.height, _drawPicks[0].dx, _drawPicks[0].dy, _drawPicks[1].dx, _drawPicks[1].dy))} mm',
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppTokens.accent),
               ),
             ),
@@ -372,10 +511,13 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           const SizedBox(height: AppTokens.space4),
 
           // ③ 添加项
+          _textField('量尺项名称', _nameCtl, hint: '如 梁宽'),
+          const SizedBox(height: AppTokens.space2),
           Row(
             children: [
+              // P1-1：图纸尺寸手填——图纸未校准时降级使用，已校准时可覆盖量得值。
               Expanded(
-                child: _textField('量尺项名称', _nameCtl, hint: '如 梁宽'),
+                child: _numberField('图纸尺寸(mm)', _drawingMmCtl, suffix: 'mm'),
               ),
               const SizedBox(width: AppTokens.space3),
               ElevatedButton.icon(
@@ -410,7 +552,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             const SizedBox(width: AppTokens.space1),
             Expanded(
               child: Text(
-                '图纸已校准（mm/px ≈ ${(_mapper!.a.abs()).toStringAsFixed(4)}），可量取图纸真实尺寸',
+                '图纸已校准（mm/px ≈ ${(_mapper!.a.abs()).toStringAsFixed(3)}），可量取图纸真实尺寸',
                 style: const TextStyle(fontSize: 12, color: Colors.green),
               ),
             ),
@@ -502,8 +644,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 
   void _onDrawTap(Offset local, Size box) {
     // 估算整图像素坐标：以 BoxFit.contain 反推（简化：按比例映射到 _imageSize）。
+    // P2-2：图纸未加载时不存点（避免显示坐标与整图像素两套坐标系混用）。
     if (_imageSize == null) {
-      setState(() => _drawPicks.add(local));
+      AppSnack.show(context, '图纸未加载，暂不能选点', kind: AppSnackKind.muted);
       return;
     }
     final contain = _containSize(box, _imageSize!);
@@ -514,6 +657,14 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     setState(() {
       if (_drawPicks.length >= 2) _drawPicks.clear();
       _drawPicks.add(Offset(px, py));
+      // P1-1：量满两点后预填图纸尺寸（用户可手改覆盖）。
+      if (_drawPicks.length == 2 && _mapper != null) {
+        final a = _drawPicks[0], b = _drawPicks[1];
+        final mm = drawingDistanceMm(
+            _mapper!, _imageSize!.width, _imageSize!.height,
+            a.dx, a.dy, b.dx, b.dy);
+        if (mm > 0) _drawingMmCtl.text = fmtMm(mm);
+      }
     });
   }
 
@@ -569,6 +720,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   style: const TextStyle(fontSize: 12),
                 ),
                 backgroundColor: Colors.green.shade50,
+                // P1-4：点 × 清除标定，回到未标定状态可重新标定。
+                onDeleted: _clearRefCalib,
               ),
           ],
         ),
@@ -583,6 +736,31 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               children: [
                 const Text('参考物标定', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: AppTokens.space1),
+                // 自动标定（零输入主路径）：识别画面中的已知尺寸标准件
+                OutlinedButton(
+                  onPressed:
+                      _autoCalibBusy ? null : () => _autoCalib(manual: true),
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(40)),
+                  child: _autoCalibBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('自动标定（识别画面中的标准件）'),
+                ),
+                if (_netOffline) ...[
+                  const SizedBox(height: AppTokens.space1),
+                  const Text('当前无网络（如地下室）：自动标定不可用，请用手动标定（离线可用）。',
+                      style: TextStyle(fontSize: 11, color: Colors.orange)),
+                ],
+                if (_autoCalibMsg != null) ...[
+                  const SizedBox(height: AppTokens.space1),
+                  Text(_autoCalibMsg!,
+                      style: const TextStyle(fontSize: 11, color: Colors.green)),
+                ],
+                const SizedBox(height: AppTokens.space2),
+                // 手动兜底（远端不可用 / 画面无标准件时）
                 Row(
                   children: [
                     Expanded(child: _numberField('参考物真实尺寸(mm)', _refMmCtl)),
@@ -594,8 +772,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   ],
                 ),
                 const SizedBox(height: AppTokens.space1),
-                const Text('在下方照片上点选参考物两端（如卷尺 0→1000mm）',
-                    style: TextStyle(fontSize: 11, color: AppTokens.muted)),
+                Text(
+                    '支持自动识别：$anchorHintText。\n'
+                    '或手动：在下方照片上点选参考物两端（如卷尺 0→1000mm）。',
+                    style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
               ],
             ),
           ),
@@ -631,6 +811,30 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                   imageToDisplay(p, c.biggest, _photoSize!), Colors.orange)),
                               ..._photoPicks.map((p) => _pickDot(
                                   imageToDisplay(p, c.biggest, _photoSize!), Colors.red)),
+                              // P1-3：参考线覆盖层（橙=参考物，红=被测）
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _MeasureLinePainter(
+                                    refPts: [
+                                      for (final p in _refPicks)
+                                        imageToDisplay(p, c.biggest, _photoSize!),
+                                    ],
+                                    pickPts: [
+                                      for (final p in _photoPicks)
+                                        imageToDisplay(p, c.biggest, _photoSize!),
+                                    ],
+                                    measuredMm: _session?.photoCalib != null &&
+                                            _photoPicks.length == 2
+                                        ? photoMeasuredMm(
+                                            _session!.photoCalib!,
+                                            _photoPicks[0].dx,
+                                            _photoPicks[0].dy,
+                                            _photoPicks[1].dx,
+                                            _photoPicks[1].dy)
+                                        : null,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -664,13 +868,18 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           Padding(
             padding: const EdgeInsets.only(top: AppTokens.space2),
             child: Text(
-              '照片量得：${photoMeasuredMm(_session!.photoCalib!, _photoPicks[0].dx, _photoPicks[0].dy, _photoPicks[1].dx, _photoPicks[1].dy).toStringAsFixed(1)} mm',
+              '照片量得：${fmtMm(photoMeasuredMm(_session!.photoCalib!, _photoPicks[0].dx, _photoPicks[0].dy, _photoPicks[1].dx, _photoPicks[1].dy))} mm',
               style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
             ),
           ),
         const SizedBox(height: AppTokens.space1),
-        const Text('提示：点选照片空白处可先后标定参考物（橙）与量测点（红）',
-            style: TextStyle(fontSize: 11, color: AppTokens.muted)),
+        // P2-3：按标定状态给出针对性提示。
+        Text(
+          _session?.photoCalib == null
+              ? '请在照片上点选参考物两端（橙），再点击「标定」'
+              : '请在照片上点选被测两点（红）',
+          style: const TextStyle(fontSize: 11, color: AppTokens.muted),
+        ),
       ],
     );
   }
@@ -712,8 +921,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 color: ok ? Colors.green : Colors.red),
             title: Text(e.name),
             subtitle: Text(
-              '图纸 ${e.drawingMm.toStringAsFixed(1)}mm  /  实测 ${e.photoMm.toStringAsFixed(1)}mm\n'
-              '偏差 ${dev >= 0 ? "+" : ""}${dev.toStringAsFixed(1)}mm (${devPct >= 0 ? "+" : ""}${devPct.toStringAsFixed(1)}%)',
+              '图纸 ${fmtMm(e.drawingMm)} mm  /  实测 ${fmtMm(e.photoMm)} mm\n'
+              '偏差 ${fmtMmSigned(dev)} mm (${fmtPctSigned(devPct)}%)',
               style: const TextStyle(fontSize: 12),
             ),
             trailing: IconButton(
@@ -783,6 +992,73 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 }
 
 /// 悬浮缩放工具条（量尺页 / 拍照验收页复用）。
+/// P1-3：照片上的参考线覆盖层。
+///
+/// 橙线 = 参考物两端（中点标注像素跨度），红线 = 被测两点（中点标注实测 mm）。
+class _MeasureLinePainter extends CustomPainter {
+  const _MeasureLinePainter({
+    required this.refPts,
+    required this.pickPts,
+    this.measuredMm,
+  });
+
+  final List<Offset> refPts;
+  final List<Offset> pickPts;
+  final double? measuredMm;
+
+  void _line(Canvas canvas, List<Offset> pts, Color color, String? label) {
+    if (pts.length < 2) return;
+    canvas.drawLine(
+      pts[0],
+      pts[1],
+      Paint()
+        ..color = color
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
+    if (label == null) return;
+    final mid =
+        Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          shadows: const [Shadow(color: Colors.white, blurRadius: 3)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height - 6));
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _line(
+      canvas,
+      refPts,
+      Colors.orange,
+      refPts.length == 2
+          ? '跨度 ${(refPts[1] - refPts[0]).distance.toStringAsFixed(0)} px'
+          : null,
+    );
+    _line(
+      canvas,
+      pickPts,
+      Colors.red,
+      measuredMm != null ? '${fmtMm(measuredMm!)} mm' : null,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MeasureLinePainter old) =>
+      old.refPts != refPts ||
+      old.pickPts != pickPts ||
+      old.measuredMm != measuredMm;
+}
+
 class _ZoomToolbar extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;

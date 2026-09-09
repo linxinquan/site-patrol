@@ -36,6 +36,8 @@
 	<string>用于语音记录缺陷与巡场备注</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>用于将现场语音转为文字记录</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>用于记录巡场轨迹与实测里程，便于生成巡场记录</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

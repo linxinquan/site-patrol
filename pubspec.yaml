@@ -30,6 +30,7 @@ dependencies:
   share_plus: ^12.0.2
   file_picker: ^8.1.4
   flutter_svg: ^2.0.10
+  geolocator: ^13.0.1 # 巡场 GPS 轨迹采集（track 字段已有，补齐真实定位）
 
 dev_dependencies:
   flutter_test:

@@ -124,6 +124,13 @@ class WeeklyReport {
   /// 关联的巡场清单（报告末尾的巡场清单，由 APP 侧按项目注入）。
   final List<Defect> defects;
 
+  /// 巡场小结（App 内手填，渲染进报告「巡场小结」区）。
+  ///
+  /// 0902 任务5b：`PatrolRecord` 尚未与 `WeeklyReport` 打通时的过渡方案——
+  /// 由记录人填写本次巡场概述（路线 / 检查点达成 / 主要问题），随报告导出；
+  /// 后续巡场模块稳定后改为自动注入 `PatrolBlock`（名称/时间/达成率/里程）。
+  final String patrolSummary;
+
   const WeeklyReport({
     required this.project,
     required this.title,
@@ -136,6 +143,7 @@ class WeeklyReport {
     this.issues = const [],
     this.notes = const [],
     this.defects = const [],
+    this.patrolSummary = '',
   });
 
   /// 有内容的待协调问题。
@@ -162,7 +170,11 @@ class WeeklyReport {
     return groups;
   }
 
-  WeeklyReport copyWithDefects(List<Defect> d) => WeeklyReport(
+  WeeklyReport copyWithDefects(
+    List<Defect> d, {
+    String? patrolSummary,
+  }) =>
+      WeeklyReport(
         project: project,
         title: title,
         period: period,
@@ -174,6 +186,7 @@ class WeeklyReport {
         issues: issues,
         notes: notes,
         defects: d,
+        patrolSummary: patrolSummary ?? this.patrolSummary,
       );
 }
 

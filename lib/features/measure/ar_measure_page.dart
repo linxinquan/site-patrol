@@ -13,6 +13,7 @@ import '../../core/storage/measure_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/mm_format.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// AR 量尺（LiDAR，iPhone 12 Pro+）。
@@ -275,7 +276,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
                             child: Text(
-                              '实测 ${_lastMm!.toStringAsFixed(1)} mm',
+                              '实测 ${fmtMm(_lastMm!)} mm',
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -352,7 +353,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                           '${i + 1}.',
                           style: const TextStyle(color: AppTokens.muted),
                         ),
-                        title: Text('实测 ${m.toStringAsFixed(1)} mm'),
+                        title: Text('实测 ${fmtMm(m)} mm'),
                         trailing: IconButton(
                           icon: const Icon(MingCuteIcons.minusCircleLine,
                               size: 20, color: AppTokens.danger),

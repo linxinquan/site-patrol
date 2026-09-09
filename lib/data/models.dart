@@ -903,7 +903,7 @@ class MeasureSession {
     required this.projectKey,
     required this.drawingKey,
     required this.floor,
-    this.tolMm = 5,
+    this.tolMm = 15,
     this.tolPct = 2,
     this.photoCalib,
     this.items = const [],
@@ -962,7 +962,7 @@ class MeasureSession {
       projectKey: m['projectKey'] as String? ?? '',
       drawingKey: m['drawingKey'] as String? ?? '',
       floor: m['floor'] as String? ?? '',
-      tolMm: (m['tolMm'] as num? ?? 5).toDouble(),
+      tolMm: (m['tolMm'] as num? ?? 15).toDouble(),
       tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
       photoCalib: calib == null ? null : PhotoCalib.fromJson(calib),
       items: (m['items'] as List? ?? [])

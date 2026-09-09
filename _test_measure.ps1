@@ -1,4 +1,4 @@
-$server = Start-Process python -ArgumentList 'c:\sp\server\measure_server.py','8820' -WindowStyle Hidden -PassThru
+$server = Start-Process python -ArgumentList "$PSScriptRoot\server\measure_server.py",'8820' -WindowStyle Hidden -PassThru
 Start-Sleep -Seconds 2
 
 # 健康检查

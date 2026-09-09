@@ -210,6 +210,15 @@ List<ReportBlock> buildReportBlocks(WeeklyReport report) {
   }
   if (report.defects.isNotEmpty) blocks.add(DefectsBlock(report.defects));
 
+  // 巡场小结（0902 任务5b）：App 内手填，排在巡场清单之后。
+  if (report.patrolSummary.trim().isNotEmpty) {
+    blocks.add(NoteBlock(WeeklyNote(
+      title: '巡场小结',
+      text: report.patrolSummary,
+      page: 9999,
+    )));
+  }
+
   return blocks;
 }
 

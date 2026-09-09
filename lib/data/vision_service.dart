@@ -85,6 +85,22 @@ class VisionService {
     defaultValue: 'http://120.24.240.129:3000',
   );
 
+  /// 联网预检：地下室/无信号时快速失败，避免用户白等识别超时。
+  ///
+  /// 只要收到任意 HTTP 响应（含 404/500）即视为网络可达；
+  /// 连接失败或超时视为不可达。Web 端跨域被拦也会返回 false
+  /// （此时真实识别调用同样会失败，结论一致，且手动标定不受影响）。
+  static Future<bool> isReachable({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    try {
+      await http.get(Uri.parse(host)).timeout(timeout);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// 识别图片中的施工缺陷。
   /// [imageBytes] 压缩后的图片字节，[prompt] 可覆盖默认指令。
   Future<VisionResult> recognizeDefects(
@@ -108,4 +124,121 @@ class VisionService {
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     return VisionResult.fromContent(data['content']?.toString() ?? '');
   }
+
+  /// 识别照片中可用于自动标定的已知尺寸标准件。
+  ///
+  /// 返回**最优的一个**锚物（按 置信度×框面积 取最大）；没有合格标准件时
+  /// 返回 null（不抛异常），由调用方走手动标定兜底。
+  /// 网络失败/解析失败会抛异常，调用方需自行 try/catch 降级。
+  Future<AnchorDetection?> detectAnchor(Uint8List imageBytes) async {
+    final resp = await http
+        .post(
+          Uri.parse('$host/api/vision'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'image': 'data:image/jpeg;base64,${base64Encode(imageBytes)}',
+            'prompt': _anchorPrompt,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+
+    if (resp.statusCode != 200) {
+      throw Exception('锚物识别失败(${resp.statusCode}): ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return AnchorDetection.bestFromContent(data['content']?.toString() ?? '');
+  }
 }
+
+/// 自动标定锚物识别结果。
+///
+/// [left]/[top]/[right]/[bottom] 为归一化 0~1 的图像外接矩形；
+/// [realWmm]/[realHmm] 是框宽、高各自对应的**真实长度**（模型按物体在画面
+/// 中的实际朝向换算——横放的 A4 纸框宽对应 297 而不是 210）。
+class AnchorDetection {
+  final String name;
+  final double left;
+  final double top;
+  final double right;
+  final double bottom;
+  final double realWmm;
+  final double realHmm;
+  final double conf;
+
+  const AnchorDetection({
+    required this.name,
+    required this.left,
+    required this.top,
+    required this.right,
+    required this.bottom,
+    required this.realWmm,
+    required this.realHmm,
+    this.conf = 0,
+  });
+
+  /// 是否可用于标定（框有效 + 尺寸为正 + 有一定置信度）。
+  bool get isValid =>
+      right > left &&
+      bottom > top &&
+      realWmm > 0 &&
+      realHmm > 0 &&
+      conf >= 0.3;
+
+  /// 归一化框面积（多候选时优先取大而可信的）。
+  double get area => (right - left) * (bottom - top);
+
+  /// 从模型文本里提取最优锚物；无合格结果返回 null。
+  static AnchorDetection? bestFromContent(String content) {
+    final start = content.indexOf('{');
+    final end = content.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+    try {
+      final map = jsonDecode(content.substring(start, end + 1));
+      final list = (map['anchors'] as List? ?? []);
+      final dets = list
+          .whereType<Map>()
+          .map((e) {
+            final box = (e['box'] as List? ?? []);
+            double n(dynamic v) => (v as num?)?.toDouble() ?? 0;
+            return AnchorDetection(
+              name: e['name']?.toString() ?? '',
+              left: box.isNotEmpty ? n(box[0]) : 0,
+              top: box.length > 1 ? n(box[1]) : 0,
+              right: box.length > 2 ? n(box[2]) : 0,
+              bottom: box.length > 3 ? n(box[3]) : 0,
+              realWmm: n(e['realWmm']),
+              realHmm: n(e['realHmm']),
+              conf: n(e['conf']),
+            );
+          })
+          .where((d) => d.isValid)
+          .toList();
+      if (dets.isEmpty) return null;
+      dets.sort((a, b) => (b.conf * b.area).compareTo(a.conf * a.area));
+      return dets.first;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// 锚物识别提示词（与 `kAnchorObjects` 尺寸库保持一致，改尺寸需同步）。
+const String _anchorPrompt =
+    '你是施工测量助手。请在照片中找出【一个】可用于长度标定的已知尺寸标准件。\n'
+    '只认这些（名称→真实尺寸 mm）：\n'
+    '- 86型开关/插座面板：86×86\n'
+    '- A4纸：210×297\n'
+    '- 身份证/银行卡：85.6×54\n'
+    '- 标准砖（烧结普通砖）：240×115×53\n'
+    '- 瓷砖：300×300 / 600×600 / 800×800\n'
+    '- 纸面石膏板：1200×2400\n'
+    '要求：\n'
+    '1) 物体须完整入画、无遮挡、无明显透视倾斜；\n'
+    '2) box 为该物体在图中的外接矩形 [x1,y1,x2,y2]，坐标归一化 0~1；\n'
+    '3) realWmm/realHmm = 框的宽、高各自对应的真实长度，按物体在画面中的'
+    '实际朝向换算（横放的 A4 纸框宽对应 297，竖放对应 210）；\n'
+    '4) conf 为置信度 0~1，拿不准就给低分；\n'
+    '5) 没有合格标准件时返回 {"anchors":[]}。\n'
+    '只输出 JSON，不要任何多余文字：\n'
+    '{"anchors":[{"name":"86型开关面板","box":[0.1,0.2,0.3,0.4],'
+    '"realWmm":86,"realHmm":86,"conf":0.9}]}';
