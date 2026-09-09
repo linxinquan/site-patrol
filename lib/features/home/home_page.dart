@@ -814,6 +814,13 @@ class _QuickActions extends ConsumerWidget {
             color: _qaRed,
             onTap: () => context.push('/blueprint'),
           ),
+          // 量房（ROOM_MEASURE_IMPL §6 入口）
+          _QuickCard(
+            icon: MingCuteIcons.cubeLine,
+            title: '量房',
+            color: _qaCyan,
+            onTap: () => context.push('/room-records'),
+          ),
         ],
       );
 }

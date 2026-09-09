@@ -17,6 +17,7 @@ import '../../core/storage/local_storage.dart';
 import '../../core/storage/session_store.dart';
 import '../../core/storage/patrol_plan_store.dart';
 import '../../core/storage/patrol_record_store.dart';
+import '../../core/storage/room_scan_store.dart';
 import '../../core/storage/uploaded_drawing_store.dart';
 import '../../features/capture_records/capture_records_controller.dart';
 
@@ -453,3 +454,15 @@ final uploadedDrawingsProvider =
     FutureProvider.family<List<UploadedDrawing>, String>(
   (ref, projectId) => UploadedDrawingStore.list(projectId),
 );
+
+// ==================== 量房（ROOM_MEASURE_IMPL §5）====================
+
+/// 当前项目的量房记录列表。
+final roomScansProvider =
+    FutureProvider.family<List<RoomScanRecord>, String>(
+  (ref, projectId) => RoomScanStore.list(projectId),
+);
+
+Future<void> refreshRoomScans(WidgetRef ref, String projectId) async {
+  ref.invalidate(roomScansProvider(projectId));
+}
