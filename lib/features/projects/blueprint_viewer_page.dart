@@ -50,8 +50,12 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(
-            icon: MingCuteIcons.leftLine, color: const Color(0xFF09244B)),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(
+              icon: MingCuteIcons.leftLine, color: Color(0xFF09244B)),
+        ),
         title: const Text('蓝图原稿',
             style: TextStyle(
                 fontSize: 16, fontWeight: FontWeight.w600, color: AppTokens.fg)),

@@ -99,66 +99,67 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppTokens.space4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 分段切换（Frame 2131330677）：外壳高 34、pad 2、gap 2、#E9EAEB 底圆角 8；
+        // 选中片白底圆角 6、14/W500/#202224；未选中透明底、#919499。两片 Expanded 等分自适应。
+        AnimatedBuilder(
+          animation: _tab,
+          builder: (_, __) => Container(
+            height: 34,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE9EAEB),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
               children: [
-                const Text('专业看图',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTokens.fg)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(MingCuteIcons.closeLine,
-                      size: 20, color: AppTokens.muted),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                _segChip('图层', 0),
+                const SizedBox(width: 2),
+                _segChip('布局', 1),
               ],
             ),
-            AnimatedBuilder(
-              animation: _tab,
-              builder: (_, __) => Row(
-                children: [
-                  _segChip('图层', 0),
-                  const SizedBox(width: 8),
-                  _segChip('布局', 1),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 300,
-              child: TabBarView(
-                controller: _tab,
-                children: [
-                  _buildLayers(),
-                  _buildLayouts(),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(height: 12),
+        // 内容白卡（Frame 2147228107）：白底圆角 8、高 240、pad 12，内容居中展示。
+        Container(
+          height: 240,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: SizedBox.expand(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _buildLayers(),
+                _buildLayouts(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLoading() => const Padding(
-        padding: EdgeInsets.all(24),
-        child: Center(
-          child: CircularProgressIndicator(color: AppTokens.brand),
-        ),
+  Widget _buildLoading() => const Center(
+        child: CircularProgressIndicator(color: AppTokens.brand),
       );
 
-  Widget _buildError() => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Center(
-          child: Text(_loadingError ?? '未知错误',
-              style: const TextStyle(color: AppTokens.muted)),
+  /// 空态/错误：白卡内居中提示（Frame 2147228107：14/W400/#B5B9BF）。
+  Widget _buildError() => Center(
+        child: Text(
+          _loadingError ?? '未知错误',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 22 / 14,
+            color: Color(0xFFB5B9BF),
+          ),
         ),
       );
 
@@ -167,7 +168,14 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
     if (_loadingError != null) return _buildError();
     if (_info == null || _info!.layers.isEmpty) {
       return const Center(
-          child: Text('暂无图层数据', style: TextStyle(color: AppTokens.muted)));
+        child: Text('暂无图层数据',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: Color(0xFFB5B9BF))),
+      );
     }
     final layers = _info!.layers;
     return ListView.separated(
@@ -176,42 +184,39 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
       itemBuilder: (context, i) {
         final l = layers[i];
         final on = _layerToggle[l.name] ?? true;
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(l.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
-                    if (l.isFrozen)
-                      const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Text('已冻结',
-                              style: TextStyle(fontSize: 12, color: AppTokens.muted)))
-                    else if (l.isLock)
-                      const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Text('已锁定',
-                              style: TextStyle(fontSize: 12, color: AppTokens.muted))),
-                  ],
-                ),
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(l.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          height: 22 / 14,
+                          color: AppTokens.fg)),
+                  if (l.isFrozen)
+                    const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Text('已冻结',
+                            style: TextStyle(fontSize: 12, color: AppTokens.muted)))
+                  else if (l.isLock)
+                    const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Text('已锁定',
+                            style: TextStyle(fontSize: 12, color: AppTokens.muted))),
+                ],
               ),
-              const SizedBox(width: 8),
-              _RoundCheckbox(
-                value: on,
-                onChanged: (v) => setState(() => _layerToggle[l.name] = v ?? true),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            _RoundCheckbox(
+              value: on,
+              onChanged: (v) => setState(() => _layerToggle[l.name] = v ?? true),
+            ),
+          ],
         );
       },
     );
@@ -222,7 +227,14 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
     if (_loadingError != null) return _buildError();
     if (_info == null || _info!.layouts.isEmpty) {
       return const Center(
-          child: Text('暂无布局数据', style: TextStyle(color: AppTokens.muted)));
+        child: Text('暂无布局数据',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: Color(0xFFB5B9BF))),
+      );
     }
     final current = ref.watch(cadCurrentLayoutProvider);
     final layouts = _info!.layouts;
@@ -237,47 +249,42 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
             ref.read(cadCurrentLayoutProvider.notifier).state = lay.name;
             setState(() {});
           },
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              border: selected ? Border.all(color: AppTokens.brand) : null,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  selected
-                      ? MingCuteIcons.checkCircleLine
-                      : MingCuteIcons.circleDashLine,
-                  color: selected ? AppTokens.brand : AppTokens.muted,
-                  size: 18,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(lay.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? MingCuteIcons.checkCircleLine
+                    : MingCuteIcons.circleDashLine,
+                color: selected ? AppTokens.brand : AppTokens.muted,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(lay.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 14, height: 22 / 14, color: AppTokens.fg)),
+                    if (lay.handle != null)
+                      Text('句柄 ${lay.handle}',
                           style:
-                              const TextStyle(fontSize: 14, color: AppTokens.fg)),
-                      if (lay.handle != null)
-                        Text('句柄 ${lay.handle}',
-                            style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
-                    ],
-                  ),
+                              const TextStyle(fontSize: 12, color: AppTokens.muted)),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  /// 分段切换胶囊（图层 / 布局）。
+  /// 分段切换胶囊片（Frame 2131330677 小按钮）：高 30、圆角 6；
+  /// 选中 = 白底 + 14/W500/#202224；未选中 = 透明底 + #919499。
   Widget _segChip(String label, int i) {
     final sel = _tab.index == i;
     return Expanded(
@@ -287,17 +294,21 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
           setState(() {});
         },
         child: Container(
-          height: 36,
+          height: 30,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: sel ? AppTokens.brand : AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            color: sel ? AppTokens.surface : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: sel ? AppTokens.onAccent : AppTokens.fg)),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 22 / 14,
+              color: sel ? AppTokens.fg : AppTokens.muted,
+            ),
+          ),
         ),
       ),
     );

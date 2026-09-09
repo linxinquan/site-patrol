@@ -155,7 +155,11 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(icon: MingCuteIcons.leftLine),
+        ),
         title: const Text('AR量尺'),
         actions: [
           TextButton(
@@ -233,7 +237,11 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(icon: MingCuteIcons.leftLine),
+        ),
         title: const Text('AR量尺（LiDAR）'),
       ),
       body: Column(

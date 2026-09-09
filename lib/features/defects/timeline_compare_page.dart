@@ -78,7 +78,11 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       appBar: AppBar(
         titleSpacing: 12,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(icon: MingCuteIcons.leftLine),
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

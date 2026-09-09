@@ -8,6 +8,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../capture/capture_page.dart' show StoredDetailSheet;
 import 'capture_records_controller.dart';
 import 'widgets/filter_sheet.dart';
@@ -68,10 +69,13 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 color: AppTokens.fg)),
-        leading: IconButton(
-          icon: const Icon(MingCuteIcons.arrowLeftLine,
-              size: 18, color: AppTokens.fg),
-          onPressed: () => Navigator.of(context).maybePop(),
+        leadingWidth: 30,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.arrowLeftLine,
+            size: 18,
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(

@@ -47,43 +47,63 @@ class DrawingViewerPage extends ConsumerWidget {
         title: Stack(
           alignment: Alignment.center,
           children: [
-            Align(
+            const Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: 12),
+                padding: EdgeInsets.only(left: 12),
                 child: NavIconButton(
                     icon: MingCuteIcons.leftLine,
-                    color: const Color(0xFF09244B)),
+                    color: Color(0xFF09244B)),
               ),
             ),
-            current == null
-                ? const Text('图纸查看',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 24 / 16,
-                        color: Colors.black))
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(current.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 24 / 16,
-                              color: Colors.black),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      Text(current.crumb,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              height: 20 / 12,
-                              color: AppTokens.fg2,
-                              fontWeight: FontWeight.w400)),
-                    ],
-                  ),
+            // 标题两侧预留 48（避开左侧返回按钮），超长单行省略不压图标
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: current == null
+                  ? const Text('图纸查看',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 24 / 16,
+                          color: Colors.black))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(current.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
+                                color: Colors.black),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        Text(current.crumb,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                height: 20 / 12,
+                                color: AppTokens.fg2,
+                                fontWeight: FontWeight.w400),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+            ),
+            // 右侧「更多」图标（more_1_line，#09244B，与左侧返回对称 right:12）
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: NavIconButton(
+                  icon: MingCuteIcons.more1Line,
+                  color: const Color(0xFF09244B),
+                  onPressed: current == null
+                      ? null
+                      : () => _showDrawingInfo(context, current),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -101,6 +121,15 @@ class DrawingViewerPage extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  /// 打开「详细信息」底部弹窗：图纸基础信息（名称/楼层/大小）。
+  void _showDrawingInfo(BuildContext context, Drawing d) {
+    AppBottomSheet.show(
+      context: context,
+      title: '详细信息',
+      body: (ctx) => _DrawingInfoSheet(d: d),
     );
   }
 }
@@ -692,14 +721,11 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   /// 打开 CAD 专业看图面板（图层开关 / 布局切换）。
   void _openCadPanel() {
-    showModalBottomSheet<void>(
+    AppBottomSheet.show(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTokens.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetCtx) => CadInfoPanel(
+      title: '专业看图',
+      body: (ctx) => CadInfoPanel(
         drawingKey: widget.d.key,
         // 真实 DWG 关联后在此传入 dwgFileUrl / dwgBase64。
         // 可用 --dart-define=CAD_TEST_DWG_URL=<公网URL> 提供测试 DWG，
@@ -1361,7 +1387,7 @@ class _Toolbar extends StatelessWidget {
                 ),
                 Expanded(
                   child: _BottomBtn(
-                    icon: MingCuteIcons.layerLine,
+                    icon: MingCuteIcons.versionLine,
                     label: '图层',
                     onTap: onLayers,
                   ),
@@ -1786,7 +1812,10 @@ class _CadPlaceholder extends StatelessWidget {
       );
 }
 
-/// 坐标校准弹窗内容（自绘 UI，替代 Material AlertDialog）。
+/// 坐标校准弹窗内容（自绘 UI，替代 Material AlertDialog；样式 Frame 2147228009）。
+/// 结构：说明文字 12/#60656B → 白卡（描边 #E9EAEB）JSON 输入 → 两个白底操作行
+/// （46 高、图标 16 + 文字 14，均 #60656B）→ 底部三按钮（48 高、圆角 8、
+/// 取消灰字 / 清除校准红字 / 应用蓝底白字）。
 class _CalibrationSheet extends StatelessWidget {
   final TextEditingController controller;
   final bool isCalibrated;
@@ -1808,81 +1837,170 @@ class _CalibrationSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 说明文字（12/W400/#60656B，随宽度自动换行）
           const Text(
-            '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。\n'
-            '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。\n'
-            '「应用内置B05」仅为离线演示（假设图纸中心=坐标原点），非真实校准，'
-            '除图纸中心外均会偏移，不可用于验收数据。',
-            style: TextStyle(fontSize: 12, color: AppTokens.muted),
+            '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。'
+            '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.fg2),
           ),
           const SizedBox(height: 12),
+          // JSON 输入卡（白底 + 描边 #E9EAEB——输入外壳唯一可见边界，保留描边）
           Container(
+            constraints: const BoxConstraints(minHeight: 92),
             decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              color: AppTokens.surface,
+              border: Border.all(color: const Color(0xFFE9EAEB)),
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
             child: TextField(
               controller: controller,
               maxLines: 5,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-              decoration: InputDecoration(
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  height: 22 / 14,
+                  color: AppTokens.fg2),
+              decoration: const InputDecoration(
                 hintText: '{"imgW":4500,"imgH":2551,"a":...,"d":...}',
+                hintStyle: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    color: AppTokens.muted),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(12),
+                contentPadding: EdgeInsets.all(12),
                 isDense: true,
               ),
             ),
           ),
           const SizedBox(height: 12),
+          // 操作行 1：应用内置B05（白底 46 高，图标 16 + 文字 14，#60656B 居中）
+          _CalibActionRow(
+            icon: MingCuteIcons.mapPinLine,
+            label: '应用内置B05',
+            onTap: onBuiltin,
+          ),
+          const SizedBox(height: 12),
+          // 操作行 2：图上多点校准
+          _CalibActionRow(
+            icon: MingCuteIcons.aiming2Line,
+            label: '图上多点校准',
+            onTap: onAxis,
+          ),
+          const SizedBox(height: 24),
+          // 底部按钮行（48 高、圆角 8、间距 12；清除校准仅已校准时出现）
           Row(
             children: [
-              Expanded(child: _SheetTextButton(label: '应用内置B05', onTap: onBuiltin)),
-              const SizedBox(width: 12),
-              Expanded(child: _SheetTextButton(label: '图上多点校准', onTap: onAxis)),
-            ],
-          ),
-          if (isCalibrated) ...[
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: onClear,
-                child: const Text('清除校准',
-                    style: TextStyle(fontSize: 13, color: AppTokens.danger)),
+              Expanded(
+                child: _CalibBtn(
+                    label: '取消',
+                    background: AppTokens.surface,
+                    foreground: AppTokens.fg2,
+                    onTap: onCancel),
               ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          AppSheetFooter.cancelSave(
-            onCancel: onCancel,
-            onSave: onApply,
-            cancelLabel: '取消',
-            saveLabel: '应用',
+              if (isCalibrated) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _CalibBtn(
+                      label: '清除校准',
+                      background: AppTokens.surface,
+                      foreground: const Color(0xFFFF4444),
+                      onTap: onClear),
+                ),
+              ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CalibBtn(
+                    label: '应用',
+                    background: AppTokens.brand,
+                    foreground: Colors.white,
+                    onTap: onApply),
+              ),
+            ],
           ),
         ],
       );
 }
 
-/// 校准弹窗内的描边次级按钮（白底 + 边框）。
-class _SheetTextButton extends StatelessWidget {
+/// 校准弹窗操作行（Frame 2147228089/8090）：白底、高 46、圆角 8、pad 12，
+/// 内容水平居中（图标 16 + gap 8 + 文字 14，均 #60656B）。
+class _CalibActionRow extends StatelessWidget {
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _SheetTextButton({required this.label, required this.onTap});
+  const _CalibActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
   @override
-  Widget build(BuildContext context) => InkWell(
-        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppTokens.surface,
+  Widget build(BuildContext context) => SizedBox(
+        height: 46,
+        child: Material(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          child: InkWell(
             borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: AppTokens.fg2),
+                  const SizedBox(width: 8),
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          height: 22 / 14,
+                          color: AppTokens.fg2)),
+                ],
+              ),
+            ),
           ),
-          child: Center(
-            child: Text(label,
-                style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
+        ),
+      );
+}
+
+/// 校准弹窗底部按钮（48 高、圆角 8、16/W500）。
+class _CalibBtn extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+  final VoidCallback onTap;
+  const _CalibBtn({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 48,
+        child: Material(
+          color: background,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: onTap,
+            child: Center(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 24 / 16,
+                      color: foreground)),
+            ),
           ),
         ),
       );
@@ -1919,5 +2037,85 @@ class _SheetField extends StatelessWidget {
             ),
           ),
         ],
+      );
+}
+
+/// 「详细信息」底部弹窗（Frame 2147228047）：三张白卡（名称/楼层/大小），
+/// 每张 pad 12、行距 4，标签 14/W400/22 #919499 + 值 14/W400/22 #202224，
+/// 卡片高随内容自适应（基准 72），长名称自动换行。
+class _DrawingInfoSheet extends StatelessWidget {
+  final Drawing d;
+  const _DrawingInfoSheet({required this.d});
+
+  /// 读取 asset 字节数，格式化为「24k / 1.2M」；读不到（网络图/无底图）返回 —。
+  Future<String> _fileSizeOf(String src) async {
+    if (src.isEmpty) return '—';
+    try {
+      final data = await rootBundle.load(src);
+      final b = data.lengthInBytes;
+      if (b >= 1024 * 1024) {
+        return '${(b / 1024 / 1024).toStringAsFixed(1)}M';
+      }
+      return '${(b / 1024).round()}k';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _InfoCard(label: '图纸名称', value: d.title),
+          const SizedBox(height: 12),
+          _InfoCard(label: '图纸楼层', value: d.crumb),
+          const SizedBox(height: 12),
+          FutureBuilder<String>(
+            future: _fileSizeOf(d.src),
+            builder: (context, snap) => _InfoCard(
+              label: '图纸大小',
+              value: snap.data ?? '—',
+            ),
+          ),
+        ],
+      );
+}
+
+/// 详细信息白卡（Frame 2147228088/8089/8090）：白底圆角 8、pad 12、
+/// 内部 Column gap 4（标签 #919499 → 值 #202224，均 14/W400/22）。
+/// 纯展示白卡不加描边。
+class _InfoCard extends StatelessWidget {
+  final String label;
+  final String value;
+  const _InfoCard({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: Color(0xFF919499))),
+            const SizedBox(height: 4),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: Color(0xFF202224))),
+          ],
+        ),
       );
 }

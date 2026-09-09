@@ -14,6 +14,7 @@ import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_date_range_picker.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/async_state.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../shared/widgets/user_switch_sheet.dart';
@@ -582,16 +583,14 @@ class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
         scrolledUnderElevation: 0,
         toolbarHeight: 44,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(MingCuteIcons.leftLine,
-              size: 24, color: AppTokens.fg),
-          onPressed: () => context.pop(),
-          hoverColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: AppTokens.fg,
+            onPressed: () => context.pop(),
+          ),
         ),
         title: const Text('处置与回复',
             style: TextStyle(

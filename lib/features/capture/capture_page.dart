@@ -262,6 +262,35 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     }
   }
 
+  /// 重选图纸：底部弹窗选择当前项目的图纸（统一壳 AppBottomSheet）。
+  void _showFloorSheet() {
+    AppBottomSheet.show<void>(
+      context: context,
+      title: '选择图纸',
+      body: (ctx) => ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 424),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = 0; i < _floorOptions.length; i++) ...[
+                if (i > 0) const SizedBox(height: 12),
+                _FloorPickRow(
+                  label: _floorLabel(_floorOptions[i]),
+                  selected: _selectedFloorKey == _floorOptions[i].key,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _selectFloor(_floorOptions[i]);
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   /// 从 CAD 服务请求 OCF 转 PNG。服务器会自动缓存，后续直接走 /api/ocf/{key}.png。
   Future<void> _ensureRemotePng(Drawing d) async {
     if (_remotePngLoading) return;
@@ -1179,27 +1208,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  final defaultFloor = _floorOptions.cast<Floor?>().firstWhere(
-                        (f) => f!.key == _defaultFloorKey,
-                        orElse: () => _floorOptions.firstOrNull,
-                      );
-                  setState(() {
-                    _step = _CaptureStep.selectFloor;
-                    _selectedFloorKey = defaultFloor?.key ?? '';
-                    _floor = defaultFloor?.floor ?? '';
-                    _anchorLabel = '待选点';
-                    _drawing = _resolveDrawing(
-                        ref.read(drawingsProvider).valueOrNull ?? {});
-                    _remotePngUrl = null;
-                    _remotePngError = null;
-                  });
-                  if (_drawing != null &&
-                      _drawing!.src.isEmpty &&
-                      (_drawing!.cadOcfKey?.isNotEmpty ?? false)) {
-                    _ensureRemotePng(_drawing!);
-                  }
-                },
+                onPressed: _showFloorSheet,
                 icon: const Icon(MingCuteIcons.arrowLeftLine, size: 16),
                 label: const Text('重选图纸'),
               ),
@@ -2805,6 +2814,62 @@ class _IconBtn extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 重选图纸底部弹窗的图纸行：白底 46 高圆角 8，图纸图标 + 名称，
+/// 当前选中行右侧显示品牌蓝对勾。
+class _FloorPickRow extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FloorPickRow({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 46,
+        child: Material(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(MingCuteIcons.versionLine,
+                      size: 16,
+                      color: selected ? AppTokens.brand : AppTokens.fg2),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: selected
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            height: 22 / 14,
+                            color: AppTokens.fg)),
+                  ),
+                  if (selected) ...[
+                    const SizedBox(width: 8),
+                    const Icon(MingCuteIcons.checkLine,
+                        size: 20, color: AppTokens.brand),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除 + （可选）转工单。

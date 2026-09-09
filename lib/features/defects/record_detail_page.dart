@@ -29,10 +29,14 @@ class RecordDetailPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        leading: NavIconButton(
-          icon: MingCuteIcons.leftLine,
-          color: const Color(0xFF000000),
-          onPressed: () => context.pop(),
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: const Color(0xFF000000),
+            onPressed: () => context.pop(),
+          ),
         ),
         title: const Text('记录详情',
             style: TextStyle(

@@ -522,16 +522,19 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                 height: 28 / 20)),
         actions: [
           if (_plan != null)
-            NavIconButton(
-              icon: MingCuteIcons.liveLocationLine,
-              color: AppTokens.patrolFg,
-              size: 24,
-              onPressed: _resetView,
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: NavIconButton(
+                icon: MingCuteIcons.liveLocationLine,
+                color: AppTokens.patrolFg,
+                size: 24,
+                onPressed: _resetView,
+              ),
             ),
           if (_plan != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child:               NavIconButton(
+              child: NavIconButton(
                 icon: MingCuteIcons.editLine,
                 color: AppTokens.patrolFg,
                 size: 24,
@@ -591,7 +594,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，内容过长自动截断）
+              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，宽度收缩包裹内容
+              // —— 内部 Text 勿用 Expanded，否则会撑满 Flexible 的可用宽导致胶囊变长）
               Flexible(
                 fit: FlexFit.loose,
                 child: Container(
@@ -601,22 +605,21 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Icon(MingCuteIcons.wifiOffLine,
                           size: 16, color: Color(0xFFFF4444)),
                       const SizedBox(width: 4),
-                      Expanded(
-                        child: Text('离线（工地信号弱，GPS仍记录）',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                height: 20 / 12,
-                                leadingDistribution: TextLeadingDistribution.even,
-                                color: Color(0xFFFF4444))),
-                      ),
+                      Text('离线（工地信号弱，GPS仍记录）',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              height: 20 / 12,
+                              leadingDistribution: TextLeadingDistribution.even,
+                              color: Color(0xFFFF4444))),
                     ],
                   ),
                 ),
@@ -989,93 +992,98 @@ class _PatrolPanel extends StatelessWidget {
     final started = status == _PatrolStatus.running ||
         status == _PatrolStatus.paused;
 
-    double scale = 1.0; // 由 _PatrolPanel 外层 LayoutBuilder 按可用宽度赋值，用于窄屏等比缩放槽位
-    Widget slot({
-      required double idleLeft,
-      required double runLeft,
-      required bool visible,
-      required Widget child,
-    }) {
-      final left = (started ? runLeft : idleLeft) * scale;
-      return AnimatedPositioned(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOutCubic,
-        left: left,
-        top: 0,
-        width: 56,
-        height: 84,
-        child: IgnorePointer(
-          ignoring: !visible,
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOutCubic,
-            opacity: visible ? 1 : 0,
-            child: AnimatedScale(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOutCubic,
-              scale: visible ? 1 : 0.6,
-              child: child,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final history = _RoundBtn(
-      icon: MingCuteIcons.history2Line,
-      fill: Colors.white,
-      iconColor: const Color(0xFF202224),
-      label: '历史轨迹',
-      onTap: onHistory,
-    );
-    final mark = _RoundBtn(
-      icon: MingCuteIcons.markupLine,
-      fill: Colors.white,
-      iconColor: const Color(0xFF202224),
-      label: '标记问题',
-      onTap: onMark,
-    );
-    final start = _RoundBtn(
-      icon: status == _PatrolStatus.finished
-          ? MingCuteIcons.refresh2Line
-          : MingCuteIcons.playFill,
-      fill: status == _PatrolStatus.finished
-          ? const Color(0xFFFF9500)
-          : const Color(0xFF0395FF),
-      iconColor: Colors.white,
-      label: status == _PatrolStatus.finished ? '重新巡场' : '开始巡场',
-      onTap: status == _PatrolStatus.finished ? onRestart : onStart,
-    );
-    final pause = _RoundBtn(
-      icon: status == _PatrolStatus.running
-          ? MingCuteIcons.pauseFill
-          : MingCuteIcons.playFill,
-      fill: const Color(0xFF00B84A),
-      iconColor: Colors.white,
-      label: status == _PatrolStatus.running ? '暂停' : '继续',
-      onTap: status == _PatrolStatus.running ? onPause : onResume,
-    );
-    final end = _RoundBtn(
-      icon: MingCuteIcons.stopFill,
-      fill: const Color(0xFFFF4444),
-      iconColor: Colors.white,
-      label: '结束',
-      onTap: onFinish,
-    );
-
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final panelW = constraints.maxWidth;
-        // 设计基准宽 366，按可用宽度等比缩放槽位，避免窄屏（<366）按钮越界。
-        // 最远槽位 310 × scale + 按钮宽 56 = panelW，保证右侧不溢出。
-        scale = panelW <= 0 ? 1.0 : (panelW - 56) / 310;
+        // 设计基准宽 366：整机纯等比缩放（按钮尺寸与槽位位置同比例）。
+        // 310×s + 56×s = 366×s = panelW，最右槽位 + 按钮宽正好贴齐右缘不溢出。
+        final s = panelW <= 0 ? 1.0 : panelW / 366;
+
+        Widget slot({
+          required double idleLeft,
+          required double runLeft,
+          required bool visible,
+          required Widget child,
+        }) {
+          final left = (started ? runLeft : idleLeft) * s;
+          return AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOutCubic,
+            left: left,
+            top: 0,
+            width: 56 * s,
+            height: 84 * s,
+            child: IgnorePointer(
+              ignoring: !visible,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOutCubic,
+                opacity: visible ? 1 : 0,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOutCubic,
+                  scale: visible ? 1 : 0.6,
+                  child: child,
+                ),
+              ),
+            ),
+          );
+        }
+
+        final history = _RoundBtn(
+          icon: MingCuteIcons.history2Line,
+          fill: Colors.white,
+          iconColor: const Color(0xFF202224),
+          label: '历史轨迹',
+          scale: s,
+          onTap: onHistory,
+        );
+        final mark = _RoundBtn(
+          icon: MingCuteIcons.markupLine,
+          fill: Colors.white,
+          iconColor: const Color(0xFF202224),
+          label: '标记问题',
+          scale: s,
+          onTap: onMark,
+        );
+        final start = _RoundBtn(
+          icon: status == _PatrolStatus.finished
+              ? MingCuteIcons.refresh2Line
+              : MingCuteIcons.playFill,
+          fill: status == _PatrolStatus.finished
+              ? const Color(0xFFFF9500)
+              : const Color(0xFF0395FF),
+          iconColor: Colors.white,
+          label: status == _PatrolStatus.finished ? '重新巡场' : '开始巡场',
+          scale: s,
+          onTap: status == _PatrolStatus.finished ? onRestart : onStart,
+        );
+        final pause = _RoundBtn(
+          icon: status == _PatrolStatus.running
+              ? MingCuteIcons.pauseFill
+              : MingCuteIcons.playFill,
+          fill: const Color(0xFF00B84A),
+          iconColor: Colors.white,
+          label: status == _PatrolStatus.running ? '暂停' : '继续',
+          scale: s,
+          onTap: status == _PatrolStatus.running ? onPause : onResume,
+        );
+        final end = _RoundBtn(
+          icon: MingCuteIcons.stopFill,
+          fill: const Color(0xFFFF4444),
+          iconColor: Colors.white,
+          label: '结束',
+          scale: s,
+          onTap: onFinish,
+        );
+
         return Center(
           child: Container(
             width: panelW,
             color: const Color(0xFFF4F6F7),
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: SizedBox(
-              height: 84,
+              height: 84 * s,
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -1100,53 +1108,59 @@ class _PatrolPanel extends StatelessWidget {
 }
 
 /// 圆形图标操作按钮（对齐 Frame 2147228045）：56×56 圆 + 下方 12px 辅文标签。
+/// [scale] 为整机等比缩放系数（panelW / 366），直径/图标/间距/字号同比例缩放。
 class _RoundBtn extends StatelessWidget {
   final IconData icon;
   final Color fill;
   final Color iconColor;
   final String label;
+  final double scale;
   final VoidCallback onTap;
   const _RoundBtn({
     required this.icon,
     required this.fill,
     required this.iconColor,
     required this.label,
+    this.scale = 1.0,
     required this.onTap,
   });
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 56,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: fill,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 24, color: iconColor),
+  Widget build(BuildContext context) {
+    final size = 56.0 * scale;
+    return SizedBox(
+      width: size,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(size / 2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: size,
+              height: size,
+              decoration: BoxDecoration(
+                color: fill,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(height: 8),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    height: 20 / 12,
-                    leadingDistribution: TextLeadingDistribution.even,
-                    color: Color(0xFF60656B),
-                  )),
-            ],
-          ),
+              child: Icon(icon, size: 24.0 * scale, color: iconColor),
+            ),
+            SizedBox(height: 8.0 * scale),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.0 * scale,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  leadingDistribution: TextLeadingDistribution.even,
+                  color: const Color(0xFF60656B),
+                )),
+          ],
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// 历史轨迹底部弹窗：列出已加载的历史巡场记录。
