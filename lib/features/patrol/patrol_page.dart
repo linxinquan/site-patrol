@@ -588,33 +588,39 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，自适应内容宽度）
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    const Icon(MingCuteIcons.wifiOffLine,
-                        size: 16, color: Color(0xFFFF4444)),
-                    const SizedBox(width: 4),
-                    Text('离线（工地信号弱，GPS仍记录）',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 20 / 12,
-                            leadingDistribution: TextLeadingDistribution.even,
-                            color: Color(0xFFFF4444))),
-                  ],
+              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，内容过长自动截断）
+              Flexible(
+                fit: FlexFit.loose,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Icon(MingCuteIcons.wifiOffLine,
+                          size: 16, color: Color(0xFFFF4444)),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text('离线（工地信号弱，GPS仍记录）',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                height: 20 / 12,
+                                leadingDistribution: TextLeadingDistribution.even,
+                                color: Color(0xFFFF4444))),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const Spacer(),
               // 状态胶囊（随状态变化：配色/图标/宽）
               Container(
                 width: pillW,
@@ -983,13 +989,14 @@ class _PatrolPanel extends StatelessWidget {
     final started = status == _PatrolStatus.running ||
         status == _PatrolStatus.paused;
 
+    double scale = 1.0; // 由 _PatrolPanel 外层 LayoutBuilder 按可用宽度赋值，用于窄屏等比缩放槽位
     Widget slot({
       required double idleLeft,
       required double runLeft,
       required bool visible,
       required Widget child,
     }) {
-      final left = started ? runLeft : idleLeft;
+      final left = (started ? runLeft : idleLeft) * scale;
       return AnimatedPositioned(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOutCubic,
@@ -1056,30 +1063,38 @@ class _PatrolPanel extends StatelessWidget {
       onTap: onFinish,
     );
 
-    return Center(
-      child: Container(
-        width: 366,
-        color: const Color(0xFFF4F6F7),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: SizedBox(
-          height: 84,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // 历史轨迹：idle 居中偏左(39) → running 最左(0)
-              slot(idleLeft: 39, runLeft: 0, visible: true, child: history),
-              // 开始 / 重新巡场：常驻中央(155)，切换时淡出缩小
-              slot(idleLeft: 155, runLeft: 155, visible: !started, child: start),
-              // 暂停 / 继续：从中央(155)向左分开到(103.3)
-              slot(idleLeft: 155, runLeft: 103.3, visible: started, child: pause),
-              // 结束：从中央(155)向右分开到(206.7)
-              slot(idleLeft: 155, runLeft: 206.7, visible: started, child: end),
-              // 标记问题：idle 居中偏右(271) → running 最右(310)
-              slot(idleLeft: 271, runLeft: 310, visible: true, child: mark),
-            ],
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final panelW = constraints.maxWidth;
+        // 设计基准宽 366，按可用宽度等比缩放槽位，避免窄屏（<366）按钮越界。
+        // 最远槽位 310 × scale + 按钮宽 56 = panelW，保证右侧不溢出。
+        scale = panelW <= 0 ? 1.0 : (panelW - 56) / 310;
+        return Center(
+          child: Container(
+            width: panelW,
+            color: const Color(0xFFF4F6F7),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: SizedBox(
+              height: 84,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // 历史轨迹：idle 居中偏左(39) → running 最左(0)
+                  slot(idleLeft: 39, runLeft: 0, visible: true, child: history),
+                  // 开始 / 重新巡场：常驻中央(155)，切换时淡出缩小
+                  slot(idleLeft: 155, runLeft: 155, visible: !started, child: start),
+                  // 暂停 / 继续：从中央(155)向左分开到(103.3)
+                  slot(idleLeft: 155, runLeft: 103.3, visible: started, child: pause),
+                  // 结束：从中央(155)向右分开到(206.7)
+                  slot(idleLeft: 155, runLeft: 206.7, visible: started, child: end),
+                  // 标记问题：idle 居中偏右(271) → running 最右(310)
+                  slot(idleLeft: 271, runLeft: 310, visible: true, child: mark),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

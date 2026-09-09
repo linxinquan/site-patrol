@@ -82,7 +82,7 @@ class _TabItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: selected ? AppTokens.brand : AppTokens.muted,
               ),
             ),

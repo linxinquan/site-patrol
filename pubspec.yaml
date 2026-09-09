@@ -52,3 +52,14 @@ flutter:
     - family: MingCute
       fonts:
         - asset: assets/fonts/mingcute.ttf
+    # 全局中文 UI 字体：思源黑体(Noto Sans SC)简体子集，Regular/Medium/Bold 三档，
+    # 对应设计系统「字重 w400/w500/w700」。内置后 Web/iOS/安卓用同一套字形与 Skia 渲染，
+    # 跨端字重观感统一。Regular 复用 PDF 报告所用的 .ttf；Medium/Bold 为 .otf。
+    - family: NotoSansSC
+      fonts:
+        - asset: assets/fonts/NotoSansSC-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansSC-Medium.otf
+          weight: 500
+        - asset: assets/fonts/NotoSansSC-Bold.otf
+          weight: 700

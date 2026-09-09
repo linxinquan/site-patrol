@@ -674,9 +674,14 @@ class _ReplyCardState extends State<_ReplyCard> {
                       color: AppTokens.fg)),
               const SizedBox(width: 8),
               if (hasReply)
-                Text('已于 ${widget.d.replyTs ?? ''} 回复',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTokens.muted)),
+                Expanded(
+                  child: Text('已于 ${widget.d.replyTs ?? ''} 回复',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTokens.muted)),
+                ),
             ],
           ),
           const SizedBox(height: 10),

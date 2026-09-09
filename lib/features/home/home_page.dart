@@ -147,6 +147,11 @@ class _HomePageState extends ConsumerState<HomePage>
                 p.status,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                strutStyle: const StrutStyle(
+                  fontSize: 12,
+                  height: 20 / 12,
+                  forceStrutHeight: true,
+                ),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
@@ -183,12 +188,13 @@ class _HomePageState extends ConsumerState<HomePage>
               builder: (ds) => _CompactMetrics(floors: fs, defects: ds),
             ),
           ),
-          const SizedBox(height: AppTokens.space4), // 项目指标 → 快捷操作 间距 16
+          const SizedBox(height: AppTokens.space3), // 项目指标 → 快捷操作 间距 12
 
-          // —— 快捷操作（Frame 2147227957：5+4 网格）——
-          // 按稿：内容宽 = 屏宽 - ListView 两侧各 12 padding = 366；5 列、列间距 12、行间距 12、
-          // 每格 63.6×64；图标块 40×40 圆角 8、纯色底 + 白色面性图标 24、文字 12/W400/#202224。
-          // 此处不再叠加额外 padding，否则内容宽会偏离稿的 366，列宽被压缩。
+          // —— 快捷操作（Frame 2147227957：5+4 网格，白卡包裹 padding 12）——
+          // 白卡宽 = 屏宽 - ListView 两侧各 12；卡内 padding 12 → 网格可用宽 = 卡宽 - 24。
+          // 5 列、列间距 12、行间距 16；格子只定宽、高度由内容自适应
+          //（常态 64 = 图标块 40×40 圆角 8 + gap 4 + 文字 20，窄屏文字换行自动增高）。
+          // 列宽由 _QuickActions 内 LayoutBuilder 按实际宽度算（Wrap 布局），避免窄屏溢出。
           floors.maybeWhen(
             data: (fs) => _QuickActions(floors: fs),
             orElse: () => const _QuickActions(floors: _mockDataFloors),
@@ -287,6 +293,8 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     final planDate = sm.date;
     final statusText = sm.done ? '已完成' : (sm.current ? '进行中' : '未开始');
     return Container(
+      // 撑满卡片宽度：避免只按内容撑开导致占不满或长内容溢出
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -315,18 +323,23 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
         Icon(icon, size: 16, color: const Color(0xFFB5B9BF)),
         const SizedBox(width: 4),
         Text(label,
+            maxLines: 1,
             style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 height: 20 / 12,
                 color: Color(0xFF919499))),
         const SizedBox(width: 4),
-        Text(value,
-            style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 20 / 12,
-                color: valueColor)),
+        Expanded(
+          child: Text(value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  color: valueColor)),
+        ),
       ],
     );
   }
@@ -393,28 +406,12 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     }
 
     return Container(
-      // 稿：background: linear-gradient(180deg, rgba(3,149,255,0.06) 0%, rgba(3,149,255,0) 20%), #FFFFFF
-      // 两层合成：白底 + 顶部 6% 品牌蓝淡出至透明（20% 之后纯白，避免透明→白的灰带）
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: Colors.white, width: 1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Stack(
         children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x0F0395FF), Color(0x000395FF)],
-                  stops: [0.0, 0.2],
-                ),
-              ),
-            ),
-          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
@@ -653,8 +650,8 @@ class _MilestoneCard extends StatelessWidget {
             children: [
               Text(
                 _cnDate(m.date, fullYear: false),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                // 完整显示：横向滚动列表内宽度无界，softWrap:false 保证单行且不截断
+                softWrap: false,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -666,8 +663,8 @@ class _MilestoneCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 m.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                // 阶段名完整显示，不加省略号；卡片宽度随内容自适应（可横向滚动）
+                softWrap: false,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
@@ -726,95 +723,110 @@ class _QuickActions extends ConsumerWidget {
   const _QuickActions({required this.floors});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => GridView.count(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisCount: 5,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 63.6 / 64,
-        children: [
-          _QuickCard(
-            icon: MingCuteIcons.navigationFill,
-            title: '工地巡场',
-            color: _qaBlue,
-            onTap: () => context.go('/patrol'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.folderOpenFill,
-            title: '图纸管理',
-            color: _qaRed,
-            onTap: () => context.go('/projects'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.cameraFill,
-            title: '拍照验收',
-            color: _qaGreen,
-            onTap: () => context.push('/capture'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.pencilRulerFill,
-            title: 'AR量尺',
-            color: _qaBlue,
-            onTap: () {
-              final projectKey = ref.read(currentProjectIdProvider) ?? '';
-              final floor = floors.firstOrNull;
-              if (floor == null) {
-                AppSnack.show(context, '当前项目没有可用图纸，无法使用AR量尺',
-                    kind: AppSnackKind.danger);
-                return;
-              }
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ArMeasurePage(
-                  args: MeasureArgs(
-                    projectKey: projectKey,
-                    drawingKey: floor.key,
-                    floor: floor.name,
-                  ),
-                ),
-              ));
-            },
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.taskFill,
-            title: '缺陷工单',
-            color: _qaYellow,
-            onTap: () => context.go('/defects'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.micFill,
-            title: '语音记录',
-            color: _qaCyan,
-            onTap: () => AppBottomSheet.show<void>(
-              context: context,
-              title: '语音记录',
-              body: (_) => VoiceInputSheet(
-                onResult: (text) {
-                  AppSnack.show(context, '已识别：$text',
-                      kind: AppSnackKind.success);
+  Widget build(BuildContext context, WidgetRef ref) => AppCard(
+        // 卡片包裹：上下左右 12 padding。
+        radius: AppTokens.radiusSm,
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (ctx, constraints) {
+            const crossSpacing = 12.0;
+            const mainSpacing = 16.0; // 第一行与第二行之间间距 16
+            // 列宽按可用宽度均分（向下取整，保证一行正好放 5 个）。
+            // 高度不写死：由内容自适应——常态 64（图标 40 + gap 4 + 文字 20），
+            // 窄屏文字若换行会自动增高，不会像固定高度那样被挤出溢出条纹。
+            final colW =
+                ((constraints.maxWidth - 4 * crossSpacing) / 5).floorToDouble();
+            final items = <Widget>[
+              _QuickCard(
+                icon: MingCuteIcons.navigationFill,
+                title: '工地巡场',
+                color: _qaBlue,
+                onTap: () => context.go('/patrol'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.folderOpenFill,
+                title: '图纸管理',
+                color: _qaRed,
+                onTap: () => context.go('/projects'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.cameraFill,
+                title: '拍照验收',
+                color: _qaGreen,
+                onTap: () => context.push('/capture'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.pencilRulerFill,
+                title: 'AR量尺',
+                color: _qaBlue,
+                onTap: () {
+                  final projectKey = ref.read(currentProjectIdProvider) ?? '';
+                  final floor = floors.firstOrNull;
+                  if (floor == null) {
+                    AppSnack.show(context, '当前项目没有可用图纸，无法使用AR量尺',
+                        kind: AppSnackKind.danger);
+                    return;
+                  }
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => ArMeasurePage(
+                      args: MeasureArgs(
+                        projectKey: projectKey,
+                        drawingKey: floor.key,
+                        floor: floor.name,
+                      ),
+                    ),
+                  ));
                 },
               ),
-            ),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.layerFill,
-            title: '图层索引',
-            color: _qaPurple,
-            onTap: () => context.go('/projects'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.package2Fill,
-            title: '验收记录',
-            color: _qaPink,
-            onTap: () => context.push('/capture-records'),
-          ),
-          _QuickCard(
-            icon: MingCuteIcons.pdfFill,
-            title: 'PDF原稿',
-            color: _qaRed,
-            onTap: () => context.push('/blueprint'),
-          ),
-        ],
+              _QuickCard(
+                icon: MingCuteIcons.taskFill,
+                title: '缺陷工单',
+                color: _qaYellow,
+                onTap: () => context.go('/defects'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.micFill,
+                title: '语音记录',
+                color: _qaCyan,
+                onTap: () => AppBottomSheet.show<void>(
+                  context: context,
+                  title: '语音记录',
+                  body: (_) => VoiceInputSheet(
+                    onResult: (text) {
+                      AppSnack.show(context, '已识别：$text',
+                          kind: AppSnackKind.success);
+                    },
+                  ),
+                ),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.layerFill,
+                title: '图层索引',
+                color: _qaPurple,
+                onTap: () => context.go('/projects'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.package2Fill,
+                title: '验收记录',
+                color: _qaPink,
+                onTap: () => context.push('/capture-records'),
+              ),
+              _QuickCard(
+                icon: MingCuteIcons.pdfFill,
+                title: 'PDF原稿',
+                color: _qaRed,
+                onTap: () => context.push('/blueprint'),
+              ),
+            ];
+            return Wrap(
+              spacing: crossSpacing,
+              runSpacing: mainSpacing,
+              children: [
+                for (final it in items) SizedBox(width: colW, child: it),
+              ],
+            );
+          },
+        ),
       );
 }
 
@@ -835,6 +847,8 @@ class _QuickCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Column(
+          // min：Wrap 内高度无界，按内容自适应（图标 40 + gap 4 + 文字 20），不撑满不高写死
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Container(
@@ -975,7 +989,7 @@ class _TodoSection extends StatelessWidget {
 
 /// 单张待办卡（白底圆角 8、padding 12，卡内 gap 12）：
 /// 行 1：标题 16/W600/#202224（左，截断） + 状态标签（右，实色底白字，高 22）；
-/// 行 2：标签流一行（分类蓝 / 严重度红橙 / 楼层红 / 类型灰 / #自定义灰，12/W400 圆角 6）；
+/// 行 2：标签流一行（严重度红橙 / 分类蓝 / 楼层红 / 类型灰 / #自定义灰，12/W400 圆角 6）；
 /// 行 3：记录人 + 责任人（各 user4Fill 灰图标 + #919499 名，两人间距 12） | 右侧时间，两端对齐。
 class _TodoCard extends StatelessWidget {
   final Defect d;
@@ -1001,7 +1015,7 @@ class _TodoCard extends StatelessWidget {
                           fontSize: 16, height: 24 / 16, forceStrutHeight: true),
                       style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           height: 24 / 16,
                           color: AppTokens.fg)),
                 ),
@@ -1010,35 +1024,31 @@ class _TodoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // 行 2：标签流（分类 / 严重度 / 楼层 / 类型 / #自定义）
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            // 行 2：标签流（严重度 / 分类 / 楼层 / 类型 / #自定义），Wrap 自适应换行。
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                _catTag(d.category),
-                const SizedBox(width: 4),
                 _zoneTag(d.severity),
-                const SizedBox(width: 4),
+                _catTag(d.category),
                 _floorTag(d.floor),
-                const SizedBox(width: 4),
                 _grayTag(d.type),
-                ...d.tags.take(2).map((t) => Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: _grayTag('#$t'),
-                    )),
+                ...d.tags.take(2).map((t) => _grayTag('#$t')),
               ],
             ),
             const SizedBox(height: AppTokens.space3),
-            // 行 3：记录人 + 责任人 | 时间（两端对齐）
+            // 行 3：记录人 + 责任人 | 时间（两端对齐）；两人名各占一份宽度，超长截断。
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _person(d.reporter),
+                      Flexible(child: _person(d.reporter)),
                       const SizedBox(width: AppTokens.space3),
-                      _person(d.resp),
+                      Flexible(child: _person(d.resp)),
                     ],
                   ),
                 ),
@@ -1057,23 +1067,25 @@ class _TodoCard extends StatelessWidget {
       );
 }
 
-/// 人员行（user4Fill 灰图标 16 + 名称 12/#919499，间距 4）。
+/// 人员行（user4Fill 灰图标 16 + 名称 12/#919499，间距 4）。名称用 Expanded 限宽，
+/// 在父级 Flexible 中超长自动截断，避免两人名把时间顶出卡片。
 Widget _person(String name) => Row(
-      mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(MingCuteIcons.user4Fill,
             size: 16, color: Color(0xFFB5B9BF)),
         const SizedBox(width: 4),
-        Text(name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            strutStyle: const StrutStyle(
-                fontSize: 12, height: 20 / 12, forceStrutHeight: true),
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 20 / 12,
-                color: AppTokens.muted)),
+        Expanded(
+          child: Text(name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              strutStyle: const StrutStyle(
+                  fontSize: 12, height: 20 / 12, forceStrutHeight: true),
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  color: AppTokens.muted)),
+        ),
       ],
     );
 
@@ -1081,12 +1093,12 @@ Widget _person(String name) => Row(
 Widget _catTag(DefectCategory c) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       height: 20,
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppTokens.brandTint,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(c.label,
+          maxLines: 1,
           strutStyle: const StrutStyle(
               fontSize: 12, height: 20 / 12, forceStrutHeight: true),
           style: const TextStyle(
@@ -1309,11 +1321,11 @@ class _EventCard extends StatelessWidget {
             // 分隔线 0.5px #E9EAEB
             Container(height: 0.5, color: const Color(0xFFE9EAEB)),
             const SizedBox(height: 8),
-            // 标题 16/W600/#202224
+            // 标题 16/W500/#202224
             Text(event.title,
                 style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     height: 24 / 16,
                     color: Color(0xFF202224))),
             const SizedBox(height: 4),
@@ -1321,17 +1333,23 @@ class _EventCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(MingCuteIcons.user4Fill,
-                        size: 16, color: Color(0xFFB5B9BF)),
-                    const SizedBox(width: 4),
-                    Text(event.resp,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            color: Color(0xFF919499))),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(MingCuteIcons.user4Fill,
+                          size: 16, color: Color(0xFFB5B9BF)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(event.resp,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF919499))),
+                      ),
+                    ],
+                  ),
                 ),
                 Text(event.time,
                     style: const TextStyle(
@@ -1357,12 +1375,7 @@ class _CompactMetrics extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFF4F6F7), Color(0xFFFFFFFF)],
-        ),
-        border: Border.all(color: Colors.white, width: 1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(

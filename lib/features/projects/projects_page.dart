@@ -160,7 +160,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         title: const Text('图纸',
             style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: AppTokens.fg,
                 height: 28 / 20)),
         actions: [
@@ -205,7 +205,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                   _UploadDwgCard(uploading: _uploading, onPick: _uploadDwg),
                   const _UploadedDrawingsSection(),
                   const SizedBox(height: AppTokens.space2),
-                  // 楼层列表（卡间距统一 8）
+                  // 楼层列表（卡间距统一 12）
                   ...fs.map((f) {
                     final count = drawings.maybeWhen(
                       data: (m) => m[f.key]?.hotspots.length ?? f.index,
@@ -214,7 +214,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                     final cached =
                         (cache[f.key] ?? (f.cached ? 100 : f.progress)) >= 100;
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: AppTokens.space2),
+                      padding: const EdgeInsets.only(bottom: AppTokens.space3),
                       child: DrawingListItem(
                         floor: f,
                         indexCount: count,
@@ -271,7 +271,7 @@ class _ProjectCard extends StatelessWidget {
                       Text(p.name,
                           style: const TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                               color: AppTokens.fg),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -591,7 +591,7 @@ class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
           elevation: 0,
           title: Text(widget.name,
               style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
           actions: [
             IconButton(
               tooltip: _showText ? '隐藏文字/标注层' : '显示文字/标注层',
@@ -740,25 +740,26 @@ class DrawingListItem extends StatelessWidget {
                   Text(floor.name,
                       style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppTokens.fg),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
-                  // 下排：索引 + 楼栋 + 楼层
-                  Row(
+                  // 下排：索引 + 楼栋 + 楼层（Wrap 自适应换行，长楼栋名不再顶出）
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (indexCount > 0)
                         _Tag(
                             text: '索引 $indexCount',
                             bg: const Color(0xFFF1F7FF),
                             fg: const Color(0xFF428BF7)),
-                      if (indexCount > 0) const SizedBox(width: 4),
                       _Tag(
                           text: floor.building,
                           bg: const Color(0xFFF8F8F8),
                           fg: AppTokens.muted),
-                      const SizedBox(width: 4),
                       _Tag(
                           text: floor.floor,
                           bg: const Color(0xFFF8F8F8),

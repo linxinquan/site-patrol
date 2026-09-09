@@ -259,7 +259,10 @@ class _CadInfoPanelState extends ConsumerState<CadInfoPanel>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(lay.name,
-                          style: const TextStyle(fontSize: 14, color: AppTokens.fg)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(fontSize: 14, color: AppTokens.fg)),
                       if (lay.handle != null)
                         Text('句柄 ${lay.handle}',
                             style: const TextStyle(fontSize: 12, color: AppTokens.muted)),

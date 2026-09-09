@@ -27,9 +27,9 @@ ThemeData get lightTheme => ThemeData(
         surface: AppTokens.surface,
         error: AppTokens.danger,
       ),
-      // 不强制自定义字体：fontFamily 为 null 时 Flutter 自动使用各平台系统默认字体。
-      // fontFamilyFallback 仅作兜底（主要影响 Web HTML 渲染器的 CSS 字体栈）。
-      fontFamily: null,
+      // 内置思源黑体(Noto Sans SC)作全局 UI 字体，Web/iOS/安卓用同一套字形与 Skia 渲染，
+      // 跨端字重(w400/w700)观感统一。fontFamilyFallback 仅兜底极罕见缺字（如生僻汉字）。
+      fontFamily: 'NotoSansSC',
       fontFamilyFallback: const [
         'PingFang SC',
         'Microsoft YaHei',
@@ -37,7 +37,7 @@ ThemeData get lightTheme => ThemeData(
         'Source Han Sans SC',
         'sans-serif',
       ],
-      // 字号阶梯（六档：32/22/16/14/12/10，字距统一 0，字重仅 w400/w700）
+      // 字号阶梯（六档：32/22/16/14/12/10，字距统一 0，字重 w400/w500/w700）
       textTheme: const TextTheme(
         // 大标题（如项目名） — SF Pro Display 风格
         displaySmall: TextStyle(
@@ -63,10 +63,10 @@ ThemeData get lightTheme => ThemeData(
           color: AppTokens.fg,
           height: 24 / 16,
         ),
-        // 卡内标题
+        // 卡内标题 — Medium(500)，位于 正文(Regular) 与 大标题(Bold) 之间
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: AppTokens.fg,
           height: 24 / 16,
@@ -125,7 +125,7 @@ ThemeData get lightTheme => ThemeData(
         toolbarHeight: 44,
         titleTextStyle: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
@@ -240,7 +240,7 @@ ThemeData get patrolDarkTheme => ThemeData(
         primary: AppTokens.accent,
         surface: AppTokens.patrolSurface,
       ),
-      fontFamily: null,
+      fontFamily: 'NotoSansSC',
       fontFamilyFallback: const [
         'PingFang SC',
         'Microsoft YaHei',
@@ -251,5 +251,11 @@ ThemeData get patrolDarkTheme => ThemeData(
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        titleTextStyle: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          color: AppTokens.patrolFg,
+        ),
       ),
     );
