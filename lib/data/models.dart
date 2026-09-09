@@ -905,6 +905,16 @@ class MeasureItem {
         'source': source,
         if (errorMm != null) 'errorMm': errorMm,
       };
+
+  /// 字段名与 `MeasureSession` 既有内联序列化保持一致（name/drawingMm/photoMm/source），
+  /// 新增 `errorMm` 缺省为 null，旧数据不抛异常。
+  factory MeasureItem.fromJson(Map<String, dynamic> m) => MeasureItem(
+        name: m['name']?.toString() ?? '',
+        drawingMm: (m['drawingMm'] as num? ?? 0).toDouble(),
+        photoMm: (m['photoMm'] as num? ?? 0).toDouble(),
+        source: m['source']?.toString() ?? 'photo',
+        errorMm: (m['errorMm'] as num?)?.toDouble(),
+      );
 }
 
 /// 一次测量会话（可持久化）。
@@ -1580,7 +1590,7 @@ class WallOpening {
         'type': type,
         'offsetFromMm': offsetFromMm,
         'widthMm': widthMm,
-        if (heightMm != null) 'heightMm': heightMm,
+        'heightMm': heightMm,
       };
 
   factory WallOpening.fromJson(Map<String, dynamic> m) => WallOpening(
@@ -1596,8 +1606,8 @@ class RoomWall {
   final String id;
   final double ax, ay, bx, by; // 局部坐标 mm（首段起点=原点）
   /// 长度（mm）；RoomPlan 给值优先，手动成图可为 null → 用坐标自算。
-  final double? lengthMm;
-  final double? thicknessMm; // 墙厚（人工/图纸补）
+  final double lengthMm; // 校正后长度（正交吸附后重算）
+  final double? thicknessMm; // 墙厚（默认 200，人工可改）
   final List<WallOpening> openings;
   const RoomWall({
     required this.id,
@@ -1605,28 +1615,17 @@ class RoomWall {
     required this.ay,
     required this.bx,
     required this.by,
-    this.lengthMm,
+    required this.lengthMm,
     this.thicknessMm,
     this.openings = const [],
   });
 
-  /// 有效长度：优先存值，否则按端点距离自算。
-  double get effectiveLengthMm =>
-      lengthMm ?? _dist(ax, ay, bx, by);
-
-  double get midX => (ax + bx) / 2;
-  double get midY => (ay + by) / 2;
-
-  static double _dist(double x1, double y1, double x2, double y2) =>
-      math.sqrt(math.pow(x2 - x1, 2) + math.pow(y2 - y1, 2));
-
   RoomWall copyWith({
-    String? id,
     double? ax, double? ay, double? bx, double? by,
     double? lengthMm, double? thicknessMm, List<WallOpening>? openings,
   }) =>
       RoomWall(
-        id: id ?? this.id,
+        id: id,
         ax: ax ?? this.ax,
         ay: ay ?? this.ay,
         bx: bx ?? this.bx,
@@ -1639,8 +1638,8 @@ class RoomWall {
   Map<String, dynamic> toJson() => {
         'id': id,
         'ax': ax, 'ay': ay, 'bx': bx, 'by': by,
-        if (lengthMm != null) 'lengthMm': lengthMm,
-        if (thicknessMm != null) 'thicknessMm': thicknessMm,
+        'lengthMm': lengthMm,
+        'thicknessMm': thicknessMm,
         'openings': openings.map((o) => o.toJson()).toList(),
       };
 
@@ -1650,105 +1649,101 @@ class RoomWall {
         ay: (m['ay'] as num? ?? 0).toDouble(),
         bx: (m['bx'] as num? ?? 0).toDouble(),
         by: (m['by'] as num? ?? 0).toDouble(),
-        lengthMm: (m['lengthMm'] as num?)?.toDouble(),
+        lengthMm: (m['lengthMm'] as num? ?? 0).toDouble(),
         thicknessMm: (m['thicknessMm'] as num?)?.toDouble(),
         openings: (m['openings'] as List? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map(WallOpening.fromJson)
+            .map((e) => WallOpening.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }
 
-/// 一次量房记录（source: roomplan | manual | photo）。
+/// 量房记录。
 class RoomScanRecord {
   final String id;
   final String projectKey;
-  final String name; // 如「B座 精装样板间 主卧」
-  final String source;
+  final String name; // 房间名，如「主卧」
+  final String roomUse; // 用途：卧室/客厅/厨房/卫浴/其他（装修场景）
+  final String source; // 'roomplan' | 'manual' | 'photo'
   final int scannedAtMs;
-  final List<RoomWall> walls; // 墙段（首尾相接近似闭合）
-  final double? closureDeltaMm; // 闭合差（首尾缺口）
-  final double? netHeightMm; // 净高
-  final String? drawingKey; // 关联图纸（工地核尺场景）
+  final List<RoomWall> walls; // 首尾相接（按顺序构成闭合多边形）
+  final double? closureDeltaMm;
+  final double? netHeightMm; // 净高 mm
+  final String? drawingKey; // 核尺场景关联图纸
+  final List<MeasureItem> checks; // 与图纸对照判定（复用 MeasureItem）
   final String? note;
-  final List<MeasureItem> checks; // 图纸对照判定项（复用现有 MeasureItem）
   const RoomScanRecord({
     required this.id,
     required this.projectKey,
     required this.name,
+    this.roomUse = '其他',
     this.source = 'manual',
-    this.scannedAtMs = 0,
+    required this.scannedAtMs,
     this.walls = const [],
     this.closureDeltaMm,
     this.netHeightMm,
     this.drawingKey,
-    this.note,
     this.checks = const [],
+    this.note,
   });
 
+  /// 几何派生的只读值（不入库）
+  List<Offset> get cornerPoints => [
+        for (final w in walls) Offset(w.ax, w.ay),
+        if (walls.isNotEmpty) Offset(walls.last.bx, walls.last.by),
+      ];
+
   RoomScanRecord copyWith({
-    String? name,
-    String? source,
-    int? scannedAtMs,
-    List<RoomWall>? walls,
-    double? closureDeltaMm,
-    double? netHeightMm,
-    String? drawingKey,
-    String? note,
-    List<MeasureItem>? checks,
+    String? name, String? roomUse, String? source,
+    List<RoomWall>? walls, double? closureDeltaMm, double? netHeightMm,
+    String? drawingKey, List<MeasureItem>? checks, String? note,
   }) =>
       RoomScanRecord(
         id: id,
         projectKey: projectKey,
         name: name ?? this.name,
+        roomUse: roomUse ?? this.roomUse,
         source: source ?? this.source,
-        scannedAtMs: scannedAtMs ?? this.scannedAtMs,
+        scannedAtMs: scannedAtMs,
         walls: walls ?? this.walls,
         closureDeltaMm: closureDeltaMm ?? this.closureDeltaMm,
         netHeightMm: netHeightMm ?? this.netHeightMm,
         drawingKey: drawingKey ?? this.drawingKey,
-        note: note ?? this.note,
         checks: checks ?? this.checks,
+        note: note ?? this.note,
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'projectKey': projectKey,
         'name': name,
+        'roomUse': roomUse,
         'source': source,
         'scannedAtMs': scannedAtMs,
         'walls': walls.map((w) => w.toJson()).toList(),
-        if (closureDeltaMm != null) 'closureDeltaMm': closureDeltaMm,
-        if (netHeightMm != null) 'netHeightMm': netHeightMm,
-        if (drawingKey != null) 'drawingKey': drawingKey,
-        if (note != null) 'note': note,
+        'closureDeltaMm': closureDeltaMm,
+        'netHeightMm': netHeightMm,
+        'drawingKey': drawingKey,
         'checks': checks.map((c) => c.toJson()).toList(),
+        'note': note,
       };
 
   factory RoomScanRecord.fromJson(Map<String, dynamic> m) => RoomScanRecord(
         id: m['id']?.toString() ?? '',
         projectKey: m['projectKey']?.toString() ?? '',
         name: m['name']?.toString() ?? '',
+        roomUse: m['roomUse']?.toString() ?? '其他',
         source: m['source']?.toString() ?? 'manual',
         scannedAtMs: (m['scannedAtMs'] as num? ?? 0).toInt(),
         walls: (m['walls'] as List? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map(RoomWall.fromJson)
+            .map((e) => RoomWall.fromJson(e as Map<String, dynamic>))
             .toList(),
         closureDeltaMm: (m['closureDeltaMm'] as num?)?.toDouble(),
         netHeightMm: (m['netHeightMm'] as num?)?.toDouble(),
         drawingKey: m['drawingKey']?.toString(),
-        note: m['note']?.toString(),
         checks: (m['checks'] as List? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map((e) => MeasureItem(
-                  name: e['name']?.toString() ?? '',
-                  drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
-                  photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
-                  source: e['source']?.toString() ?? 'roomplan',
-                  errorMm: (e['errorMm'] as num?)?.toDouble(),
-                ))
+            .map((e) => MeasureItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        note: m['note']?.toString(),
       );
 }
 
@@ -1757,7 +1752,13 @@ class RoomScanArgs {
   final String? recordId;
   final String? projectKey;
   final String? drawingKey;
-  const RoomScanArgs({this.recordId, this.projectKey, this.drawingKey});
+  final String? drawingTitle;
+  const RoomScanArgs({
+    this.recordId,
+    this.projectKey,
+    this.drawingKey,
+    this.drawingTitle,
+  });
 }
 
 /// 巡场页路由参数（照 MeasureArgs 模式）。
