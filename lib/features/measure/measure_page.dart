@@ -922,7 +922,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             title: Text(e.name),
             subtitle: Text(
               '图纸 ${fmtMm(e.drawingMm)} mm  /  实测 ${fmtMm(e.photoMm)} mm\n'
-              '偏差 ${fmtMmSigned(dev)} mm (${fmtPctSigned(devPct)}%)',
+              '偏差 ${fmtMmSigned(dev)} mm (${fmtPctSigned(devPct)}%)'
+              '${e.errorMm != null ? '  ±${fmtMm(e.errorMm!)}' : ''}'
+              '${e.errorMm != null && !e.canJudge(tolMm) ? '\n⚠ 测量误差过大，判定需卷尺复核' : ''}',
               style: const TextStyle(fontSize: 12),
             ),
             trailing: IconButton(

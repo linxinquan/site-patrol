@@ -40,3 +40,4 @@ AR 多点测量+批量保存 / AR 黑屏修复+删除假估算页 / 拍照记录
 - 2026-09-08 文档校正：本看板与 `ARCHIVE_2026-09-08.md` 原标 0902 为「⏳待执行」，与实际不符，已更正为「✅已合入」，避免后续接手重复盘点
 - 2026-09-08 第4轮：量尺 P1-1~P4 / P2-1~3 落地（P1-5 涉云端端口待部署确认）；巡场 GPS 轨迹采集（geolocator）；尺寸 UI 显示取整（mm 整数、% 留 1 位）；**实现「自动锚零输入量尺」**（`anchor_objects` 尺寸库 + `vision_service.detectAnchor` + 自动标定/手动兜底，全机型、免手填参考物）——详见 `ANDROID_AR_RESEARCH.md` §6；Web 构建通过
 - 2026-09-09 账号交接轮（依 `CODEBUDDY_SWITCH_FIX.md` §4）：WIP 全量固化 `fa7d9e0`（22 文件 +975/−56）；`flutter analyze` 仍因中文路径崩溃（exit 255，环境问题）→ 改用 `dart analyze lib` 得 **0 error / 7 warning / 133 info**；13 项回归核查表**全部「在」**；AR iOS 原生只读走查通过；Web 构建通过；量尺 Web 端 6 项实测**待人工执行**（需真实照片与打点）
+- 2026-09-09 需求收敛（iPhone 纯手机 + 判定级复核记录）：AR 量尺升级为**同边重复采样 + 误差带判定**——`MeasureItem` 新增 `errorMm`（判定门控 1/3 规约 `canJudge`）；`measure_math` 增 `medianOf`/`spreadHalfRange`/`canJudgeByError`；AR 页改「多测几次 → 采纳本组(中位±误差) → 逐组判定/需复核」；测量误差带随项进报告与共享清单；约束：≥2m 距离手机读数无法达到 GB 验收精度，UI 已诚实标注"需复核"

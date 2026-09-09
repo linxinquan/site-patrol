@@ -859,11 +859,15 @@ class MeasureItem {
   /// 测量来源：'photo' 默认（照片标尺法）| 'ar_lidar'（AR量尺）| 'manual'。
   /// 旧会话数据无该字段时按 'photo' 处理，保证向后兼容。
   final String source;
+  /// 测量误差带半宽（±mm）。LiDAR/AR 等有误差来源时填写；
+  /// 旧数据 / 手动录入为 null = 误差未知（不参与判定门控，pass() 逻辑不变）。
+  final double? errorMm;
   const MeasureItem({
     required this.name,
     required this.drawingMm,
     required this.photoMm,
     this.source = 'photo',
+    this.errorMm,
   });
 
   /// 偏差 = 照片实测 - 图纸（mm）
@@ -874,16 +878,24 @@ class MeasureItem {
   bool pass(double tolMm, double tolPct) =>
       deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
 
+  /// 判定可用性（测量不确定度规约）：测量误差带应 ≤ 容差的 1/3，
+  /// 否则实测值与容差边界不可分，报"合格/超差"不可信，应提示复核。
+  /// 误差未知（null）或误差过大 → 不可判定。
+  bool canJudge(double tolMm) =>
+      errorMm != null && errorMm! > 0 && errorMm! <= tolMm / 3;
+
   MeasureItem copyWith(
           {String? name,
           double? drawingMm,
           double? photoMm,
-          String? source}) =>
+          String? source,
+          double? errorMm}) =>
       MeasureItem(
         name: name ?? this.name,
         drawingMm: drawingMm ?? this.drawingMm,
         photoMm: photoMm ?? this.photoMm,
         source: source ?? this.source,
+        errorMm: errorMm ?? this.errorMm,
       );
 }
 
@@ -950,6 +962,7 @@ class MeasureSession {
                   'drawingMm': e.drawingMm,
                   'photoMm': e.photoMm,
                   'source': e.source,
+                  if (e.errorMm != null) 'errorMm': e.errorMm,
                 })
             .toList(),
         'updatedAt': updatedAt,
@@ -972,6 +985,7 @@ class MeasureSession {
                 drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
                 photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
                 source: e['source'] as String? ?? 'photo', // 旧数据兼容
+                errorMm: (e['errorMm'] as num?)?.toDouble(), // 旧数据 null
               ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),

@@ -76,3 +76,34 @@ double deviationPct(double photoMm, double drawingMm) =>
 bool isPass(double photoMm, double drawingMm, double tolMm, double tolPct) =>
     deviationMm(photoMm, drawingMm).abs() <= tolMm &&
     deviationPct(photoMm, drawingMm).abs() <= tolPct;
+
+// ==================== 重复采样稳健统计（AR/LiDAR 测距）====================
+
+/// 样本中位数（稳健中心估计，抗单次异常值/抖动）。
+double medianOf(List<double> xs) {
+  if (xs.isEmpty) return 0;
+  final s = [...xs]..sort();
+  final n = s.length;
+  return n.isOdd ? s[n ~/ 2] : (s[n ~/ 2 - 1] + s[n ~/ 2]) / 2;
+}
+
+/// 稳健误差带半宽（±mm）：max(|max−中位|, |中位−min|)，反映重复采样离散度。
+/// 不足 2 个样本返回 0（无法估计）。
+///
+/// 用途：AR 对同一被测边重复打点 N 次后，用中位数作为读数、本值作为
+/// ±误差带。误差带进入 `MeasureItem.errorMm`，与容差做「1/3 判定门控」。
+double spreadHalfRange(List<double> xs) {
+  if (xs.length < 2) return 0;
+  final m = medianOf(xs);
+  var mx = 0.0;
+  for (final x in xs) {
+    final d = (x - m).abs();
+    if (d > mx) mx = d;
+  }
+  return mx;
+}
+
+/// 判定是否可信：测量误差带半宽应 ≤ 容差的 1/3（测量不确定度规约）。
+/// 误差不可估计（0 或 null）或过大 → 不建议给合格/超差结论，应标"复核"。
+bool canJudgeByError(double? errorMm, double tolMm) =>
+    errorMm != null && errorMm > 0 && errorMm <= tolMm / 3;

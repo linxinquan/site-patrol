@@ -13,6 +13,7 @@ import '../../core/storage/measure_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
 import '../../shared/widgets/app_snack.dart';
 
@@ -33,29 +34,43 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   static const _viewId = 0;
 
   late final ArMeasureService _svc;
-  double? _lastMm;
-  final List<double> _measurements = [];
+  /// 同一被测边的重复采样读数（mm）：对同一条边多测几次，
+  /// 采纳时取稳健中位为读数、离散半宽为 ±误差带，提高判定可信度。
+  final List<double> _samples = [];
+  /// 已采纳的读数组（每组 = 中位值 + 误差带半宽），逐组写为一条 MeasureItem。
+  final List<({double mm, double errMm})> _readings = [];
   bool _supported = false;
   bool _paused = false;
-  String _hint = '点屏幕采点A';
+  String _hint = '对目标边采点：点一次=A，再点=B 出距离';
   final _nameCtl = TextEditingController(text: 'AR实测');
   final _drawingCtl = TextEditingController();
+  MeasureSession? _session;
 
   @override
   void initState() {
     super.initState();
     _svc = ArMeasureService(viewId: _viewId);
     _svc.channel.setMethodCallHandler(_onNative);
+    _loadSession();
   }
+
+  /// 读取已有会话取容差（判定门控用），无则保持默认。
+  Future<void> _loadSession() async {
+    final s =
+        await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
+    if (mounted && s != null) setState(() => _session = s);
+  }
+
+  double get _tolMm => _session?.tolMm ?? 15;
+  double get _tolPct => _session?.tolPct ?? 2;
 
   Future<dynamic> _onNative(MethodCall call) async {
     if (call.method == 'onMeasure') {
       final mm = ((call.arguments as Map)['mm'] as num).toDouble();
       if (mounted) {
         setState(() {
-          _lastMm = mm;
-          _measurements.add(mm);
-          _hint = '已测 ${_measurements.length} 组，可继续测或保存';
+          _samples.add(mm);
+          _hint = '第 ${_samples.length} 次读数（同边重复测更稳），满意后点「采纳本组」';
         });
       }
     } else if (call.method == 'onPointA') {
@@ -63,9 +78,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     } else if (call.method == 'onCleared') {
       if (mounted) {
         setState(() {
-          _lastMm = null;
-          _measurements.clear();
-          _hint = '点屏幕采点A';
+          _samples.clear();
+          _hint = '已清除本组采样，重新对目标边采点（A→B）';
         });
       }
     } else if (call.method == 'onError') {
@@ -121,10 +135,38 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     await _svc.startSession();
   }
 
-  /// 批量保存：把 _measurements 全部写入会话。
+  /// 采纳当前采样组：中位数为读数，离散半宽为 ±误差带。
+  void _adoptSamples() {
+    if (_samples.length < 2) {
+      AppSnack.show(context, '请对同一条边至少测 2 次再采纳', kind: AppSnackKind.muted);
+      return;
+    }
+    setState(() {
+      _readings.add(
+          (mm: medianOf(_samples), errMm: spreadHalfRange(_samples)));
+      _samples.clear();
+      _hint = '已采纳一组，可继续测下一条边；全部测完点「保存」';
+    });
+  }
+
+  /// 一组读数的判定说明：误差带 > 容差/3 → 不可判定需复核；否则按偏差给结论。
+  /// 未填图纸尺寸返回 null（仅记录，不判定）。
+  String? _verdictOf(double mm, double errMm) {
+    final drawingMm = double.tryParse(_drawingCtl.text);
+    if (drawingMm == null || drawingMm <= 0) return null;
+    final dev = mm - drawingMm;
+    final devPct = dev / drawingMm * 100;
+    if (!canJudgeByError(errMm, _tolMm)) {
+      return '误差 ±${fmtMm(errMm)}mm 大于容差 1/3，需卷尺复核';
+    }
+    final ok = dev.abs() <= _tolMm && devPct.abs() <= _tolPct;
+    return ok ? '偏差 ${fmtMmSigned(dev)}mm · 合格' : '偏差 ${fmtMmSigned(dev)}mm · 超差';
+  }
+
+  /// 批量保存：把已采纳的读数组全部写入会话（带误差带）。
   Future<void> _saveAll() async {
-    if (_measurements.isEmpty) {
-      AppSnack.show(context, '暂无测量结果', kind: AppSnackKind.danger);
+    if (_readings.isEmpty) {
+      AppSnack.show(context, '暂无已采纳的测量结果', kind: AppSnackKind.danger);
       return;
     }
     final drawingMm = double.tryParse(_drawingCtl.text);
@@ -136,17 +178,18 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       floor: widget.args.floor,
     );
     final items = [
-      for (var i = 0; i < _measurements.length; i++)
+      for (var i = 0; i < _readings.length; i++)
         MeasureItem(
           name: 'AR-${i + 1}',
           drawingMm: (drawingMm ?? 0),
-          photoMm: _measurements[i],
+          photoMm: _readings[i].mm,
           source: 'ar_lidar',
+          errorMm: _readings[i].errMm,
         ),
     ];
     await MeasureStore.save(s.copyWith(items: [...s.items, ...items]));
     if (mounted) {
-      AppSnack.show(context, '已保存 ${items.length} 条测量');
+      AppSnack.show(context, '已保存 ${items.length} 条测量（含误差带）');
       Navigator.of(context).pop();
     }
   }
@@ -269,18 +312,32 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                             style: const TextStyle(
                                 color: Colors.white, fontSize: 13)),
                       ),
-                      if (_lastMm != null)
+                      if (_samples.isNotEmpty)
                         Card(
                           color: Colors.black.withValues(alpha: 0.65),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 10),
-                            child: Text(
-                              '实测 ${fmtMm(_lastMm!)} mm',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '本次 ${fmtMm(_samples.last)} mm',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                                if (_samples.length >= 2)
+                                  Text(
+                                    '本组中位 ${fmtMm(medianOf(_samples))} '
+                                    '±${fmtMm(spreadHalfRange(_samples))} mm'
+                                    '（n=${_samples.length}）',
+                                    style: const TextStyle(
+                                        color: Colors.white70, fontSize: 12),
+                                  ),
+                              ],
                             ),
                           ),
                         ),
@@ -294,6 +351,23 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
             padding: const EdgeInsets.all(AppTokens.space3),
             child: Column(
               children: [
+                // 采纳本组：同边重复采样 ≥2 次后，取中位 ± 误差带进入清单
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _supported && _samples.length >= 2
+                        ? _adoptSamples
+                        : null,
+                    icon: const Icon(MingCuteIcons.checkCircleLine, size: 18),
+                    label: Text(
+                      _samples.length < 2
+                          ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
+                          : '采纳本组 → ${fmtMm(medianOf(_samples))} '
+                              '±${fmtMm(spreadHalfRange(_samples))} mm',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppTokens.space2),
                 Row(
                   children: [
                     Expanded(
@@ -316,9 +390,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                             ? () async {
                                 await _svc.clear();
                                 setState(() {
-                                  _lastMm = null;
-                                  _measurements.clear();
-                                  _hint = '点屏幕采点A';
+                                  _samples.clear();
+                                  _readings.clear();
+                                  _hint = '对目标边采点：点一次=A，再点=B 出距离';
                                 });
                               }
                             : null,
@@ -329,7 +403,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                     const SizedBox(width: AppTokens.space2),
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _supported && _measurements.isNotEmpty
+                        onPressed: _supported && _readings.isNotEmpty
                             ? _saveAll
                             : null,
                         child: const Text('保存'),
@@ -343,25 +417,33 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                   height: 180,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: ListView.builder(
-                    itemCount: _measurements.length,
+                    itemCount: _readings.length,
                     itemBuilder: (ctx, i) {
-                      final m = _measurements[i];
+                      final r = _readings[i];
+                      final verdict = _verdictOf(r.mm, r.errMm);
+                      final Color? vColor = verdict == null
+                          ? null
+                          : verdict.contains('合格')
+                              ? Colors.green
+                              : verdict.contains('超差')
+                                  ? AppTokens.danger
+                                  : Colors.orange;
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
-                        leading: Text(
-                          '${i + 1}.',
-                          style: const TextStyle(color: AppTokens.muted),
-                        ),
-                        title: Text('实测 ${fmtMm(m)} mm'),
+                        leading: Text('AR-${i + 1}.',
+                            style: const TextStyle(color: AppTokens.muted)),
+                        title: Text('${fmtMm(r.mm)} ±${fmtMm(r.errMm)} mm',
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: verdict == null
+                            ? null
+                            : Text(verdict,
+                                style: TextStyle(fontSize: 12, color: vColor)),
                         trailing: IconButton(
                           icon: const Icon(MingCuteIcons.minusCircleLine,
                               size: 20, color: AppTokens.danger),
                           onPressed: () {
-                            setState(() {
-                              _measurements.removeAt(i);
-                              if (_measurements.isEmpty) _lastMm = null;
-                            });
+                            setState(() => _readings.removeAt(i));
                           },
                         ),
                       );
