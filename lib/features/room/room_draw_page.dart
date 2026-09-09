@@ -43,8 +43,14 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   @override
   void initState() {
     super.initState();
+    // 缩放/平移后重绘画笔（线宽/点径需按最新 viewScale 换算）。
+    _view.addListener(_onViewChanged);
     // 进入即给"可用视野"：8m 画布 1:1 只见原点一角，先按 ~0.12 倍铺开（可视约 3m 宽）。
     WidgetsBinding.instance.addPostFrameCallback((_) => _resetView());
+  }
+
+  void _onViewChanged() {
+    if (mounted) setState(() {});
   }
 
   /// 视野复位到画布起点区域（~0.12 倍）。
@@ -89,6 +95,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
 
   @override
   void dispose() {
+    _view.removeListener(_onViewChanged);
     _nameCtl.dispose();
     _netHeightCtl.dispose();
     _thicknessCtl.dispose();
@@ -388,6 +395,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
                             pts: _pts,
                             snapped: _snapped,
                             openings: _openings,
+                            viewScale: _view.value.getMaxScaleOnAxis(),
                           ),
                         ),
                       ),
@@ -495,20 +503,26 @@ class _RoomGridPainter extends CustomPainter {
   final List<Offset> pts;
   final Set<int> snapped;
   final List<({int wallIdx, WallOpening op})> openings;
+  /// 当前视图缩放（mm→屏幕px）。画布元素都画在毫米坐标系里，
+  /// 缩小视图时线宽会被同步缩小到亚像素（0.12 倍时 1px→0.12px）而不可见，
+  /// 因此线宽/点径统一除以 viewScale 换算回屏幕像素。
+  final double viewScale;
   const _RoomGridPainter({
     required this.pts,
     required this.snapped,
     required this.openings,
+    required this.viewScale,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final k = 1.0 / viewScale;
     final minor = Paint()
-      ..color = const Color(0xFFEFF2F7)
-      ..strokeWidth = 1;
+      ..color = const Color(0xFFE6EBF3)
+      ..strokeWidth = 1 * k;
     final major = Paint()
-      ..color = const Color(0xFFDDE3EC)
-      ..strokeWidth = 1;
+      ..color = const Color(0xFFC9D2E0)
+      ..strokeWidth = 1.5 * k;
     for (var v = 0.0; v <= size.width; v += 500) {
       canvas.drawLine(Offset(v, 0), Offset(v, size.height),
           v % 1000 == 0 ? major : minor);
@@ -521,7 +535,7 @@ class _RoomGridPainter extends CustomPainter {
     if (pts.isEmpty) return;
     final wallPaint = Paint()
       ..color = const Color(0xFF30323A)
-      ..strokeWidth = 3
+      ..strokeWidth = 3 * k
       ..strokeCap = StrokeCap.round;
     final isClosed = pts.length >= 3;
     for (var i = 0; i < pts.length; i++) {
@@ -537,14 +551,14 @@ class _RoomGridPainter extends CustomPainter {
           canvas.drawLine(a + (b - a) * u0, a + (b - a) * u1,
               Paint()
                 ..color = Colors.white
-                ..strokeWidth = 7);
+                ..strokeWidth = 9 * k);
         }
       }
     }
     for (var i = 0; i < pts.length; i++) {
       canvas.drawCircle(
           pts[i],
-          5,
+          6 * k,
           Paint()
             ..color = snapped.contains(i) || (isClosed && i == pts.length - 1)
                 ? const Color(0xFF1DB954)
@@ -554,5 +568,8 @@ class _RoomGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RoomGridPainter old) =>
-      old.pts != pts || old.snapped != snapped || old.openings != openings;
+      old.pts != pts ||
+      old.snapped != snapped ||
+      old.openings != openings ||
+      old.viewScale != viewScale;
 }
