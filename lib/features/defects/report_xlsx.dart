@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
 /// 现场工作汇报 → Excel 销项表（.xlsx，SpreadsheetML）生成器。
@@ -32,6 +33,7 @@ Uint8List buildWeeklyReportXlsx(
 
   book.summarySheet(report, stats, reporter, generatedAt);
   book.defectSheet(report, stats);
+  if (report.roomScans.isNotEmpty) book.roomSheet(report);
   return book.build();
 }
 
@@ -111,6 +113,53 @@ class _XlsxBook {
       rows.add(_Row(r1++, [_c(r.patrolSummary.trim(), _sCell), _c('', _sCell)]));
     }
     _sheets.add(_Sheet('销项汇总', rows, cols: const [22, 14]));
+  }
+
+  /// 量房记录（ROOM_MEASURE_IMPL §8：户型图未内嵌，出墙段尺寸表）。
+  void roomSheet(WeeklyReport r) {
+    final rows = <_Row>[];
+    var idx = 1;
+    rows.add(_Row(idx++, [_c('量房记录', _sTitle), _c('', _sTitle)]));
+    for (final rec in r.roomScans) {
+      rows.add(_Row(idx++, [
+        _c('${rec.name} · ${rec.roomUse} · 来源 ${rec.source}'
+            '${rec.netHeightMm != null ? ' · 净高 ${fmtMm(rec.netHeightMm!)} mm' : ''}',
+            _sGroup),
+        _c('', _sGroup),
+        _c('', _sGroup),
+        _c('', _sGroup),
+      ]));
+      rows.add(_Row(idx++, [
+        _c('墙段', _sHeader),
+        _c('尺寸mm', _sHeader),
+        _c('墙厚mm', _sHeader),
+        _c('洞口', _sHeader),
+      ]));
+      for (var i = 0; i < rec.walls.length; i++) {
+        final w = rec.walls[i];
+        final op = w.openings.isEmpty
+            ? '—'
+            : w.openings
+                .map((o) => '${o.type == 'door' ? '门' : '窗'}${fmtMm(o.widthMm)}')
+                .join('、');
+        rows.add(_Row(idx++, [
+          _c('墙${i + 1}', _sCell),
+          _c(fmtMm(w.lengthMm), _sCenter),
+          _c(fmtMm(w.thicknessMm ?? 200), _sCenter),
+          _c(op, _sCell),
+        ]));
+      }
+      if (rec.checks.isNotEmpty) {
+        rows.add(_Row(idx++, [
+          _c('核尺：${rec.checks.map((c) => '${c.name} ${fmtMmSigned(c.deviation)}mm').join('、')}',
+              _sCell),
+          _c('', _sCell),
+          _c('', _sCell),
+          _c('', _sCell),
+        ]));
+      }
+    }
+    _sheets.add(_Sheet('量房记录', rows, cols: const [18, 12, 12, 24]));
   }
 
   void defectSheet(WeeklyReport r, ReportStats s) {

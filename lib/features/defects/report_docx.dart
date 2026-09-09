@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
 /// 现场工作汇报 → Word（.docx，Office Open XML）生成器。
@@ -174,6 +175,8 @@ class _DocxDoc {
         _issues(block.items);
       case DefectsBlock():
         _defects(block.defects);
+      case RoomBlock():
+        _room(block.record);
     }
   }
 
@@ -310,6 +313,42 @@ class _DocxDoc {
     _body.write(_table([_contentW], [
       [_Cell(_p(_r(n.text), after: 0), shade: 'F4F6F7')],
     ]));
+    _body.write(_spacer(120));
+  }
+
+  /// 量房记录（户型图未内嵌时以墙段尺寸表落文）。
+  void _room(RoomScanRecord r) {
+    _body.write(_table([_contentW], [
+      [
+        _Cell(_p(_r(
+            '${r.name} · ${r.roomUse} · 来源 ${r.source}'
+            '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}',
+            bold: true), after: 0)),
+      ],
+    ]));
+    final rows = <List<_Cell>>[
+      [
+        _Cell(_p(_r('墙段', bold: true, color: '60656B'), after: 0),
+            shade: 'F4F6F7'),
+        _Cell(_p(_r('尺寸/墙厚', bold: true, color: '60656B'), after: 0),
+            shade: 'F4F6F7'),
+        _Cell(_p(_r('洞口', bold: true, color: '60656B'), after: 0),
+            shade: 'F4F6F7'),
+      ],
+      for (var i = 0; i < r.walls.length; i++)
+        [
+          _Cell(_p(_r('墙${i + 1}'), after: 0)),
+          _Cell(_p(_r(
+              '${fmtMm(r.walls[i].lengthMm)} / ${fmtMm(r.walls[i].thicknessMm ?? 200)}'),
+              after: 0)),
+          _Cell(_p(_r(r.walls[i].openings.isEmpty
+              ? '—'
+              : r.walls[i].openings
+                  .map((o) => '${o.type == 'door' ? '门' : '窗'}${fmtMm(o.widthMm)}')
+                  .join('、')), after: 0)),
+        ],
+    ];
+    _body.write(_table([900, 1200, _contentW - 2100], rows));
     _body.write(_spacer(120));
   }
 

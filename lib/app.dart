@@ -18,6 +18,10 @@ import 'features/capture/capture_page.dart';
 import 'features/capture_records/capture_records_page.dart';
 import 'features/measure/measure_page.dart';
 import 'features/measure/ar_measure_page.dart';
+import 'features/room/room_records_page.dart';
+import 'features/room/room_draw_page.dart';
+import 'features/room/room_detail_page.dart';
+import 'features/room/room_compare_page.dart';
 import 'features/projects/blueprint_viewer_page.dart';
 import 'shared/widgets/app_bottom_nav.dart';
 import 'features/auth/auth_controller.dart';
@@ -190,6 +194,35 @@ final routerProvider = Provider<GoRouter>((ref) {
           args: state.extra is MeasureArgs
               ? state.extra as MeasureArgs
               : const MeasureArgs(projectKey: '', drawingKey: ''),
+        ),
+      ),
+      // 量房（ROOM_MEASURE_IMPL §6；/room-scan 随段3 §9.4 RoomPlan 一并注册）
+      GoRoute(
+        path: '/room-records',
+        builder: (_, __) => const RoomRecordsPage(),
+      ),
+      GoRoute(
+        path: '/room-draw',
+        builder: (_, state) => RoomDrawPage(
+          args: state.extra is RoomScanArgs
+              ? state.extra as RoomScanArgs
+              : const RoomScanArgs(),
+        ),
+      ),
+      GoRoute(
+        path: '/room-detail',
+        builder: (_, state) => RoomDetailPage(
+          args: state.extra is RoomScanArgs
+              ? state.extra as RoomScanArgs
+              : const RoomScanArgs(),
+        ),
+      ),
+      GoRoute(
+        path: '/room-compare',
+        builder: (_, state) => RoomComparePage(
+          args: state.extra is RoomScanArgs
+              ? state.extra as RoomScanArgs
+              : const RoomScanArgs(),
         ),
       ),
       GoRoute(

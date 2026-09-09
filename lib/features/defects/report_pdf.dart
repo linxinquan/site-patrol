@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
 /// 现场工作汇报 → PDF 生成器（真 PDF：文本可选可搜，照片内嵌）。
@@ -215,6 +216,7 @@ List<pw.Widget> _chapter(
     NoteBlock() => _note(block.note),
     IssuesBlock() => _issues(block.items),
     DefectsBlock() => _defects(block.defects, photoBytes),
+    RoomBlock() => _roomBlock(block.record),
   };
 
   return [head, ...body];
@@ -418,6 +420,43 @@ List<pw.Widget> _note(WeeklyNote n) => [
         child: pw.Text(n.text, style: _ts(size: 8.5)),
       ),
     ];
+
+/// 量房记录（户型图未内嵌时以墙段尺寸表落印，占位不阻断导出）。
+List<pw.Widget> _roomBlock(RoomScanRecord r) {
+  final wallLines = [
+    for (var i = 0; i < r.walls.length; i++)
+      '墙${i + 1}：${fmtMm(r.walls[i].lengthMm)} mm'
+          '（厚 ${fmtMm(r.walls[i].thicknessMm ?? 200)} mm'
+          '${r.walls[i].openings.isEmpty ? '' : '，${r.walls[i].openings.map((o) => '${o.type == 'door' ? '门' : '窗'}${fmtMm(o.widthMm)}').join('、')}'}）',
+  ];
+  return [
+    pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(9),
+      decoration: pw.BoxDecoration(
+        color: _bg,
+        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            '${r.roomUse} · 来源 ${r.source} · 共 ${r.walls.length} 段墙'
+            '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}',
+            style: _ts(size: 8, color: _muted),
+          ),
+          pw.SizedBox(height: 3),
+          for (final l in wallLines) pw.Text(l, style: _ts(size: 8.5)),
+          if (r.checks.isNotEmpty)
+            pw.Text(
+              '图纸核尺：${r.checks.map((c) => '${c.name} ${fmtMmSigned(c.deviation)}mm').join('、')}',
+              style: _ts(size: 8, color: _muted),
+            ),
+        ],
+      ),
+    ),
+  ];
+}
 
 List<pw.Widget> _issues(List<WeeklyIssue> items) => [
       pw.Table(

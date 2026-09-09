@@ -131,6 +131,9 @@ class WeeklyReport {
   /// 后续巡场模块稳定后改为自动注入 `PatrolBlock`（名称/时间/达成率/里程）。
   final String patrolSummary;
 
+  /// 量房记录（ROOM_MEASURE_IMPL §8：随报告导出，含户型图尺寸表；默认空）。
+  final List<RoomScanRecord> roomScans;
+
   const WeeklyReport({
     required this.project,
     required this.title,
@@ -144,6 +147,7 @@ class WeeklyReport {
     this.notes = const [],
     this.defects = const [],
     this.patrolSummary = '',
+    this.roomScans = const [],
   });
 
   /// 有内容的待协调问题。
@@ -173,6 +177,7 @@ class WeeklyReport {
   WeeklyReport copyWithDefects(
     List<Defect> d, {
     String? patrolSummary,
+    List<RoomScanRecord>? roomScans,
   }) =>
       WeeklyReport(
         project: project,
@@ -187,6 +192,7 @@ class WeeklyReport {
         notes: notes,
         defects: d,
         patrolSummary: patrolSummary ?? this.patrolSummary,
+        roomScans: roomScans ?? this.roomScans,
       );
 }
 

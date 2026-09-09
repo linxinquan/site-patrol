@@ -181,6 +181,16 @@ final class DefectsBlock extends ReportBlock {
   String get title => '巡场清单及闭环情况';
 }
 
+/// 量房记录（ROOM_MEASURE_IMPL §8：户型 + 尺寸表）。
+final class RoomBlock extends ReportBlock {
+  RoomBlock(this.record);
+
+  final RoomScanRecord record;
+
+  @override
+  String get title => '量房记录：${record.name}';
+}
+
 /// 按周报版式排出正文板块顺序，并剔除无实质内容的板块。
 ///
 /// 剔除规则（与 HTML 端一致，P0）：
@@ -209,6 +219,11 @@ List<ReportBlock> buildReportBlocks(WeeklyReport report) {
     blocks.add(IssuesBlock(report.filledIssues));
   }
   if (report.defects.isNotEmpty) blocks.add(DefectsBlock(report.defects));
+
+  // 量房记录（§8）：紧随巡场清单，一条记录一个 RoomBlock。
+  for (final r in report.roomScans) {
+    blocks.add(RoomBlock(r));
+  }
 
   // 巡场小结（0902 任务5b）：App 内手填，排在巡场清单之后。
   if (report.patrolSummary.trim().isNotEmpty) {

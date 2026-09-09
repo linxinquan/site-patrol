@@ -432,6 +432,17 @@ class DefectsPage extends ConsumerWidget {
     );
   }
 
+  /// 当前项目的量房记录（导出报告时随房注入；无项目/空返回 []）。
+  Future<List<RoomScanRecord>> _roomScansOf(WidgetRef ref) async {
+    final pid = ref.read(currentProjectIdProvider);
+    if (pid == null || pid.isEmpty) return const [];
+    try {
+      return await ref.read(roomScansProvider(pid).future);
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// 生成 + 导出（含格式转换与字体加载；PDF 首次解析字体约 7MB）。
   Future<void> _runExport(
     BuildContext context,
@@ -456,7 +467,8 @@ class DefectsPage extends ConsumerWidget {
     }
     final report = ref
         .read(weeklyReportProvider)
-        .copyWithDefects(filtered, patrolSummary: patrolSummary);
+        .copyWithDefects(filtered,
+            patrolSummary: patrolSummary, roomScans: await _roomScansOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     if (!context.mounted) return;
     final baseName =
@@ -565,7 +577,8 @@ class DefectsPage extends ConsumerWidget {
     if (filtered.isEmpty) return;
     final report = ref
         .read(weeklyReportProvider)
-        .copyWithDefects(filtered, patrolSummary: patrolSummary);
+        .copyWithDefects(filtered,
+            patrolSummary: patrolSummary, roomScans: await _roomScansOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     final html = buildWeeklyReportHtml(
       report,

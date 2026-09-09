@@ -1,5 +1,6 @@
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
 /// 报告导出格式（导出方式弹层选项）。
@@ -113,6 +114,11 @@ String buildWeeklyReportHtml(
       text: report.patrolSummary,
       page: 9999,
     )));
+  }
+
+  // ===== 量房记录（ROOM_MEASURE_IMPL §8，与 PDF/DOCX 端保持一致）=====
+  if (report.roomScans.isNotEmpty) {
+    chapters.add(_roomSection(report.roomScans));
   }
 
   buf.writeln('<!DOCTYPE html>');
@@ -265,6 +271,32 @@ String _progressDetail(String detail) {
           '<div class="note-box${n.text.trim().isEmpty || n.text.trim() == '本周无' ? ' empty' : ''}">'
               '${_esc(n.text)}</div>',
     );
+
+/// 量房记录（户型图未内嵌时以墙段尺寸表呈现，缺失不阻断导出）。
+({String title, String body}) _roomSection(List<RoomScanRecord> scans) {
+  final sb = StringBuffer();
+  for (final r in scans) {
+    sb.writeln(
+        '<div class="room-block"><h3>${_esc(r.name)} · ${_esc(r.roomUse)}'
+        ' · 来源 ${_esc(r.source)}'
+        '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}</h3>');
+    sb.writeln(
+        '<table class="report-table"><thead><tr><th>墙段</th>'
+            '<th>尺寸(mm)</th><th>墙厚(mm)</th><th>洞口</th></tr></thead><tbody>');
+    for (var i = 0; i < r.walls.length; i++) {
+      final w = r.walls[i];
+      final op = w.openings.isEmpty
+          ? '—'
+          : w.openings
+              .map((o) => '${o.type == 'door' ? '门' : '窗'}${fmtMm(o.widthMm)}')
+              .join('、');
+      sb.writeln('<tr><td>墙${i + 1}</td><td>${fmtMm(w.lengthMm)}</td>'
+          '<td>${fmtMm(w.thicknessMm ?? 200)}</td><td>${_esc(op)}</td></tr>');
+    }
+    sb.writeln('</tbody></table></div>');
+  }
+  return (title: '量房记录', body: sb.toString());
+}
 
 ({String title, String body}) _issuesSection(
         String title, List<WeeklyIssue> items) =>
