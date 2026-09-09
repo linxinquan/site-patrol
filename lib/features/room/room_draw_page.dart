@@ -41,6 +41,53 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   final _view = TransformationController();
 
   @override
+  void initState() {
+    super.initState();
+    // 进入即给"可用视野"：8m 画布 1:1 只见原点一角，先按 ~0.12 倍铺开（可视约 3m 宽）。
+    WidgetsBinding.instance.addPostFrameCallback((_) => _resetView());
+  }
+
+  /// 视野复位到画布起点区域（~0.12 倍）。
+  void _resetView() {
+    _view.value = Matrix4.identity()..translate(80.0, 80.0)..scale(0.12);
+  }
+
+  /// 以视口中心为锚点缩放。
+  void _zoomBy(Size vp, double f) {
+    final m = _view.value.clone();
+    final s = m.getMaxScaleOnAxis();
+    final ns = (s * f).clamp(0.05, 4.0);
+    final eff = ns / s;
+    final c = Offset(vp.width / 2, vp.height / 2);
+    m
+      ..translate(c.dx, c.dy)
+      ..scale(eff)
+      ..translate(-c.dx, -c.dy);
+    _view.value = m;
+  }
+
+  Widget _zoomBtn(IconData icon, VoidCallback onTap, {String? tip}) {
+    final btn = Material(
+      color: Colors.white,
+      shape: const CircleBorder(),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 20, color: const Color(0xFF4A4F5E)),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: tip == null ? btn : Tooltip(message: tip, child: btn),
+    );
+  }
+
+  @override
   void dispose() {
     _nameCtl.dispose();
     _netHeightCtl.dispose();
@@ -321,27 +368,47 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       body: Column(
         children: [
           Expanded(
-            child: ClipRect(
-              child: InteractiveViewer(
-                transformationController: _view,
-                constrained: false,
-                minScale: 0.1,
-                maxScale: 4,
-                child: GestureDetector(
-                  onTapUp: (e) => _onTap(e.localPosition),
-                  onLongPressStart: (e) => _onLongPress(e.localPosition),
-                  onDoubleTapDown: (e) => _onDoubleTap(e.localPosition),
-                  child: CustomPaint(
-                    size: const Size(_canvas, _canvas),
-                    painter: _RoomGridPainter(
-                      pts: _pts,
-                      snapped: _snapped,
-                      openings: _openings,
+            child: LayoutBuilder(builder: (context, box) {
+              // 缩放按钮兜底：桌面浏览器无捏合手势，InteractiveViewer 也不吃滚轮缩放。
+              return Stack(
+                children: [
+                  ClipRect(
+                    child: InteractiveViewer(
+                      transformationController: _view,
+                      constrained: false,
+                      minScale: 0.05,
+                      maxScale: 4,
+                      child: GestureDetector(
+                        onTapUp: (e) => _onTap(e.localPosition),
+                        onLongPressStart: (e) => _onLongPress(e.localPosition),
+                        onDoubleTapDown: (e) => _onDoubleTap(e.localPosition),
+                        child: CustomPaint(
+                          size: const Size(_canvas, _canvas),
+                          painter: _RoomGridPainter(
+                            pts: _pts,
+                            snapped: _snapped,
+                            openings: _openings,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Column(
+                      children: [
+                        _zoomBtn(Icons.add, () => _zoomBy(box.biggest, 1.25)),
+                        _zoomBtn(
+                            Icons.remove, () => _zoomBy(box.biggest, 1 / 1.25)),
+                        _zoomBtn(Icons.home_outlined, _resetView,
+                            tip: '回到起点'),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
           ),
           // 底部状态条
           Container(
