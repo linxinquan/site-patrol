@@ -17,6 +17,7 @@ import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 
 /// AR 量尺（LiDAR，iPhone 12 Pro+）。
@@ -36,9 +37,11 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   static const _viewId = 0;
 
   late final ArMeasureService _svc;
+
   /// 同一被测边的重复采样读数（mm）：对同一条边多测几次，
   /// 采纳时取稳健中位为读数、离散半宽为 ±误差带，提高判定可信度。
   final List<double> _samples = [];
+
   /// 已采纳的读数组（每组 = 中位值 + 误差带半宽），逐组写为一条 MeasureItem。
   final List<({double mm, double errMm})> _readings = [];
   bool _supported = false;
@@ -54,15 +57,18 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   // —— 系统偏差校正（把「重复性」与「准确度」分开）——
   /// 本机尺度校正：读数 × k。null = 未校正（此时 ±误差带只代表重复性）。
   ArScaleCalibration? _scaleCalib;
+
   /// 校正模式：对本机已知长度重复采样，完成后再写回 [_scaleCalib]。
   bool _calibMode = false;
   final TextEditingController _calibRefCtl = TextEditingController(text: '297');
+
   /// 最近一次测量的距相机深度（mm，取两端均值；原生未上报时为 null）。
   double? _lastDepthMm;
 
   /// LiDAR 有效区间（mm）：超出则误差迅速放大，只提示不禁止。
   static const double _bestMinMm = 300;
   static const double _bestMaxMm = 3000;
+
   /// 超量程拒绝采样（mm）：超出 LiDAR 量程，读数不可信。
   static const double _rejectMm = 5000;
 
@@ -76,7 +82,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   String? get _depthHint {
     final d = _lastDepthMm;
     if (d == null || d <= 0) return null;
-    if (d > _rejectMm) return '距相机 ${(d / 1000).toStringAsFixed(1)}m 超出 LiDAR 量程，读数不可信';
+    if (d > _rejectMm)
+      return '距相机 ${(d / 1000).toStringAsFixed(1)}m 超出 LiDAR 量程，读数不可信';
     if (d > _bestMaxMm || d < _bestMinMm) {
       return '距相机 ${(d / 1000).toStringAsFixed(2)}m，超出最佳区间 '
           '0.3~3m，误差会明显放大';
@@ -132,8 +139,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   double get _tolPct => _session?.tolPct ?? _thresholds.tolPct;
 
   /// 误差带门槛：项目配置优先，未配置回退容差/3。
-  double get _judgeMaxErrorMm =>
-      _thresholds.judgeMaxErrorMm ?? _tolMm / 3;
+  double get _judgeMaxErrorMm => _thresholds.judgeMaxErrorMm ?? _tolMm / 3;
 
   Future<dynamic> _onNative(MethodCall call) async {
     if (call.method == 'onMeasure') {
@@ -184,19 +190,19 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   /// 相机权限被拒 → 引导去系统设置（与 capture_page 同款）。
   Future<void> _showPermissionGuide() async {
     if (!mounted) return;
-    final goSettings = await showDialog<bool>(
+    final goSettings = await AppDialog.show<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('相机权限被拒绝'),
-        content: const Text('AR量尺需要相机权限。请在系统设置中开启，再回来继续测量。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('取消'),
+      title: '相机权限被拒绝',
+      description: 'AR量尺需要相机权限。请在系统设置中开启，再回来继续测量。',
+      actions: AppDialogActions(
+        children: [
+          AppDialogButton.secondary(
+            label: '取消',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop(false),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('去设置'),
+          AppDialogButton.primary(
+            label: '去设置',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop(true),
           ),
         ],
       ),
@@ -256,7 +262,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           '±${fmtMm(_judgeMaxErrorMm)}mm，需卷尺复核';
     }
     final ok = dev.abs() <= _tolMm && devPct.abs() <= _tolPct;
-    return ok ? '偏差 ${fmtMmSigned(dev)}mm · 合格' : '偏差 ${fmtMmSigned(dev)}mm · 超差';
+    return ok
+        ? '偏差 ${fmtMmSigned(dev)}mm · 合格'
+        : '偏差 ${fmtMmSigned(dev)}mm · 超差';
   }
 
   // ——— 系统偏差校正（已知长度）———
@@ -370,7 +378,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       return;
     }
     final drawingMm = double.tryParse(_drawingCtl.text);
-    var s = await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
+    var s =
+        await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
     s ??= MeasureSession(
       id: '${widget.args.projectKey}_${widget.args.drawingKey}_ar',
       projectKey: widget.args.projectKey,
@@ -423,15 +432,16 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(MingCuteIcons.phoneLine, size: 56, color: AppTokens.muted),
+              const Icon(MingCuteIcons.phoneLine,
+                  size: 56, color: AppTokens.muted),
               const SizedBox(height: AppTokens.space3),
               Text(
                 isWeb
                     ? '网页版不支持 AR 量尺（需装 App）'
                     : 'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: AppTokens.space2),
               Text(
@@ -661,7 +671,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                                 setState(() {});
                               }
                             : null,
-                        icon: Icon(_paused ? MingCuteIcons.playLine : MingCuteIcons.pauseLine),
+                        icon: Icon(_paused
+                            ? MingCuteIcons.playLine
+                            : MingCuteIcons.pauseLine),
                         label: Text(_paused ? '继续' : '暂停'),
                       ),
                     ),
@@ -715,9 +727,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                         contentPadding: EdgeInsets.zero,
                         leading: Text('AR-${i + 1}.',
                             style: const TextStyle(color: AppTokens.muted)),
-                        title: Text(
-                            '${fmtMm(r.mm)} mm（重复性 ±${fmtMm(r.errMm)}）',
-                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                        title: Text('${fmtMm(r.mm)} mm（重复性 ±${fmtMm(r.errMm)}）',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: verdict == null
                             ? null
                             : Text(verdict,

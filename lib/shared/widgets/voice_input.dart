@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/utils/speech_recognizer.dart';
 import '../../core/di/providers.dart';
+import 'app_bottom_sheet.dart';
 import 'app_button.dart';
 import 'app_snack.dart';
 
@@ -128,7 +129,12 @@ class _VoiceInputButtonState extends ConsumerState<VoiceInputButton> {
         color: active ? color : AppTokens.accentSoft,
         shape: BoxShape.circle,
         boxShadow: active
-            ? [BoxShadow(color: AppTokens.danger.withValues(alpha: 0.3), blurRadius: 12, spreadRadius: 2)]
+            ? [
+                BoxShadow(
+                    color: AppTokens.danger.withValues(alpha: 0.3),
+                    blurRadius: 12,
+                    spreadRadius: 2)
+              ]
             : null,
       ),
       child: child,
@@ -142,7 +148,10 @@ class _VoiceInputButtonState extends ConsumerState<VoiceInputButton> {
         child: btn,
       );
     }
-    return InkWell(onTap: _onTap, borderRadius: BorderRadius.circular(widget.size), child: btn);
+    return InkWell(
+        onTap: _onTap,
+        borderRadius: BorderRadius.circular(widget.size),
+        child: btn);
   }
 }
 
@@ -187,80 +196,81 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
       children: [
         // 实时/最终文本区（标题与关闭由 AppBottomSheet 头部提供）
         Container(
-              constraints: const BoxConstraints(minHeight: 96, maxHeight: 200),
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTokens.surface2,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              ),
-              child: SingleChildScrollView(
-                child: _done
-                    ? Text(_final,
-                        style: const TextStyle(
-                            fontSize: 16, color: AppTokens.fg, height: 1.5))
-                    : Text(
-                        _partial.isEmpty ? '点击麦克风开始说话…' : _partial,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: _partial.isEmpty ? AppTokens.muted : AppTokens.fg2,
-                          height: 1.5,
-                          fontStyle: _partial.isEmpty ? FontStyle.italic : FontStyle.normal,
-                        )),
-              ),
-            ),
-            const SizedBox(height: 20),
+          constraints: const BoxConstraints(minHeight: 96, maxHeight: 200),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTokens.surface2,
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          ),
+          child: SingleChildScrollView(
+            child: _done
+                ? Text(_final,
+                    style: const TextStyle(
+                        fontSize: 16, color: AppTokens.fg, height: 1.5))
+                : Text(_partial.isEmpty ? '点击麦克风开始说话…' : _partial,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: _partial.isEmpty ? AppTokens.muted : AppTokens.fg2,
+                      height: 1.5,
+                      fontStyle: _partial.isEmpty
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                    )),
+          ),
+        ),
+        const SizedBox(height: 20),
 
-            // 麦克风按钮（点击开关）
-            Center(
-              child: VoiceInputButton(
-                holdToTalk: false,
-                size: 64,
-                iconSize: 26,
-                onInterim: (t) => setState(() => _partial = t),
-                onResult: _commit,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                _done ? '识别完成' : '点击开始 / 再次点击停止',
-                style: const TextStyle(fontSize: 12, color: AppTokens.muted),
-              ),
-            ),
+        // 麦克风按钮（点击开关）
+        Center(
+          child: VoiceInputButton(
+            holdToTalk: false,
+            size: 64,
+            iconSize: 26,
+            onInterim: (t) => setState(() => _partial = t),
+            onResult: _commit,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Text(
+            _done ? '识别完成' : '点击开始 / 再次点击停止',
+            style: AppBottomSheet.helperStyle(),
+          ),
+        ),
 
-            if (hasText) ...[
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppButton(
-                      label: '重说',
-                      text: true,
-                      onPressed: () => setState(() {
-                        _partial = '';
-                        _final = '';
-                        _done = false;
-                      }),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: AppButton(
-                      label: _done ? '使用此文本' : '停止并采用',
-                      onPressed: () async {
-                        if (!_done) {
-                          await ref.read(speechRecognizerProvider).stop();
-                        }
-                        _useResult();
-                      },
-                    ),
-                  ),
-                ],
+        if (hasText) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: '重说',
+                  text: true,
+                  onPressed: () => setState(() {
+                    _partial = '';
+                    _final = '';
+                    _done = false;
+                  }),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: AppButton(
+                  label: _done ? '使用此文本' : '停止并采用',
+                  onPressed: () async {
+                    if (!_done) {
+                      await ref.read(speechRecognizerProvider).stop();
+                    }
+                    _useResult();
+                  },
+                ),
               ),
             ],
-          ],
-        );
+          ),
+        ],
+      ],
+    );
   }
 }

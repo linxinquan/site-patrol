@@ -86,17 +86,17 @@ class _BrandBlock extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              // 设计稿 Rectangle 1000003182 为 #D9D9D9 占位底，待替换为真实 logo 图
-              color: const Color(0xFFD9D9D9),
-              borderRadius: BorderRadius.circular(12),
+          // 开屏页品牌图标改为真实 APP Logo，保持 64×64 与圆角 12。
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: Image.asset(
+                'assets/icons/app_logo.png',
+                fit: BoxFit.cover,
+              ),
             ),
-            child: const Icon(MingCuteIcons.rulerLine,
-                size: 30, color: Color(0xFF8A8F98)),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -288,8 +288,8 @@ class _ValueCell extends StatelessWidget {
       );
 }
 
-/// 主按钮（大按钮）：240×48 圆角 8 品牌蓝，「开始使用」16/W500/白 行高 24。
-/// 未复用 AppButton 是因为本帧按稿为圆角 8 / 字重 500，与全局 token（圆角 12 / W700）不同。
+/// 主按钮（大按钮）：240×48 圆角 8 品牌蓝，「开始使用」16/W600/白 行高 24。
+/// 未复用 AppButton 是因为本帧按稿为圆角 8，与全局 token（圆角 12）不同。
 class _StartButton extends StatelessWidget {
   final VoidCallback onPressed;
   const _StartButton({required this.onPressed});
@@ -303,6 +303,8 @@ class _StartButton extends StatelessWidget {
           style: FilledButton.styleFrom(
             backgroundColor: LoginPage.brand,
             foregroundColor: Colors.white,
+            overlayColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             // 关闭 Material 默认 48 点击区扩张，避免高度被撑开
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

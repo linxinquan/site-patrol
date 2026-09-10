@@ -5,6 +5,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../shared/widgets/identity_tile.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import 'auth_controller.dart';
 
 /// 引导第 1 页：选择身份。
@@ -65,30 +66,32 @@ class _OnboardPageState extends ConsumerState<OnboardPage> {
     final users = ref.watch(usersProvider);
     return Scaffold(
       backgroundColor: OnboardPage.bg,
+      appBar: AppBar(
+        backgroundColor: OnboardPage.bg,
+        foregroundColor: OnboardPage.backIcon,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 48,
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: OnboardPage.backIcon,
+            onPressed: _back,
+          ),
+        ),
+      ),
       body: SafeArea(
+        top: false,
         // 可滚动，避免小屏内容溢出
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // —— 返回（left 12 / top 10，图标 24×24）——
-              Padding(
-                padding: const EdgeInsets.only(left: 12, top: 10),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    onPressed: _back,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints.tightFor(width: 24, height: 24),
-                    icon: const Icon(MingCuteIcons.leftLine,
-                        size: 24, color: OnboardPage.backIcon),
-                  ),
-                ),
-              ),
-
-              // 返回区底 34 → 主内容 top 92，间距 58
-              const SizedBox(height: 58),
+              // 导航栏下方继续保留引导页原有的呼吸感。
+              const SizedBox(height: 44),
 
               // —— 标题组（Frame 2131330649：308 宽居中，gap 8）——
               Center(
@@ -160,8 +163,8 @@ class _OnboardPageState extends ConsumerState<OnboardPage> {
   }
 }
 
-/// 主按钮：240×48 圆角 8 品牌蓝，「下一步」16/W500/白 行高 24。
-/// 未复用 AppButton 是因为本帧按稿为圆角 8 / 字重 500，与全局 token（圆角 12 / W700）不同。
+/// 主按钮：240×48 圆角 8 品牌蓝，「下一步」16/W600/白 行高 24。
+/// 未复用 AppButton 是因为本帧按稿为圆角 8，与全局 token（圆角 12）不同。
 class _NextButton extends StatelessWidget {
   final VoidCallback? onPressed;
   const _NextButton({required this.onPressed});
@@ -177,6 +180,8 @@ class _NextButton extends StatelessWidget {
             disabledBackgroundColor: const Color(0xFFE9EAEB),
             foregroundColor: Colors.white,
             disabledForegroundColor: const Color(0xFF919499),
+            overlayColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             // 关闭 Material 默认 48 点击区扩张，避免高度被撑开
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

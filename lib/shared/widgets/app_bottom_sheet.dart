@@ -17,6 +17,14 @@ import '../../core/theme/design_tokens.dart';
 /// );
 /// ```
 class AppBottomSheet {
+  /// 底部弹窗中的描述 / 辅助说明统一样式：14 / 22 / W400，颜色按调用处传入。
+  static TextStyle helperStyle([Color color = AppTokens.muted]) => TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 22 / 14,
+        color: color,
+      );
+
   static Future<T?> show<T>({
     required BuildContext context,
     required String title,
@@ -151,7 +159,8 @@ class _SheetButton extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  // 高度 48 的按钮统一使用 W600。
+                  fontWeight: FontWeight.w600,
                   height: 24 / 16,
                   color: foreground,
                 ),

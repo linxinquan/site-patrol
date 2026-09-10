@@ -151,8 +151,7 @@ class _PickerBodyState extends State<_PickerBody> {
     final disabled = d.isBefore(widget.firstDate) || d.isAfter(widget.lastDate);
     final isStart = d.isAtSameMomentAs(_start);
     final isEnd = _end != null && d.isAtSameMomentAs(_end!);
-    final inRange =
-        _end != null && d.isAfter(_start) && d.isBefore(_end!);
+    final inRange = _end != null && d.isAfter(_start) && d.isBefore(_end!);
     final isToday = d.isAtSameMomentAs(_dayOnly(DateTime.now()));
     final selected = isStart || isEnd;
 
@@ -195,8 +194,7 @@ class _PickerBodyState extends State<_PickerBody> {
           Expanded(
             child: Text(
               '已选：${_fmt(_start)} ~ ${_fmt(_end ?? _start)}',
-              style: const TextStyle(
-                  fontSize: 13, height: 20 / 13, color: AppTokens.fg2),
+              style: AppBottomSheet.helperStyle(AppTokens.fg2),
             ),
           ),
         ],
@@ -216,7 +214,8 @@ class _PickerBodyState extends State<_PickerBody> {
               child: Text('确定',
                   style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      // 高度 48 的主按钮统一使用 W600。
+                      fontWeight: FontWeight.w600,
                       height: 24 / 16,
                       color: AppTokens.onAccent)),
             ),
@@ -250,7 +249,6 @@ class _PickerBodyState extends State<_PickerBody> {
     return weeks;
   }
 
-  String _fmt(DateTime d) =>
-      '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
+  String _fmt(DateTime d) => '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
   String _pad(int n) => n < 10 ? '0$n' : '$n';
 }

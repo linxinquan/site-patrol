@@ -63,7 +63,8 @@ class _HomePageState extends ConsumerState<HomePage>
     with RouteAware, WidgetsBindingObserver {
   // 关闭 PageStorage 滚动恢复：每次进入首页都从顶部开始，
   // 避免切换 tab 后页面被推到上次滚动位置（图纸/缺陷卡片被顶出视口）。
-  final ScrollController _mainScrollCtrl = ScrollController(keepScrollOffset: false);
+  final ScrollController _mainScrollCtrl =
+      ScrollController(keepScrollOffset: false);
 
   @override
   void initState() {
@@ -100,7 +101,12 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   void _scheduleJumpToTop() {
-    for (final delay in [Duration.zero, Duration(milliseconds: 50), Duration(milliseconds: 150), Duration(milliseconds: 300)]) {
+    for (final delay in [
+      Duration.zero,
+      Duration(milliseconds: 50),
+      Duration(milliseconds: 150),
+      Duration(milliseconds: 300)
+    ]) {
       Future.delayed(delay, () {
         if (mounted) _jumpToTop();
       });
@@ -307,10 +313,10 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _planRow(MingCuteIcons.clockLine, '计划时间：', _cnDate(planDate),
+          _planRow(MingCuteIcons.timeLine, '计划时间：', _cnDate(planDate),
               const Color(0xFF60656B)),
-          const SizedBox(height: 2),
-          _planRow(MingCuteIcons.circleDashLine, '状态：', statusText,
+          const SizedBox(height: 4),
+          _planRow(MingCuteIcons.threeQuartersCircleDashLine, '状态：', statusText,
               const Color(0xFF0395FF)),
         ],
       ),
@@ -320,7 +326,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
   Widget _planRow(IconData icon, String label, String value, Color valueColor) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: const Color(0xFFB5B9BF)),
+        Icon(icon, size: 16, color: const Color(0xFF919499)),
         const SizedBox(width: 4),
         Text(label,
             maxLines: 1,
@@ -371,7 +377,8 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
                   Text('项目进度',
                       style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w700,
+                          // 卡片内容标题统一使用 W500。
+                          fontWeight: FontWeight.w500,
                           color: AppTokens.fg)),
                   SizedBox(height: 2),
                   Text('进度节点数据待接入',
@@ -386,7 +393,10 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
 
     final doneCount = ms.where((m) => m.done).length;
     final currentIdx = ms.indexWhere((m) => m.current); // -1 表示无当前节点
-    final displayIdx = _selectedIdx ?? (currentIdx >= 0 ? currentIdx : ms.length - 1); // 默认选中「当前」节点：当前卡显示选中样式；点击其他卡后当前回退默认态
+    final displayIdx = _selectedIdx ??
+        (currentIdx >= 0
+            ? currentIdx
+            : ms.length - 1); // 默认选中「当前」节点：当前卡显示选中样式；点击其他卡后当前回退默认态
     // 进度算法：已完成里程碑 + 当前里程碑按时间插值
     double progress;
     if (currentIdx >= 0) {
@@ -417,89 +427,92 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-          // 头部：标题 + 百分比徽标，下方进度条（gap 8）
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text('项目进度',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 22 / 14,
-                          color: Color(0xFF202224))),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => showDataLoopModal(context),
-                    child: Container(
-                      height: 20,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0x0D0395FF), // rgba(3,149,255,0.05)
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        '${(progress * 100).round()}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          height: 20 / 12,
-                          leadingDistribution: TextLeadingDistribution.even,
-                          color: Color(0xFF0395FF),
-                          fontFeatures: [FontFeature.tabularFigures()],
+                // 头部：标题 + 百分比徽标，下方进度条（gap 8）
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('项目进度',
+                            style: TextStyle(
+                                fontSize: 16,
+                                // 卡片内容标题统一使用 W500。
+                                fontWeight: FontWeight.w500,
+                                height: 24 / 16,
+                                color: Color(0xFF202224))),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: () => showDataLoopModal(context),
+                          child: Container(
+                            height: 20,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                  0x0D0395FF), // rgba(3,149,255,0.05)
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${(progress * 100).round()}%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                height: 20 / 12,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
+                                color: Color(0xFF0395FF),
+                                fontFeatures: [FontFeature.tabularFigures()],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _GradientProgressBar(value: progress),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // 里程碑卡横向滚动（gap 8；首帧后聚焦到「当前」节点卡并居中）
+                Builder(builder: (ctx) {
+                  while (_chipKeys.length < ms.length) {
+                    _chipKeys.add(GlobalKey());
+                  }
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _scrollToFocus(displayIdx);
+                  });
+                  return SizedBox(
+                    height: 64,
+                    child: ScrollConfiguration(
+                      behavior: _MouseDragScrollBehavior(),
+                      child: ListView.separated(
+                        controller: _scrollCtrl,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.zero,
+                        itemCount: ms.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) => _MilestoneCard(
+                          key: _chipKeys[i],
+                          m: ms[i],
+                          selected: displayIdx == i,
+                          onTap: () {
+                            setState(() => _selectedIdx = i);
+                            _scrollToItem(i); // 点击自动聚焦居中
+                          },
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _GradientProgressBar(value: progress),
-            ],
+                  );
+                }),
+                const SizedBox(height: 8),
+                // 底部信息条：计划时间 / 状态（跟随选中的里程碑）
+                _planStatusStrip(ms, displayIdx),
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
-          // 里程碑卡横向滚动（gap 8；首帧后聚焦到「当前」节点卡并居中）
-          Builder(builder: (ctx) {
-            while (_chipKeys.length < ms.length) {
-              _chipKeys.add(GlobalKey());
-            }
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToFocus(displayIdx);
-            });
-            return SizedBox(
-              height: 60,
-              child: ScrollConfiguration(
-                behavior: _MouseDragScrollBehavior(),
-                child: ListView.separated(
-                  controller: _scrollCtrl,
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  itemCount: ms.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) => _MilestoneCard(
-                    key: _chipKeys[i],
-                    m: ms[i],
-                    selected: displayIdx == i,
-                    onTap: () {
-                      setState(() => _selectedIdx = i);
-                      _scrollToItem(i); // 点击自动聚焦居中
-                    },
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
-          // 底部信息条：计划时间 / 状态（跟随选中的里程碑）
-          _planStatusStrip(ms, displayIdx),
         ],
       ),
-      ),
-      ],
-    ),
     );
   }
 }
@@ -575,8 +588,8 @@ class _GradientProgressBar extends StatelessWidget {
       );
 }
 
-/// 横向里程碑卡（高 60，#F4F6F7 底圆角 8，padding 8，gap 8，Frame 2131330629 等）：
-/// 左侧 20×44 竖排状态标签（白底圆角 4，竖排「完成/当前/未来」）+ 右侧两行（日期 12/W600/#202224、阶段名 14/W400/#60656B）。
+/// 横向里程碑卡（高 64，#F4F6F7 底圆角 8，padding 8，gap 8，Frame 2131330629 等）：
+/// 左侧 20×48 竖排状态标签（白底圆角 4，竖排「完成/当前/未来」）+ 右侧两行（日期 14/W400/#60656B、阶段名 16/W500/#202224）。
 /// 状态三态：完成 = 白底绿字(#00B84A)；当前 = 蓝底(#0395FF)白字，且整卡底色 #F1F7FF、日期/阶段名转品牌蓝；未来 = 白底红字(#FF4444)。
 /// 卡宽由内容自适应（阶段名决定），横向滚动排布。
 class _MilestoneCard extends StatelessWidget {
@@ -590,7 +603,11 @@ class _MilestoneCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCurrent = m.current;
     final isDone = m.done;
-    final statusLabel = isCurrent ? '当前' : isDone ? '完成' : '未来';
+    final statusLabel = isCurrent
+        ? '当前'
+        : isDone
+            ? '完成'
+            : '未来';
     final statusColor = isCurrent
         ? Colors.white
         : isDone
@@ -599,8 +616,8 @@ class _MilestoneCard extends StatelessWidget {
     final labelBg = isCurrent ? const Color(0xFF0395FF) : Colors.white;
     // 当前/过去/未来卡片外观统一为灰色；仅左侧状态标签配色区分（当前 = 蓝底白字，保持原样）
     const baseCardBg = Color(0xFFF4F6F7);
-    const baseDate = Color(0xFF202224);
-    const baseName = Color(0xFF60656B);
+    const baseDate = Color(0xFF60656B);
+    const baseName = Color(0xFF202224);
     // 选中态：背景 5% 品牌蓝 + 文字主题蓝（无描边）
     final cardBg = selected ? const Color(0x0D0395FF) : baseCardBg;
     final dateColor = selected ? const Color(0xFF0395FF) : baseDate;
@@ -610,73 +627,77 @@ class _MilestoneCard extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 60,
+        height: 64,
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(8),
         ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // 左侧竖排状态标签（20×44 白底圆角 4）
-          Container(
-            width: 20,
-            height: 44,
-            decoration: BoxDecoration(
-              color: labelBg,
-              borderRadius: BorderRadius.circular(4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 左侧竖排状态标签（20×44 白底圆角 4）
+            Container(
+              width: 20,
+              height: 48,
+              decoration: BoxDecoration(
+                color: labelBg,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: statusLabel
+                    .split('')
+                    .map((c) => Text(
+                          c,
+                          textAlign: TextAlign.center,
+                          // 竖排状态标签：标签内文字一律 W500
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 20 / 12,
+                            color: statusColor,
+                          ),
+                        ))
+                    .toList(),
+              ),
             ),
-            child: Column(
+            const SizedBox(width: 8),
+            // 右侧两行：日期 + 阶段名（自然宽度，决定卡宽）
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
-              children: statusLabel.split('').map((c) => Text(
-                c,
-                textAlign: TextAlign.center,
-                // 竖排状态标签：标签内文字一律 W500
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 18 / 12,
-                  color: statusColor,
+              children: [
+                Text(
+                  _cnDate(m.date, fullYear: false),
+                  // 完整显示：横向滚动列表内宽度无界，softWrap:false 保证单行且不截断
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: dateColor,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
-              )).toList(),
+                const SizedBox(height: 2),
+                Text(
+                  m.name,
+                  // 阶段名完整显示，不加省略号；卡片宽度随内容自适应（可横向滚动）
+                  softWrap: false,
+                  style: TextStyle(
+                    fontSize: 16,
+                    // 里程碑卡的阶段名属于卡片主标题，统一改为 W500。
+                    fontWeight: FontWeight.w500,
+                    height: 24 / 16,
+                    color: nameColor,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          // 右侧两行：日期 + 阶段名（自然宽度，决定卡宽）
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _cnDate(m.date, fullYear: false),
-                // 完整显示：横向滚动列表内宽度无界，softWrap:false 保证单行且不截断
-                softWrap: false,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  height: 20 / 12,
-                  color: dateColor,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                m.name,
-                // 阶段名完整显示，不加省略号；卡片宽度随内容自适应（可横向滚动）
-                softWrap: false,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  height: 22 / 14,
-                  color: nameColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -719,6 +740,7 @@ const _qaYellow = Color(0xFFFEBD07);
 const _qaCyan = Color(0xFF00D6B9);
 const _qaPurple = Color(0xFF7F83FF);
 const _qaPink = Color(0xFFFF528D);
+
 class _QuickActions extends ConsumerWidget {
   final List<Floor> floors;
   const _QuickActions({required this.floors});
@@ -890,7 +912,8 @@ class _QuickCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w400,
+                // 快捷入口卡标题统一使用 W500。
+                fontWeight: FontWeight.w500,
                 height: 20 / 12,
                 color: Color(0xFF202224),
               ),
@@ -1021,7 +1044,9 @@ class _TodoCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       strutStyle: const StrutStyle(
-                          fontSize: 16, height: 24 / 16, forceStrutHeight: true),
+                          fontSize: 16,
+                          height: 24 / 16,
+                          forceStrutHeight: true),
                       style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -1033,7 +1058,7 @@ class _TodoCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // 行 2：标签流（严重度 / 分类 / 楼层 / 类型 / #自定义），Wrap 自适应换行。
+            // 行 2：标签流（严重度 / 分类 / 类型 / #自定义），位置标签去掉，避免和标题地址重复。
             Wrap(
               spacing: 4,
               runSpacing: 4,
@@ -1041,26 +1066,31 @@ class _TodoCard extends StatelessWidget {
               children: [
                 _zoneTag(d.severity),
                 _catTag(d.category),
-                _floorTag(d.floor),
                 _grayTag(d.type),
                 ...d.tags.take(2).map((t) => _grayTag('#$t')),
               ],
             ),
             const SizedBox(height: AppTokens.space3),
-            // 行 3：记录人 + 责任人 | 时间（两端对齐）；两人名各占一份宽度，超长截断。
+            // 行 3：左侧是「记录人 + 责任人」一组（两者间距 12），右侧单独放时间，两端对齐。
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Row(
                     children: [
-                      Flexible(child: _person(d.reporter)),
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _person(d.reporter),
+                      ),
                       const SizedBox(width: AppTokens.space3),
-                      Flexible(child: _person(d.resp)),
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _person(d.resp),
+                      ),
                     ],
                   ),
                 ),
+                const SizedBox(width: AppTokens.space3),
                 Text(d.ts.substring(5),
                     strutStyle: const StrutStyle(
                         fontSize: 12, height: 20 / 12, forceStrutHeight: true),
@@ -1079,11 +1109,11 @@ class _TodoCard extends StatelessWidget {
 /// 人员行（user4Fill 灰图标 16 + 名称 12/#919499，间距 4）。名称用 Expanded 限宽，
 /// 在父级 Flexible 中超长自动截断，避免两人名把时间顶出卡片。
 Widget _person(String name) => Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(MingCuteIcons.user4Fill,
-            size: 16, color: Color(0xFFB5B9BF)),
+        const Icon(MingCuteIcons.user4Fill, size: 16, color: Color(0xFFB5B9BF)),
         const SizedBox(width: 4),
-        Expanded(
+        Flexible(
           child: Text(name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1196,10 +1226,6 @@ Widget _zoneTag(DefectSeverity s) {
 /// 灰标签（#F4F6F7 实色底 / #919499 字）：缺陷类型与 #自定义标签，5% 规则的唯一例外。
 Widget _grayTag(String label) =>
     _pillTag(label, AppTokens.muted, AppTokens.surface2);
-
-/// 楼层标签（红区色文字 + 红色 5% 浅底，贴合分区体系）。
-Widget _floorTag(String label) =>
-    _pillTag(label, AppTokens.danger, AppTokens.dangerTint);
 
 // ==================== 项目大事记（重点内容，增强视觉） ====================
 /// 大事记事件列表：AppCard 内横向事件行（Frame 2131330695 布局 + 圆点时间轴）。
@@ -1528,7 +1554,8 @@ class _WeatherAlertBannerState extends ConsumerState<_WeatherAlertBanner> {
               onPressed: () => setState(() => _dismissed = true),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
-              icon: Icon(MingCuteIcons.closeLine, size: 16, color: AppTokens.muted),
+              icon: Icon(MingCuteIcons.closeLine,
+                  size: 16, color: AppTokens.muted),
             ),
           ],
         ),
@@ -1653,21 +1680,23 @@ void showDataLoopModal(BuildContext context) {
             // 继续使用（品牌色按钮）
             GestureDetector(
               onTap: () => Navigator.of(ctx).pop(),
-              child: Container(
+              child: SizedBox(
                 width: 240,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0395FF),
-                  borderRadius: BorderRadius.circular(8),
+                height: 48,
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0395FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('继续使用',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 24 / 16,
+                          leadingDistribution: TextLeadingDistribution.even,
+                          color: Colors.white)),
                 ),
-                child: const Text('继续使用',
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 24 / 16,
-                        leadingDistribution: TextLeadingDistribution.even,
-                        color: Colors.white)),
               ),
             ),
           ],
@@ -1712,7 +1741,8 @@ class _DataLoopTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    // 小能力卡标题统一使用 W500。
+                    fontWeight: FontWeight.w500,
                     height: 22 / 14,
                     color: Color(0xFF202224))),
             const SizedBox(height: 2),

@@ -73,10 +73,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         if (!mounted) return;
         final note = (biz['note'] as String?) ?? '';
         AppSnack.show(
-            context,
-            note.isNotEmpty
-                ? note
-                : '本地无法完整转换该图纸，请使用「专业看图」(云图)',
+            context, note.isNotEmpty ? note : '本地无法完整转换该图纸，请使用「专业看图」(云图)',
             kind: AppSnackKind.danger);
         return;
       }
@@ -101,8 +98,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
       if (note.isNotEmpty) {
         AppSnack.show(context, note, kind: AppSnackKind.warning);
       } else {
-        AppSnack.show(context, '转换成功，已加入「我的上传」',
-            kind: AppSnackKind.success);
+        AppSnack.show(context, '转换成功，已加入「我的上传」', kind: AppSnackKind.success);
       }
     } catch (e) {
       if (!mounted) return;
@@ -132,8 +128,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         key: p,
       };
       if (done) {
-        AppSnack.show(context, '图纸已下载，可离线查看',
-            kind: AppSnackKind.success);
+        AppSnack.show(context, '图纸已下载，可离线查看', kind: AppSnackKind.success);
       }
     });
     _downloadTimers[key] = timer;
@@ -176,8 +171,8 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
             Expanded(
               child: ListView(
                 primary: false,
-                padding: const EdgeInsets.fromLTRB(
-                    AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
+                padding: const EdgeInsets.fromLTRB(AppTokens.space3,
+                    AppTokens.space2, AppTokens.space3, AppTokens.space3),
                 children: [
                   // 项目卡
                   AsyncState(
@@ -280,10 +275,10 @@ class _ProjectCardState extends State<_ProjectCard> {
             Text(
               '${p.client} · ${p.floorArea} · ${p.status}',
               style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w400,
                   color: AppTokens.fg2,
-                  height: 20 / 12),
+                  height: 22 / 14),
             ),
             const SizedBox(height: 12),
             // 参建单位白卡列表（含甲方，甲方第一张；Frame 2147228070 起）
@@ -349,8 +344,8 @@ class _ProjectCardState extends State<_ProjectCard> {
                   behavior: HitTestBehavior.opaque,
                   onTap: _showMore,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppTokens.surface,
                       borderRadius: BorderRadius.circular(6),
@@ -458,9 +453,7 @@ class _OwnerRow extends StatelessWidget {
         Expanded(
           child: Text(party.title,
               style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTokens.fg2,
-                  height: 20 / 12),
+                  fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
         ),
@@ -567,9 +560,7 @@ class _PartyDetailCardState extends State<_PartyDetailCard> {
               Expanded(
                 child: Text(party.title,
                     style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTokens.fg2,
-                        height: 20 / 12),
+                        fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ),
@@ -588,7 +579,9 @@ class _PartyDetailCardState extends State<_PartyDetailCard> {
                 child: Padding(
                   padding: const EdgeInsets.all(4),
                   child: Icon(
-                    _hidden ? MingCuteIcons.eyeLine : MingCuteIcons.eyeCloseLine,
+                    _hidden
+                        ? MingCuteIcons.eyeLine
+                        : MingCuteIcons.eyeCloseLine,
                     size: 16,
                     color: AppTokens.fg2,
                   ),
@@ -666,56 +659,57 @@ class _UploadedDrawingsSection extends ConsumerWidget {
                   : null,
               borderRadius: BorderRadius.circular(AppTokens.radiusSm),
               child: Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.description_outlined,
-                      size: 18, color: AppTokens.muted),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(e.name,
+                margin: const EdgeInsets.only(bottom: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTokens.surface,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.description_outlined,
+                        size: 18, color: AppTokens.muted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  // 列表卡主标题统一使用 W500。
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTokens.fg)),
+                          Text(
+                            'key: ${e.key} · ${_time(e.tsMs)}'
+                            '${e.status == 'failed' && e.error != null ? ' · ${e.error}' : ''}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: AppTokens.fg)),
-                        Text(
-                          'key: ${e.key} · ${_time(e.tsMs)}'
-                          '${e.status == 'failed' && e.error != null ? ' · ${e.error}' : ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11, color: AppTokens.muted),
-                        ),
-                      ],
+                                fontSize: 11, color: AppTokens.muted),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(label,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: color)),
                     ),
-                    child: Text(label,
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: color)),
-                  ),
-                ],
-              ),
+                  ],
+                ),
               ),
             );
           }),

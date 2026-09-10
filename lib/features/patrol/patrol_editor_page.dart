@@ -14,6 +14,7 @@ import '../../core/utils/cad_coord.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../utils/geo.dart';
 import '../../utils/path_metrics.dart';
 
@@ -40,6 +41,7 @@ class PatrolEditorPage extends ConsumerStatefulWidget {
 class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
   /// 当前项目（保存时落库用）。
   String _projectId = '';
+
   /// 当前图纸 key / 楼层（路由参数或种子预填）。
   String _drawingKey = '';
   String _floor = '';
@@ -252,8 +254,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
   /// 命中检测：某显示坐标是否落在已有点上（半径阈值，便于拖动/删除/双击）。
   int? _hitIndex(Offset display, Size box, Drawing drawing) {
     for (var i = 0; i < _points.length; i++) {
-      final p = _relToDisplay(
-          Offset(_points[i].dx, _points[i].dy), box, drawing);
+      final p =
+          _relToDisplay(Offset(_points[i].dx, _points[i].dy), box, drawing);
       if ((p - display).distance <= 22) return i;
     }
     return null;
@@ -275,7 +277,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
       // 单击已有点 → 选中该点（便于用"删点"按钮精确删除 / 高亮提示）。
       _pushUndo();
       setState(() => _selectedIdx = hit);
-      AppSnack.show(context, '已选中第 ${hit + 1} 个点，可点「删点」删除', kind: AppSnackKind.muted);
+      AppSnack.show(context, '已选中第 ${hit + 1} 个点，可点「删点」删除',
+          kind: AppSnackKind.muted);
       return;
     }
     _pushUndo();
@@ -366,19 +369,22 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     }
     // P1：存在穿墙段 → 弹确认（允许保存：墙线数据可能含门窗洞口等误差）。
     if (_crossingSegs.isNotEmpty) {
-      final ok = await showDialog<bool>(
+      final ok = await AppDialog.show<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('路线存在穿墙段'),
-          content: Text(
-              '当前路线有 ${_crossingSegs.length} 段穿墙（红色高亮）。\n可能是门窗洞口或墙线数据误差，仍要保存吗？'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('取消')),
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('仍要保存')),
+        title: '路线存在穿墙段',
+        description:
+            '当前路线有 ${_crossingSegs.length} 段穿墙（红色高亮）。\n可能是门窗洞口或墙线数据误差，仍要保存吗？',
+        actions: AppDialogActions(
+          children: [
+            AppDialogButton.secondary(
+              label: '取消',
+              onTap: () =>
+                  Navigator.of(context, rootNavigator: true).pop(false),
+            ),
+            AppDialogButton.primary(
+              label: '仍要保存',
+              onTap: () => Navigator.of(context, rootNavigator: true).pop(true),
+            ),
           ],
         ),
       );
@@ -395,7 +401,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
       return;
     }
     final name = _nameCtl.text.trim().isEmpty ? '巡场路线' : _nameCtl.text.trim();
-    final floor = _floorCtl.text.trim().isEmpty ? _floor : _floorCtl.text.trim();
+    final floor =
+        _floorCtl.text.trim().isEmpty ? _floor : _floorCtl.text.trim();
 
     // 已校准图纸：按 CAD 坐标算真实里程；未校准：让 totalKm 为 null，巡场页走估算。
     final mapper = await loadCadCalibration(ref, _drawingKey);
@@ -405,8 +412,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     }
 
     final plan = PatrolPlan(
-      id: widget.args.planId ??
-          'plan_${DateTime.now().millisecondsSinceEpoch}',
+      id: widget.args.planId ?? 'plan_${DateTime.now().millisecondsSinceEpoch}',
       projectId: _projectId,
       drawingKey: _drawingKey,
       name: name,
@@ -539,8 +545,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
             onTapUp: (e) =>
                 _onTapUp(_viewportToLocal(e.localPosition), box, drawing),
             onDoubleTap: () {},
-            onDoubleTapDown: (e) => _onDoubleTap(
-                _viewportToLocal(e.localPosition), box, drawing),
+            onDoubleTapDown: (e) =>
+                _onDoubleTap(_viewportToLocal(e.localPosition), box, drawing),
             onLongPressStart: (e) =>
                 _onLongPress(_viewportToLocal(e.localPosition), box, drawing),
             child: InteractiveViewer(
@@ -659,7 +665,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
         borderRadius: BorderRadius.circular(6),
         child: SizedBox(
           height: 22,
-            child: Row(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(label,
@@ -809,8 +815,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
   /// 路线名称 / 楼层 编辑底部弹窗（设计稿 Frame 2147228008 风格）。
   void _showEditSheet({required String kind}) {
     final isName = kind == 'name';
-    final ctl = TextEditingController(
-        text: isName ? _nameCtl.text : _floorCtl.text);
+    final ctl =
+        TextEditingController(text: isName ? _nameCtl.text : _floorCtl.text);
     AppBottomSheet.show(
       context: context,
       title: isName ? '修改路线名称' : '修改楼层',
@@ -898,8 +904,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                             color: AppTokens.brand)),
                     TextSpan(
                         text: items[i][1],
-                        style: const TextStyle(
-                            fontSize: 13, color: AppTokens.fg)),
+                        style:
+                            const TextStyle(fontSize: 13, color: AppTokens.fg)),
                   ],
                 ),
               ),
@@ -1083,9 +1089,8 @@ class _RouteEditorPainter extends CustomPainter {
     canvas.drawCircle(p, 6.5, Paint()..color = fill);
     // 序号标签：圆内水平垂直居中。
     // 选中/检查点（蓝/橙实心）→ 纯白字；普通点 → 蓝色字，与描边同色。
-    final Color txtColor = (isSel || isCp)
-        ? const Color(0xFFFFFFFF)
-        : const Color(0xFF3B82F6);
+    final Color txtColor =
+        (isSel || isCp) ? const Color(0xFFFFFFFF) : const Color(0xFF3B82F6);
     final tp = TextPainter(
       text: TextSpan(
         text: '${idx + 1}',

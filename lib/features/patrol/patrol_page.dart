@@ -1561,14 +1561,16 @@ class _MetricChip extends StatelessWidget {
           children: [
             Text('$label ',
                 style: const TextStyle(
-                    color: AppTokens.patrolMuted, fontSize: 11)),
+                    color: AppTokens.patrolMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500)),
             Text(value,
                 style: TextStyle(
                     color: highlight
                         ? const Color(0xFFEF4444)
                         : AppTokens.patrolFg,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       );

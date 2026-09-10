@@ -7,6 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 import 'defects_page.dart' show StatusPill;
 
@@ -55,8 +56,7 @@ class RecordDetailPage extends ConsumerWidget {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 72),
               child: Center(
-                child: Text('未找到该记录',
-                    style: TextStyle(color: AppTokens.muted)),
+                child: Text('未找到该记录', style: TextStyle(color: AppTokens.muted)),
               ),
             );
           }
@@ -85,8 +85,8 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
+        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space2,
+            AppTokens.space3, AppTokens.space3),
         children: [
           // 水印照片（保留水印）+ 右上校验胶囊
           _WatermarkPhoto(d),
@@ -135,7 +135,8 @@ class _InfoCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        // 卡片主标题统一使用 W500。
+                        fontWeight: FontWeight.w500,
                         color: AppTokens.fg),
                   ),
                 ),
@@ -225,7 +226,8 @@ class _TimelineCard extends StatelessWidget {
               child: Text('查看同部位时间轴对比',
                   style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      // 入口卡主文案也按卡片标题规则统一为 W500。
+                      fontWeight: FontWeight.w500,
                       color: AppTokens.brand)),
             ),
             SizedBox(width: 8),
@@ -312,11 +314,11 @@ class _WatermarkPhoto extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    HSLColor.fromAHSL(1.0, d.seed.codeUnitAt(0) * 7 % 360, 0.35,
-                            0.6)
-                        .toColor(),
                     HSLColor.fromAHSL(
-                            1.0, (d.seed.codeUnitAt(0) * 7 + 40) % 360, 0.45, 0.45)
+                            1.0, d.seed.codeUnitAt(0) * 7 % 360, 0.35, 0.6)
+                        .toColor(),
+                    HSLColor.fromAHSL(1.0,
+                            (d.seed.codeUnitAt(0) * 7 + 40) % 360, 0.45, 0.45)
                         .toColor(),
                   ],
                 ),
@@ -457,25 +459,25 @@ class _DesignerCard extends StatelessWidget {
       'remoteConfirm' => '远程已答复',
       _ => '需到场',
     };
-    final note = await showDialog<String>(
+    final note = await AppDialog.show<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: ctl,
-          maxLines: 3,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: isFix ? '填写处置说明（必填）…' : '填写说明（可空）…',
-            border: const OutlineInputBorder(),
+      title: title,
+      content: AppDialogInput(
+        controller: ctl,
+        hintText: isFix ? '填写处置说明（必填）…' : '填写说明（可空）…',
+        autofocus: true,
+        maxLines: 3,
+      ),
+      actions: AppDialogActions(
+        children: [
+          AppDialogButton.secondary(
+            label: '取消',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop(),
           ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctl.text.trim()),
-            child: const Text('确认提交'),
+          AppDialogButton.primary(
+            label: '确认提交',
+            onTap: () =>
+                Navigator.of(context, rootNavigator: true).pop(ctl.text.trim()),
           ),
         ],
       ),
@@ -507,7 +509,8 @@ class _DesignerCard extends StatelessWidget {
           const Text('设计师处置',
               style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  // 卡片区块标题统一使用 W500。
+                  fontWeight: FontWeight.w500,
                   color: AppTokens.fg)),
           const SizedBox(height: 10),
           if (acted)
@@ -525,7 +528,7 @@ class _DesignerCard extends StatelessWidget {
                     children: [
                       Text(d.designerActionLabel,
                           style: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                               color: Color(0xFF0395FF))),
                       const SizedBox(width: 8),
                       Expanded(
@@ -674,7 +677,8 @@ class _ReplyCardState extends State<_ReplyCard> {
               const Text('整改回复（施工方）',
                   style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      // 卡片区块标题统一使用 W500。
+                      fontWeight: FontWeight.w500,
                       color: AppTokens.fg)),
               const SizedBox(width: 8),
               if (hasReply)

@@ -4,7 +4,7 @@ import '../../data/models.dart';
 
 /// 身份选择卡（共用组件）：选择身份页与首页切换用户底部弹层共用。
 /// 按设计稿「选择你的身份」帧（Frame 2131330653 等）：
-/// 白底圆角 8、高 72、padding 12、gap 8，头像 48 + 姓名(16/W600)/角色徽标一行 + 单位(14/辅助灰)一行。
+/// 白底圆角 8、高 72、padding 12、gap 8，头像 48 + 姓名(16/W500)/角色徽标一行 + 单位(14/辅助灰)一行。
 /// 角色徽标：字色按角色（红/绿/蓝）、底色=原色 5%、圆角 6、padding 0 6、高 20。
 /// 选中边框：默认开启（选择身份页用）；弹窗传 [showBorder]=false 以贴合「切换用户」稿（卡片无边框）。
 class IdentityTile extends StatelessWidget {
@@ -100,7 +100,8 @@ class IdentityTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            // 卡片主标题统一使用 W500。
+                            fontWeight: FontWeight.w500,
                             height: 24 / 16,
                             color: AppTokens.fg,
                           ),

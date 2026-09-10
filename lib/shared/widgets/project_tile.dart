@@ -5,7 +5,7 @@ import '../../data/models.dart';
 
 /// 项目选择卡（共用组件）：选择项目页与首页切换项目底部弹层共用。
 /// 按设计稿「选择你的项目」帧（Frame 2131330653 等）：
-/// 白底圆角 8、padding 12、gap 8，48 建筑图标圆头像（#F4F6F7 底 + 24 图标）+ 名称 16/W600 + 地址 14/#919499。
+/// 白底圆角 8、padding 12、gap 8，48 建筑图标圆头像（#F4F6F7 底 + 24 图标）+ 名称 16/W500 + 地址 14/#919499。
 /// 选中边框：默认开启（选择项目页用）；弹窗传 [showBorder]=false 以贴合「切换项目」稿（卡片无边框）。
 /// 地址可两行，卡片高度自适应（切换项目稿第二张卡地址两行→高 92）。
 class ProjectTile extends StatelessWidget {
@@ -69,7 +69,8 @@ class ProjectTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      // 卡片主标题统一使用 W500。
+                      fontWeight: FontWeight.w500,
                       color: AppTokens.fg,
                     ),
                   ),

@@ -5,6 +5,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../shared/widgets/project_tile.dart';
 import 'auth_controller.dart';
 
@@ -26,8 +27,7 @@ class OnboardProjectPage extends ConsumerStatefulWidget {
   static const Color backIcon = Color(0xFF09244B); // 返回图标（本帧为深蓝）
 
   @override
-  ConsumerState<OnboardProjectPage> createState() =>
-      _OnboardProjectPageState();
+  ConsumerState<OnboardProjectPage> createState() => _OnboardProjectPageState();
 }
 
 class _OnboardProjectPageState extends ConsumerState<OnboardProjectPage> {
@@ -57,28 +57,30 @@ class _OnboardProjectPageState extends ConsumerState<OnboardProjectPage> {
         );
     return Scaffold(
       backgroundColor: OnboardProjectPage.bg,
+      appBar: AppBar(
+        backgroundColor: OnboardProjectPage.bg,
+        foregroundColor: OnboardProjectPage.backIcon,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 48,
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: OnboardProjectPage.backIcon,
+            onPressed: () => context.pop(),
+          ),
+        ),
+      ),
       body: SafeArea(
+        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // —— 返回（left 12 / top 10，图标 24×24）——
-            Padding(
-              padding: const EdgeInsets.only(left: 12, top: 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  onPressed: () => context.pop(),
-                  padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints.tightFor(width: 24, height: 24),
-                  icon: const Icon(MingCuteIcons.leftLine,
-                      size: 24, color: OnboardProjectPage.backIcon),
-                ),
-              ),
-            ),
-
-            // 返回区底 34 → 主内容 top 92，间距 58
-            const SizedBox(height: 58),
+            // 导航栏下方继续保留引导页原有的呼吸感。
+            const SizedBox(height: 44),
 
             // —— 主内容（标题组 + 项目卡，可滚动）——
             Expanded(
@@ -192,6 +194,8 @@ class _OnboardButton extends StatelessWidget {
             foregroundColor:
                 secondary ? OnboardProjectPage.brand : Colors.white,
             disabledForegroundColor: const Color(0xFF919499),
+            overlayColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             // 关闭 Material 默认 48 点击区扩张，避免高度被撑开
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

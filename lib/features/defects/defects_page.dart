@@ -14,7 +14,9 @@ import '../../core/utils/open_web.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_date_range_picker.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/async_state.dart';
@@ -82,9 +84,8 @@ class DefectsPage extends ConsumerWidget {
       body: AsyncState(
         value: defects,
         builder: (ds) {
-          final list = ds
-              .where((d) => filter == null || d.status == filter)
-              .toList();
+          final list =
+              ds.where((d) => filter == null || d.status == filter).toList();
           const headerCount = 2; // 状态分段 + 操作卡
           final isEmpty = list.isEmpty;
           final itemCount = isEmpty
@@ -126,13 +127,11 @@ class DefectsPage extends ConsumerWidget {
       AppSnack.show(context, '暂无可导出的缺陷记录', kind: AppSnackKind.muted);
       return;
     }
-    final project = ref
-        .read(projectProvider)
-        .maybeWhen(data: (p) => p, orElse: () => null);
+    final project =
+        ref.read(projectProvider).maybeWhen(data: (p) => p, orElse: () => null);
     final user = ref.read(currentUserProvider);
     final now = DateTime.now();
-    final generatedAt =
-        '${now.year}-${_pad(now.month)}-${_pad(now.day)} '
+    final generatedAt = '${now.year}-${_pad(now.month)}-${_pad(now.day)} '
         '${_pad(now.hour)}:${_pad(now.minute)}';
     final projectName = project?.name ?? '建筑验收项目';
 
@@ -169,8 +168,8 @@ class DefectsPage extends ConsumerWidget {
     for (final p in report.photos) {
       try {
         final data = await rootBundle.load(p.file);
-        map[p.file] = data.buffer.asUint8List(
-            data.offsetInBytes, data.lengthInBytes);
+        map[p.file] =
+            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
       } catch (_) {
         // 照片缺失：报告内渲染「照片未加载」占位
       }
@@ -199,7 +198,8 @@ class DefectsPage extends ConsumerWidget {
   /// 按汇报周期过滤缺陷：取 `Defect.ts` 前 10 位（yyyy-MM-dd）落在 [range] 内的记录；
   /// 时间戳无法解析的记录视为纳入，避免误丢。
   List<Defect> _filterByPeriod(List<Defect> all, DateTimeRange range) {
-    final start = DateTime(range.start.year, range.start.month, range.start.day);
+    final start =
+        DateTime(range.start.year, range.start.month, range.start.day);
     final end = DateTime(range.end.year, range.end.month, range.end.day);
     return all.where((d) {
       final ts = d.ts.trim();
@@ -228,6 +228,7 @@ class DefectsPage extends ConsumerWidget {
         onPreview,
   }) {
     final canExport = canExportReportFile;
+    final canPreview = canOpenWebWindow;
     final today = DateTime.now();
     // 巡场小结：App 内手填，随报告导出（0902 任务5b）。
     var patrolSummary = '';
@@ -245,13 +246,14 @@ class DefectsPage extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 描述段（设计稿：12/W400/行高 20，#60656B）
-                const Text(
+                // 描述段统一按底部弹窗辅助说明样式展示。
+                Text(
                   '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
                   '可选 Excel / PDF / Word / 网页链接 四种格式，导出后无需再手工整理。',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 20 / 12,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
                     color: AppTokens.fg2,
                   ),
                 ),
@@ -265,8 +267,7 @@ class DefectsPage extends ConsumerWidget {
                     final picked = await AppDateRangePicker.show(
                       ctx,
                       firstDate: DateTime(2024, 1, 1),
-                      lastDate:
-                          DateTime(today.year, today.month, today.day),
+                      lastDate: DateTime(today.year, today.month, today.day),
                       initialRange: range,
                     );
                     if (picked != null) setSheet(() => range = picked);
@@ -277,74 +278,93 @@ class DefectsPage extends ConsumerWidget {
                   Text(
                     '已筛选：共筛出 ${list.length} 条记录',
                     style: const TextStyle(
-                      fontSize: 12,
-                      height: 20 / 12,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 22 / 14,
                       color: AppTokens.brand,
                     ),
-                    if (list.length != allDefects.length)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTokens.muted),
-                        ),
+                  ),
+                ],
+                if (list.length != allDefects.length)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 22 / 14,
+                        color: AppTokens.muted,
                       ),
-                    const SizedBox(height: 14),
-                    // 巡场小结（0902 任务5b）：选填，渲染进报告「巡场小结」区
-                    const Text('巡场小结（选填）',
-                        style: TextStyle(fontSize: 12, color: AppTokens.fg2)),
-                    const SizedBox(height: 6),
-                    TextField(
-                      maxLines: 3,
-                      minLines: 2,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        hintText: '本次巡场概述：路线 / 检查点达成 / 主要问题…',
-                        hintStyle: TextStyle(fontSize: 13),
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      style: const TextStyle(fontSize: 13),
-                      onChanged: (v) => patrolSummary = v,
                     ),
-                    const SizedBox(height: 14),
-                    for (final format in ReportExportFormat.values)
-                      _formatTile(
-                        ctx,
-                        format,
-                        enabled: list.isNotEmpty,
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onPick(format, range, list, patrolSummary);
-                        },
-                      ),
-                    if (canPreview)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: AppButton(
-                          label: '下载 HTML 报告（浏览器打开后可另存为 PDF）',
-                          width: double.infinity,
-                          outlined: true,
-                          onPressed: list.isEmpty
-                              ? null
-                              : () {
-                                  Navigator.of(ctx).pop();
-                                  onPreview(range, list, patrolSummary);
-                                },
-                        ),
-                      ),
-                    if (!canExport && !canPreview)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text('当前平台暂不支持导出，请在 Web 端使用该功能。',
-                            style:
-                                TextStyle(fontSize: 13, color: AppTokens.muted)),
-                      ),
-                  ],
+                  ),
+                const SizedBox(height: 14),
+                // 巡场小结（0902 任务5b）：选填，渲染进报告「巡场小结」区
+                const Text(
+                  '巡场小结（选填）',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: AppTokens.fg2,
+                  ),
                 ),
-              );
-
+                const SizedBox(height: 6),
+                TextField(
+                  maxLines: 3,
+                  minLines: 2,
+                  textInputAction: TextInputAction.done,
+                  decoration: const InputDecoration(
+                    hintText: '本次巡场概述：路线 / 检查点达成 / 主要问题…',
+                    hintStyle: TextStyle(fontSize: 13),
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                  onChanged: (v) => patrolSummary = v,
+                ),
+                const SizedBox(height: 14),
+                for (final format in ReportExportFormat.values)
+                  _formatTile(
+                    ctx,
+                    format,
+                    enabled: list.isNotEmpty,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onPick(format, range, list, patrolSummary);
+                    },
+                  ),
+                if (canPreview)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: AppButton(
+                      label: '下载 HTML 报告（浏览器打开后可另存为 PDF）',
+                      width: double.infinity,
+                      outlined: true,
+                      onPressed: list.isEmpty
+                          ? null
+                          : () {
+                              Navigator.of(ctx).pop();
+                              onPreview(range, list, patrolSummary);
+                            },
+                    ),
+                  ),
+                if (!canExport && !canPreview)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      '当前平台暂不支持导出，请在 Web 端使用该功能。',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 22 / 14,
+                        color: AppTokens.muted,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
         },
       ),
     );
@@ -411,8 +431,7 @@ class DefectsPage extends ConsumerWidget {
   /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009）：
   /// 卡片 68h padding 12 圆角 8；左侧 40×40 圆角 8 渐变高光色块 + 24×24 文件图标；
   /// 名称 W600/16/24 #202224，副标题 W400/12/20 #919499，right_line 16×16 #919499。
-  Widget _formatTile(
-      BuildContext ctx, ReportExportFormat format,
+  Widget _formatTile(BuildContext ctx, ReportExportFormat format,
       {required VoidCallback onTap, bool enabled = true}) {
     final base = Color(format.colorHex);
     return Opacity(
@@ -427,8 +446,7 @@ class DefectsPage extends ConsumerWidget {
             child: Ink(
               width: double.infinity,
               // 高度由内容撑开（色块 40 + 上下 padding 各 14 = 68）
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
                 color: AppTokens.surface,
                 borderRadius: BorderRadius.circular(AppTokens.radiusSm),
@@ -442,8 +460,7 @@ class DefectsPage extends ConsumerWidget {
                     height: 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusSm),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -488,8 +505,9 @@ class DefectsPage extends ConsumerWidget {
                         const SizedBox(height: 2),
                         Text(format.subtitle,
                             style: const TextStyle(
-                              fontSize: 12,
-                              height: 20 / 12,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 22 / 14,
                               color: AppTokens.muted,
                             )),
                       ],
@@ -569,16 +587,13 @@ class DefectsPage extends ConsumerWidget {
       return;
     }
     if (filtered.isEmpty) {
-      AppSnack.show(context, '所选周期内暂无缺陷记录，请调整汇报周期',
-          kind: AppSnackKind.muted);
+      AppSnack.show(context, '所选周期内暂无缺陷记录，请调整汇报周期', kind: AppSnackKind.muted);
       return;
     }
-    final report = ref
-        .read(weeklyReportProvider)
-        .copyWithDefects(filtered,
-            patrolSummary: patrolSummary,
-            roomScans: await _roomScansOf(ref),
-            checks: await _checksOf(ref));
+    final report = ref.read(weeklyReportProvider).copyWithDefects(filtered,
+        patrolSummary: patrolSummary,
+        roomScans: await _roomScansOf(ref),
+        checks: await _checksOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     if (!context.mounted) return;
     final baseName =
@@ -659,8 +674,7 @@ class DefectsPage extends ConsumerWidget {
           report,
           reporter: reporter,
           generatedAt: generatedAt,
-          photoBase64: photoBytes
-              .map((k, v) => MapEntry(k, base64Encode(v))),
+          photoBase64: photoBytes.map((k, v) => MapEntry(k, base64Encode(v))),
         );
         return (
           '$baseName.html',
@@ -685,12 +699,10 @@ class DefectsPage extends ConsumerWidget {
     required String patrolSummary,
   }) async {
     if (filtered.isEmpty) return;
-    final report = ref
-        .read(weeklyReportProvider)
-        .copyWithDefects(filtered,
-            patrolSummary: patrolSummary,
-            roomScans: await _roomScansOf(ref),
-            checks: await _checksOf(ref));
+    final report = ref.read(weeklyReportProvider).copyWithDefects(filtered,
+        patrolSummary: patrolSummary,
+        roomScans: await _roomScansOf(ref),
+        checks: await _checksOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     final html = buildWeeklyReportHtml(
       report,
@@ -705,34 +717,31 @@ class DefectsPage extends ConsumerWidget {
 
   /// 生成中蒙层：不可关闭，防重复点击。
   void _showBusy(BuildContext context, ReportExportFormat format) {
-    showDialog<void>(
+    AppDialog.show<void>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PopScope(
-        canPop: false,
-        child: Dialog(
-          backgroundColor: AppTokens.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      canPop: false,
+      showClose: false,
+      contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      content: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2.4),
-                ),
-                const SizedBox(width: 16),
-                Text('正在生成 ${format.label} 报告…',
-                    style:
-                        const TextStyle(fontSize: 14, color: AppTokens.fg)),
-              ],
+          const SizedBox(width: 16),
+          Text(
+            '正在生成 ${format.label} 报告…',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              height: 22 / 14,
+              color: AppTokens.fg,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -767,9 +776,8 @@ class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
     _kind = widget.kind;
   }
 
-  bool _match(Defect d) => _kind == 'designer'
-      ? d.pendingDesignerDisposal
-      : (d.reply ?? '').isEmpty;
+  bool _match(Defect d) =>
+      _kind == 'designer' ? d.pendingDesignerDisposal : (d.reply ?? '').isEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -808,16 +816,15 @@ class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
             itemCount: list.isEmpty ? 3 : list.length + 2,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
-              if (i == 0) return _DisposalSegmented(
-                selected: _kind,
-                onChanged: (v) => setState(() => _kind = v),
-              );
+              if (i == 0)
+                return _DisposalSegmented(
+                  selected: _kind,
+                  onChanged: (v) => setState(() => _kind = v),
+                );
               if (list.isEmpty) {
                 if (i == 1) {
                   return _EmptyState(
-                    hint: _kind == 'designer'
-                        ? '暂无待设计师处置的工单'
-                        : '暂无待施工方回复的工单',
+                    hint: _kind == 'designer' ? '暂无待设计师处置的工单' : '暂无待施工方回复的工单',
                   );
                 }
                 return OfflineBar.defects;
@@ -898,9 +905,8 @@ class _DisposalSegBtn extends StatelessWidget {
               fontSize: 14,
               height: 22 / 14,
               fontWeight: FontWeight.w500,
-              color: selected
-                  ? const Color(0xFF202224)
-                  : const Color(0xFF919499),
+              color:
+                  selected ? const Color(0xFF202224) : const Color(0xFF919499),
             ),
           ),
         ),
@@ -916,7 +922,6 @@ class _StatusSegmented extends ConsumerWidget {
     (null, '全部'),
     (DefectStatus.draft, '待整改'),
     (DefectStatus.doing, '整改中'),
-
     (DefectStatus.done, '已销项'),
     (DefectStatus.reject, '已拒绝'),
   ];
@@ -980,9 +985,8 @@ class _SegBtn extends StatelessWidget {
               height: 22 / 14,
               fontWeight: FontWeight.w500,
               // 选中 #202224 / 未选 #919499（用户指定，区别于品牌蓝与浅灰）
-              color: selected
-                  ? const Color(0xFF202224)
-                  : const Color(0xFF919499),
+              color:
+                  selected ? const Color(0xFF202224) : const Color(0xFF919499),
             ),
           ),
         ),
@@ -1034,109 +1038,171 @@ class _ActionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final role = user.role.isNotEmpty ? user.role : '设计管理';
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 行1：身份（头像 + 姓名 + 角色标签）…… 切换身份
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 窄宽度时把顶部和底部操作切成纵向，避免姓名、角色和按钮互相挤压。
+        final compact = constraints.maxWidth < 340;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Row(
+              if (compact) ...[
+                _identityInfo(user: user, role: role),
+                const SizedBox(height: 8),
+                _switchIdentityButton(
+                  context: context,
+                  ref: ref,
+                  fullWidth: true,
+                ),
+              ] else
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _identityAvatar(user.avatar, 24),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(user.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              height: 22 / 14,
-                              color: Color(0xFF202224))),
-                    ),
-                    const SizedBox(width: 8),
-                    // 角色标签（品牌蓝 5% 底 + 品牌蓝字）
-                    Container(
-                      height: 20,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0x0D0395FF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Center(
-                        child: Text(role,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                height: 20 / 12,
-                                color: Color(0xFF0395FF))),
-                      ),
+                    Expanded(child: _identityInfo(user: user, role: role)),
+                    const SizedBox(width: 12),
+                    _switchIdentityButton(
+                      context: context,
+                      ref: ref,
+                      fullWidth: false,
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              // 切换身份（灰底按钮）
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => showUserSwitchSheet(context, ref),
-                child: Container(
-                  height: 24,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF4F6F7),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Center(
-                    child: Text('切换身份',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 20 / 12,
-                            color: Color(0xFF60656B))),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 行2：两个等分行动按钮（待设计师处置 / 待施工方回复）
-          Row(
-            children: [
-              Expanded(
-                child: _ActionBtn(
+              const SizedBox(height: 12),
+              if (compact) ...[
+                _ActionBtn(
                   icon: MingCuteIcons.penLine,
                   label: '待设计师处置',
                   onTap: () => context.push('/defects/disposal/designer'),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _ActionBtn(
+                const SizedBox(height: 12),
+                _ActionBtn(
                   icon: MingCuteIcons.comment2Line,
                   label: '待施工方回复',
                   onTap: () => context.push('/defects/disposal/reply'),
                 ),
-              ),
+              ] else
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ActionBtn(
+                        icon: MingCuteIcons.penLine,
+                        label: '待设计师处置',
+                        onTap: () => context.push('/defects/disposal/designer'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ActionBtn(
+                        icon: MingCuteIcons.comment2Line,
+                        label: '待施工方回复',
+                        onTap: () => context.push('/defects/disposal/reply'),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  /// 顶部左侧身份信息：头像 + 姓名 + 角色标签。
+  Widget _identityInfo({required User user, required String role}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _identityAvatar(user.avatar, 24),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            user.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 22 / 14,
+              color: Color(0xFF202224),
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // 身份标签改为内容自适应宽度，不再占用弹性宽度。
+        Container(
+          height: 20,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x0D0395FF),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            role,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 20 / 12,
+              color: Color(0xFF0395FF),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 右上角切换身份按钮：常规宽度贴右，窄屏时切成整行。
+  Widget _switchIdentityButton({
+    required BuildContext context,
+    required WidgetRef ref,
+    required bool fullWidth,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showUserSwitchSheet(context, ref),
+      child: Container(
+        height: 28,
+        width: fullWidth ? double.infinity : null,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F6F7),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              MingCuteIcons.transfer3Line,
+              size: 16,
+              color: Color(0xFF60656B),
+            ),
+            SizedBox(width: 4),
+            Text(
+              '切换身份',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 20 / 12,
+                color: Color(0xFF60656B),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 行动按钮（Frame 2147228091 小按钮）：品牌蓝 5% 底，居中图标 16 + 文字 14/w400/#60656B。
+/// 行动按钮（Frame 2147228091 小按钮）：灰文字灰图标，品牌蓝 5% 底，高 36。
 class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1149,8 +1215,8 @@ class _ActionBtn extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: const Color(0x0D0395FF), // rgba(3,149,255,0.05)
             borderRadius: BorderRadius.circular(6),
@@ -1164,6 +1230,7 @@ class _ActionBtn extends StatelessWidget {
               Text(label,
                   style: const TextStyle(
                       fontSize: 14,
+                      // 操作按钮文案按设计稿使用常规正文权重。
                       fontWeight: FontWeight.w400,
                       height: 22 / 14,
                       color: Color(0xFF60656B))),

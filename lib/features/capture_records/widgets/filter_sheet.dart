@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../../shared/widgets/app_bottom_sheet.dart';
 
 /// 楼层 + AI 仅 筛选弹层。
 ///
@@ -50,60 +51,61 @@ class _FilterSheetState extends State<FilterSheet> {
         ),
         const SizedBox(height: 4),
         const Text('楼层',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            const SizedBox(height: 8),
-            if (widget.availableFloors.isEmpty)
-              const Text('当前项目暂无楼层数据',
-                  style: TextStyle(fontSize: 12, color: AppTokens.muted))
-            else
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final f in widget.availableFloors)
-                    _Chip(
-                      label: f,
-                      selected: _floor == f,
-                      onTap: () => setState(() {
-                        _floor = _floor == f ? null : f;
-                      }),
-                    ),
-                ],
-              ),
-            const SizedBox(height: 16),
-            _SwitchRow(
-              label: '仅看识别到缺陷的记录',
-              value: _aiOnly,
-              onChanged: (v) => setState(() => _aiOnly = v),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppTokens.accent,
-                  minimumSize: const Size(0, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                        AppTokens.radiusButton),
-                  ),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.fg)),
+        const SizedBox(height: 8),
+        if (widget.availableFloors.isEmpty)
+          Text(
+            '当前项目暂无楼层数据',
+            style: AppBottomSheet.helperStyle(),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final f in widget.availableFloors)
+                _Chip(
+                  label: f,
+                  selected: _floor == f,
+                  onTap: () => setState(() {
+                    _floor = _floor == f ? null : f;
+                  }),
                 ),
-                onPressed: () {
-                  widget.onApply(floor: _floor, aiOnly: _aiOnly);
-                  Navigator.of(context).pop();
-                },
-                child: const Text('应用',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppTokens.onAccent)),
+            ],
+          ),
+        const SizedBox(height: 16),
+        _SwitchRow(
+          label: '仅看识别到缺陷的记录',
+          value: _aiOnly,
+          onChanged: (v) => setState(() => _aiOnly = v),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTokens.accent,
+              minimumSize: const Size(0, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTokens.radiusButton),
               ),
             ),
-          ],
-        );
+            onPressed: () {
+              widget.onApply(floor: _floor, aiOnly: _aiOnly);
+              Navigator.of(context).pop();
+            },
+            child: const Text('应用',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTokens.onAccent)),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -155,7 +157,8 @@ class _SwitchRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(MingCuteIcons.sparklesLine, size: 16, color: AppTokens.fg2),
+          const Icon(MingCuteIcons.sparklesLine,
+              size: 16, color: AppTokens.fg2),
           const SizedBox(width: 8),
           Expanded(
               child: Text(label,

@@ -107,7 +107,8 @@ class CaptureThumbnailCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          // 缩略卡的部位标题统一使用 W500。
+                          fontWeight: FontWeight.w500,
                           color: AppTokens.fg),
                     ),
                     const SizedBox(height: 2),

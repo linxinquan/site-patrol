@@ -30,6 +30,7 @@ import '../../core/utils/anchor_objects.dart';
 import '../../data/models.dart';
 import '../../data/vision_service.dart';
 import '../../shared/widgets/drawing_image.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 import 'ar_measure_page.dart';
 
@@ -65,6 +66,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   // —— 模数网格单应标定（透视校正，替代两点比例法）——
   /// 是否处于「网格标定」点选状态。
   bool _gridMode = false;
+
   /// 已点选的网格交点（照片像素，行优先：从左到右、从上到下）。
   final List<Offset> _gridPicks = [];
   final TextEditingController _gridMmCtl = TextEditingController(text: '600');
@@ -99,12 +101,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     final gateRaw = _judgeMaxCtl.text.trim();
     final gate = gateRaw.isEmpty ? null : double.tryParse(gateRaw);
     if (gateRaw.isNotEmpty && (gate == null || gate <= 0)) {
-      AppSnack.show(context, '误差带门槛必须是正数，或留空用容差/3',
-          kind: AppSnackKind.danger);
+      AppSnack.show(context, '误差带门槛必须是正数，或留空用容差/3', kind: AppSnackKind.danger);
       return;
     }
-    final t = MeasureThresholds(
-        tolMm: tolMm, tolPct: tolPct, judgeMaxErrorMm: gate);
+    final t =
+        MeasureThresholds(tolMm: tolMm, tolPct: tolPct, judgeMaxErrorMm: gate);
     await MeasureThresholdStore.save(_projectKey, t);
     if (!mounted) return;
     setState(() {
@@ -128,6 +129,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   // —— AI 网格识别（自动标定主路径：零输入，人工只做确认）——
   /// AI 识别到的网格（待确认 / 已确认都用它画绿色叠加层）。
   GridDetection? _aiGrid;
+
   /// 是否已人工确认并写入标定（true 后叠加层转为浅绿、可开始量尺）。
   bool _aiGridConfirmed = false;
   bool _aiGridBusy = false;
@@ -138,6 +140,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final Set<int> _aiTargetAccepted = {};
   bool _aiTargetsBusy = false;
   String? _aiTargetsMsg;
+
   /// 门窗洞口命名用的洞口高度（mm）：门默认 2100、窗默认 1800，可改。
   final TextEditingController _openingHeightCtl =
       TextEditingController(text: '2100');
@@ -148,6 +151,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final TextEditingController _tolMmCtl = TextEditingController(text: '15');
   final TextEditingController _tolPctCtl = TextEditingController(text: '2');
   final TextEditingController _refMmCtl = TextEditingController(text: '1000');
+
   /// P1-1：图纸尺寸手填（图纸未校准时降级使用；已校准时可覆盖量得值）。
   final TextEditingController _drawingMmCtl = TextEditingController();
 
@@ -255,22 +259,22 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   /// 相机权限被拒 → 弹窗引导前往系统设置。
   void _showPermissionGuide() {
     if (!mounted) return;
-    showDialog(
+    AppDialog.show<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('相机权限被拒绝'),
-        content: const Text('拍照量尺需要相机权限。请在系统设置中开启，再回来继续测量。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('取消'),
+      title: '相机权限被拒绝',
+      description: '拍照量尺需要相机权限。请在系统设置中开启，再回来继续测量。',
+      actions: AppDialogActions(
+        children: [
+          AppDialogButton.secondary(
+            label: '取消',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop(),
           ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
+          AppDialogButton.primary(
+            label: '去设置',
+            onTap: () {
+              Navigator.of(context, rootNavigator: true).pop();
               AppSettings.openAppSettings();
             },
-            child: const Text('去设置'),
           ),
         ],
       ),
@@ -282,8 +286,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     XFile? x;
     if (kIsWeb) {
       // Web：相册选图。
-      x = await ImagePicker()
-          .pickImage(source: ImageSource.gallery, maxWidth: 1920, imageQuality: 85);
+      x = await ImagePicker().pickImage(
+          source: ImageSource.gallery, maxWidth: 1920, imageQuality: 85);
     } else {
       // 移动端：通用相机兜底（权限引导 + 相机失败改用相册）。
       x = await pickPhotoRobust(
@@ -357,8 +361,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     final a = _drawPicks[0], b = _drawPicks[1];
     final drawingMm = hasManual
         ? manualMm
-        : drawingDistanceMm(
-            _mapper!, _imageSize!.width, _imageSize!.height,
+        : drawingDistanceMm(_mapper!, _imageSize!.width, _imageSize!.height,
             a.dx, a.dy, b.dx, b.dy);
     final pa = _photoPicks[0], pb = _photoPicks[1];
     // 实测值：有单应标定走透视校正，否则回退两点比例法。
@@ -570,8 +573,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       final g = await VisionService().detectGrid(_photoBytes!);
       if (!mounted) return;
       if (g == null) {
-        setState(() => _aiGridMsg =
-            '未识别到可用网格：请让瓷砖缝/扣板缝完整入画、避免强反光，或改用下方手动点选');
+        setState(() => _aiGridMsg = '未识别到可用网格：请让瓷砖缝/扣板缝完整入画、避免强反光，或改用下方手动点选');
         return;
       }
       setState(() {
@@ -614,8 +616,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     }
     final hom = Homography.solve(pairs.src, pairs.dst);
     if (hom == null) {
-      AppSnack.show(
-          context, '识别点过于集中或共线，无法求解；请手动点选更分散的网格交点',
+      AppSnack.show(context, '识别点过于集中或共线，无法求解；请手动点选更分散的网格交点',
           kind: AppSnackKind.danger);
       return;
     }
@@ -874,8 +875,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         style: const TextStyle(fontSize: 11),
       ),
       trailing: accepted
-          ? const Text('已采纳', style: TextStyle(fontSize: 12, color: Colors.green))
-          : TextButton(onPressed: () => _acceptTarget(i), child: const Text('采纳')),
+          ? const Text('已采纳',
+              style: TextStyle(fontSize: 12, color: Colors.green))
+          : TextButton(
+              onPressed: () => _acceptTarget(i), child: const Text('采纳')),
     );
   }
 
@@ -892,8 +895,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     }
     if (_session?.photoCalib != null) {
       if (manual) {
-        AppSnack.show(context, '已有标定，请先点标定签的 × 清除',
-            kind: AppSnackKind.muted);
+        AppSnack.show(context, '已有标定，请先点标定签的 × 清除', kind: AppSnackKind.muted);
       }
       return;
     }
@@ -974,8 +976,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     );
     setState(() {
       _session = _session!.copyWith(photoCalib: calib);
-      _autoCalibMsg =
-          '已用「${d.name}」自动标定（置信度 ${(d.conf * 100).round()}%）';
+      _autoCalibMsg = '已用「${d.name}」自动标定（置信度 ${(d.conf * 100).round()}%）';
       _refPicks.clear();
       _photoPicks.clear();
       _aiGrid = null;
@@ -983,8 +984,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _aiGridMsg = null;
     });
     _persist();
-    AppSnack.show(context,
-        '自动标定完成（${d.name}）：${scale.toStringAsFixed(3)} mm/px');
+    AppSnack.show(
+        context, '自动标定完成（${d.name}）：${scale.toStringAsFixed(3)} mm/px');
   }
 
   @override
@@ -1037,7 +1038,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(drawing?.title ?? _drawingKey,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                   const SizedBox(height: AppTokens.space1),
                   Text('楼层：${_session!.floor.isEmpty ? "—" : _session!.floor}',
                       style: TextStyle(color: AppTokens.muted, fontSize: 12)),
@@ -1070,7 +1072,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
               padding: const EdgeInsets.only(top: AppTokens.space2),
               child: Text(
                 '图纸量得：${fmtMm(drawingDistanceMm(_mapper!, _imageSize!.width, _imageSize!.height, _drawPicks[0].dx, _drawPicks[0].dy, _drawPicks[1].dx, _drawPicks[1].dy))} mm',
-                style: const TextStyle(fontWeight: FontWeight.w600, color: AppTokens.accent),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, color: AppTokens.accent),
               ),
             ),
           const SizedBox(height: AppTokens.space4),
@@ -1088,10 +1091,12 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   Row(
                     children: [
                       Expanded(
-                          child: _numberField('容差(mm)', _tolMmCtl, suffix: 'mm')),
+                          child:
+                              _numberField('容差(mm)', _tolMmCtl, suffix: 'mm')),
                       const SizedBox(width: AppTokens.space2),
                       Expanded(
-                          child: _numberField('容差(%)', _tolPctCtl, suffix: '%')),
+                          child:
+                              _numberField('容差(%)', _tolPctCtl, suffix: '%')),
                       const SizedBox(width: AppTokens.space2),
                       Expanded(
                           child: _numberField('误差带门槛(mm)', _judgeMaxCtl,
@@ -1105,7 +1110,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                         child: Text(
                           '误差带超过门槛 → 不下合格/超差结论（标「需复核」）。'
                           '留空则按容差/3（测量不确定度规约）。',
-                          style: TextStyle(fontSize: 11, color: AppTokens.muted),
+                          style:
+                              TextStyle(fontSize: 11, color: AppTokens.muted),
                         ),
                       ),
                       TextButton(
@@ -1164,7 +1170,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         ),
         child: Row(
           children: [
-            const Icon(MingCuteIcons.checkCircleLine, color: Colors.green, size: 16),
+            const Icon(MingCuteIcons.checkCircleLine,
+                color: Colors.green, size: 16),
             const SizedBox(width: AppTokens.space1),
             Expanded(
               child: Text(
@@ -1222,7 +1229,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                           builder: (ctx, c) {
                             final box = c.biggest;
                             return GestureDetector(
-                              onTapDown: (e) => _onDrawTap(e.localPosition, box),
+                              onTapDown: (e) =>
+                                  _onDrawTap(e.localPosition, box),
                               child: DrawingImage(src, fit: BoxFit.contain),
                             );
                           },
@@ -1235,7 +1243,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                       builder: (ctx, c) => Stack(
                         children: [
                           ..._drawPicks.map((p) => _pickDot(
-                              imageToDisplay(p, c.biggest, _imageSize!), Colors.blue)),
+                              imageToDisplay(p, c.biggest, _imageSize!),
+                              Colors.blue)),
                         ],
                       ),
                     ),
@@ -1276,9 +1285,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       // P1-1：量满两点后预填图纸尺寸（用户可手改覆盖）。
       if (_drawPicks.length == 2 && _mapper != null) {
         final a = _drawPicks[0], b = _drawPicks[1];
-        final mm = drawingDistanceMm(
-            _mapper!, _imageSize!.width, _imageSize!.height,
-            a.dx, a.dy, b.dx, b.dy);
+        final mm = drawingDistanceMm(_mapper!, _imageSize!.width,
+            _imageSize!.height, a.dx, a.dy, b.dx, b.dy);
         if (mm > 0) _drawingMmCtl.text = fmtMm(mm);
       }
     });
@@ -1329,7 +1337,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 // 网页版拿不到 ARKit/LiDAR：按钮文案直说，避免误以为机型不支持
                 label: Text(kIsWeb ? 'AR量尺（网页版不可用）' : 'AR量尺（iPhone Pro）'),
               ),
-            if (kIsWeb || Platform.isIOS) const SizedBox(width: AppTokens.space3),
+            if (kIsWeb || Platform.isIOS)
+              const SizedBox(width: AppTokens.space3),
             if (_session?.photoCalib != null)
               Chip(
                 label: Text(
@@ -1421,7 +1430,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 const SizedBox(height: AppTokens.space2),
                 Row(
                   children: [
-                    Expanded(child: _numberField('格距(mm)', _gridMmCtl, suffix: 'mm')),
+                    Expanded(
+                        child:
+                            _numberField('格距(mm)', _gridMmCtl, suffix: 'mm')),
                     const SizedBox(width: AppTokens.space2),
                     SizedBox(width: 70, child: _numberField('列', _gridColsCtl)),
                     const SizedBox(width: AppTokens.space2),
@@ -1480,7 +1491,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('参考物标定', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const Text('参考物标定',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: AppTokens.space1),
                 // 自动标定（零输入主路径）：识别画面中的已知尺寸标准件
                 OutlinedButton(
@@ -1503,7 +1516,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 if (_autoCalibMsg != null) ...[
                   const SizedBox(height: AppTokens.space1),
                   Text(_autoCalibMsg!,
-                      style: const TextStyle(fontSize: 11, color: Colors.green)),
+                      style:
+                          const TextStyle(fontSize: 11, color: Colors.green)),
                 ],
                 const SizedBox(height: AppTokens.space2),
                 // 手动兜底（远端不可用 / 画面无标准件时）
@@ -1521,7 +1535,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 Text(
                     '支持自动识别：$anchorHintText。\n'
                     '或手动：在下方照片上点选参考物两端（如卷尺 0→1000mm）。',
-                    style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+                    style:
+                        const TextStyle(fontSize: 11, color: AppTokens.muted)),
               ],
             ),
           ),
@@ -1555,7 +1570,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   Text(_aiTargetsMsg!,
                       style: TextStyle(
                         fontSize: 11,
-                        color: _aiTargets.isEmpty ? Colors.orange : Colors.green,
+                        color:
+                            _aiTargets.isEmpty ? Colors.orange : Colors.green,
                       )),
                 ],
                 if (_aiTargets.isNotEmpty) ...[
@@ -1563,8 +1579,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _numberField('洞口高(mm，未识别到高时用)',
-                            _openingHeightCtl,
+                        child: _numberField(
+                            '洞口高(mm，未识别到高时用)', _openingHeightCtl,
                             suffix: 'mm'),
                       ),
                       const SizedBox(width: AppTokens.space2),
@@ -1607,17 +1623,21 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                     child: SizedBox.expand(
                       child: LayoutBuilder(
                         builder: (ctx, c) => GestureDetector(
-                          onTapDown: (e) => _onPhotoTap(e.localPosition, c.biggest),
+                          onTapDown: (e) =>
+                              _onPhotoTap(e.localPosition, c.biggest),
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
                               Positioned.fill(
-                                child: Image.memory(_photoBytes!, fit: BoxFit.contain),
+                                child: Image.memory(_photoBytes!,
+                                    fit: BoxFit.contain),
                               ),
                               ..._refPicks.map((p) => _pickDot(
-                                  imageToDisplay(p, c.biggest, _photoSize!), Colors.orange)),
+                                  imageToDisplay(p, c.biggest, _photoSize!),
+                                  Colors.orange)),
                               ..._photoPicks.map((p) => _pickDot(
-                                  imageToDisplay(p, c.biggest, _photoSize!), Colors.red)),
+                                  imageToDisplay(p, c.biggest, _photoSize!),
+                                  Colors.red)),
                               // 网格标定控制点（青）：点满即自动求单应
                               ..._gridPicks.map((p) => _pickDot(
                                   imageToDisplay(p, c.biggest, _photoSize!),
@@ -1643,8 +1663,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                                 c.biggest,
                                                 _photoSize!),
                                             label: _targetLabel(i),
-                                            accepted: _aiTargetAccepted
-                                                .contains(i),
+                                            accepted:
+                                                _aiTargetAccepted.contains(i),
                                           ),
                                       ],
                                     ),
@@ -1678,11 +1698,13 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                   painter: _MeasureLinePainter(
                                     refPts: [
                                       for (final p in _refPicks)
-                                        imageToDisplay(p, c.biggest, _photoSize!),
+                                        imageToDisplay(
+                                            p, c.biggest, _photoSize!),
                                     ],
                                     pickPts: [
                                       for (final p in _photoPicks)
-                                        imageToDisplay(p, c.biggest, _photoSize!),
+                                        imageToDisplay(
+                                            p, c.biggest, _photoSize!),
                                     ],
                                     measuredMm: _session?.photoCalib != null &&
                                             _photoPicks.length == 2
@@ -1720,16 +1742,19 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             height: 120,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: AppTokens.border, style: BorderStyle.solid),
+              border:
+                  Border.all(color: AppTokens.border, style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Text('尚未选择照片', style: TextStyle(color: AppTokens.muted)),
+            child:
+                const Text('尚未选择照片', style: TextStyle(color: AppTokens.muted)),
           ),
         if (_photoPicks.length == 2 && _session?.photoCalib != null)
           Builder(builder: (_) {
             final c = _session!.photoCalib!;
             final p0 = _photoPicks[0], p1 = _photoPicks[1];
-            final corrected = photoMeasuredMmAuto(c, p0.dx, p0.dy, p1.dx, p1.dy);
+            final corrected =
+                photoMeasuredMmAuto(c, p0.dx, p0.dy, p1.dx, p1.dy);
             final legacy = photoMeasuredMm(c, p0.dx, p0.dy, p1.dx, p1.dy);
             return Padding(
               padding: const EdgeInsets.only(top: AppTokens.space2),
@@ -1824,9 +1849,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                     : (ok
                         ? MingCuteIcons.checkCircleLine
                         : MingCuteIcons.closeCircleLine),
-                color: !judgeOk
-                    ? Colors.orange
-                    : (ok ? Colors.green : Colors.red),
+                color:
+                    !judgeOk ? Colors.orange : (ok ? Colors.green : Colors.red),
               ),
               title: Text(e.name),
               subtitle: Text(
@@ -1870,7 +1894,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   Widget _sectionTitle(String t, String sub) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(t, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          Text(t,
+              style:
+                  const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           Text(sub, style: TextStyle(fontSize: 12, color: AppTokens.muted)),
         ],
       );
@@ -1892,7 +1918,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         ),
       );
 
-  Widget _numberField(String label, TextEditingController c, {String? suffix}) =>
+  Widget _numberField(String label, TextEditingController c,
+          {String? suffix}) =>
       TextField(
         controller: c,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -2051,8 +2078,7 @@ class _TargetOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _TargetOverlayPainter old) =>
-      old.items != items;
+  bool shouldRepaint(covariant _TargetOverlayPainter old) => old.items != items;
 }
 
 /// AI 识别网格的叠加层：按行列连线 + 交点圆点。

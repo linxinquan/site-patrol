@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../shared/widgets/app_dialog.dart';
+
 /// 移动端拍照：权限预检 → 后置 → 失败自动重试 → 失败弹"改用相册"兜底。
 ///
 /// 规则：
@@ -53,8 +55,8 @@ Future<XFile?> pickPhotoRobust(
       if (retry != null) return retry;
       // 重试返回 null（用户取消）→ 再弹一次兜底，此时不再给"重试"
       if (!context.mounted) return null;
-      final useGallery2 = await _showCameraFallbackDialog(
-          context, '相机重试未返回图像', allowRetry: false);
+      final useGallery2 = await _showCameraFallbackDialog(context, '相机重试未返回图像',
+          allowRetry: false);
       if (useGallery2 == true) {
         return picker.pickImage(
             source: ImageSource.gallery,
@@ -76,8 +78,7 @@ Future<XFile?> pickPhotoRobust(
     }
   } catch (_) {
     if (!context.mounted) return null;
-    final useGallery =
-        await _showCameraFallbackDialog(context, '相机不可用');
+    final useGallery = await _showCameraFallbackDialog(context, '相机不可用');
     if (useGallery == true) {
       return picker.pickImage(
           source: ImageSource.gallery,
@@ -95,21 +96,25 @@ Future<bool?> _showCameraFallbackDialog(
   String reason, {
   bool allowRetry = true,
 }) {
-  return showDialog<bool>(
+  return AppDialog.show<bool>(
     context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('相机不可用'),
-      content: Text('原因：$reason\n是否改用相册选图？'),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(ctx, null), child: const Text('取消')),
+    title: '相机不可用',
+    description: '原因：$reason\n是否改用相册选图？',
+    actions: AppDialogActions(
+      children: [
+        AppDialogButton.secondary(
+          label: '取消',
+          onTap: () => Navigator.of(context, rootNavigator: true).pop(),
+        ),
         if (allowRetry)
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('重试')),
-        FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('改用相册')),
+          AppDialogButton.secondary(
+            label: '重试',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop(false),
+          ),
+        AppDialogButton.primary(
+          label: '改用相册',
+          onTap: () => Navigator.of(context, rootNavigator: true).pop(true),
+        ),
       ],
     ),
   );

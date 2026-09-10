@@ -52,8 +52,7 @@ class DrawingViewerPage extends ConsumerWidget {
               child: Padding(
                 padding: EdgeInsets.only(left: 12),
                 child: NavIconButton(
-                    icon: MingCuteIcons.leftLine,
-                    color: Color(0xFF09244B)),
+                    icon: MingCuteIcons.leftLine, color: Color(0xFF09244B)),
               ),
             ),
             // 标题两侧预留 48（避开左侧返回按钮），超长单行省略不压图标
@@ -154,10 +153,13 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   // —— 轴网多点校准状态（支持 3+ 点最小二乘拟合）——
   _CalibPhase _calibPhase = _CalibPhase.idle;
+
   /// 已收集的点对（像素坐标 + 真实图纸坐标 mm）。
   List<CalibPointPair> _calibPairs = [];
+
   /// 拟合后每点残差（mm），用于在图上标注哪些点偏差大。
   List<double>? _calibResiduals;
+
   /// 拟合平均残差。
   double? _calibMeanResidual;
   AxisGrid? _axisGrid; // 自动检测的轴线（"红线"），叠加显示辅助点选
@@ -310,7 +312,12 @@ class _ViewerState extends ConsumerState<_Viewer> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('跳转到：${target?.title ?? h.target}',
-              style: const TextStyle(fontSize: 14, color: AppTokens.muted)),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: AppTokens.muted,
+              )),
           const SizedBox(height: AppTokens.space4),
           AppSheetFooter.cancelSave(
             cancelLabel: '取消',
@@ -362,14 +369,14 @@ class _ViewerState extends ConsumerState<_Viewer> {
         children: [
           const Text(
             '矢量看图使用 GStarSDK 在浏览器中渲染 CAD 原图（矢量），可无损缩放、查看图层。',
-            style: TextStyle(
-                fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
+            style:
+                TextStyle(fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
           ),
           const SizedBox(height: 8),
           const Text(
             '当前为平板 / 手机端，未集成矢量渲染能力，请改用「图层」与「校准 + 坐标」在截图底图上进行图纸定位。如需矢量看图，请在电脑浏览器打开本系统。',
-            style: TextStyle(
-                fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
+            style:
+                TextStyle(fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -385,7 +392,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
                   child: Text('知道了',
                       style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                          // 高度 48 的主按钮统一使用 W600。
+                          fontWeight: FontWeight.w600,
                           height: 24 / 16,
                           color: AppTokens.onAccent)),
                 ),
@@ -402,9 +410,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
   Future<void> _openCalibrationDialog() async {
     final d = widget.d;
     // 弹窗预填优先级：内存态（本次已粘贴/内置）→ 持久化原始 JSON → 空占位。
-    final initialText = _isCalibrated
-        ? _jsonOfCurrent()
-        : (_persistedRawJson ?? '');
+    final initialText =
+        _isCalibrated ? _jsonOfCurrent() : (_persistedRawJson ?? '');
     final controller = TextEditingController(text: initialText);
     final result = await AppBottomSheet.show<String>(
       context: context,
@@ -457,8 +464,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
       } catch (_) {}
       if (mapper == null) {
         if (!mounted) return;
-        AppSnack.show(context, '校准参数格式无效，请检查 JSON',
-            kind: AppSnackKind.danger);
+        AppSnack.show(context, '校准参数格式无效，请检查 JSON', kind: AppSnackKind.danger);
         return;
       }
     }
@@ -472,8 +478,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     _persistedRawJson = result == 'BUILTIN' ? null : result;
     if (!mounted) return;
     setState(() {});
-    AppSnack.show(context, '校准已保存，图纸坐标定位已生效',
-        kind: AppSnackKind.success);
+    AppSnack.show(context, '校准已保存，图纸坐标定位已生效', kind: AppSnackKind.success);
   }
 
   /// 清除本图纸校准，回到内置演示坐标系（校准库同步移除）。
@@ -483,8 +488,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     _persistedRawJson = null;
     if (!mounted) return;
     setState(() {});
-    AppSnack.show(context, '已清除校准，回到内置演示坐标系',
-        kind: AppSnackKind.muted);
+    AppSnack.show(context, '已清除校准，回到内置演示坐标系', kind: AppSnackKind.muted);
   }
 
   /// 开始"图上多点校准"：进入轴网拾取模式，并异步识别轴线（红线）辅助点选。
@@ -586,21 +590,24 @@ class _ViewerState extends ConsumerState<_Viewer> {
         children: [
           const Text(
             '输入该点在图纸坐标系中的真实坐标（mm）\n可从 CAD 轴号查（如轴线交点 ①-Ⓐ）',
-            style: TextStyle(fontSize: 12, color: AppTokens.muted),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              height: 22 / 14,
+              color: AppTokens.muted,
+            ),
           ),
           const SizedBox(height: 12),
           _SheetField(
             label: 'X (mm)',
             controller: xCtrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 8),
           _SheetField(
             label: 'Y (mm)',
             controller: yCtrl,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 16),
           AppSheetFooter.cancelSave(
@@ -667,11 +674,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
     final d = widget.d;
     final fit = fitAffineRobust(pairs, d.w, d.h);
     if (fit == null) {
-      AppSnack.show(
-          context,
-          pairs.length >= 3
-              ? '点共线或过少，无法解算，请增加非共线点'
-              : '两点坐标无法解算（两点太近/无跨度），请重选',
+      AppSnack.show(context,
+          pairs.length >= 3 ? '点共线或过少，无法解算，请增加非共线点' : '两点坐标无法解算（两点太近/无跨度），请重选',
           kind: AppSnackKind.danger);
       setState(() => _calibPhase = _CalibPhase.collecting);
       return;
@@ -889,8 +893,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
   /// 渲染当前图纸的坐标标注标记：小图钉 + 序号。
   /// 默认不显示坐标标签，避免遮挡图纸；点击图钉弹窗显示完整坐标。
   List<Widget> _buildAnnotationMarks(double dispW, double dispH) {
-    final list =
-        ref.watch(cadAnnotationsProvider)[widget.d.key] ?? const <CadAnnotation>[];
+    final list = ref.watch(cadAnnotationsProvider)[widget.d.key] ??
+        const <CadAnnotation>[];
     // 小图钉尺寸：随图纸缩放，但基数较小，减少遮挡。
     const pinR = 10.0;
     const tipH = 5.0;
@@ -1025,13 +1029,13 @@ class _ViewerState extends ConsumerState<_Viewer> {
             Row(
               children: [
                 Expanded(
-                  child: _sheetActionBtn('关闭', AppTokens.surface,
-                      AppTokens.fg2, () => Navigator.pop(ctx)),
+                  child: _sheetActionBtn('关闭', AppTokens.surface, AppTokens.fg2,
+                      () => Navigator.pop(ctx)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _sheetActionBtn(
-                      '删除标注', AppTokens.surface, const Color(0xFFFF4444), delete),
+                  child: _sheetActionBtn('删除标注', AppTokens.surface,
+                      const Color(0xFFFF4444), delete),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1083,7 +1087,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
         ],
       );
 
-  /// 弹窗底部操作按钮（Frame 2147228056）：高 48、圆角 8、字 16/w500。
+  /// 弹窗底部操作按钮（Frame 2147228056）：高 48、圆角 8、字 16/w600。
   Widget _sheetActionBtn(
           String label, Color bg, Color fg, VoidCallback onTap) =>
       SizedBox(
@@ -1098,7 +1102,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
               child: Text(label,
                   style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      // 高度 48 的按钮统一使用 W600。
+                      fontWeight: FontWeight.w600,
                       height: 24 / 16,
                       color: fg)),
             ),
@@ -1115,182 +1120,190 @@ class _ViewerState extends ConsumerState<_Viewer> {
           child: Stack(
             children: [
               InteractiveViewer(
-            transformationController: _controller,
-            minScale: 0.5,
-            maxScale: 4,
-            boundaryMargin: const EdgeInsets.all(20),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // BoxFit.contain：按原始宽高比在可用空间内缩放图，
-                // 这里把图放进 FittedBox 让缩放自适应，hotspot 用同一坐标系。
-                final maxW = constraints.maxWidth;
-                final maxH = constraints.maxHeight;
-                final ar = d.w / d.h;
-                double dispW = maxW;
-                double dispH = dispW / ar;
-                if (dispH > maxH) {
-                  dispH = maxH;
-                  dispW = dispH * ar;
-                }
-                // 盒子层：占满 InteractiveViewer 约束盒子，接收盒子坐标系的点击，
-                // 用于打点/锚定。localPosition ∈ [0..maxW, 0..maxH]，与
-                // CadCoordMapper.localToViewPixel 的 containedSize 语义一致。
-                return Stack(
-                  children: [
-                    // 居中的整图（图片坐标系层，含底图/热点/标注标记）
-                    Center(
-                      child: SizedBox(
-                        width: dispW,
-                        height: dispH,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            // 底图：按 contain 自然尺寸显示。
-                            // CAD/OCF 图纸：有截图底图 src 时渲染（截图底图+矢量坐标方案；
-                            // 预置图为 assets，上传图为网络 PNG——DrawingImage 自适应）。
-                            Positioned.fill(
-                              child: d.src.isNotEmpty
-                                  ? DrawingImage(
-                                      d.src,
-                                      fit: BoxFit.fill,
-                                      errorWidget: _CadPlaceholder(
-                                        ocfKey: d.cadOcfKey ?? d.key,
-                                        title: d.title,
-                                      ),
-                                    )
-                                  : _CadPlaceholder(
-                                      ocfKey: d.cadOcfKey ?? d.key,
-                                      title: d.title,
-                                    ),
-                            ),
-                            // 热点：用 (x * dispW, y * dispH) 定位，与显示像素一致
-                            ...d.hotspots.map(
-                              (h) => Positioned(
-                                left: h.x * dispW - 50,
-                                top: h.y * dispH - 14,
-                                child: GestureDetector(
-                                  onTap: () => _jumpConfirm(h),
-                                  onLongPress: _anchor,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      // 数字圆（白底 + 蓝色边框，对齐原型 dv__hotspot）
-                                      Container(
-                                        width: 28,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          color: AppTokens.surface,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                              color: AppTokens.brand, width: 2),
-                                          boxShadow: AppTokens.elevationRaised,
-                                        ),
-                                        child: Center(
-                                          child: Text('${h.num}',
-                                              style: const TextStyle(
-                                                  color: AppTokens.brand,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.bold)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      // 文字标签（白底小药丸，对齐原型 dv__label）
-                                      Flexible(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTokens.surface,
-                                            borderRadius: BorderRadius.circular(
-                                                AppTokens.radiusSm),
-                                            boxShadow:
-                                                AppTokens.elevationRaised,
+                transformationController: _controller,
+                minScale: 0.5,
+                maxScale: 4,
+                boundaryMargin: const EdgeInsets.all(20),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // BoxFit.contain：按原始宽高比在可用空间内缩放图，
+                    // 这里把图放进 FittedBox 让缩放自适应，hotspot 用同一坐标系。
+                    final maxW = constraints.maxWidth;
+                    final maxH = constraints.maxHeight;
+                    final ar = d.w / d.h;
+                    double dispW = maxW;
+                    double dispH = dispW / ar;
+                    if (dispH > maxH) {
+                      dispH = maxH;
+                      dispW = dispH * ar;
+                    }
+                    // 盒子层：占满 InteractiveViewer 约束盒子，接收盒子坐标系的点击，
+                    // 用于打点/锚定。localPosition ∈ [0..maxW, 0..maxH]，与
+                    // CadCoordMapper.localToViewPixel 的 containedSize 语义一致。
+                    return Stack(
+                      children: [
+                        // 居中的整图（图片坐标系层，含底图/热点/标注标记）
+                        Center(
+                          child: SizedBox(
+                            width: dispW,
+                            height: dispH,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                // 底图：按 contain 自然尺寸显示。
+                                // CAD/OCF 图纸：有截图底图 src 时渲染（截图底图+矢量坐标方案；
+                                // 预置图为 assets，上传图为网络 PNG——DrawingImage 自适应）。
+                                Positioned.fill(
+                                  child: d.src.isNotEmpty
+                                      ? DrawingImage(
+                                          d.src,
+                                          fit: BoxFit.fill,
+                                          errorWidget: _CadPlaceholder(
+                                            ocfKey: d.cadOcfKey ?? d.key,
+                                            title: d.title,
                                           ),
-                                          child: Text(
-                                            h.label,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                                fontSize: 10,
-                                                color: AppTokens.fg),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // 坐标标注标记
-                            ..._buildAnnotationMarks(dispW, dispH),
-                            // 轴网校准叠加层：红线 + 已选点
-                            if (_calibPhase != _CalibPhase.idle)
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: _AxisOverlayPainter(
-                                    grid: _axisGrid,
-                                    imgW: widget.d.w,
-                                    imgH: widget.d.h,
-                                    points: [
-                                      for (final p in _calibPairs)
-                                        Offset(
-                                          p.pixel.dx / widget.d.w * dispW,
-                                          p.pixel.dy / widget.d.h * dispH,
                                         )
-                                    ],
-                                    residuals: _calibResiduals,
+                                      : _CadPlaceholder(
+                                          ocfKey: d.cadOcfKey ?? d.key,
+                                          title: d.title,
+                                        ),
+                                ),
+                                // 热点：用 (x * dispW, y * dispH) 定位，与显示像素一致
+                                ...d.hotspots.map(
+                                  (h) => Positioned(
+                                    left: h.x * dispW - 50,
+                                    top: h.y * dispH - 14,
+                                    child: GestureDetector(
+                                      onTap: () => _jumpConfirm(h),
+                                      onLongPress: _anchor,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          // 数字圆（白底 + 蓝色边框，对齐原型 dv__hotspot）
+                                          Container(
+                                            width: 28,
+                                            height: 28,
+                                            decoration: BoxDecoration(
+                                              color: AppTokens.surface,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                  color: AppTokens.brand,
+                                                  width: 2),
+                                              boxShadow:
+                                                  AppTokens.elevationRaised,
+                                            ),
+                                            child: Center(
+                                              child: Text('${h.num}',
+                                                  style: const TextStyle(
+                                                      color: AppTokens.brand,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          // 文字标签（白底小药丸，对齐原型 dv__label）
+                                          Flexible(
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTokens.surface,
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        AppTokens.radiusSm),
+                                                boxShadow:
+                                                    AppTokens.elevationRaised,
+                                              ),
+                                              child: Text(
+                                                h.label,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppTokens.fg),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
+                                // 坐标标注标记
+                                ..._buildAnnotationMarks(dispW, dispH),
+                                // 轴网校准叠加层：红线 + 已选点
+                                if (_calibPhase != _CalibPhase.idle)
+                                  Positioned.fill(
+                                    child: CustomPaint(
+                                      painter: _AxisOverlayPainter(
+                                        grid: _axisGrid,
+                                        imgW: widget.d.w,
+                                        imgH: widget.d.h,
+                                        points: [
+                                          for (final p in _calibPairs)
+                                            Offset(
+                                              p.pixel.dx / widget.d.w * dispW,
+                                              p.pixel.dy / widget.d.h * dispH,
+                                            )
+                                        ],
+                                        residuals: _calibResiduals,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    // 校准模式提示条
-                    if (_calibPhase != _CalibPhase.idle)
-                      Positioned(
-                        left: 12,
-                        right: 12,
-                        top: 10,
-                        child: _CalibHintBar(
-                          phase: _calibPhase,
-                          detecting: _detectingAxis,
-                          pointCount: _calibPairs.length,
-                          meanResidual: _calibMeanResidual,
-                          onCancel: _cancelAxisCalibration,
-                          onFinish: _calibPairs.length >= 3
-                              ? _finishAxisCalibration
-                              : null,
-                        ),
-                      ),
-                    // 盒子层打点/锚定：覆盖全盒子，拾取/校准模式下点击
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onLongPress: _anchor,
-                        onTapUp: _calibPhase != _CalibPhase.idle
-                            ? (details) {
-                                // 校准模式：优先响应（避免与坐标拾取冲突）
-                                final local = details.localPosition;
-                                _handleCalibTap(local, dispW, dispH, maxW, maxH);
-                              }
-                            : ref.watch(cadPickModeProvider)
+                        // 校准模式提示条
+                        if (_calibPhase != _CalibPhase.idle)
+                          Positioned(
+                            left: 12,
+                            right: 12,
+                            top: 10,
+                            child: _CalibHintBar(
+                              phase: _calibPhase,
+                              detecting: _detectingAxis,
+                              pointCount: _calibPairs.length,
+                              meanResidual: _calibMeanResidual,
+                              onCancel: _cancelAxisCalibration,
+                              onFinish: _calibPairs.length >= 3
+                                  ? _finishAxisCalibration
+                                  : null,
+                            ),
+                          ),
+                        // 盒子层打点/锚定：覆盖全盒子，拾取/校准模式下点击
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onLongPress: _anchor,
+                            onTapUp: _calibPhase != _CalibPhase.idle
                                 ? (details) {
-                                    // 盒子坐标系点击（localPosition 已被 Transform 自动反变换，
-                                    // 不能再乘变换矩阵）。传图片显示尺寸与盒子尺寸。
+                                    // 校准模式：优先响应（避免与坐标拾取冲突）
                                     final local = details.localPosition;
-                                    _pickAnnotation(local, dispW, dispH, maxW, maxH);
+                                    _handleCalibTap(
+                                        local, dispW, dispH, maxW, maxH);
                                   }
-                                : null,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
+                                : ref.watch(cadPickModeProvider)
+                                    ? (details) {
+                                        // 盒子坐标系点击（localPosition 已被 Transform 自动反变换，
+                                        // 不能再乘变换矩阵）。传图片显示尺寸与盒子尺寸。
+                                        final local = details.localPosition;
+                                        _pickAnnotation(
+                                            local, dispW, dispH, maxW, maxH);
+                                      }
+                                    : null,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
               Positioned(
                 right: 12,
                 bottom: 40,
@@ -1463,7 +1476,9 @@ class _HotspotPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 12, height: 20 / 12, color: Color(0xFF60656B))),
+                        fontSize: 12,
+                        height: 20 / 12,
+                        color: Color(0xFF60656B))),
               ),
             ],
           ),
@@ -1494,17 +1509,15 @@ class _BottomBtn extends StatelessWidget {
             children: [
               Icon(icon,
                   size: 24,
-                  color: active
-                      ? AppTokens.brand
-                      : const Color(0xFF202224)),
+                  color: active ? AppTokens.brand : const Color(0xFF202224)),
               const SizedBox(height: 4),
               Text(label,
                   style: TextStyle(
                       fontSize: 12,
+                      fontWeight: FontWeight.w600,
                       height: 20 / 12,
-                      color: active
-                          ? AppTokens.brand
-                          : const Color(0xFF60656B))),
+                      color:
+                          active ? AppTokens.brand : const Color(0xFF60656B))),
             ],
           ),
         ),
@@ -1518,9 +1531,7 @@ class _ZoomFab extends StatelessWidget {
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
   const _ZoomFab(
-      {required this.onZoomIn,
-      required this.onZoomOut,
-      required this.onReset});
+      {required this.onZoomIn, required this.onZoomOut, required this.onReset});
 
   @override
   Widget build(BuildContext context) => Column(
@@ -1603,9 +1614,8 @@ class _AxisOverlayPainter extends CustomPainter {
     }
     // 已选点：按序号标号；残差大（>50mm）的显示为红色警示
     for (var i = 0; i < points.length; i++) {
-      final r = residuals != null && i < residuals!.length
-          ? residuals![i]
-          : null;
+      final r =
+          residuals != null && i < residuals!.length ? residuals![i] : null;
       final bad = r != null && r > 50;
       _drawPoint(canvas, points[i], '${i + 1}', bad: bad, residual: r);
     }
@@ -1627,9 +1637,7 @@ class _AxisOverlayPainter extends CustomPainter {
       text: TextSpan(
           text: label,
           style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: Colors.white)),
+              fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white)),
       textDirection: TextDirection.ltr,
     )..layout();
     canvas.drawCircle(p, 5, Paint()..color = c);
@@ -1702,9 +1710,7 @@ class _CalibHintBar extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            detecting
-                ? MingCuteIcons.loadingLine
-                : MingCuteIcons.mapPinLine,
+            detecting ? MingCuteIcons.loadingLine : MingCuteIcons.mapPinLine,
             size: 14,
             color: AppTokens.brand,
           ),
@@ -1790,8 +1796,7 @@ class _CadPlaceholder extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppTokens.space6),
               child: Text('OCF: $ocfKey',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      fontSize: 12, color: AppTokens.muted)),
+                  style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
             ),
             const SizedBox(height: AppTokens.space4),
             Container(
@@ -1839,14 +1844,14 @@ class _CalibrationSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 说明文字（12/W400/#60656B，随宽度自动换行）
+          // 说明文字统一为 14 / 22 / W400，随宽度自动换行。
           const Text(
             '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。'
             '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。',
             style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w400,
-                height: 20 / 12,
+                height: 22 / 14,
                 color: AppTokens.fg2),
           ),
           const SizedBox(height: 12),
@@ -1997,7 +2002,8 @@ class _CalibBtn extends StatelessWidget {
               child: Text(label,
                   style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      // 高度 48 的按钮统一使用 W600。
+                      fontWeight: FontWeight.w600,
                       height: 24 / 16,
                       color: foreground)),
             ),
@@ -2022,8 +2028,8 @@ class _SheetField extends StatelessWidget {
           const SizedBox(height: 6),
           Container(
             decoration: BoxDecoration(
-            color: AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              color: AppTokens.surface,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             ),
             child: TextField(
               controller: controller,
