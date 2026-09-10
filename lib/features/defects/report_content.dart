@@ -191,6 +191,18 @@ final class RoomBlock extends ReportBlock {
   String get title => '量房记录：${record.name}';
 }
 
+/// 尺寸校对汇总（拍照量尺 / AR 实测，按项目独立成章）。
+///
+/// 独立于量房记录：某图纸只量了尺、没做量房时，结果同样要能进报告。
+final class ChecksBlock extends ReportBlock {
+  ChecksBlock(this.checks);
+
+  final List<MeasureCheck> checks;
+
+  @override
+  String get title => '尺寸校对（拍照量尺 / AR 实测）';
+}
+
 /// 按周报版式排出正文板块顺序，并剔除无实质内容的板块。
 ///
 /// 剔除规则（与 HTML 端一致，P0）：
@@ -224,6 +236,9 @@ List<ReportBlock> buildReportBlocks(WeeklyReport report) {
   for (final r in report.roomScans) {
     blocks.add(RoomBlock(r));
   }
+
+  // 尺寸校对汇总：独立成章（不依附量房记录，避免"只量尺没量房"时丢数据）。
+  if (report.checks.isNotEmpty) blocks.add(ChecksBlock(report.checks));
 
   // 巡场小结（0902 任务5b）：App 内手填，排在巡场清单之后。
   if (report.patrolSummary.trim().isNotEmpty) {

@@ -6,6 +6,7 @@
 library;
 
 import '../../data/models.dart';
+import '../../data/weekly_report.dart' show MeasureCheck;
 import 'mm_format.dart';
 
 /// 测量方式显示名（`MeasureItem.source` / `RoomScanRecord.source`）。
@@ -62,6 +63,49 @@ const List<String> kCheckTableHeaders = [
   '判定',
   '测量方式',
 ];
+
+/// 报告独立章节用表头（多一列「来源图纸」，便于跨图纸汇总时溯源）。
+const List<String> kCheckTableHeadersWithSource = [
+  '来源图纸',
+  '校对项',
+  '实测（含误差带）',
+  '图纸尺寸',
+  '偏差',
+  '判定',
+  '测量方式',
+];
+
+/// 带来源图纸的表格行（与 [kCheckTableHeadersWithSource] 一一对应）。
+List<String> measureCheckRowWithSource(
+  MeasureCheck c,
+) =>
+    [c.drawingLabel, ...measureCheckRow(c.item, tolMm: c.tolMm, tolPct: c.tolPct)];
+
+/// 汇总口径统计：合格 / 超差 / 需复核 三档计数。
+///
+/// 「需复核」= 误差带 > 容差/3（测量不确定度规约），与 App 内判定完全同源。
+({int ok, int fail, int review, int total}) summarizeChecks(
+  List<MeasureCheck> checks,
+) {
+  var ok = 0, fail = 0, review = 0;
+  for (final c in checks) {
+    final v = measureVerdictText(c.item, c.tolMm, c.tolPct);
+    if (v.startsWith('合格')) {
+      ok++;
+    } else if (v.startsWith('超差')) {
+      fail++;
+    } else {
+      review++;
+    }
+  }
+  return (ok: ok, fail: fail, review: review, total: checks.length);
+}
+
+/// 汇总行文案（四端共用）：`共 5 项：合格 2 · 超差 1 · 需复核 2`。
+String checksSummaryText(List<MeasureCheck> checks) {
+  final s = summarizeChecks(checks);
+  return '共 ${s.total} 项：合格 ${s.ok} · 超差 ${s.fail} · 需复核 ${s.review}';
+}
 
 /// 表格行（与 [kCheckTableHeaders] 一一对应）。
 List<String> measureCheckRow(

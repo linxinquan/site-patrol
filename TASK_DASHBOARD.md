@@ -73,6 +73,10 @@ AR 多点测量+批量保存 / AR 黑屏修复+删除假估算页 / 拍照记录
   - **AR 系统偏差校正 + 距离门控**：新增 `core/storage/ar_scale_calibration.dart`（k = 真值/实测中位，偏差 >15% 判为测错）；AR 页文案把「重复性 ±mm」与「准确度」分开；原生上报 `depthMm`，超 5m 丢弃读数、超 0.3~3m 最佳区间提示（iOS 侧 [待真机]）
   - **报告四端同步**：新增 `core/utils/measure_labels.dart`（列名/行内容唯一来源），HTML/PDF/DOCX 出「尺寸校对」表、XLSX 出单行摘要，四端一律带**误差带 + 测量方式 + 判定**；量房保存时自动挂接该图纸的量尺清单为 `checks`；修复 `MeasureStore` 漏存 `errorMm` 的缺陷
   - 测试：`test/homography_test.dart`(9) + `test/vision_grid_test.dart`(3) + `test/measure_targets_test.dart`(13) + 四端同步断言（`room_export_compat_test` 新增 4 例）
+- 2026-09-10 量尺清单独立成章 + 实测包：
+  - **尺寸校对独立章节**：`WeeklyReport.checks`（`MeasureCheck` 带来源图纸与该会话容差）→ `ChecksBlock` → HTML/PDF/DOCX 出「来源图纸 + 6 列」表、XLSX 出独立「尺寸校对」sheet，**四端含汇总口径**（合格/超差/需复核计数）；`defects_page._checksOf` 按项目图纸逐个读量尺会话注入（存储层无前缀列举能力）
+  - **真机实测包**：`MEASURE_FIELD_TEST_KIT.md`（20 组样本矩阵、记录表/CSV、判定阈值、常见坑、iPhone Pro 对比组）
+  - 测试：四端独立章节断言 5 例（`room_export_compat_test`）
 - 2026-09-08 第4轮：量尺 P1-1~P4 / P2-1~3 落地（P1-5 涉云端端口待部署确认）；巡场 GPS 轨迹采集（geolocator）；尺寸 UI 显示取整（mm 整数、% 留 1 位）；**实现「自动锚零输入量尺」**（`anchor_objects` 尺寸库 + `vision_service.detectAnchor` + 自动标定/手动兜底，全机型、免手填参考物）——详见 `ANDROID_AR_RESEARCH.md` §6；Web 构建通过
 - 2026-09-09 账号交接轮（依 `CODEBUDDY_SWITCH_FIX.md` §4）：WIP 全量固化 `fa7d9e0`（22 文件 +975/−56）；`flutter analyze` 仍因中文路径崩溃（exit 255，环境问题）→ 改用 `dart analyze lib` 得 **0 error / 7 warning / 133 info**；13 项回归核查表**全部「在」**；AR iOS 原生只读走查通过；Web 构建通过；量尺 Web 端 6 项实测**待人工执行**（需真实照片与打点）
 - 2026-09-09 需求收敛（iPhone 纯手机 + 判定级复核记录）：AR 量尺升级为**同边重复采样 + 误差带判定**——`MeasureItem` 新增 `errorMm`（判定门控 1/3 规约 `canJudge`）；`measure_math` 增 `medianOf`/`spreadHalfRange`/`canJudgeByError`；AR 页改「多测几次 → 采纳本组(中位±误差) → 逐组判定/需复核」；测量误差带随项进报告与共享清单；约束：≥2m 距离手机读数无法达到 GB 验收精度，UI 已诚实标注"需复核"

@@ -134,6 +134,12 @@ class WeeklyReport {
   /// 量房记录（ROOM_MEASURE_IMPL §8：随报告导出，含户型图尺寸表；默认空）。
   final List<RoomScanRecord> roomScans;
 
+  /// 量尺校对清单（拍照量尺 / AR 实测，按项目汇总；默认空）。
+  ///
+  /// 与量房记录里的 checks 不同：这里是**独立章节**，即使某图纸没做量房，
+  /// 只要量过尺就能进报告（否则量尺结果只能依附量房记录出现，容易漏）。
+  final List<MeasureCheck> checks;
+
   const WeeklyReport({
     required this.project,
     required this.title,
@@ -148,6 +154,7 @@ class WeeklyReport {
     this.defects = const [],
     this.patrolSummary = '',
     this.roomScans = const [],
+    this.checks = const [],
   });
 
   /// 有内容的待协调问题。
@@ -178,6 +185,7 @@ class WeeklyReport {
     List<Defect> d, {
     String? patrolSummary,
     List<RoomScanRecord>? roomScans,
+    List<MeasureCheck>? checks,
   }) =>
       WeeklyReport(
         project: project,
@@ -193,7 +201,30 @@ class WeeklyReport {
         defects: d,
         patrolSummary: patrolSummary ?? this.patrolSummary,
         roomScans: roomScans ?? this.roomScans,
+        checks: checks ?? this.checks,
       );
+}
+
+/// 报告用的一条量尺校对结果。
+///
+/// 携带**来源图纸**与**该会话的容差**：判定口径必须与 App 内一致，
+/// 否则报告会与现场看到的结论不同（同一份数据两种判定是最忌讳的）。
+class MeasureCheck {
+  /// 来源图纸标题（无图名时用 key），用于报告里区分是哪张图量的。
+  final String drawingLabel;
+
+  final MeasureItem item;
+
+  /// 会话容差（mm / %），默认 15 / 2。
+  final double tolMm;
+  final double tolPct;
+
+  const MeasureCheck({
+    required this.drawingLabel,
+    required this.item,
+    this.tolMm = 15,
+    this.tolPct = 2,
+  });
 }
 
 /// 照片分组：同一施工内容（+ 同一日期）下的多张现场照片。

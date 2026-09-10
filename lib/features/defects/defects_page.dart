@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/storage/local_storage.dart';
+import '../../core/storage/measure_store.dart';
 import '../../core/utils/open_web.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
@@ -443,6 +444,37 @@ class DefectsPage extends ConsumerWidget {
     }
   }
 
+  /// 当前项目各图纸的量尺校对清单（拍照量尺 / AR 实测）。
+  ///
+  /// 量尺会话的存储键是 `measure:<projectKey>:<drawingKey>`，存储层没有
+  /// 「按前缀列举」能力，因此按项目图纸列表逐个读取——图纸数量有限（每项目
+  /// 通常几张），开销可接受；读取失败不阻断导出，静默跳过该图纸。
+  Future<List<MeasureCheck>> _checksOf(WidgetRef ref) async {
+    final pid = ref.read(currentProjectIdProvider);
+    if (pid == null || pid.isEmpty) return const [];
+    final drawings = ref.read(drawingsProvider).valueOrNull ?? const {};
+    final out = <MeasureCheck>[];
+    for (final e in drawings.entries) {
+      MeasureSession? s;
+      try {
+        s = await MeasureStore.load(pid, e.key);
+      } catch (_) {
+        continue;
+      }
+      if (s == null || s.items.isEmpty) continue;
+      final label = e.value.title.trim().isEmpty ? e.key : e.value.title.trim();
+      for (final item in s.items) {
+        out.add(MeasureCheck(
+          drawingLabel: label,
+          item: item,
+          tolMm: s.tolMm,
+          tolPct: s.tolPct,
+        ));
+      }
+    }
+    return out;
+  }
+
   /// 生成 + 导出（含格式转换与字体加载；PDF 首次解析字体约 7MB）。
   Future<void> _runExport(
     BuildContext context,
@@ -468,7 +500,9 @@ class DefectsPage extends ConsumerWidget {
     final report = ref
         .read(weeklyReportProvider)
         .copyWithDefects(filtered,
-            patrolSummary: patrolSummary, roomScans: await _roomScansOf(ref));
+            patrolSummary: patrolSummary,
+            roomScans: await _roomScansOf(ref),
+            checks: await _checksOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     if (!context.mounted) return;
     final baseName =
@@ -578,7 +612,9 @@ class DefectsPage extends ConsumerWidget {
     final report = ref
         .read(weeklyReportProvider)
         .copyWithDefects(filtered,
-            patrolSummary: patrolSummary, roomScans: await _roomScansOf(ref));
+            patrolSummary: patrolSummary,
+            roomScans: await _roomScansOf(ref),
+            checks: await _checksOf(ref));
     final photoBytes = await _loadPhotoBytes(report);
     final html = buildWeeklyReportHtml(
       report,

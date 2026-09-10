@@ -218,6 +218,7 @@ List<pw.Widget> _chapter(
     IssuesBlock() => _issues(block.items),
     DefectsBlock() => _defects(block.defects, photoBytes),
     RoomBlock() => _roomBlock(block.record),
+    ChecksBlock() => _checksBlock(block.checks),
   };
 
   return [head, ...body];
@@ -483,6 +484,35 @@ List<pw.Widget> _roomBlock(RoomScanRecord r) {
     ),
   ];
 }
+
+/// 尺寸校对汇总（独立章节）：汇总口径 + 明细表（含误差带与测量方式）。
+List<pw.Widget> _checksBlock(List<MeasureCheck> checks) => [
+      pw.Text(checksSummaryText(checks), style: _ts(size: 8.5, color: _fg2)),
+      pw.SizedBox(height: 3),
+      pw.Table(
+        border: _gridBorder(),
+        columnWidths: const {
+          0: pw.FlexColumnWidth(1.1),
+          1: pw.FlexColumnWidth(1.4),
+          2: pw.FlexColumnWidth(1.2),
+          3: pw.FlexColumnWidth(1.0),
+          4: pw.FlexColumnWidth(1.2),
+          5: pw.FlexColumnWidth(1.1),
+          6: pw.FlexColumnWidth(1.1),
+        },
+        children: [
+          pw.TableRow(children: [
+            for (final h in kCheckTableHeadersWithSource)
+              _th(h, align: pw.Alignment.center),
+          ]),
+          for (final c in checks)
+            pw.TableRow(children: [
+              for (final v in measureCheckRowWithSource(c))
+                _cell(v, align: pw.Alignment.center),
+            ]),
+        ],
+      ),
+    ];
 
 List<pw.Widget> _issues(List<WeeklyIssue> items) => [
       pw.Table(

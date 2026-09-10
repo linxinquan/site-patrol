@@ -35,6 +35,7 @@ Uint8List buildWeeklyReportXlsx(
   book.summarySheet(report, stats, reporter, generatedAt);
   book.defectSheet(report, stats);
   if (report.roomScans.isNotEmpty) book.roomSheet(report);
+  if (report.checks.isNotEmpty) book.checkSheet(report);
   return book.build();
 }
 
@@ -170,6 +171,33 @@ class _XlsxBook {
       }
     }
     _sheets.add(_Sheet('量房记录', rows, cols: const [18, 12, 12, 24]));
+  }
+
+  /// 尺寸校对汇总（独立 sheet）：表头/行内容与 HTML/PDF/DOCX 端同源
+  /// （`kCheckTableHeadersWithSource` + `measureCheckRowWithSource`）。
+  void checkSheet(WeeklyReport r) {
+    final rows = <_Row>[];
+    var idx = 1;
+    rows.add(_Row(idx++, [
+      _c('尺寸校对（拍照量尺 / AR 实测）', _sTitle),
+      for (var i = 1; i < kCheckTableHeadersWithSource.length; i++)
+        _c('', _sTitle),
+    ]));
+    rows.add(_Row(idx++, [
+      _c(checksSummaryText(r.checks), _sGroup),
+      for (var i = 1; i < kCheckTableHeadersWithSource.length; i++)
+        _c('', _sGroup),
+    ]));
+    rows.add(_Row(idx++, [
+      for (final h in kCheckTableHeadersWithSource) _c(h, _sHeader),
+    ]));
+    for (final c in r.checks) {
+      rows.add(_Row(idx++, [
+        for (final v in measureCheckRowWithSource(c)) _c(v, _sCell),
+      ]));
+    }
+    _sheets.add(
+        _Sheet('尺寸校对', rows, cols: const [18, 16, 16, 12, 16, 14, 14]));
   }
 
   void defectSheet(WeeklyReport r, ReportStats s) {

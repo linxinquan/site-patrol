@@ -178,6 +178,8 @@ class _DocxDoc {
         _defects(block.defects);
       case RoomBlock():
         _room(block.record);
+      case ChecksBlock():
+        _checks(block.checks);
     }
   }
 
@@ -372,6 +374,29 @@ class _DocxDoc {
           ],
       ]));
     }
+    _body.write(_spacer(120));
+  }
+
+  /// 尺寸校对汇总（独立章节）：汇总口径 + 明细表（含误差带与测量方式）。
+  void _checks(List<MeasureCheck> checks) {
+    _body.write(_table([_contentW], [
+      [
+        _Cell(_p(_r(checksSummaryText(checks), color: '60656B'), after: 0),
+            shade: 'F4F6F7'),
+      ],
+    ]));
+    _body.write(_table(_evenCols(7), [
+      [
+        for (final h in kCheckTableHeadersWithSource)
+          _Cell(_p(_r(h, bold: true, color: '60656B'), after: 0),
+              shade: 'F4F6F7'),
+      ],
+      for (final c in checks)
+        [
+          for (final v in measureCheckRowWithSource(c))
+            _Cell(_p(_r(v), after: 0)),
+        ],
+    ]));
     _body.write(_spacer(120));
   }
 

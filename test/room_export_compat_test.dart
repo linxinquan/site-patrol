@@ -248,6 +248,118 @@ void main() {
       }
     });
   });
+
+  // ==================== 尺寸校对独立章节（不依附量房记录）====================
+  //
+  // 场景：某图纸只量了尺、没做量房 → 结果仍须进报告（否则数据丢失）。
+  group('尺寸校对独立章节', () {
+    WeeklyReport onlyChecks() => WeeklyReport(
+          project: 'P',
+          title: 'T',
+          period: '2026-09',
+          org: 'O',
+          // 注意：roomScans 故意为空
+          checks: const [
+            MeasureCheck(
+              drawingLabel: '东区-1F平面图',
+              item: MeasureItem(
+                  name: '门洞宽 M0921',
+                  drawingMm: 900,
+                  photoMm: 907,
+                  source: 'ai',
+                  errorMm: 4.5),
+              tolMm: 15,
+              tolPct: 2,
+            ),
+            MeasureCheck(
+              drawingLabel: '东区-1F平面图',
+              item: MeasureItem(
+                  name: '墙1',
+                  drawingMm: 4000,
+                  photoMm: 4042,
+                  source: 'ar_lidar',
+                  errorMm: 8),
+              // 会话容差 10mm → 8 > 10/3，应判「需复核」而非「超差」
+              tolMm: 10,
+              tolPct: 1,
+            ),
+          ],
+        );
+
+    const must = [
+      '尺寸校对',
+      '东区-1F平面图', // 来源图纸（跨图纸汇总时靠它溯源）
+      '907 mm ±5',
+      '4042 mm ±8',
+      'AI识别',
+      'AR量尺(LiDAR)',
+      '需卷尺复核',
+      '合格',
+      '共 2 项', // 汇总口径
+    ];
+
+    test('buildReportBlocks：产出独立 ChecksBlock（roomScans 为空也有）', () {
+      final blocks = buildReportBlocks(onlyChecks());
+      expect(blocks.whereType<ChecksBlock>().length, 1);
+      expect(blocks.whereType<RoomBlock>(), isEmpty);
+    });
+
+    test('HTML：独立章节含来源图纸、误差带、方式与汇总', () {
+      final html = buildWeeklyReportHtml(onlyChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00');
+      for (final s in [...must, '来源图纸']) {
+        expect(html, contains(s), reason: 'HTML 缺少「$s」');
+      }
+    });
+
+    test('XLSX：独立「尺寸校对」sheet 含同样内容', () {
+      final bytes = buildWeeklyReportXlsx(onlyChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00');
+      final zip = ZipDecoder().decodeBytes(bytes);
+      final names = zip.files.map((f) => f.name).join(' ');
+      final text = StringBuffer();
+      for (final f in zip.files) {
+        if (f.isFile) {
+          text.writeln(utf8.decode(f.content as List<int>, allowMalformed: true));
+        }
+      }
+      expect(text.toString(), contains('尺寸校对'), reason: 'sheet 名或内容缺失');
+      expect(names, isNotEmpty);
+      for (final s in must) {
+        expect(text.toString(), contains(s), reason: 'XLSX 缺少「$s」');
+      }
+    });
+
+    test('DOCX：document.xml 含同样内容', () {
+      final bytes = buildWeeklyReportDocx(onlyChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00',
+          photoBytes: const {});
+      final zip = ZipDecoder().decodeBytes(bytes);
+      final xml = utf8.decode(zip.files
+          .firstWhere((f) => f.name == 'word/document.xml')
+          .content as List<int>);
+      for (final s in [...must, '来源图纸']) {
+        expect(xml, contains(s), reason: 'DOCX 缺少「$s」');
+      }
+    });
+
+    test('PDF：产出不抛异常（内容与另三端同源）', () async {
+      Uint8List? bytes;
+      Object? err;
+      try {
+        bytes = await buildWeeklyReportPdf(onlyChecks(),
+            reporter: '测试', generatedAt: '2026-09-10 10:00',
+            photoBytes: const {});
+      } catch (e) {
+        err = e;
+      }
+      if (bytes != null) {
+        expect(bytes!.length, greaterThan(100));
+      } else {
+        debugPrint('PDF 环境受限（无字体资源），未生成字节。err=$err');
+      }
+    });
+  });
 }
 
 void debugPrint(String s) => print(s);

@@ -122,6 +122,11 @@ String buildWeeklyReportHtml(
     chapters.add(_roomSection(report.roomScans));
   }
 
+  // ===== 尺寸校对汇总（独立章节，与 PDF/DOCX/XLSX 端保持一致）=====
+  if (report.checks.isNotEmpty) {
+    chapters.add(_checksSection(report.checks));
+  }
+
   buf.writeln('<!DOCTYPE html>');
   buf.writeln('<html lang="zh-CN">');
   buf.writeln('<head>');
@@ -311,6 +316,23 @@ String _progressDetail(String detail) {
     sb.writeln('</div>');
   }
   return (title: '量房记录', body: sb.toString());
+}
+
+/// 尺寸校对汇总（独立章节）：汇总口径 + 逐条明细（含误差带与测量方式）。
+({String title, String body}) _checksSection(List<MeasureCheck> checks) {
+  final sb = StringBuffer();
+  sb.writeln('<div class="checks-block">');
+  sb.writeln('<p class="checks-summary">${_esc(checksSummaryText(checks))}'
+      '（「需复核」= 测量误差带大于容差 1/3，不下合格/超差结论）</p>');
+  sb.writeln('<table class="report-table"><thead><tr>'
+      '${kCheckTableHeadersWithSource.map((h) => '<th>${_esc(h)}</th>').join()}'
+      '</tr></thead><tbody>');
+  for (final c in checks) {
+    sb.writeln(
+        '<tr>${measureCheckRowWithSource(c).map((v) => '<td>${_esc(v)}</td>').join()}</tr>');
+  }
+  sb.writeln('</tbody></table></div>');
+  return (title: '尺寸校对（拍照量尺 / AR 实测）', body: sb.toString());
 }
 
 ({String title, String body}) _issuesSection(
