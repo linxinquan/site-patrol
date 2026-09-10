@@ -8,7 +8,8 @@ class StatusBadge extends StatelessWidget {
   final String text;
   final Color color;
   final Color? bg;
-  /// 字重：默认 W700（兼容既有调用）；浅底标签规范为 12/W400，可显式传 W400。
+  /// 字重：**默认 W500**（全局标签规范：所有标签内的文字一律 W500）。
+  /// 个别需要强调时才显式传值（如 W600），不应再回到默认的 W700。
   final FontWeight? fontWeight;
   const StatusBadge({
     super.key,
@@ -30,7 +31,7 @@ class StatusBadge extends StatelessWidget {
           style: TextStyle(
               color: color,
               fontSize: 12,
-              fontWeight: fontWeight ?? FontWeight.w700),
+              fontWeight: fontWeight ?? FontWeight.w500),
         ),
       );
 }

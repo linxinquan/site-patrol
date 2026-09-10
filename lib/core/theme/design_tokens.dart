@@ -84,11 +84,16 @@ class AppTokens {
 
   // —— 按钮三档（高度为权威值：文字在固定高度内垂直居中，不再由上下 padding 撑高）——
   static const double buttonH_lg = 48; // 大按钮高度（严格 48）
-  static const double buttonH_md = 36; // 中按钮高度（默认档）
+  static const double buttonH_md = 40; // 中按钮高度（默认档）
   static const double buttonH_sm = 32; // 小按钮高度
   static const double buttonPadX_lg = 24; // 大按钮左右 padding 下限
   static const double buttonPadX_md = 12; // 中按钮左右 padding 下限
   static const double buttonPadX_sm = 12; // 小按钮左右 padding 下限
+
+  // —— 按钮文字字重：按档位区分，层级越高越重（lg/md 同档，为最轻的强调档）——
+  static const FontWeight buttonWeightLg = FontWeight.w600;
+  static const FontWeight buttonWeightMd = FontWeight.w600;
+  static const FontWeight buttonWeightSm = FontWeight.w500;
 
   // —— 阴影（按设计规范：所有卡片取消投影、统一扁平化，令牌置空）——
   static List<BoxShadow> get elevationRaised => const [];

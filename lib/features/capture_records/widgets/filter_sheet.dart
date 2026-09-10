@@ -131,7 +131,7 @@ class _Chip extends StatelessWidget {
           child: Text(label,
               style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: selected ? AppTokens.onAccent : AppTokens.fg)),
         ),
       ),

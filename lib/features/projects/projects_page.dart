@@ -711,7 +711,7 @@ class _UploadedDrawingsSection extends ConsumerWidget {
                     child: Text(label,
                         style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: color)),
                   ),
                 ],
@@ -948,7 +948,7 @@ class _DwgLoadingTile extends StatelessWidget {
 }
 
 /// 楼层图纸行内标签（CSS Frame 2131330663 / 0617 系列）：
-/// 实色浅底、圆角 6、12/W400、行高 20。
+/// 实色浅底、圆角 6、12/W500、行高 20（全局标签规范：标签内文字一律 W500）。
 class _Tag extends StatelessWidget {
   final String text;
   final Color bg;
@@ -965,7 +965,7 @@ class _Tag extends StatelessWidget {
         child: Text(text,
             style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w500,
                 height: 20 / 12,
                 leadingDistribution: TextLeadingDistribution.even,
                 color: fg)),

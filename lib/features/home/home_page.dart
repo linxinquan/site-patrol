@@ -633,9 +633,10 @@ class _MilestoneCard extends StatelessWidget {
               children: statusLabel.split('').map((c) => Text(
                 c,
                 textAlign: TextAlign.center,
+                // 竖排状态标签：标签内文字一律 W500
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w500,
                   height: 18 / 12,
                   color: statusColor,
                 ),
@@ -1089,7 +1090,7 @@ Widget _person(String name) => Row(
       ],
     );
 
-/// 分类标签（主色 5% 浅底 / 主色字，12/W400，高 20，圆角 6）。
+/// 分类标签（主色 5% 浅底 / 主色字，12/W500，高 20，圆角 6）。
 Widget _catTag(DefectCategory c) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       height: 20,
@@ -1103,7 +1104,7 @@ Widget _catTag(DefectCategory c) => Container(
               fontSize: 12, height: 20 / 12, forceStrutHeight: true),
           style: const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               height: 20 / 12,
               leadingDistribution: TextLeadingDistribution.even,
               color: AppTokens.brand)),
@@ -1143,7 +1144,9 @@ Widget _statusTag(DefectStatus s) {
   );
 }
 
-/// 通用小标签（12/W400，圆角 6，padding 2·8）。
+/// 通用小标签（12/W500，圆角 6，padding 2·8）。
+///
+/// 全局标签规范：标签内文字一律 W500（此前为 W400，与「标签需自成强调单元」不符）。
 Widget _pillTag(String label, Color fg, Color bg) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -1156,7 +1159,7 @@ Widget _pillTag(String label, Color fg, Color bg) => Container(
               fontSize: 12, height: 20 / 12, forceStrutHeight: true),
           style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               height: 20 / 12,
               color: fg)),
     );

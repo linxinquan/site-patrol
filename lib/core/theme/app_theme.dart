@@ -98,19 +98,19 @@ ThemeData get lightTheme => ThemeData(
         // 按钮 / 强调
         labelLarge: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: AppTokens.buttonWeightLg,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelMedium: TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: AppTokens.buttonWeightSm,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelSmall: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: AppTokens.muted,
         ),
@@ -155,7 +155,9 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
-      // 按钮默认 = 中档（高度36 严格 / 左右padding≥12 / 圆角12 / 白字 / 14·w700·行高22）
+      // 按钮默认 = 中档（高度40 严格 / 左右padding≥12 / 圆角12 / 白字 / 14·w600·行高22）
+      // 字重取 AppTokens.buttonWeightMd：AppButton 的 lg/md 档统一 W600、sm 档 W500，
+      // 主题默认值对应最常见的 md 档；直接用 FilledButton/OutlinedButton 时走这里。
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppTokens.accent,
@@ -170,7 +172,7 @@ ThemeData get lightTheme => ThemeData(
           textStyle: const TextStyle(
             fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.onAccent,
@@ -191,7 +193,7 @@ ThemeData get lightTheme => ThemeData(
           textStyle: const TextStyle(
             fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.accent,
@@ -211,7 +213,7 @@ ThemeData get lightTheme => ThemeData(
           textStyle: const TextStyle(
             fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.accent,
