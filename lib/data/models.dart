@@ -788,6 +788,25 @@ class PhotoCalib {
   final double by; // 终点像素 y
   final double imgW; // 照片整图像素宽
   final double imgH; // 照片整图像素高
+
+  /// 平面单应（图像像素 → 被测平面 mm，行主序 9 元素）。
+  ///
+  /// 由「模数网格 ≥4 点」标定得到：相当于把斜拍画面矫正为正视图后再量距，
+  /// 消除两点比例法在斜拍下的透视失真（倾角越大/越远，失真越大）。
+  /// null = 未做单应标定，量距回退两点比例法（旧行为，向后兼容旧会话）。
+  final List<double>? homography;
+
+  /// 单应标定残差（mm，控制点最大偏差）。
+  /// 仅 ≥5 个控制点时才有意义——4 点是精确解，残差恒为 0，不代表精度高。
+  final double? homographyResidualMm;
+
+  /// 单应标定的已知网格跨度（mm），仅用于显示（如「600×600 网格 9 点」）。
+  final double? calibWidthMm;
+  final double? calibHeightMm;
+
+  /// 单应标定所用控制点数（0 = 未做单应标定）。
+  final int calibPoints;
+
   const PhotoCalib({
     required this.refMm,
     required this.ax,
@@ -796,7 +815,15 @@ class PhotoCalib {
     required this.by,
     required this.imgW,
     this.imgH = 0,
+    this.homography,
+    this.homographyResidualMm,
+    this.calibWidthMm,
+    this.calibHeightMm,
+    this.calibPoints = 0,
   });
+
+  /// 是否已做单应（透视校正）标定。
+  bool get hasHomography => homography != null && homography!.length == 9;
 
   /// 参考物像素跨度（2D 欧氏距离，px）。
   double get spanPx => math.sqrt(math.pow(bx - ax, 2) + math.pow(by - ay, 2));
@@ -812,6 +839,11 @@ class PhotoCalib {
     double? by,
     double? imgW,
     double? imgH,
+    List<double>? homography,
+    double? homographyResidualMm,
+    double? calibWidthMm,
+    double? calibHeightMm,
+    int? calibPoints,
   }) =>
       PhotoCalib(
         refMm: refMm ?? this.refMm,
@@ -821,6 +853,12 @@ class PhotoCalib {
         by: by ?? this.by,
         imgW: imgW ?? this.imgW,
         imgH: imgH ?? this.imgH,
+        homography: homography ?? this.homography,
+        homographyResidualMm:
+            homographyResidualMm ?? this.homographyResidualMm,
+        calibWidthMm: calibWidthMm ?? this.calibWidthMm,
+        calibHeightMm: calibHeightMm ?? this.calibHeightMm,
+        calibPoints: calibPoints ?? this.calibPoints,
       );
 
   /// 新格式序列化。
@@ -832,6 +870,11 @@ class PhotoCalib {
         'by': by,
         'imgW': imgW,
         'imgH': imgH,
+        if (homography != null) 'homography': homography,
+        if (homographyResidualMm != null) 'hResidualMm': homographyResidualMm,
+        if (calibWidthMm != null) 'calibW': calibWidthMm,
+        if (calibHeightMm != null) 'calibH': calibHeightMm,
+        if (calibPoints > 0) 'calibPts': calibPoints,
       };
 
   /// 兼容旧格式（仅 {refMm, pixA, pixB, imgW}）：旧数据 ay=by=0，
@@ -847,7 +890,23 @@ class PhotoCalib {
       by: (m['by'] as num?)?.toDouble() ?? 0,
       imgW: (m['imgW'] as num?)?.toDouble() ?? 0,
       imgH: (m['imgH'] as num?)?.toDouble() ?? 0,
+      homography: _parseHomography(m['homography']),
+      homographyResidualMm: (m['hResidualMm'] as num?)?.toDouble(),
+      calibWidthMm: (m['calibW'] as num?)?.toDouble(),
+      calibHeightMm: (m['calibH'] as num?)?.toDouble(),
+      calibPoints: (m['calibPts'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  /// 容错解析单应矩阵：非 9 元素 / 含非数值 → 视为未标定（null），不抛异常。
+  static List<double>? _parseHomography(dynamic raw) {
+    if (raw is! List || raw.length != 9) return null;
+    final out = <double>[];
+    for (final v in raw) {
+      if (v is! num) return null;
+      out.add(v.toDouble());
+    }
+    return out;
   }
 }
 

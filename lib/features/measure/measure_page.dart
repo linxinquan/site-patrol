@@ -20,6 +20,7 @@ import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/homography.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
 import '../../core/utils/anchor_objects.dart';
@@ -58,6 +59,15 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final List<Offset> _photoPicks = []; // 照片侧像素坐标
   final List<Offset> _refPicks = []; // 参考物两点（照片像素）
 
+  // —— 模数网格单应标定（透视校正，替代两点比例法）——
+  /// 是否处于「网格标定」点选状态。
+  bool _gridMode = false;
+  /// 已点选的网格交点（照片像素，行优先：从左到右、从上到下）。
+  final List<Offset> _gridPicks = [];
+  final TextEditingController _gridMmCtl = TextEditingController(text: '600');
+  final TextEditingController _gridColsCtl = TextEditingController(text: '3');
+  final TextEditingController _gridRowsCtl = TextEditingController(text: '3');
+
   // —— 会话 ——
   MeasureSession? _session;
   final TextEditingController _nameCtl = TextEditingController(text: '梁宽');
@@ -94,6 +104,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     _tolPctCtl.dispose();
     _refMmCtl.dispose();
     _drawingMmCtl.dispose();
+    _gridMmCtl.dispose();
+    _gridColsCtl.dispose();
+    _gridRowsCtl.dispose();
     _drawingTransform.dispose();
     _photoTransform.dispose();
     super.dispose();
@@ -216,7 +229,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           _photoSize = size;
           _photoPicks.clear();
           _refPicks.clear();
-          _autoCalibMsg = null;
+          _gridPicks.clear();
+          _gridMode = false;
+              _autoCalibMsg = null;
           _autoTried = false;
         });
         // 零输入目标：照片就绪即自动尝试锚物识别（失败静默，可手动重试）。
@@ -263,7 +278,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             _mapper!, _imageSize!.width, _imageSize!.height,
             a.dx, a.dy, b.dx, b.dy);
     final pa = _photoPicks[0], pb = _photoPicks[1];
-    final photoMm = photoMeasuredMm(calib, pa.dx, pa.dy, pb.dx, pb.dy);
+    // 实测值：有单应标定走透视校正，否则回退两点比例法。
+    final photoMm = photoMeasuredMmAuto(calib, pa.dx, pa.dy, pb.dx, pb.dy);
 
     final item = MeasureItem(
       name: _nameCtl.text.trim().isEmpty ? '未命名' : _nameCtl.text.trim(),
@@ -306,9 +322,13 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     setState(() {
       _session = _session!.copyWith(photoCalib: calib);
       _refPicks.clear();
+      _gridPicks.clear();
+      _gridMode = false;
+      _autoCalibMsg = null;
     });
     _persist();
-    AppSnack.show(context, '参考物标定完成：${calib.mmPerPx.toStringAsFixed(3)} mm/px');
+    AppSnack.show(context,
+        '参考物标定完成：${calib.mmPerPx.toStringAsFixed(3)} mm/px（两点比例法，未做透视校正）');
   }
 
   /// P1-4：清除照片标定（回到未标定状态，可重新标定）。
@@ -317,9 +337,111 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _session = _session!.copyWith(clearPhotoCalib: true);
       _refPicks.clear();
       _photoPicks.clear();
+      _gridPicks.clear();
+      _gridMode = false;
+      _autoCalibMsg = null;
     });
     _persist();
-    AppSnack.show(context, '已清除标定，请在照片上重新点选参考物两端');
+    AppSnack.show(context, '已清除标定，请在照片上重新标定（网格单应 或 参考物两点）');
+  }
+
+  // ——— 模数网格单应标定（透视校正主路径）———
+
+  /// 切换网格标定模式：进入后按**行优先**依次点选网格交点。
+  void _toggleGridMode() {
+    if (_photoBytes == null) {
+      AppSnack.show(context, '请先拍/选照片', kind: AppSnackKind.muted);
+      return;
+    }
+    setState(() {
+      _gridMode = !_gridMode;
+      if (_gridMode) {
+        _gridPicks.clear();
+        _refPicks.clear();
+        _photoPicks.clear();
+      }
+    });
+  }
+
+  /// 按目标点数（列×行，至少 4）能否开始标定。
+  int get _gridTarget {
+    final cols = int.tryParse(_gridColsCtl.text.trim()) ?? 3;
+    final rows = int.tryParse(_gridRowsCtl.text.trim()) ?? 3;
+    return (cols < 2 ? 2 : cols) * (rows < 2 ? 2 : rows);
+  }
+
+  /// 用已点选的网格交点求解单应并写入标定。
+  ///
+  /// 网格必须是**同一平面**上的等距交点（瓷砖缝、吊顶扣板、幕墙分格等），
+  /// 用户按行优先点选，格距与列/行数由输入框给定；点数 ≥4 即可解，
+  /// ≥5 时残差才有判别意义（4 点为精确解，残差恒 0）。
+  void _applyGridCalib() {
+    if (_photoSize == null) return;
+    final gridMm = double.tryParse(_gridMmCtl.text.trim());
+    final cols = int.tryParse(_gridColsCtl.text.trim()) ?? 0;
+    final rows = int.tryParse(_gridRowsCtl.text.trim()) ?? 0;
+    if (gridMm == null || gridMm <= 0) {
+      AppSnack.show(context, '请填写网格间距（mm）', kind: AppSnackKind.danger);
+      return;
+    }
+    if (cols < 2 || rows < 2) {
+      AppSnack.show(context, '网格列数/行数至少为 2', kind: AppSnackKind.danger);
+      return;
+    }
+    if (_gridPicks.length < 4) {
+      AppSnack.show(context, '至少点选 4 个网格交点（当前 ${_gridPicks.length} 个）',
+          kind: AppSnackKind.danger);
+      return;
+    }
+    final pairs = buildGridCorrespondences(
+      picks: _gridPicks,
+      cols: cols,
+      rows: rows,
+      gridMm: gridMm,
+    );
+    if (pairs.src.length < 4) {
+      AppSnack.show(context, '控制点不足，无法标定', kind: AppSnackKind.danger);
+      return;
+    }
+    final hom = Homography.solve(pairs.src, pairs.dst);
+    if (hom == null) {
+      AppSnack.show(context, '点位近共线或重合，无法求解；请重选更分散的网格交点',
+          kind: AppSnackKind.danger);
+      return;
+    }
+    final res = Homography.residualMm(hom, pairs.src, pairs.dst);
+    // 兼容字段：用网格对角两点合成旧两点比例（不影响单应主路径）。
+    final w = (cols - 1) * gridMm;
+    final hgt = (rows - 1) * gridMm;
+    final calib = PhotoCalib(
+      refMm: math.sqrt(w * w + hgt * hgt),
+      ax: _gridPicks.first.dx,
+      ay: _gridPicks.first.dy,
+      bx: _gridPicks[_gridPicks.length - 1].dx,
+      by: _gridPicks[_gridPicks.length - 1].dy,
+      imgW: _photoSize!.width,
+      imgH: _photoSize!.height,
+      homography: hom.toList(),
+      homographyResidualMm: res,
+      calibWidthMm: w,
+      calibHeightMm: hgt,
+      calibPoints: pairs.src.length,
+    );
+    setState(() {
+      _session = _session!.copyWith(photoCalib: calib);
+      _gridPicks.clear();
+      _gridMode = false;
+      _photoPicks.clear();
+      _autoCalibMsg = '已网格单应标定：${pairs.src.length} 点 · 格距 ${fmtMm(gridMm)}mm'
+          '${pairs.src.length > 4 ? ' · 残差 ${fmtMm(res)}mm' : '（4 点为精确解，残差恒 0）'}';
+    });
+    _persist();
+    AppSnack.show(
+      context,
+      '透视校正标定完成：${pairs.src.length} 个控制点'
+      '${pairs.src.length > 4 ? '，残差 ${fmtMm(res)} mm' : ''}',
+      kind: AppSnackKind.success,
+    );
   }
 
   // —— 自动标定（锚物识别）：用户零输入的主路径 ——
@@ -335,10 +457,14 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     }
     if (_session?.photoCalib != null) {
       if (manual) {
-        AppSnack.show(context, '已有标定，请先点标定签的 × 清除', kind: AppSnackKind.muted);
+        AppSnack.show(context, '已有标定，请先点标定签的 × 清除',
+            kind: AppSnackKind.muted);
       }
       return;
     }
+    // 网格单应标定优先：网格是同一平面上的多点约束，
+    // 比单点锚物更稳（AI 只用于"辅助识别锚物"，不改变精度来源）。
+    if (_gridMode) return;
     // 联网预检：地下室/无信号时不白等超时，直接引导手动标定。
     final online = await VisionService.isReachable();
     if (!mounted) return;
@@ -716,7 +842,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             if (_session?.photoCalib != null)
               Chip(
                 label: Text(
-                  '标定 ${_session!.photoCalib!.mmPerPx.toStringAsFixed(3)} mm/px',
+                  _session!.photoCalib!.hasHomography
+                      ? '透视校正 ${_session!.photoCalib!.calibPoints} 点'
+                          '${(_session!.photoCalib!.calibPoints > 4 && _session!.photoCalib!.homographyResidualMm != null) ? ' · 残差 ${fmtMm(_session!.photoCalib!.homographyResidualMm!)}mm' : ''}'
+                      : '标定 ${_session!.photoCalib!.mmPerPx.toStringAsFixed(3)} mm/px',
                   style: const TextStyle(fontSize: 12),
                 ),
                 backgroundColor: Colors.green.shade50,
@@ -724,6 +853,81 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 onDeleted: _clearRefCalib,
               ),
           ],
+        ),
+        const SizedBox(height: AppTokens.space2),
+        // 模数网格标定（透视校正主路径）：同平面多点约束，比单点锚物更稳
+        Card(
+          color: AppTokens.surface2,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTokens.space3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('模数网格标定（透视校正·推荐）',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13)),
+                    ),
+                    TextButton(
+                      onPressed: _toggleGridMode,
+                      child: Text(_gridMode ? '取消' : '开始点选'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTokens.space1),
+                Row(
+                  children: [
+                    Expanded(child: _numberField('格距(mm)', _gridMmCtl, suffix: 'mm')),
+                    const SizedBox(width: AppTokens.space2),
+                    SizedBox(width: 70, child: _numberField('列', _gridColsCtl)),
+                    const SizedBox(width: AppTokens.space2),
+                    SizedBox(width: 70, child: _numberField('行', _gridRowsCtl)),
+                  ],
+                ),
+                const SizedBox(height: AppTokens.space2),
+                if (_gridMode)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppTokens.space2),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '按「行优先」从左到右、从上到下依次点选网格交点：'
+                      '已点 ${_gridPicks.length}/$_gridTarget。\n'
+                      '用现场等距模数网格（瓷砖缝 600 / 吊顶扣板 300 / 石膏板 1200…），'
+                      '斜拍也能换算出真实尺寸。',
+                      style: const TextStyle(fontSize: 11, color: Colors.blue),
+                    ),
+                  )
+                else
+                  const Text(
+                    '提示：瓷砖 600×600 用「格距 600 / 3 列 / 3 行」点 9 个缝交点；'
+                    '4 点为精确解（残差恒 0），≥5 点才有标定质量参考。',
+                    style: TextStyle(fontSize: 11, color: AppTokens.muted),
+                  ),
+                if (_gridMode && _gridPicks.isNotEmpty) ...[
+                  const SizedBox(height: AppTokens.space1),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: () => setState(_gridPicks.clear),
+                        child: const Text('清空已点'),
+                      ),
+                      const SizedBox(width: AppTokens.space2),
+                      TextButton(
+                        onPressed: _applyGridCalib,
+                        child: const Text('立即标定'),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: AppTokens.space2),
         // 参考物标定行
@@ -811,6 +1015,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                   imageToDisplay(p, c.biggest, _photoSize!), Colors.orange)),
                               ..._photoPicks.map((p) => _pickDot(
                                   imageToDisplay(p, c.biggest, _photoSize!), Colors.red)),
+                              // 网格标定控制点（青）：点满即自动求单应
+                              ..._gridPicks.map((p) => _pickDot(
+                                  imageToDisplay(p, c.biggest, _photoSize!),
+                                  Colors.teal)),
                               // P1-3：参考线覆盖层（橙=参考物，红=被测）
                               Positioned.fill(
                                 child: CustomPaint(
@@ -825,7 +1033,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                     ],
                                     measuredMm: _session?.photoCalib != null &&
                                             _photoPicks.length == 2
-                                        ? photoMeasuredMm(
+                                        ? photoMeasuredMmAuto(
                                             _session!.photoCalib!,
                                             _photoPicks[0].dx,
                                             _photoPicks[0].dy,
@@ -865,19 +1073,42 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             child: const Text('尚未选择照片', style: TextStyle(color: AppTokens.muted)),
           ),
         if (_photoPicks.length == 2 && _session?.photoCalib != null)
-          Padding(
-            padding: const EdgeInsets.only(top: AppTokens.space2),
-            child: Text(
-              '照片量得：${fmtMm(photoMeasuredMm(_session!.photoCalib!, _photoPicks[0].dx, _photoPicks[0].dy, _photoPicks[1].dx, _photoPicks[1].dy))} mm',
-              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.red),
-            ),
-          ),
+          Builder(builder: (_) {
+            final c = _session!.photoCalib!;
+            final p0 = _photoPicks[0], p1 = _photoPicks[1];
+            final corrected = photoMeasuredMmAuto(c, p0.dx, p0.dy, p1.dx, p1.dy);
+            final legacy = photoMeasuredMm(c, p0.dx, p0.dy, p1.dx, p1.dy);
+            return Padding(
+              padding: const EdgeInsets.only(top: AppTokens.space2),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '照片量得：${fmtMm(corrected)} mm'
+                    '${c.hasHomography ? '（透视校正）' : ''}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, color: Colors.red),
+                  ),
+                  // 效果对比（实时）：同两点，两点比例法 vs 单应校正
+                  if (c.hasHomography)
+                    Text(
+                      '校正前（两点比例）${fmtMm(legacy)} mm → '
+                      '校正后（单应）${fmtMm(corrected)} mm，'
+                      '差 ${fmtMmSigned(corrected - legacy)} mm',
+                      style: const TextStyle(fontSize: 11, color: Colors.green),
+                    ),
+                ],
+              ),
+            );
+          }),
         const SizedBox(height: AppTokens.space1),
         // P2-3：按标定状态给出针对性提示。
         Text(
-          _session?.photoCalib == null
-              ? '请在照片上点选参考物两端（橙），再点击「标定」'
-              : '请在照片上点选被测两点（红）',
+          _gridMode
+              ? '网格标定中：请依次点选网格交点（青），点满 $_gridTarget 个自动求解'
+              : (_session?.photoCalib == null
+                  ? '先做网格标定（推荐）或在照片上点选参考物两端（橙）后点「标定」'
+                  : '请在照片上点选被测两点（红）'),
           style: const TextStyle(fontSize: 11, color: AppTokens.muted),
         ),
       ],
@@ -892,6 +1123,12 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     final px = (local.dx - offX) / contain.width * _photoSize!.width;
     final py = (local.dy - offY) / contain.height * _photoSize!.height;
     setState(() {
+      // 网格标定模式：行优先依次收控制点（点满即自动求解单应）
+      if (_gridMode) {
+        if (_gridPicks.length >= _gridTarget) _gridPicks.clear();
+        _gridPicks.add(Offset(px, py));
+        return;
+      }
       // 参考物未标定：先收参考物两点
       if (_session?.photoCalib == null) {
         if (_refPicks.length >= 2) _refPicks.clear();
@@ -901,6 +1138,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         _photoPicks.add(Offset(px, py));
       }
     });
+    // 点满目标点数 → 立即求解单应（省一次点击；不满意可重新进入网格标定）
+    if (_gridMode && _gridPicks.length >= _gridTarget) {
+      _applyGridCalib();
+    }
   }
 
   Widget _itemList(double tolMm, double tolPct) {

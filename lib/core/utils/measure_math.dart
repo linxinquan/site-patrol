@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:ui' show Offset;
 
 import '../utils/cad_coord.dart';
+import '../utils/homography.dart';
 import '../../data/models.dart';
 
 /// 半自动标定测量的纯函数集合（无 UI、无状态、便于单测）。
@@ -64,6 +66,51 @@ double photoMeasuredMm(
 
 /// 照片比例（mm/px）：参考物尺寸 / 参考物像素跨度。
 double photoMmPerPx(PhotoCalib calib) => calib.mmPerPx;
+
+/// 照片侧量距（**自动选择标定方式**）：
+/// - 已做单应（网格 ≥4 点）标定 → 走平面单应，先把斜拍画面矫正为正视图再量距；
+/// - 否则回退两点比例法（旧行为，兼容旧会话与未标定的手动路径）。
+///
+/// 这是量尺页的主入口：单应标定只改变「毫米从哪来」，上层判定/清单/报告不变。
+double photoMeasuredMmAuto(
+  PhotoCalib calib,
+  double ax,
+  double ay,
+  double bx,
+  double by,
+) {
+  final h = calib.homography;
+  if (h != null && h.length == 9) {
+    return Homography.fromMatrix(h).distanceMm(Offset(ax, ay), Offset(bx, by));
+  }
+  return photoMeasuredMm(calib, ax, ay, bx, by);
+}
+
+/// 生成「模数网格」标定的控制点对应关系。
+///
+/// [cols]/[rows] 为网格列数、行数，[gridMm] 为格距（mm）；
+/// 用户按**行优先**（从左到右、从上到下）依次点选网格交点，
+/// 第 i 个点的平面坐标即 ((i % cols) × grid, (i ~/ cols) × grid)。
+/// 返回 (像素点, 平面 mm) 两个等长列表；点数不足 4 返回空列表。
+({List<Offset> src, List<Offset> dst}) buildGridCorrespondences({
+  required List<Offset> picks,
+  required int cols,
+  required int rows,
+  required double gridMm,
+}) {
+  final total = cols * rows;
+  if (cols < 2 || rows < 2 || gridMm <= 0 || picks.length < 4) {
+    return (src: const <Offset>[], dst: const <Offset>[]);
+  }
+  final n = picks.length < total ? picks.length : total;
+  final src = <Offset>[];
+  final dst = <Offset>[];
+  for (var i = 0; i < n; i++) {
+    src.add(picks[i]);
+    dst.add(Offset((i % cols) * gridMm, (i ~/ cols) * gridMm));
+  }
+  return (src: src, dst: dst);
+}
 
 /// 偏差（mm）= 照片实测 - 图纸。
 double deviationMm(double photoMm, double drawingMm) => photoMm - drawingMm;
