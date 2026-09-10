@@ -4,16 +4,18 @@ import 'report_content.dart';
 
 /// 报告导出格式（导出方式弹层选项）。
 enum ReportExportFormat {
-  xlsx('Excel', '对齐设计师巡场报告单，可直接销项流转', 0xFFFEBD07),
+  // 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）：
+  //   Excel 紫 #7F83FF / PDF 红 #FF5959 / Word 蓝 #34A8FE / 网页链接 绿 #38D06F
+  xlsx('Excel', '对齐设计师巡场报告单，可直接销项流转', 0xFF7F83FF),
   pdf('PDF', '标准打印版式，适合汇报存档', 0xFFFF5959),
   docx('Word', '可继续编辑、批注流转', 0xFF34A8FE),
-  html('网页链接', '浏览器打开，可另存为 PDF', 0xFF7F83FF);
+  html('网页链接', '浏览器打开，可另存为 PDF', 0xFF38D06F);
 
   const ReportExportFormat(this.label, this.subtitle, this.colorHex);
 
   final String label;
   final String subtitle;
-  /// 卡片左侧图标 chip 底色（设计稿：Excel 黄 / PDF 红 / Word 蓝 / 网页链接 紫）。
+  /// 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）。
   final int colorHex;
 }
 

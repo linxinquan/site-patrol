@@ -200,7 +200,8 @@ class DefectsPage extends ConsumerWidget {
   String _fmtDate(DateTime d) => '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
   String _fmtCompact(DateTime d) => '${d.year}${_pad(d.month)}${_pad(d.day)}';
 
-  /// 导出方式弹层：选汇报周期 → PDF / Word / HTML 三选一（Web 另附「预览」入口）。
+  /// 导出方式弹层（设计稿 Frame 2147228009）：
+  /// 描述段 → 日期范围单行 48h → 已筛选提示 → 4 个导出选项 68h。
   void _showExportSheet(
     BuildContext context, {
     required List<Defect> allDefects,
@@ -219,117 +220,142 @@ class DefectsPage extends ConsumerWidget {
         builder: (ctx, setSheet) {
           var range = initialRange;
           final list = _filterByPeriod(allDefects, range);
+          final filtered = list.length != allDefects.length;
           return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                // 描述段（设计稿：12/W400/行高 20，#60656B）
+                const Text(
                   '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
-                  '可选 PDF / Word / HTML 三种格式，导出后无需再手工整理。',
-                  style: const TextStyle(fontSize: 13, color: AppTokens.fg2),
+                  '可选 Excel / PDF / Word / 网页链接 四种格式，导出后无需再手工整理。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 20 / 12,
+                    color: AppTokens.fg2,
+                  ),
                 ),
-                    const SizedBox(height: 12),
-                    // 汇报周期选择（按缺陷发现时间过滤，周报语义）
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                        onTap: () async {
-                          final picked = await AppDateRangePicker.show(
-                            ctx,
-                            firstDate: DateTime(2024, 1, 1),
-                            lastDate:
-                                DateTime(today.year, today.month, today.day),
-                            initialRange: range,
-                          );
-                          if (picked != null) setSheet(() => range = picked);
-                        },
-                        child: Ink(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppTokens.surface,
-                            borderRadius:
-                                BorderRadius.circular(AppTokens.radiusSm),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(MingCuteIcons.calendarLine,
-                                  size: 18, color: AppTokens.fg),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('汇报周期',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTokens.fg2)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
-                                      style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTokens.fg),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text('${list.length}',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTokens.fg)),
-                              const SizedBox(width: 4),
-                              const Icon(MingCuteIcons.rightLine,
-                                  size: 18, color: AppTokens.muted),
-                            ],
-                          ),
-                        ),
-                      ),
+                const SizedBox(height: 12),
+                // 日期范围白卡（设计稿：48h padding 12 圆角 8，单行紧凑）
+                _dateRangeTile(
+                  ctx: ctx,
+                  range: range,
+                  count: list.length,
+                  onTap: () async {
+                    final picked = await AppDateRangePicker.show(
+                      ctx,
+                      firstDate: DateTime(2024, 1, 1),
+                      lastDate:
+                          DateTime(today.year, today.month, today.day),
+                      initialRange: range,
+                    );
+                    if (picked != null) setSheet(() => range = picked);
+                  },
+                ),
+                if (filtered) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '已筛选：共筛出 ${list.length} 条记录',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: AppTokens.brand,
                     ),
-                    if (list.length != allDefects.length)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
-                          style: const TextStyle(
-                              fontSize: 12, color: AppTokens.brand),
-                        ),
-                      ),
-                    const SizedBox(height: 14),
-                    for (final format in ReportExportFormat.values)
-                      _formatTile(
-                        ctx,
-                        format,
-                        enabled: list.isNotEmpty,
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onPick(format, range, list);
-                        },
-                      ),
-                    if (!canExport)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Text('当前平台暂不支持导出，请在 Web 端使用该功能。',
-                            style:
-                                TextStyle(fontSize: 13, color: AppTokens.muted)),
-                      ),
-                  ],
-                ),
-              );
+                  ),
+                ],
+                const SizedBox(height: 14),
+                // 4 个导出选项卡
+                for (final format in ReportExportFormat.values)
+                  _formatTile(
+                    ctx,
+                    format,
+                    enabled: list.isNotEmpty,
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      onPick(format, range, list);
+                    },
+                  ),
+                if (!canExport)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text('当前平台暂不支持导出，请在 Web 端使用该功能。',
+                        style:
+                            TextStyle(fontSize: 13, color: AppTokens.muted)),
+                  ),
+              ],
+            ),
+          );
         },
       ),
     );
   }
 
-  /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009：40×40 彩色图标 chip + 标题/副文）。
+  /// 日期范围选择卡（设计稿 Frame 2147228009）：
+  /// 高度 48、padding 12、圆角 8、白底；
+  /// 行内容：[calendar 24] [日期 W600/14/22] ["N条" #0395FF W600] [right_line 16 #919499]。
+  Widget _dateRangeTile({
+    required BuildContext ctx,
+    required DateTimeRange range,
+    required int count,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        onTap: onTap,
+        child: Ink(
+          width: double.infinity,
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(MingCuteIcons.calendarLine,
+                  size: 24, color: AppTokens.fg),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 22 / 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg,
+                  ),
+                ),
+              ),
+              Text(
+                '${count}条',
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 22 / 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTokens.brand,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(MingCuteIcons.rightLine,
+                  size: 16, color: AppTokens.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009）：
+  /// 卡片 68h padding 12 圆角 8；左侧 40×40 圆角 8 渐变高光色块 + 24×24 文件图标；
+  /// 名称 W600/16/24 #202224，副标题 W400/12/20 #919499，right_line 16×16 #919499。
   Widget _formatTile(
       BuildContext ctx, ReportExportFormat format,
       {required VoidCallback onTap, bool enabled = true}) {
+    final base = Color(format.colorHex);
     return Opacity(
       opacity: enabled ? 1 : 0.45,
       child: Padding(
@@ -341,7 +367,9 @@ class DefectsPage extends ConsumerWidget {
             onTap: enabled ? onTap : null,
             child: Ink(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              // 高度由内容撑开（色块 40 + 上下 padding 各 14 = 68）
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
                 color: AppTokens.surface,
                 borderRadius: BorderRadius.circular(AppTokens.radiusSm),
@@ -349,13 +377,22 @@ class DefectsPage extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // 左侧色块：LinearGradient 顶部 20% 白色高光 → 底部纯色，立体感
                   Container(
                     width: 40,
                     height: 40,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: Color(format.colorHex),
-                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusSm),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.lerp(base, Colors.white, 0.22) ?? base,
+                          base,
+                        ],
+                      ),
                     ),
                     child: const Icon(MingCuteIcons.fileFill,
                         size: 24, color: Colors.white),
@@ -364,19 +401,22 @@ class DefectsPage extends ConsumerWidget {
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(format.label,
                             style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 24 / 16,
-                                color: AppTokens.fg)),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 24 / 16,
+                              color: AppTokens.fg,
+                            )),
                         const SizedBox(height: 2),
                         Text(format.subtitle,
                             style: const TextStyle(
-                                fontSize: 12,
-                                height: 20 / 12,
-                                color: AppTokens.muted)),
+                              fontSize: 12,
+                              height: 20 / 12,
+                              color: AppTokens.muted,
+                            )),
                       ],
                     ),
                   ),
