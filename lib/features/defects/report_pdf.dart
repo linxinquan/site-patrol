@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/measure_labels.dart';
 import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
@@ -441,17 +442,42 @@ List<pw.Widget> _roomBlock(RoomScanRecord r) {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            '${r.roomUse} · 来源 ${r.source} · 共 ${r.walls.length} 段墙'
+            '${r.roomUse} · 来源 ${measureSourceLabel(r.source)}'
+            ' · 共 ${r.walls.length} 段墙'
             '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}',
             style: _ts(size: 8, color: _muted),
           ),
           pw.SizedBox(height: 3),
           for (final l in wallLines) pw.Text(l, style: _ts(size: 8.5)),
-          if (r.checks.isNotEmpty)
-            pw.Text(
-              '图纸核尺：${r.checks.map((c) => '${c.name} ${fmtMmSigned(c.deviation)}mm').join('、')}',
-              style: _ts(size: 8, color: _muted),
+          // 尺寸校对表：与 HTML/DOCX/XLSX 同列名同行内容（measure_labels 统一提供）
+          if (r.checks.isNotEmpty) ...[
+            pw.SizedBox(height: 5),
+            pw.Text('尺寸校对（实测含误差带与测量方式）',
+                style: _ts(size: 8, color: _muted)),
+            pw.SizedBox(height: 2),
+            pw.Table(
+              border: _gridBorder(),
+              columnWidths: const {
+                0: pw.FlexColumnWidth(1.7),
+                1: pw.FlexColumnWidth(1.5),
+                2: pw.FlexColumnWidth(1.1),
+                3: pw.FlexColumnWidth(1.5),
+                4: pw.FlexColumnWidth(1.3),
+                5: pw.FlexColumnWidth(1.3),
+              },
+              children: [
+                pw.TableRow(children: [
+                  for (final h in kCheckTableHeaders)
+                    _th(h, align: pw.Alignment.center),
+                ]),
+                for (final c in r.checks)
+                  pw.TableRow(children: [
+                    for (final v in measureCheckRow(c))
+                      _cell(v, align: pw.Alignment.center),
+                  ]),
+              ],
             ),
+          ],
         ],
       ),
     ),

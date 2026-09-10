@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/measure_labels.dart';
 import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
@@ -321,7 +322,7 @@ class _DocxDoc {
     _body.write(_table([_contentW], [
       [
         _Cell(_p(_r(
-            '${r.name} · ${r.roomUse} · 来源 ${r.source}'
+            '${r.name} · ${r.roomUse} · 来源 ${measureSourceLabel(r.source)}'
             '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}',
             bold: true), after: 0)),
       ],
@@ -349,6 +350,28 @@ class _DocxDoc {
         ],
     ];
     _body.write(_table([900, 1200, _contentW - 2100], rows));
+    // 尺寸校对表：列名/行内容与 HTML/PDF/XLSX 完全一致（measure_labels 统一提供）
+    if (r.checks.isNotEmpty) {
+      _body.write(_table([_contentW], [
+        [
+          _Cell(
+              _p(_r('尺寸校对（实测含误差带与测量方式）',
+                  bold: true, color: '60656B'), after: 0),
+              shade: 'F4F6F7'),
+        ],
+      ]));
+      _body.write(_table(_evenCols(6), [
+        [
+          for (final h in kCheckTableHeaders)
+            _Cell(_p(_r(h, bold: true, color: '60656B'), after: 0),
+                shade: 'F4F6F7'),
+        ],
+        for (final c in r.checks)
+          [
+            for (final v in measureCheckRow(c)) _Cell(_p(_r(v), after: 0)),
+          ],
+      ]));
+    }
     _body.write(_spacer(120));
   }
 

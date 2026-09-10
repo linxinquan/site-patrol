@@ -20,6 +20,7 @@ import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/engineering_naming.dart';
 import '../../core/utils/homography.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
@@ -76,6 +77,15 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   bool _aiGridBusy = false;
   String? _aiGridMsg;
 
+  // —— AI 被测目标识别（候选尺寸线 + 工程命名 + 模数吸附）——
+  List<MeasureTarget> _aiTargets = const [];
+  final Set<int> _aiTargetAccepted = {};
+  bool _aiTargetsBusy = false;
+  String? _aiTargetsMsg;
+  /// 门窗洞口命名用的洞口高度（mm）：门默认 2100、窗默认 1800，可改。
+  final TextEditingController _openingHeightCtl =
+      TextEditingController(text: '2100');
+
   // —— 会话 ——
   MeasureSession? _session;
   final TextEditingController _nameCtl = TextEditingController(text: '梁宽');
@@ -115,6 +125,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     _gridMmCtl.dispose();
     _gridColsCtl.dispose();
     _gridRowsCtl.dispose();
+    _openingHeightCtl.dispose();
     _drawingTransform.dispose();
     _photoTransform.dispose();
     super.dispose();
@@ -242,6 +253,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           _aiGrid = null;
           _aiGridConfirmed = false;
           _aiGridMsg = null;
+          _aiTargets = const [];
+          _aiTargetAccepted.clear();
+          _aiTargetsMsg = null;
           _autoCalibMsg = null;
           _autoTried = false;
         });
@@ -356,6 +370,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _aiGrid = null;
       _aiGridConfirmed = false;
       _aiGridMsg = null;
+      _aiTargets = const [];
+      _aiTargetAccepted.clear();
+      _aiTargetsMsg = null;
       _autoCalibMsg = null;
     });
     _persist();
@@ -586,6 +603,157 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _aiGridConfirmed = false;
       _aiGridMsg = null;
     });
+  }
+
+  // ——— AI 被测目标识别：候选尺寸线 + 工程命名 + 模数吸附 + 人工采纳 ———
+
+  /// 目标端点像素坐标（归一化 × 图像尺寸）。
+  Offset _targetPx(MeasureTarget t, Offset p) {
+    final size = _photoSize!;
+    return Offset(p.dx * size.width, p.dy * size.height);
+  }
+
+  /// 按当前标定换算目标尺寸（有单应走透视校正）。
+  double _targetMm(MeasureTarget t, PhotoCalib calib) {
+    final a = _targetPx(t, t.p1);
+    final b = _targetPx(t, t.p2);
+    return photoMeasuredMmAuto(calib, a.dx, a.dy, b.dx, b.dy);
+  }
+
+  /// 目标尺寸的估算误差带（±mm）：取标定残差与 0.5% 相对误差的较大者。
+  ///
+  /// 说明：这是**估算**（AI 端点定位误差 + 标定残差），不是重复采样的实测
+  /// 离散度；进入 `MeasureItem.errorMm` 后仍受「误差 ≤ 容差/3 才可判定」约束。
+  double _targetErrMm(PhotoCalib calib, double mm) {
+    final res = calib.homographyResidualMm ?? 0;
+    return math.max(res, mm * 0.005);
+  }
+
+  /// 目标显示名：门窗按制图习惯给编号（M0921/C1518），其余用类型名。
+  String _targetDisplayName(MeasureTarget t, double mm) {
+    final label = targetKindLabel(t.kind);
+    if (t.kind == 'door' || t.kind == 'window') {
+      final h = double.tryParse(_openingHeightCtl.text.trim()) ?? 0;
+      if (h > 0) return '$label ${openingCode(t.kind, mm, h)}';
+    }
+    return t.name.isNotEmpty ? t.name : label;
+  }
+
+  Future<void> _aiDetectTargets() async {
+    if (_aiTargetsBusy) return;
+    if (_photoBytes == null || _photoSize == null) {
+      AppSnack.show(context, '请先拍/选照片', kind: AppSnackKind.muted);
+      return;
+    }
+    if (_session?.photoCalib == null) {
+      AppSnack.show(context, '请先完成标定（AI 网格 / 手动网格 / 参考物），再识别目标',
+          kind: AppSnackKind.muted);
+      return;
+    }
+    final online = await VisionService.isReachable();
+    if (!mounted) return;
+    if (!online) {
+      setState(() => _aiTargetsMsg = '当前无网络：AI 识别不可用，请手动点两点量取');
+      return;
+    }
+    setState(() {
+      _aiTargetsBusy = true;
+      _aiTargetsMsg = '正在识别画面中可量目标…';
+    });
+    try {
+      final list = await VisionService().detectTargets(_photoBytes!);
+      if (!mounted) return;
+      if (list == null) {
+        setState(() {
+          _aiTargets = const [];
+          _aiTargetAccepted.clear();
+          _aiTargetsMsg = '未识别到可量目标：请让门洞/窗洞/梁等目标完整入画，或手动点选两点';
+        });
+        return;
+      }
+      setState(() {
+        _aiTargets = list;
+        _aiTargetAccepted.clear();
+        _aiTargetsMsg = '识别到 ${list.length} 个目标：请核对图上标注后逐条「采纳」，'
+            '或直接手动量取';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _aiTargetsMsg = 'AI 识别不可用，请手动点选两点（$e）');
+    } finally {
+      if (mounted) setState(() => _aiTargetsBusy = false);
+    }
+  }
+
+  /// 采纳一条 AI 候选目标 → 写入校对清单（名称带工程编号、带估算误差带）。
+  void _acceptTarget(int i) {
+    final calib = _session?.photoCalib;
+    if (calib == null || i < 0 || i >= _aiTargets.length) return;
+    final t = _aiTargets[i];
+    final mm = _targetMm(t, calib);
+    if (mm <= 0) return;
+    final name = _targetDisplayName(t, mm);
+    final manual = double.tryParse(_drawingMmCtl.text.trim());
+    final snap = snapToModule(mm, tol: 30);
+    final drawingMm =
+        (manual != null && manual > 0) ? manual : (snap?.value ?? 0);
+    final item = MeasureItem(
+      name: name,
+      drawingMm: drawingMm,
+      photoMm: mm,
+      source: 'ai',
+      errorMm: _targetErrMm(calib, mm),
+    );
+    setState(() {
+      _session = _session!.copyWith(items: [..._session!.items, item]);
+      _aiTargetAccepted.add(i);
+    });
+    _persist();
+    AppSnack.show(
+      context,
+      '已采纳：$name = ${fmtMm(mm)} mm'
+      '${snap != null ? '（${snapHint(mm)}）' : ''}',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  void _acceptAllTargets() {
+    for (var i = 0; i < _aiTargets.length; i++) {
+      if (!_aiTargetAccepted.contains(i)) _acceptTarget(i);
+    }
+  }
+
+  void _clearAiTargets() {
+    setState(() {
+      _aiTargets = const [];
+      _aiTargetAccepted.clear();
+      _aiTargetsMsg = null;
+    });
+  }
+
+  /// 单条 AI 候选目标的列表行（含实测值、模数吸附提示、工程命名、采纳按钮）。
+  Widget _targetTile(int i) {
+    final calib = _session?.photoCalib;
+    if (calib == null || i >= _aiTargets.length) return const SizedBox.shrink();
+    final t = _aiTargets[i];
+    final mm = _targetMm(t, calib);
+    final accepted = _aiTargetAccepted.contains(i);
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        accepted ? MingCuteIcons.checkCircleLine : Icons.radio_button_unchecked,
+        size: 18,
+        color: accepted ? Colors.green : AppTokens.muted,
+      ),
+      title: Text('${_targetDisplayName(t, mm)} · 实测 ${fmtMm(mm)} mm',
+          style: const TextStyle(fontSize: 13)),
+      subtitle: Text('${snapHint(mm)} · 置信度 ${(t.conf * 100).round()}%',
+          style: const TextStyle(fontSize: 11)),
+      trailing: accepted
+          ? const Text('已采纳', style: TextStyle(fontSize: 12, color: Colors.green))
+          : TextButton(onPressed: () => _acceptTarget(i), child: const Text('采纳')),
+    );
   }
 
   // —— 自动标定（锚物识别）：用户零输入的主路径 ——
@@ -1183,6 +1351,66 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           ),
         ),
         const SizedBox(height: AppTokens.space2),
+        // AI 被测目标识别（候选尺寸线 + 工程命名 + 模数吸附 + 人工采纳）
+        Card(
+          color: AppTokens.surface2,
+          child: Padding(
+            padding: const EdgeInsets.all(AppTokens.space3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('AI 识别被测目标（候选尺寸线）',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                const SizedBox(height: AppTokens.space1),
+                OutlinedButton(
+                  onPressed: _aiTargetsBusy ? null : _aiDetectTargets,
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(40)),
+                  child: _aiTargetsBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('AI 识别门洞 / 窗洞 / 梁宽…'),
+                ),
+                if (_aiTargetsMsg != null) ...[
+                  const SizedBox(height: AppTokens.space1),
+                  Text(_aiTargetsMsg!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _aiTargets.isEmpty ? Colors.orange : Colors.green,
+                      )),
+                ],
+                if (_aiTargets.isNotEmpty) ...[
+                  const SizedBox(height: AppTokens.space2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _numberField('洞口高(mm，用于命名)',
+                            _openingHeightCtl,
+                            suffix: 'mm'),
+                      ),
+                      const SizedBox(width: AppTokens.space2),
+                      TextButton(
+                          onPressed: _acceptAllTargets,
+                          child: const Text('全部采纳')),
+                      TextButton(
+                          onPressed: _clearAiTargets, child: const Text('清除')),
+                    ],
+                  ),
+                  for (var i = 0; i < _aiTargets.length; i++) _targetTile(i),
+                  const Text(
+                    '说明：AI 只给端点位置，尺寸由当前标定换算；'
+                    '名称按制图习惯编号（门 M0921 = 900×2100、窗 C1518 = 1500×1800）。',
+                    style: TextStyle(fontSize: 11, color: AppTokens.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppTokens.space2),
         if (_photoBytes != null)
           Container(
             height: 260,
@@ -1217,6 +1445,40 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                               ..._gridPicks.map((p) => _pickDot(
                                   imageToDisplay(p, c.biggest, _photoSize!),
                                   Colors.teal)),
+                              // AI 候选尺寸线（琥珀虚线=待采纳，绿实线=已采纳）
+                              if (_aiTargets.isNotEmpty && _photoSize != null)
+                                Positioned.fill(
+                                  child: CustomPaint(
+                                    painter: _TargetOverlayPainter(
+                                      items: [
+                                        for (var i = 0;
+                                            i < _aiTargets.length;
+                                            i++)
+                                          (
+                                            a: imageToDisplay(
+                                                _targetPx(_aiTargets[i],
+                                                    _aiTargets[i].p1),
+                                                c.biggest,
+                                                _photoSize!),
+                                            b: imageToDisplay(
+                                                _targetPx(_aiTargets[i],
+                                                    _aiTargets[i].p2),
+                                                c.biggest,
+                                                _photoSize!),
+                                            label: _session?.photoCalib == null
+                                                ? targetKindLabel(
+                                                    _aiTargets[i].kind)
+                                                : _targetDisplayName(
+                                                    _aiTargets[i],
+                                                    _targetMm(_aiTargets[i],
+                                                        _session!.photoCalib!)),
+                                            accepted: _aiTargetAccepted
+                                                .contains(i),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               // AI 识别网格叠加（绿）：待确认=亮绿加粗，已确认=浅绿
                               if (_aiGrid != null)
                                 Positioned.fill(
@@ -1525,6 +1787,76 @@ class _MeasureLinePainter extends CustomPainter {
       old.refPts != refPts ||
       old.pickPts != pickPts ||
       old.measuredMm != measuredMm;
+}
+
+/// AI 候选尺寸线叠加层：虚线（待采纳）/ 实线（已采纳）+ 端点刻线 + 尺寸标签。
+class _TargetOverlayPainter extends CustomPainter {
+  const _TargetOverlayPainter({required this.items});
+
+  final List<({Offset a, Offset b, String label, bool accepted})> items;
+
+  static const _pending = Color(0xFFFF9F0A);
+  static const _done = Color(0xFF1DB954);
+
+  void _dashed(Canvas c, Offset a, Offset b, Paint p) {
+    const dash = 7.0, gap = 5.0;
+    final total = (b - a).distance;
+    if (total < 1) return;
+    final dir = (b - a) / total;
+    var t = 0.0;
+    while (t < total) {
+      final t2 = math.min(t + dash, total);
+      c.drawLine(a + dir * t, a + dir * t2, p);
+      t = t2 + gap;
+    }
+  }
+
+  /// 端点刻线：垂直于尺寸线的短横线，符合制图「尺寸界线」习惯。
+  void _tick(Canvas c, Offset a, Offset b, Paint p) {
+    final total = (b - a).distance;
+    if (total < 1) return;
+    final dir = (b - a) / total;
+    final n = Offset(-dir.dy, dir.dx) * 6;
+    c.drawLine(a - n, a + n, p);
+    c.drawLine(b - n, b + n, p);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final it in items) {
+      final color = it.accepted ? _done : _pending;
+      final p = Paint()
+        ..color = color
+        ..strokeWidth = it.accepted ? 2.2 : 1.8
+        ..strokeCap = StrokeCap.round;
+      if (it.accepted) {
+        canvas.drawLine(it.a, it.b, p);
+      } else {
+        _dashed(canvas, it.a, it.b, p);
+      }
+      _tick(canvas, it.a, it.b, p);
+
+      if (it.label.isEmpty) continue;
+      final mid = (it.a + it.b) / 2;
+      final tp = TextPainter(
+        text: TextSpan(
+          text: it.label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            backgroundColor: color.withValues(alpha: 0.92),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height - 8));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TargetOverlayPainter old) =>
+      old.items != items;
 }
 
 /// AI 识别网格的叠加层：按行列连线 + 交点圆点。

@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:app_settings/app_settings.dart';
 
 import '../../core/ar/ar_measure_service.dart';
+import '../../core/storage/ar_scale_calibration.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
@@ -46,12 +47,67 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   final _drawingCtl = TextEditingController();
   MeasureSession? _session;
 
+  // —— 系统偏差校正（把「重复性」与「准确度」分开）——
+  /// 本机尺度校正：读数 × k。null = 未校正（此时 ±误差带只代表重复性）。
+  ArScaleCalibration? _scaleCalib;
+  /// 校正模式：对本机已知长度重复采样，完成后再写回 [_scaleCalib]。
+  bool _calibMode = false;
+  final TextEditingController _calibRefCtl = TextEditingController(text: '297');
+  /// 最近一次测量的距相机深度（mm，取两端均值；原生未上报时为 null）。
+  double? _lastDepthMm;
+
+  /// LiDAR 有效区间（mm）：超出则误差迅速放大，只提示不禁止。
+  static const double _bestMinMm = 300;
+  static const double _bestMaxMm = 3000;
+  /// 超量程拒绝采样（mm）：超出 LiDAR 量程，读数不可信。
+  static const double _rejectMm = 5000;
+
+  /// 尺度系数（未校正为 1.0）。
+  double get _k => _scaleCalib?.k ?? 1.0;
+
+  /// 把原生原始读数换算为修正读数。
+  double _corrected(double rawMm) => rawMm * _k;
+
+  /// 距离门控文案：null = 原生未报深度（无法判断）。
+  String? get _depthHint {
+    final d = _lastDepthMm;
+    if (d == null || d <= 0) return null;
+    if (d > _rejectMm) return '距相机 ${(d / 1000).toStringAsFixed(1)}m 超出 LiDAR 量程，读数不可信';
+    if (d > _bestMaxMm || d < _bestMinMm) {
+      return '距相机 ${(d / 1000).toStringAsFixed(2)}m，超出最佳区间 '
+          '0.3~3m，误差会明显放大';
+    }
+    return null;
+  }
+
+  /// 校正模式下按钮上的实时 k 预览（真值 / 当前采样中位）。
+  String get _calibKPreview {
+    final ref = double.tryParse(_calibRefCtl.text.trim()) ?? 0;
+    final m = medianOf(_samples);
+    if (ref <= 0 || m <= 0) return '—';
+    return (ref / m).toStringAsFixed(4);
+  }
+
+  /// 是否处于最佳测量区间（深度未知时按"不阻断"处理）。
+  bool get _depthOk {
+    final d = _lastDepthMm;
+    if (d == null || d <= 0) return true;
+    return d >= _bestMinMm && d <= _bestMaxMm;
+  }
+
   @override
   void initState() {
     super.initState();
     _svc = ArMeasureService(viewId: _viewId);
     _svc.channel.setMethodCallHandler(_onNative);
     _loadSession();
+    _loadScaleCalib();
+  }
+
+  /// 读取本机已有的尺度校正（有则读数自动修正）。
+  Future<void> _loadScaleCalib() async {
+    final c = await ArScaleCalibrationStore.load();
+    if (mounted && c != null) setState(() => _scaleCalib = c);
   }
 
   /// 读取已有会话取容差（判定门控用），无则保持默认。
@@ -66,19 +122,37 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
 
   Future<dynamic> _onNative(MethodCall call) async {
     if (call.method == 'onMeasure') {
-      final mm = ((call.arguments as Map)['mm'] as num).toDouble();
-      if (mounted) {
-        setState(() {
-          _samples.add(mm);
-          _hint = '第 ${_samples.length} 次读数（同边重复测更稳），满意后点「采纳本组」';
-        });
+      final args = call.arguments as Map;
+      final raw = (args['mm'] as num?)?.toDouble() ?? 0;
+      final depth = (args['depthMm'] as num?)?.toDouble();
+      if (!mounted) return;
+      // 距离门控：超出 LiDAR 量程的读数直接丢弃（不污染中位数）。
+      if (depth != null && depth > _rejectMm) {
+        setState(() => _lastDepthMm = depth);
+        AppSnack.show(
+          context,
+          '距相机 ${(depth / 1000).toStringAsFixed(1)}m 超出 LiDAR 量程（约 5m），'
+          '该读数已丢弃，请靠近目标重测',
+          kind: AppSnackKind.danger,
+        );
+        return;
       }
+      setState(() {
+        // 采样保存**原始读数**（校正模式要用原始值算 k），显示时才乘 k。
+        _samples.add(raw);
+        _lastDepthMm = depth;
+        _hint = _calibMode
+            ? '校正采样第 ${_samples.length} 次：对已知长度重复测，≥2 次后点「完成校正」'
+            : '第 ${_samples.length} 次读数'
+                '${_depthOk ? '' : '（当前超出最佳区间，误差偏大）'}，满意后点「采纳本组」';
+      });
     } else if (call.method == 'onPointA') {
       if (mounted) setState(() => _hint = '已采点A，请再点一次');
     } else if (call.method == 'onCleared') {
       if (mounted) {
         setState(() {
           _samples.clear();
+          _lastDepthMm = null;
           _hint = '已清除本组采样，重新对目标边采点（A→B）';
         });
       }
@@ -120,6 +194,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   @override
   void dispose() {
     _svc.stopSession();
+    _calibRefCtl.dispose();
     _nameCtl.dispose();
     _drawingCtl.dispose();
     super.dispose();
@@ -136,14 +211,19 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   }
 
   /// 采纳当前采样组：中位数为读数，离散半宽为 ±误差带。
+  ///
+  /// 读数与误差带都会乘上尺度系数 k（若有校正）——k 修正的是**系统偏差**，
+  /// 而 ±误差带仍是**重复性**，两者含义不同，UI 文案分开表述。
   void _adoptSamples() {
     if (_samples.length < 2) {
       AppSnack.show(context, '请对同一条边至少测 2 次再采纳', kind: AppSnackKind.muted);
       return;
     }
     setState(() {
-      _readings.add(
-          (mm: medianOf(_samples), errMm: spreadHalfRange(_samples)));
+      _readings.add((
+        mm: _corrected(medianOf(_samples)),
+        errMm: spreadHalfRange(_samples) * _k,
+      ));
       _samples.clear();
       _hint = '已采纳一组，可继续测下一条边；全部测完点「保存」';
     });
@@ -157,10 +237,114 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     final dev = mm - drawingMm;
     final devPct = dev / drawingMm * 100;
     if (!canJudgeByError(errMm, _tolMm)) {
-      return '误差 ±${fmtMm(errMm)}mm 大于容差 1/3，需卷尺复核';
+      return '重复性 ±${fmtMm(errMm)}mm 大于容差 1/3，需卷尺复核';
     }
     final ok = dev.abs() <= _tolMm && devPct.abs() <= _tolPct;
     return ok ? '偏差 ${fmtMmSigned(dev)}mm · 合格' : '偏差 ${fmtMmSigned(dev)}mm · 超差';
+  }
+
+  // ——— 系统偏差校正（已知长度）———
+
+  /// 进入校正模式：清空采样，让用户对一个已知长度重复测量。
+  Future<void> _startCalib() async {
+    final ctl = TextEditingController(text: _calibRefCtl.text);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('系统偏差校正'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'AR 的 ±误差带只代表「重复性」，不含系统偏差（读数可能整体偏大/偏小）。\n'
+              '请填一个**已知真实长度**（如 A4 长边 297、瓷砖 600、卷尺 1000），'
+              '然后对它重复测 ≥2 次。',
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '已知长度真值 (mm)',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('开始校正')),
+        ],
+      ),
+    );
+    final ref = double.tryParse(ctl.text.trim());
+    ctl.dispose();
+    if (ok != true || ref == null || ref <= 0) return;
+    setState(() {
+      _calibMode = true;
+      _calibRefCtl.text = fmtMm(ref);
+      _samples.clear();
+      _hint = '校正中：对 ${fmtMm(ref)}mm 的已知长度重复测 ≥2 次，然后点「完成校正」';
+    });
+  }
+
+  /// 完成校正：用本组原始采样中位数求尺度系数并落库。
+  Future<void> _finishCalib() async {
+    final ref = double.tryParse(_calibRefCtl.text.trim()) ?? 0;
+    if (ref <= 0) {
+      AppSnack.show(context, '已知长度无效', kind: AppSnackKind.danger);
+      return;
+    }
+    if (_samples.length < 2) {
+      AppSnack.show(context, '请至少测 2 次再完成校正', kind: AppSnackKind.muted);
+      return;
+    }
+    final c = ArScaleCalibration(
+      refMm: ref,
+      measuredMm: medianOf(_samples),
+      samples: _samples.length,
+      ts: DateTime.now().millisecondsSinceEpoch,
+    );
+    if (!c.isUsable) {
+      AppSnack.show(
+        context,
+        '校正偏差 ${c.deltaPct.toStringAsFixed(1)}% 超出合理范围（>15%），'
+        '多半是测错目标，请重测',
+        kind: AppSnackKind.danger,
+      );
+      return;
+    }
+    await ArScaleCalibrationStore.save(c);
+    if (!mounted) return;
+    setState(() {
+      _scaleCalib = c;
+      _calibMode = false;
+      _samples.clear();
+      _hint = '校正完成：k=${c.k.toStringAsFixed(4)}，后续读数自动修正';
+    });
+    AppSnack.show(
+      context,
+      '已校正系统偏差：实测 ${fmtMm(c.measuredMm)}mm / 真值 ${fmtMm(c.refMm)}mm，'
+      'k=${c.k.toStringAsFixed(4)}（${c.deltaPct >= 0 ? '+' : ''}${c.deltaPct.toStringAsFixed(2)}%）',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  Future<void> _clearCalib() async {
+    await ArScaleCalibrationStore.clear();
+    if (!mounted) return;
+    setState(() {
+      _scaleCalib = null;
+      _calibMode = false;
+      _hint = '已清除尺度校正，读数将不做系统偏差修正';
+    });
   }
 
   /// 批量保存：把已采纳的读数组全部写入会话（带误差带）。
@@ -323,7 +507,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '本次 ${fmtMm(_samples.last)} mm',
+                                  '本次 ${fmtMm(_corrected(_samples.last))} mm',
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 18,
@@ -331,11 +515,27 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                                 ),
                                 if (_samples.length >= 2)
                                   Text(
-                                    '本组中位 ${fmtMm(medianOf(_samples))} '
-                                    '±${fmtMm(spreadHalfRange(_samples))} mm'
-                                    '（n=${_samples.length}）',
+                                    '本组中位 ${fmtMm(_corrected(medianOf(_samples)))} mm'
+                                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)} mm，'
+                                    'n=${_samples.length}）',
                                     style: const TextStyle(
                                         color: Colors.white70, fontSize: 12),
+                                  ),
+                                if (_scaleCalib != null)
+                                  Text(
+                                    '已做系统偏差校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
+                                    '（真值 ${fmtMm(_scaleCalib!.refMm)}mm / '
+                                    '实测 ${fmtMm(_scaleCalib!.measuredMm)}mm）',
+                                    style: const TextStyle(
+                                        color: Colors.lightGreenAccent,
+                                        fontSize: 11),
+                                  ),
+                                if (_depthHint != null)
+                                  Text(
+                                    _depthHint!,
+                                    style: const TextStyle(
+                                        color: Colors.orangeAccent,
+                                        fontSize: 11),
                                   ),
                               ],
                             ),
@@ -351,21 +551,65 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
             padding: const EdgeInsets.all(AppTokens.space3),
             child: Column(
               children: [
-                // 采纳本组：同边重复采样 ≥2 次后，取中位 ± 误差带进入清单
+                // 主按钮：校正模式 → 完成校正；常态 → 采纳本组
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: _supported && _samples.length >= 2
-                        ? _adoptSamples
-                        : null,
+                    onPressed: _calibMode
+                        ? (_supported && _samples.length >= 2
+                            ? _finishCalib
+                            : null)
+                        : (_supported && _samples.length >= 2
+                            ? _adoptSamples
+                            : null),
                     icon: const Icon(MingCuteIcons.checkCircleLine, size: 18),
                     label: Text(
-                      _samples.length < 2
-                          ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
-                          : '采纳本组 → ${fmtMm(medianOf(_samples))} '
-                              '±${fmtMm(spreadHalfRange(_samples))} mm',
+                      _calibMode
+                          ? (_samples.length < 2
+                              ? '完成校正（再测 ${2 - _samples.length} 次可启用）'
+                              : '完成校正 → k=$_calibKPreview')
+                          : (_samples.length < 2
+                              ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
+                              : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
+                                  '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'),
                     ),
                   ),
+                ),
+                const SizedBox(height: AppTokens.space1),
+                // 系统偏差校正：把「重复性」与「准确度」分开（±误差带只代表前者）
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _calibMode
+                            ? '校正中：对 ${_calibRefCtl.text}mm 已知长度重复测 ≥2 次'
+                            : (_scaleCalib == null
+                                ? '未做系统偏差校正：± 仅为重复性，不代表准确度'
+                                : '已校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
+                                    '（${_scaleCalib!.deltaPct >= 0 ? '+' : ''}'
+                                    '${_scaleCalib!.deltaPct.toStringAsFixed(2)}%）'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _calibMode
+                              ? Colors.blue
+                              : (_scaleCalib == null
+                                  ? AppTokens.muted
+                                  : Colors.green),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _supported
+                          ? (_calibMode ? _finishCalib : _startCalib)
+                          : null,
+                      child: Text(_calibMode ? '完成' : '系统偏差校正'),
+                    ),
+                    if (_scaleCalib != null && !_calibMode)
+                      TextButton(
+                        onPressed: _clearCalib,
+                        child: const Text('清除'),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: AppTokens.space2),
                 Row(
@@ -433,7 +677,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                         contentPadding: EdgeInsets.zero,
                         leading: Text('AR-${i + 1}.',
                             style: const TextStyle(color: AppTokens.muted)),
-                        title: Text('${fmtMm(r.mm)} ±${fmtMm(r.errMm)} mm',
+                        title: Text(
+                            '${fmtMm(r.mm)} mm（重复性 ±${fmtMm(r.errMm)}）',
                             style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: verdict == null
                             ? null

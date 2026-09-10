@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/measure_labels.dart';
 import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
@@ -122,7 +123,7 @@ class _XlsxBook {
     rows.add(_Row(idx++, [_c('量房记录', _sTitle), _c('', _sTitle)]));
     for (final rec in r.roomScans) {
       rows.add(_Row(idx++, [
-        _c('${rec.name} · ${rec.roomUse} · 来源 ${rec.source}'
+        _c('${rec.name} · ${rec.roomUse} · 来源 ${measureSourceLabel(rec.source)}'
             '${rec.netHeightMm != null ? ' · 净高 ${fmtMm(rec.netHeightMm!)} mm' : ''}',
             _sGroup),
         _c('', _sGroup),
@@ -149,14 +150,23 @@ class _XlsxBook {
           _c(op, _sCell),
         ]));
       }
+      // 尺寸校对：XLSX 沿用四列结构，逐条出「实测含误差带 + 测量方式」整行
+      // （内容同样来自 measure_labels，与 HTML/PDF/DOCX 端一致）。
       if (rec.checks.isNotEmpty) {
         rows.add(_Row(idx++, [
-          _c('核尺：${rec.checks.map((c) => '${c.name} ${fmtMmSigned(c.deviation)}mm').join('、')}',
-              _sCell),
-          _c('', _sCell),
-          _c('', _sCell),
-          _c('', _sCell),
+          _c('尺寸校对（实测含误差带与测量方式）', _sHeader),
+          _c('', _sHeader),
+          _c('', _sHeader),
+          _c('', _sHeader),
         ]));
+        for (final c in rec.checks) {
+          rows.add(_Row(idx++, [
+            _c(measureCheckLine(c), _sCell),
+            _c('', _sCell),
+            _c('', _sCell),
+            _c('', _sCell),
+          ]));
+        }
       }
     }
     _sheets.add(_Sheet('量房记录', rows, cols: const [18, 12, 12, 24]));

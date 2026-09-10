@@ -4,6 +4,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../core/room/room_geometry.dart';
+import '../../core/storage/measure_store.dart';
 import '../../core/storage/room_scan_store.dart';
 import '../../core/utils/mm_format.dart';
 import '../../data/models.dart';
@@ -325,6 +326,14 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
         ),
     ];
     final now = DateTime.now().millisecondsSinceEpoch;
+    // 关联该图纸的「量尺校对」结果 → 作为本记录的 checks 进报告尺寸校对区
+    // （记录本身带 drawingKey 正是为此）；无图纸/无会话则为空，不阻断保存。
+    var checks = const <MeasureItem>[];
+    final dk = widget.args.drawingKey;
+    if (dk != null && dk.isNotEmpty) {
+      final s = await MeasureStore.load(projectKey, dk);
+      if (s != null) checks = s.items;
+    }
     final record = RoomScanRecord(
       id: 'room_$now',
       projectKey: projectKey,
@@ -335,7 +344,8 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       walls: walls,
       closureDeltaMm: delta,
       netHeightMm: double.tryParse(_netHeightCtl.text),
-      drawingKey: widget.args.drawingKey,
+      drawingKey: dk,
+      checks: checks,
     );
     await RoomScanStore.save(projectKey, record);
     await refreshRoomScans(ref, projectKey);

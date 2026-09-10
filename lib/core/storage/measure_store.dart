@@ -47,6 +47,9 @@ class MeasureStore {
                   'drawingMm': e.drawingMm,
                   'photoMm': e.photoMm,
                   'source': e.source,
+                  // 误差带必须落库：否则报告端拿不到 ±mm，也无法做「误差>容差/3
+                  // 不给判定」的门控（此前这里漏写，属缺陷）。
+                  if (e.errorMm != null) 'errorMm': e.errorMm,
                 })
             .toList(),
         'updatedAt': s.updatedAt,
@@ -69,6 +72,7 @@ class MeasureStore {
             drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
             photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
             source: e['source'] as String? ?? 'photo',
+            errorMm: (e['errorMm'] as num?)?.toDouble(),
           ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),

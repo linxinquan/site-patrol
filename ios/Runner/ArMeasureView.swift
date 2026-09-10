@@ -130,10 +130,21 @@ class ArMeasureView: NSObject, FlutterPlatformView {
             placeSphere(world, color: UIColor.systemRed, slot: 1)
             drawLine(a, world)
             let mm = simd_distance(a, world) * 1000.0
+            // 距相机的深度（mm）：LiDAR 有效区间约 0.3~5m，超过则误差迅速放大，
+            // 由 Dart 侧做最佳区间提示与超量程拒绝（见 ar_measure_page 的门控）。
+            let cam = sceneView.session.currentFrame?.camera.transform.columns.3
+            var depthA = 0.0, depthB = 0.0
+            if let c = cam {
+                let camPos = simd_make_float3(c.x, c.y, c.z)
+                depthA = Double(simd_distance(camPos, a) * 1000.0)
+                depthB = Double(simd_distance(camPos, world) * 1000.0)
+            }
             channel.invokeMethod("onMeasure", arguments: [
                 "mm": mm,
                 "ax": a.x, "ay": a.y, "az": a.z,
                 "bx": world.x, "by": world.y, "bz": world.z,
+                "depthA": depthA, "depthB": depthB,
+                "depthMm": (depthA + depthB) / 2.0,
             ])
             pointA = nil; pointB = nil // 本组结束，等待下一次单击开新组（视觉保留）
         }

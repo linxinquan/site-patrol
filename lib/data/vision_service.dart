@@ -174,7 +174,123 @@ class VisionService {
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     return GridDetection.fromContent(data['content']?.toString() ?? '');
   }
+
+  /// 识别画面中「可被量的目标」（门洞/窗洞/洞口/梁宽/墙长等）及其两端点。
+  ///
+  /// 只返回**两端点位置**，不返回尺寸数值——尺寸一律由 App 用已标定的
+  /// 单应换算，避免模型直接报数（幻觉尺寸无法追责）。
+  /// 网络/解析失败抛异常；无目标返回 null。
+  Future<List<MeasureTarget>?> detectTargets(Uint8List imageBytes) async {
+    final resp = await http
+        .post(
+          Uri.parse('$host/api/vision'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'image': 'data:image/jpeg;base64,${base64Encode(imageBytes)}',
+            'prompt': _targetPrompt,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+
+    if (resp.statusCode != 200) {
+      throw Exception('目标识别失败(${resp.statusCode}): ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return MeasureTarget.listFromContent(data['content']?.toString() ?? '');
+  }
 }
+
+/// AI 识别到的被测目标：一条「候选尺寸线」。
+///
+/// [p1]/[p2] 为被测方向两端的**归一化**坐标（0~1），例如门洞左右两侧；
+/// [kind] 取值见 [MeasureTarget.kTargetKinds]；不携带尺寸数值。
+class MeasureTarget {
+  final String kind;
+  final String name;
+  final Offset p1;
+  final Offset p2;
+  final double conf;
+
+  const MeasureTarget({
+    required this.kind,
+    this.name = '',
+    required this.p1,
+    required this.p2,
+    this.conf = 0,
+  });
+
+  /// 支持的目类型（与提示词枚举保持一致）。
+  static const List<String> kTargetKinds = [
+    'door',
+    'window',
+    'opening',
+    'beam',
+    'column',
+    'wall',
+    'ceiling_height',
+    'floor',
+  ];
+
+  /// 两端有效、有一定长度、在画面内、置信度达标。
+  bool get isValid {
+    if (conf < 0.3) return false;
+    for (final p in [p1, p2]) {
+      if (p.dx < -0.05 || p.dx > 1.05 || p.dy < -0.05 || p.dy > 1.05) {
+        return false;
+      }
+    }
+    final d = (p2 - p1).distance;
+    return d > 0.02 && d < 2.0;
+  }
+
+  /// 从模型文本提取目标列表；无合格结果返回 null（不抛异常）。
+  static List<MeasureTarget>? listFromContent(String content) {
+    final start = content.indexOf('{');
+    final end = content.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+    try {
+      final map = jsonDecode(content.substring(start, end + 1));
+      final list = (map['targets'] as List? ?? []);
+      final out = <MeasureTarget>[];
+      for (final e in list) {
+        if (e is! Map) continue;
+        final a = e['p1'];
+        final b = e['p2'];
+        if (a is! List || b is! List || a.length < 2 || b.length < 2) continue;
+        double n(dynamic v) => (v as num?)?.toDouble() ?? 0;
+        final t = MeasureTarget(
+          kind: e['kind']?.toString() ?? 'other',
+          name: e['name']?.toString() ?? '',
+          p1: Offset(n(a[0]), n(a[1])),
+          p2: Offset(n(b[0]), n(b[1])),
+          conf: n(e['conf']),
+        );
+        if (t.isValid) out.add(t);
+      }
+      if (out.isEmpty) return null;
+      out.sort((x, y) => y.conf.compareTo(x.conf));
+      return out.length > 8 ? out.sublist(0, 8) : out;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// 目标识别提示词：只报两端点位置，尺寸留给 App 换算。
+const String _targetPrompt =
+    '你是施工测量助手。请在照片中找出【最多 8 个】可以被量取尺寸的目标，'
+    '给出它们被测方向的两端点。\n'
+    '只认这些类型（kind 取值）：door 门洞、window 窗洞、opening 洞口、'
+    'beam 梁宽、column 柱宽、wall 墙长、ceiling_height 净高、floor 地面尺寸。\n'
+    '要求：\n'
+    '1) 目标须位于同一平面、两端边界清晰、无遮挡；拿不准就不要报；\n'
+    '2) p1/p2 为被测方向两端点坐标，归一化 0~1（p1 在左/上，p2 在右/下）；\n'
+    '3) name 为简短中文描述（如「主卧门洞宽」）；\n'
+    '4) **不要输出任何尺寸数值**（尺寸由 App 按标定换算，你只需给位置）；\n'
+    '5) conf 为置信度 0~1；画面里没有可量目标时返回 {"targets":[]}。\n'
+    '只输出 JSON，不要任何多余文字：\n'
+    '{"targets":[{"kind":"door","name":"门洞宽","p1":[0.31,0.62],'
+    '"p2":[0.72,0.63],"conf":0.88}]}';
 
 /// AI 识别到的等距模数网格。
 ///

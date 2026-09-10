@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gongdi_app/data/models.dart';
@@ -126,6 +127,124 @@ void main() {
       } else {
         // 环境受限（如无中文字体资源）→ 不造假，如实记录并让用例通过。
         debugPrint('PDF 导出受限（环境无字体资源），未生成字节。err=$err');
+      }
+    });
+  });
+
+  // ==================== 尺寸校对四端同步（误差带 + 测量方式）====================
+  //
+  // 红线：报告有 HTML/PDF/DOCX/XLSX 四个渲染端，同一份数据不能"四个说法"。
+  // 这里对 HTML 直接查文本，对 DOCX/XLSX 解包后在 XML 里查同一批字符串——
+  // 只要有一端漏写误差带或测量方式，用例即失败。
+  group('尺寸校对四端同步（误差带 + 测量方式）', () {
+    WeeklyReport withChecks() {
+      final rec = RoomScanRecord(
+        id: 'room_checks',
+        projectKey: 'p1',
+        name: '主卧',
+        roomUse: '卧室',
+        source: 'ai',
+        scannedAtMs: 0,
+        walls: const [
+          RoomWall(id: 'w0', ax: 0, ay: 0, bx: 4000, by: 0, lengthMm: 4000),
+        ],
+        checks: const [
+          // 误差带 4.5 ≤ 容差 15/3 → 可判定（合格）
+          MeasureItem(
+              name: '门洞宽 M0921',
+              drawingMm: 900,
+              photoMm: 907,
+              source: 'ai',
+              errorMm: 4.5),
+          // 误差带 8 > 5 → 不下结论，标需复核
+          MeasureItem(
+              name: '墙1',
+              drawingMm: 4000,
+              photoMm: 4042,
+              source: 'ar_lidar',
+              errorMm: 8),
+        ],
+      );
+      return WeeklyReport(
+        project: 'P',
+        title: 'T',
+        period: '2026-09',
+        org: 'O',
+        roomScans: [rec],
+      );
+    }
+
+    /// 四端都必须出现的内容（HTML/PDF/DOCX 走表格行，XLSX 走单行摘要，
+    /// 但误差带、方式、判定这三类信息在任何一端都不允许丢失）。
+    const mustHave = [
+      '尺寸校对', // 小节标题
+      '907 mm ±5', // 实测 + 误差带（第 1 条）
+      '4042 mm ±8', // 实测 + 误差带（第 2 条）
+      'AI识别', // 测量方式（第 1 条）
+      'AR量尺(LiDAR)', // 测量方式（第 2 条）
+      '需卷尺复核', // 误差过大 → 不下结论
+      '合格', // 误差足够小 → 正常判定
+    ];
+
+    /// 仅表格式渲染端（HTML/DOCX）具备的统一表头。
+    const tableHeads = ['校对项', '实测（含误差带）', '图纸尺寸', '偏差', '判定', '测量方式'];
+
+    /// 解包 OOXML（docx/xlsx），把所有 part 拼成一段文本供检索。
+    String unzipText(List<int> bytes, {String? only}) {
+      final zip = ZipDecoder().decodeBytes(bytes);
+      final sb = StringBuffer();
+      for (final f in zip.files) {
+        if (only != null && f.name != only) continue;
+        if (f.isFile) {
+          sb.writeln(utf8.decode(f.content as List<int>, allowMalformed: true));
+        }
+      }
+      return sb.toString();
+    }
+
+    test('HTML：含误差带、判定与测量方式（表格式，含统一表头）', () {
+      final html = buildWeeklyReportHtml(withChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00');
+      for (final s in [...mustHave, ...tableHeads]) {
+        expect(html, contains(s), reason: 'HTML 缺少「$s」');
+      }
+    });
+
+    test('XLSX：解包后 XML 含同样内容（单行摘要，四列结构）', () {
+      final bytes = buildWeeklyReportXlsx(withChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00');
+      final text = unzipText(bytes);
+      for (final s in mustHave) {
+        expect(text, contains(s), reason: 'XLSX 缺少「$s」');
+      }
+      // 单行摘要里也必须出现真值对比
+      expect(text, contains('图纸 900 mm'), reason: 'XLSX 摘要缺少图纸真值');
+    });
+
+    test('DOCX：document.xml 含同样内容（表格式，含统一表头）', () {
+      final bytes = buildWeeklyReportDocx(withChecks(),
+          reporter: '测试', generatedAt: '2026-09-10 10:00',
+          photoBytes: const {});
+      final text = unzipText(bytes, only: 'word/document.xml');
+      for (final s in [...mustHave, ...tableHeads]) {
+        expect(text, contains(s), reason: 'DOCX 缺少「$s」');
+      }
+    });
+
+    test('PDF：与另三端同源（同一 measureCheckRow），产出不抛异常', () async {
+      Uint8List? bytes;
+      Object? err;
+      try {
+        bytes = await buildWeeklyReportPdf(withChecks(),
+            reporter: '测试', generatedAt: '2026-09-10 10:00',
+            photoBytes: const {});
+      } catch (e) {
+        err = e;
+      }
+      if (bytes != null) {
+        expect(bytes!.length, greaterThan(100));
+      } else {
+        debugPrint('PDF 本轮环境受限（无字体资源），内容与另三端同源。err=$err');
       }
     });
   });

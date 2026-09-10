@@ -1,5 +1,6 @@
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
+import '../../core/utils/measure_labels.dart';
 import '../../core/utils/mm_format.dart';
 import 'report_content.dart';
 
@@ -278,7 +279,7 @@ String _progressDetail(String detail) {
   for (final r in scans) {
     sb.writeln(
         '<div class="room-block"><h3>${_esc(r.name)} · ${_esc(r.roomUse)}'
-        ' · 来源 ${_esc(r.source)}'
+        ' · 来源 ${_esc(measureSourceLabel(r.source))}'
         '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}</h3>');
     sb.writeln(
         '<table class="report-table"><thead><tr><th>墙段</th>'
@@ -293,7 +294,21 @@ String _progressDetail(String detail) {
       sb.writeln('<tr><td>墙${i + 1}</td><td>${fmtMm(w.lengthMm)}</td>'
           '<td>${fmtMm(w.thicknessMm ?? 200)}</td><td>${_esc(op)}</td></tr>');
     }
-    sb.writeln('</tbody></table></div>');
+    sb.writeln('</tbody></table>');
+
+    // 尺寸校对：实测值必须带误差带与测量方式，否则粗测值会被当判定依据。
+    // 列名与行内容统一取自 measure_labels，保证四端（HTML/PDF/DOCX/XLSX）一致。
+    if (r.checks.isNotEmpty) {
+      sb.writeln('<h4>尺寸校对（实测含误差带与测量方式）</h4>');
+      sb.writeln('<table class="report-table"><thead><tr>'
+          '${kCheckTableHeaders.map((h) => '<th>${_esc(h)}</th>').join()}'
+          '</tr></thead><tbody>');
+      for (final c in r.checks) {
+        sb.writeln('<tr>${measureCheckRow(c).map((v) => '<td>${_esc(v)}</td>').join()}</tr>');
+      }
+      sb.writeln('</tbody></table>');
+    }
+    sb.writeln('</div>');
   }
   return (title: '量房记录', body: sb.toString());
 }
