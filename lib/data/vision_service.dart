@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' show Offset;
 
 import 'package:http/http.dart' as http;
 
@@ -148,7 +149,115 @@ class VisionService {
     final data = jsonDecode(resp.body) as Map<String, dynamic>;
     return AnchorDetection.bestFromContent(data['content']?.toString() ?? '');
   }
+
+  /// 识别画面中「同一平面上的等距模数网格」（瓷砖缝 / 地砖 / 吊顶扣板 / 幕墙分格），
+  /// 返回网格交点与格距——**这是照片量尺的主标定来源**：
+  /// 网格给出几十个已知间距的控制点，比单个锚物稳得多，且把斜拍透视一并解出。
+  ///
+  /// 返回 null 表示画面里没有可用网格（不抛异常）；网络/解析失败抛异常，
+  /// 调用方需 try/catch 并回退手动点选网格。
+  Future<GridDetection?> detectGrid(Uint8List imageBytes) async {
+    final resp = await http
+        .post(
+          Uri.parse('$host/api/vision'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'image': 'data:image/jpeg;base64,${base64Encode(imageBytes)}',
+            'prompt': _gridPrompt,
+          }),
+        )
+        .timeout(const Duration(seconds: 120));
+
+    if (resp.statusCode != 200) {
+      throw Exception('网格识别失败(${resp.statusCode}): ${resp.body}');
+    }
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    return GridDetection.fromContent(data['content']?.toString() ?? '');
+  }
 }
+
+/// AI 识别到的等距模数网格。
+///
+/// [points] 为归一化 0~1 的网格交点坐标，**行优先**（从左到右、从上到下）；
+/// [cols]/[rows] 是**交点的列数/行数**，故 `points.length == cols × rows`；
+/// [gridMm] 为相邻交点的真实间距（模型无法判断时为 0）。
+class GridDetection {
+  final String name;
+  final double gridMm;
+  final int cols;
+  final int rows;
+  final List<Offset> points;
+  final double conf;
+
+  const GridDetection({
+    required this.name,
+    required this.gridMm,
+    required this.cols,
+    required this.rows,
+    required this.points,
+    this.conf = 0,
+  });
+
+  /// 是否可用于标定：至少 4 个交点、格距为正、行列数合理、有一定置信度。
+  bool get isValid =>
+      points.length >= 4 &&
+      points.length >= cols * rows &&
+      cols >= 2 &&
+      rows >= 2 &&
+      gridMm > 0 &&
+      conf >= 0.3;
+
+  /// 从模型文本提取网格；无合格结果返回 null（不抛异常）。
+  static GridDetection? fromContent(String content) {
+    final start = content.indexOf('{');
+    final end = content.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+    try {
+      final map = jsonDecode(content.substring(start, end + 1));
+      final g = map['grid'];
+      if (g is! Map) return null;
+      double n(dynamic v) => (v as num?)?.toDouble() ?? 0;
+      final pts = <Offset>[];
+      for (final p in (g['points'] as List? ?? [])) {
+        if (p is List && p.length >= 2) {
+          pts.add(Offset(n(p[0]), n(p[1])));
+        }
+      }
+      final det = GridDetection(
+        name: g['name']?.toString() ?? '模数网格',
+        gridMm: n(g['gridMm']),
+        cols: (g['cols'] as num?)?.toInt() ?? 0,
+        rows: (g['rows'] as num?)?.toInt() ?? 0,
+        points: pts,
+        conf: n(g['conf']),
+      );
+      return det.isValid ? det : null;
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// 网格识别提示词：要求返回**行优先**的归一化交点数组与真实格距。
+const String _gridPrompt =
+    '你是施工测量助手。请在照片中找出【一个】同一平面上的等距网格'
+    '（瓷砖缝/地砖缝、吊顶扣板、幕墙分格、石膏板拼缝等），并给出其交点。\n'
+    '要求：\n'
+    '1) 网格必须位于同一平面、尽量完整入画，交点清晰可辨；\n'
+    '2) name 为网格类型描述（如「瓷砖缝」「吊顶扣板」）；\n'
+    '3) gridMm 为相邻两条缝的真实间距（mm）：瓷砖常见 300/600/800，'
+    '扣板常见 300/600，石膏板 1200；无法判断时给 0；\n'
+    '4) cols/rows 为**交点的列数、行数**（交点数 = cols×rows），'
+    '每向至少 2 个交点，最多取 5×5（务必只给清晰可辨的交点）；\n'
+    '5) points 为网格交点坐标，归一化 0~1，**按行优先排列**'
+    '（先从左到右走完一行，再进入下一行），个数须等于 cols×rows；\n'
+    '6) conf 为置信度 0~1；画面里没有可用网格时返回 {"grid":null}。\n'
+    '只输出 JSON，不要任何多余文字：\n'
+    '{"grid":{"name":"瓷砖缝","gridMm":600,"cols":4,"rows":4,"conf":0.9,'
+    '"points":[[0.10,0.20],[0.35,0.19],[0.58,0.18],[0.80,0.17],'
+    '[0.11,0.45],[0.36,0.44],[0.59,0.43],[0.81,0.42],'
+    '[0.12,0.70],[0.37,0.69],[0.60,0.68],[0.82,0.67],[0.13,0.95],'
+    '[0.38,0.94],[0.61,0.93],[0.83,0.92]]}}';
 
 /// 自动标定锚物识别结果。
 ///

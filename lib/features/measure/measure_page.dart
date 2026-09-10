@@ -68,6 +68,14 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final TextEditingController _gridColsCtl = TextEditingController(text: '3');
   final TextEditingController _gridRowsCtl = TextEditingController(text: '3');
 
+  // —— AI 网格识别（自动标定主路径：零输入，人工只做确认）——
+  /// AI 识别到的网格（待确认 / 已确认都用它画绿色叠加层）。
+  GridDetection? _aiGrid;
+  /// 是否已人工确认并写入标定（true 后叠加层转为浅绿、可开始量尺）。
+  bool _aiGridConfirmed = false;
+  bool _aiGridBusy = false;
+  String? _aiGridMsg;
+
   // —— 会话 ——
   MeasureSession? _session;
   final TextEditingController _nameCtl = TextEditingController(text: '梁宽');
@@ -231,7 +239,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           _refPicks.clear();
           _gridPicks.clear();
           _gridMode = false;
-              _autoCalibMsg = null;
+          _aiGrid = null;
+          _aiGridConfirmed = false;
+          _aiGridMsg = null;
+          _autoCalibMsg = null;
           _autoTried = false;
         });
         // 零输入目标：照片就绪即自动尝试锚物识别（失败静默，可手动重试）。
@@ -324,6 +335,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _refPicks.clear();
       _gridPicks.clear();
       _gridMode = false;
+      _aiGrid = null;
+      _aiGridConfirmed = false;
+      _aiGridMsg = null;
       _autoCalibMsg = null;
     });
     _persist();
@@ -339,10 +353,13 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _photoPicks.clear();
       _gridPicks.clear();
       _gridMode = false;
+      _aiGrid = null;
+      _aiGridConfirmed = false;
+      _aiGridMsg = null;
       _autoCalibMsg = null;
     });
     _persist();
-    AppSnack.show(context, '已清除标定，请在照片上重新标定（网格单应 或 参考物两点）');
+    AppSnack.show(context, '已清除标定，请重新标定（AI 识别网格 / 手动点选网格 / 参考物两点）');
   }
 
   // ——— 模数网格单应标定（透视校正主路径）———
@@ -432,6 +449,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       _gridPicks.clear();
       _gridMode = false;
       _photoPicks.clear();
+      _aiGrid = null; // 手动点选覆盖 AI 结果，避免两套控制点混淆
+      _aiGridConfirmed = false;
+      _aiGridMsg = null;
       _autoCalibMsg = '已网格单应标定：${pairs.src.length} 点 · 格距 ${fmtMm(gridMm)}mm'
           '${pairs.src.length > 4 ? ' · 残差 ${fmtMm(res)}mm' : '（4 点为精确解，残差恒 0）'}';
     });
@@ -442,6 +462,130 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       '${pairs.src.length > 4 ? '，残差 ${fmtMm(res)} mm' : ''}',
       kind: AppSnackKind.success,
     );
+  }
+
+  // ——— AI 网格识别 + 人工确认（自动标注主路径）———
+
+  /// 调视觉服务识别画面中的等距模数网格；结果先进入**待确认**态。
+  Future<void> _aiDetectGrid() async {
+    if (_aiGridBusy) return;
+    if (_photoBytes == null || _photoSize == null) {
+      AppSnack.show(context, '请先拍/选照片', kind: AppSnackKind.muted);
+      return;
+    }
+    if (_session?.photoCalib != null && !_aiGridConfirmed) {
+      AppSnack.show(context, '已有标定，请先点标定签的 × 清除', kind: AppSnackKind.muted);
+      return;
+    }
+    final online = await VisionService.isReachable();
+    if (!mounted) return;
+    if (!online) {
+      setState(() {
+        _netOffline = true;
+        _aiGridMsg = '当前无网络：AI 识别不可用，请用下方手动点选网格（离线可用）';
+      });
+      return;
+    }
+    setState(() {
+      _netOffline = false;
+      _aiGridBusy = true;
+      _aiGridMsg = '正在识别画面中的模数网格…';
+    });
+    try {
+      final g = await VisionService().detectGrid(_photoBytes!);
+      if (!mounted) return;
+      if (g == null) {
+        setState(() => _aiGridMsg =
+            '未识别到可用网格：请让瓷砖缝/扣板缝完整入画、避免强反光，或改用下方手动点选');
+        return;
+      }
+      setState(() {
+        _aiGrid = g;
+        _aiGridConfirmed = false;
+        _gridMode = false;
+        _gridPicks.clear();
+        _photoPicks.clear();
+        _refPicks.clear();
+        _aiGridMsg = '识别到「${g.name}」格距 ${fmtMm(g.gridMm)}mm · '
+            '${g.cols}×${g.rows} 交点（置信度 ${(g.conf * 100).round()}%）；'
+            '请核对图中绿点后确认';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _aiGridMsg = 'AI 识别不可用，请手动点选网格（$e）');
+    } finally {
+      if (mounted) setState(() => _aiGridBusy = false);
+    }
+  }
+
+  /// 人工确认 AI 识别结果 → 用其交点求解单应并写入标定。
+  void _confirmAiGrid() {
+    final g = _aiGrid;
+    final size = _photoSize;
+    if (g == null || size == null) return;
+    final src = g.points
+        .map((p) => Offset(p.dx * size.width, p.dy * size.height))
+        .toList();
+    final pairs = buildGridCorrespondences(
+      picks: src,
+      cols: g.cols,
+      rows: g.rows,
+      gridMm: g.gridMm,
+    );
+    if (pairs.src.length < 4) {
+      AppSnack.show(context, '识别到的交点不足 4 个，无法标定，请手动点选',
+          kind: AppSnackKind.danger);
+      return;
+    }
+    final hom = Homography.solve(pairs.src, pairs.dst);
+    if (hom == null) {
+      AppSnack.show(
+          context, '识别点过于集中或共线，无法求解；请手动点选更分散的网格交点',
+          kind: AppSnackKind.danger);
+      return;
+    }
+    final res = Homography.residualMm(hom, pairs.src, pairs.dst);
+    final w = (g.cols - 1) * g.gridMm;
+    final hgt = (g.rows - 1) * g.gridMm;
+    final calib = PhotoCalib(
+      refMm: math.sqrt(w * w + hgt * hgt),
+      ax: pairs.src.first.dx,
+      ay: pairs.src.first.dy,
+      bx: pairs.src.last.dx,
+      by: pairs.src.last.dy,
+      imgW: size.width,
+      imgH: size.height,
+      homography: hom.toList(),
+      homographyResidualMm: res,
+      calibWidthMm: w,
+      calibHeightMm: hgt,
+      calibPoints: pairs.src.length,
+    );
+    setState(() {
+      _session = _session!.copyWith(photoCalib: calib);
+      _aiGridConfirmed = true;
+      _gridMode = false;
+      _gridPicks.clear();
+      _photoPicks.clear();
+      _refPicks.clear();
+      _aiGridMsg = '已确认 AI 网格标定：${pairs.src.length} 个控制点 · '
+          '残差 ${fmtMm(res)} mm（残差越小标定越可信）';
+    });
+    _persist();
+    AppSnack.show(
+      context,
+      '已按 AI 网格完成透视校正标定（${pairs.src.length} 点，残差 ${fmtMm(res)} mm）',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  /// 放弃 AI 识别结果（回到未标定状态，可重新识别或手动点选）。
+  void _discardAiGrid() {
+    setState(() {
+      _aiGrid = null;
+      _aiGridConfirmed = false;
+      _aiGridMsg = null;
+    });
   }
 
   // —— 自动标定（锚物识别）：用户零输入的主路径 ——
@@ -543,6 +687,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           '已用「${d.name}」自动标定（置信度 ${(d.conf * 100).round()}%）';
       _refPicks.clear();
       _photoPicks.clear();
+      _aiGrid = null;
+      _aiGridConfirmed = false;
+      _aiGridMsg = null;
     });
     _persist();
     AppSnack.show(context,
@@ -872,11 +1019,62 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                     ),
                     TextButton(
                       onPressed: _toggleGridMode,
-                      child: Text(_gridMode ? '取消' : '开始点选'),
+                      child: Text(_gridMode ? '取消手选' : '手动点选'),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppTokens.space1),
+                // AI 自动识别网格（零输入：识别 → 图上标注 → 人工确认）
+                OutlinedButton(
+                  onPressed: _aiGridBusy ? null : _aiDetectGrid,
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(40)),
+                  child: _aiGridBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('AI 自动识别网格（推荐·零输入）'),
+                ),
+                if (_aiGridMsg != null) ...[
+                  const SizedBox(height: AppTokens.space1),
+                  Text(_aiGridMsg!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _aiGrid == null ? Colors.orange : Colors.green,
+                      )),
+                ],
+                // 人工确认条：AI 结果不直接生效，必须点确认
+                if (_aiGrid != null && !_aiGridConfirmed) ...[
+                  const SizedBox(height: AppTokens.space2),
+                  Container(
+                    padding: const EdgeInsets.all(AppTokens.space2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('AI 已在图上标出网格（绿点/绿线），请核对：',
+                            style: TextStyle(fontSize: 12)),
+                        const SizedBox(height: AppTokens.space1),
+                        Row(
+                          children: [
+                            ElevatedButton(
+                                onPressed: _confirmAiGrid,
+                                child: const Text('确认并标定')),
+                            const SizedBox(width: AppTokens.space2),
+                            TextButton(
+                                onPressed: _discardAiGrid,
+                                child: const Text('放弃')),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppTokens.space2),
                 Row(
                   children: [
                     Expanded(child: _numberField('格距(mm)', _gridMmCtl, suffix: 'mm')),
@@ -1019,6 +1217,28 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                               ..._gridPicks.map((p) => _pickDot(
                                   imageToDisplay(p, c.biggest, _photoSize!),
                                   Colors.teal)),
+                              // AI 识别网格叠加（绿）：待确认=亮绿加粗，已确认=浅绿
+                              if (_aiGrid != null)
+                                Positioned.fill(
+                                  child: CustomPaint(
+                                    painter: _AiGridPainter(
+                                      pts: [
+                                        for (final p in _aiGrid!.points)
+                                          imageToDisplay(
+                                            Offset(
+                                              p.dx * _photoSize!.width,
+                                              p.dy * _photoSize!.height,
+                                            ),
+                                            c.biggest,
+                                            _photoSize!,
+                                          ),
+                                      ],
+                                      cols: _aiGrid!.cols,
+                                      rows: _aiGrid!.rows,
+                                      pending: !_aiGridConfirmed,
+                                    ),
+                                  ),
+                                ),
                               // P1-3：参考线覆盖层（橙=参考物，红=被测）
                               Positioned.fill(
                                 child: CustomPaint(
@@ -1117,6 +1337,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 
   void _onPhotoTap(Offset local, Size box) {
     if (_photoSize == null) return;
+    // AI 结果待确认时不接受打点，避免误点落进参考物/量测点。
+    if (_aiGrid != null && !_aiGridConfirmed) {
+      AppSnack.show(context, '请先「确认」或「放弃」AI 识别结果', kind: AppSnackKind.muted);
+      return;
+    }
     final contain = _containSize(box, _photoSize!);
     final offX = (box.width - contain.width) / 2;
     final offY = (box.height - contain.height) / 2;
@@ -1300,6 +1525,55 @@ class _MeasureLinePainter extends CustomPainter {
       old.refPts != refPts ||
       old.pickPts != pickPts ||
       old.measuredMm != measuredMm;
+}
+
+/// AI 识别网格的叠加层：按行列连线 + 交点圆点。
+///
+/// [pending] 为「待人工确认」态——亮绿加粗，提示用户核对；
+/// 确认后转为浅绿细线，仅作标定依据展示，不再抢视觉焦点。
+class _AiGridPainter extends CustomPainter {
+  const _AiGridPainter({
+    required this.pts,
+    required this.cols,
+    required this.rows,
+    required this.pending,
+  });
+
+  final List<Offset> pts; // 显示坐标，行优先
+  final int cols;
+  final int rows;
+  final bool pending;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (pts.length < 4 || cols < 2 || rows < 2) return;
+    final color = pending ? const Color(0xFF1DB954) : const Color(0x881DB954);
+    final line = Paint()
+      ..color = color
+      ..strokeWidth = pending ? 1.6 : 1.0
+      ..style = PaintingStyle.stroke;
+    final dot = Paint()..color = color;
+
+    bool has(int r, int c) => r >= 0 && r < rows && c >= 0 && c < cols;
+    Offset at(int r, int c) => pts[r * cols + c];
+
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        if (has(r, c + 1)) canvas.drawLine(at(r, c), at(r, c + 1), line);
+        if (has(r + 1, c)) canvas.drawLine(at(r, c), at(r + 1, c), line);
+      }
+    }
+    for (final p in pts) {
+      canvas.drawCircle(p, pending ? 3.0 : 2.2, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _AiGridPainter old) =>
+      old.pts != pts ||
+      old.cols != cols ||
+      old.rows != rows ||
+      old.pending != pending;
 }
 
 class _ZoomToolbar extends StatelessWidget {
