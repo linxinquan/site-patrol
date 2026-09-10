@@ -13,13 +13,15 @@ import '../../core/storage/measure_threshold_store.dart';
 import '../../core/utils/open_web.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
-import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_date_range_picker.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/async_state.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/user_switcher.dart';
+import '../../shared/widgets/user_switch_sheet.dart';
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
 import 'report_builder.dart';
@@ -28,14 +30,14 @@ import 'report_pdf.dart';
 import 'report_xlsx.dart';
 
 /// 巡场清单页（对齐 Figma 新 UI：巡场问题列表页）。
-/// 结构：标题栏(巡场清单·N / F9·闭环管理 + 头像) → 筛选条(5 等分按钮) → 缺陷卡列表。
+/// 结构：标题栏(工单 + 导出/头像) → 状态分段(Frame 2131330677) → 操作卡(Frame 2147228092) → 缺陷卡列表。
+/// "待设计师处置 / 待施工方回复"为独立二级页 DisposalReplyPage，由操作卡按钮跳转进入。
 class DefectsPage extends ConsumerWidget {
   const DefectsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(defectFilterProvider);
-    final special = ref.watch(defectSpecialFilterProvider);
     final defects = ref.watch(defectsProvider);
 
     return Scaffold(
@@ -45,7 +47,7 @@ class DefectsPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         centerTitle: false,
         titleSpacing: 0,
         title: Padding(
@@ -55,7 +57,7 @@ class DefectsPage extends ConsumerWidget {
               const Text('工单',
                   style: TextStyle(
                       fontSize: 20,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: AppTokens.fg,
                       height: 28 / 20)),
               const Spacer(),
@@ -80,30 +82,32 @@ class DefectsPage extends ConsumerWidget {
       body: AsyncState(
         value: defects,
         builder: (ds) {
-          final list = ds.where((d) {
-            if (special == 'designer') return d.pendingDesignerDisposal;
-            if (special == 'reply') return (d.reply ?? '').isEmpty;
-            return filter == null || d.status == filter;
-          }).toList();
-          // 筛选条作为列表首个 item，随内容滚动（不吸顶）；间距统一 8。
+          final list = ds
+              .where((d) => filter == null || d.status == filter)
+              .toList();
+          const headerCount = 2; // 状态分段 + 操作卡
+          final isEmpty = list.isEmpty;
+          final itemCount = isEmpty
+              ? headerCount + 2 // headers + 空状态卡 + OfflineBar
+              : list.length + headerCount + 1; // headers + cards + OfflineBar
+
           return ListView.separated(
             primary: false,
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            itemCount: list.length + 2, // 筛选条 + 卡片 + OfflineBar
+            itemCount: itemCount,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
-              if (i == 0) return _FilterChips(current: filter);
-              if (i == list.length + 1) return OfflineBar.defects;
-              if (list.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 72),
-                  child: Center(
-                    child: Text('该状态下暂无缺陷',
-                        style: TextStyle(color: AppTokens.muted)),
-                  ),
-                );
+              if (i == 0) return const _StatusSegmented();
+              if (i == 1) return const _ActionCard();
+
+              if (isEmpty) {
+                if (i == headerCount) return const _EmptyState();
+                return OfflineBar.defects;
               }
-              return _DefectCard(list[i - 1]);
+
+              final cardIndex = i - headerCount;
+              if (cardIndex < list.length) return _DefectCard(list[cardIndex]);
+              return OfflineBar.defects;
             },
           );
         },
@@ -210,7 +214,8 @@ class DefectsPage extends ConsumerWidget {
   String _fmtDate(DateTime d) => '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
   String _fmtCompact(DateTime d) => '${d.year}${_pad(d.month)}${_pad(d.day)}';
 
-  /// 导出方式弹层：选汇报周期 → PDF / Word / HTML 三选一（Web 另附「预览」入口）。
+  /// 导出方式弹层（设计稿 Frame 2147228009）：
+  /// 描述段 → 日期范围单行 48h → 已筛选提示 → 4 个导出选项 68h。
   void _showExportSheet(
     BuildContext context, {
     required List<Defect> allDefects,
@@ -222,7 +227,6 @@ class DefectsPage extends ConsumerWidget {
             DateTimeRange range, List<Defect> defects, String patrolSummary)
         onPreview,
   }) {
-    final canPreview = canOpenWebWindow;
     final canExport = canExportReportFile;
     final today = DateTime.now();
     // 巡场小结：App 内手填，随报告导出（0902 任务5b）。
@@ -235,80 +239,47 @@ class DefectsPage extends ConsumerWidget {
         builder: (ctx, setSheet) {
           var range = initialRange;
           final list = _filterByPeriod(allDefects, range);
+          final filtered = list.length != allDefects.length;
           return SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                // 描述段（设计稿：12/W400/行高 20，#60656B）
+                const Text(
                   '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
-                  '可选 PDF / Word / HTML 三种格式，导出后无需再手工整理。',
-                  style: const TextStyle(fontSize: 13, color: AppTokens.fg2),
+                  '可选 Excel / PDF / Word / 网页链接 四种格式，导出后无需再手工整理。',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 20 / 12,
+                    color: AppTokens.fg2,
+                  ),
                 ),
-                    const SizedBox(height: 12),
-                    // 汇报周期选择（按缺陷发现时间过滤，周报语义）
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                        onTap: () async {
-                          final picked = await showDateRangePicker(
-                            context: ctx,
-                            firstDate: DateTime(2024, 1, 1),
-                            lastDate:
-                                DateTime(today.year, today.month, today.day),
-                            initialDateRange: range,
-                            helpText: '选择汇报周期（按缺陷发现时间过滤）',
-                            saveText: '确定',
-                          );
-                          if (picked != null) setSheet(() => range = picked);
-                        },
-                        child: Ink(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: AppTokens.surface,
-                            borderRadius:
-                                BorderRadius.circular(AppTokens.radiusLg),
-                            border: Border.all(color: AppTokens.border),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(MingCuteIcons.calendarLine,
-                                  size: 18, color: AppTokens.brand),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('汇报周期',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTokens.fg2)),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
-                                      style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppTokens.fg),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text('${list.length} 条',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppTokens.brand)),
-                              const SizedBox(width: 4),
-                              const Icon(MingCuteIcons.rightLine,
-                                  size: 18, color: AppTokens.muted),
-                            ],
-                          ),
-                        ),
-                      ),
+                const SizedBox(height: 12),
+                // 日期范围白卡（设计稿：48h padding 12 圆角 8，单行紧凑）
+                _dateRangeTile(
+                  ctx: ctx,
+                  range: range,
+                  count: list.length,
+                  onTap: () async {
+                    final picked = await AppDateRangePicker.show(
+                      ctx,
+                      firstDate: DateTime(2024, 1, 1),
+                      lastDate:
+                          DateTime(today.year, today.month, today.day),
+                      initialRange: range,
+                    );
+                    if (picked != null) setSheet(() => range = picked);
+                  },
+                ),
+                if (filtered) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    '已筛选：共筛出 ${list.length} 条记录',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: AppTokens.brand,
                     ),
                     if (list.length != allDefects.length)
                       Padding(
@@ -373,63 +344,164 @@ class DefectsPage extends ConsumerWidget {
                   ],
                 ),
               );
+
         },
       ),
     );
   }
 
-  /// 单个格式选项卡片（弹层内）。
-  Widget _formatTile(
-      BuildContext ctx, ReportExportFormat format,
-      {required VoidCallback onTap, bool enabled = true}) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-            onTap: enabled ? onTap : null,
-          child: Ink(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-              border: Border.all(color: AppTokens.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppTokens.brandSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    format.label,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTokens.brand),
+  /// 日期范围选择卡（设计稿 Frame 2147228009）：
+  /// 高度 48、padding 12、圆角 8、白底；
+  /// 行内容：[calendar 24] [日期 W600/14/22] ["N条" #0395FF W600] [right_line 16 #919499]。
+  Widget _dateRangeTile({
+    required BuildContext ctx,
+    required DateTimeRange range,
+    required int count,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        onTap: onTap,
+        child: Ink(
+          width: double.infinity,
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(MingCuteIcons.calendarLine,
+                  size: 24, color: AppTokens.fg),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 22 / 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(format.subtitle,
-                      style:
-                          const TextStyle(fontSize: 13, color: AppTokens.fg2)),
+              ),
+              Text(
+                '${count}条',
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 22 / 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppTokens.brand,
                 ),
-                const Icon(MingCuteIcons.rightLine,
-                    size: 18, color: AppTokens.muted),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(MingCuteIcons.rightLine,
+                  size: 16, color: AppTokens.muted),
+            ],
           ),
         ),
       ),
+    );
+  }
+
+  /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009）：
+  /// 卡片 68h padding 12 圆角 8；左侧 40×40 圆角 8 渐变高光色块 + 24×24 文件图标；
+  /// 名称 W600/16/24 #202224，副标题 W400/12/20 #919499，right_line 16×16 #919499。
+  Widget _formatTile(
+      BuildContext ctx, ReportExportFormat format,
+      {required VoidCallback onTap, bool enabled = true}) {
+    final base = Color(format.colorHex);
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: enabled ? onTap : null,
+            child: Ink(
+              width: double.infinity,
+              // 高度由内容撑开（色块 40 + 上下 padding 各 14 = 68）
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 左侧色块：保留格式色渐变底；图标本身再叠加白色 70%→100% 的纵向渐变。
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusSm),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color.lerp(base, Colors.white, 0.22) ?? base,
+                          base,
+                        ],
+                      ),
+                    ),
+                    child: ShaderMask(
+                      // 导出图标统一使用从上到下的白色透明度渐变：
+                      // 顶部 70%，底部 100%，和项目内其他功能图标风格保持一致。
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (rect) => const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xB3FFFFFF),
+                          Color(0xFFFFFFFF),
+                        ],
+                      ).createShader(rect),
+                      child: Icon(
+                        format.icon,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(format.label,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 24 / 16,
+                              color: AppTokens.fg,
+                            )),
+                        const SizedBox(height: 2),
+                        Text(format.subtitle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 20 / 12,
+                              color: AppTokens.muted,
+                            )),
+                      ],
+                    ),
+                  ),
+                  const Icon(MingCuteIcons.rightLine,
+                      size: 16, color: AppTokens.muted),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -671,73 +743,389 @@ class DefectsPage extends ConsumerWidget {
   }
 }
 
-/// 筛选条（设计稿 Frame 2131330677）：白底圆角 12 容器，内 5 个等分小按钮。
-/// 选中 = #F4F6F7 底 + 品牌蓝字；未选中 = 白底 + 注释灰字；均 14/600、圆角 8。
-class _FilterChips extends ConsumerWidget {
-  final DefectStatus? current;
-  const _FilterChips({required this.current});
+/// 「处置与回复」独立二级页（设计稿 Frame 2147228094）：
+/// - 状态栏 47 + 导航栏 44（AppBar）：左箭头 + 居中标题「处置与回复」
+/// - 状态分段（Frame 2131330677 两个分段）：待设计师处置 / 待施工方回复
+/// - 缺陷卡片列表（沿用 _DefectCard，含状态标签 + 备注）
+///
+/// kind = 'designer' 默认进入「待设计师处置」；kind = 'reply' 默认进入「待施工方回复」。
+/// 段内可自由切换两段，本地状态管，不污染主页筛选。
+class DisposalReplyPage extends ConsumerStatefulWidget {
+  final String kind; // 'designer' | 'reply'
+  const DisposalReplyPage({super.key, required this.kind});
+
+  @override
+  ConsumerState<DisposalReplyPage> createState() => _DisposalReplyPageState();
+}
+
+class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
+  late String _kind;
+
+  @override
+  void initState() {
+    super.initState();
+    _kind = widget.kind;
+  }
+
+  bool _match(Defect d) => _kind == 'designer'
+      ? d.pendingDesignerDisposal
+      : (d.reply ?? '').isEmpty;
+
+  @override
+  Widget build(BuildContext context) {
+    final defects = ref.watch(defectsProvider);
+    return Scaffold(
+      backgroundColor: AppTokens.bg,
+      appBar: AppBar(
+        backgroundColor: AppTokens.bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 48,
+        centerTitle: true,
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: AppTokens.fg,
+            onPressed: () => context.pop(),
+          ),
+        ),
+        title: const Text('处置与回复',
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF000000),
+                height: 24 / 16)),
+      ),
+      body: AsyncState(
+        value: defects,
+        builder: (ds) {
+          final list = ds.where(_match).toList();
+          return ListView.separated(
+            primary: false,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            itemCount: list.isEmpty ? 3 : list.length + 2,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (_, i) {
+              if (i == 0) return _DisposalSegmented(
+                selected: _kind,
+                onChanged: (v) => setState(() => _kind = v),
+              );
+              if (list.isEmpty) {
+                if (i == 1) {
+                  return _EmptyState(
+                    hint: _kind == 'designer'
+                        ? '暂无待设计师处置的工单'
+                        : '暂无待施工方回复的工单',
+                  );
+                }
+                return OfflineBar.defects;
+              }
+              if (i - 1 < list.length) return _DefectCard(list[i - 1]);
+              return OfflineBar.defects;
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 「处置与回复」状态分段（设计稿 Frame 2131330677 两个分段版本）：
+/// 灰色轨道 #E9EAEB 内 padding 2 / gap 2；选中白底 + #202224 文字；
+/// 未选透明底 + #919499 文字；均 14/W500，圆角 6。
+class _DisposalSegmented extends StatelessWidget {
+  final String selected; // 'designer' | 'reply'
+  final ValueChanged<String> onChanged;
+  const _DisposalSegmented({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EAEB),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _DisposalSegBtn(
+              label: '待设计师处置',
+              selected: selected == 'designer',
+              onTap: () => onChanged('designer'),
+            ),
+          ),
+          Expanded(
+            child: _DisposalSegBtn(
+              label: '待施工方回复',
+              selected: selected == 'reply',
+              onTap: () => onChanged('reply'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisposalSegBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _DisposalSegBtn({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              height: 22 / 14,
+              fontWeight: FontWeight.w500,
+              color: selected
+                  ? const Color(0xFF202224)
+                  : const Color(0xFF919499),
+            ),
+          ),
+        ),
+      );
+}
+
+/// 状态分段控件（设计稿 Frame 2131330677）：灰色轨道 + 五个等宽分段。
+/// 选中 = 白底 + 品牌蓝字 #0395FF；未选 = 透明底 + 辅助灰字 #B5B9BF；均 14/W500。
+class _StatusSegmented extends ConsumerWidget {
+  const _StatusSegmented();
+
+  static const _options = [
+    (null, '全部'),
+    (DefectStatus.draft, '待整改'),
+    (DefectStatus.doing, '整改中'),
+
+    (DefectStatus.done, '已销项'),
+    (DefectStatus.reject, '已拒绝'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final special = ref.watch(defectSpecialFilterProvider);
-    const options = [
-      (null, '全部'),
-      (DefectStatus.draft, '待整改'),
-      (DefectStatus.doing, '整改中'),
-      (DefectStatus.done, '已销项'),
-      (DefectStatus.reject, '已拒绝'),
-    ];
-
-    // 任务4/5 快捷筛选：与状态筛选互斥；重复点击同一项取消。
-    void tapStatus(DefectStatus? s) {
-      ref.read(defectFilterProvider.notifier).state = s;
-      ref.read(defectSpecialFilterProvider.notifier).state = null;
-    }
-
-    void tapSpecial(String? s) {
-      if (s != null) ref.read(defectFilterProvider.notifier).state = null;
-      ref.read(defectSpecialFilterProvider.notifier).state =
-          special == s ? null : s;
+    final filter = ref.watch(defectFilterProvider);
+    void tap(DefectStatus? s) {
+      ref.read(defectFilterProvider.notifier).state = filter == s ? null : s;
     }
 
     return Container(
-      padding: const EdgeInsets.all(4),
+      width: double.infinity,
+      height: 34,
+      padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        color: const Color(0xFFE9EAEB),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          for (final (s, label) in _options) ...[
+            Expanded(
+              child: _SegBtn(
+                label: label,
+                selected: s == filter,
+                onTap: () => tap(s),
+              ),
+            ),
+            if (s != _options.last.$1) const SizedBox(width: 2),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 单个分段（Frame 2131330677 小按钮）：选中白底、未选透明；圆角 6，高 30，等分拉伸。
+class _SegBtn extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SegBtn(
+      {required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 30,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              height: 22 / 14,
+              fontWeight: FontWeight.w500,
+              // 选中 #202224 / 未选 #919499（用户指定，区别于品牌蓝与浅灰）
+              color: selected
+                  ? const Color(0xFF202224)
+                  : const Color(0xFF919499),
+            ),
+          ),
+        ),
+      );
+}
+
+/// 空数据缺省态：白卡 + 图标 + 文案，避免空列表时露出一大片灰底像 Bug。
+class _EmptyState extends StatelessWidget {
+  final String? hint;
+  const _EmptyState({this.hint});
+
+  String get _text => hint ?? '暂无工单';
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 48),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(MingCuteIcons.inboxLine, size: 40, color: AppTokens.muted),
+            const SizedBox(height: 12),
+            Text(
+              _text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 22 / 14,
+                fontWeight: FontWeight.w400,
+                color: AppTokens.muted,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+/// 工单页顶部操作卡（设计稿 Frame 2147228092）：白卡列布局，padding 12，行间距 12。
+/// 上：身份信息（头像 + 姓名 + 角色标签） + 右侧「切换身份」；
+/// 下：两个等分行动按钮（待设计师处置 / 待施工方回复），点击进入对应筛选二级页。
+class _ActionCard extends ConsumerWidget {
+  const _ActionCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
+    final role = user.role.isNotEmpty ? user.role : '设计管理';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 行1：身份（头像 + 姓名 + 角色标签）…… 切换身份
           Row(
-            children: [
-              for (final (s, label) in options) ...[
-                if (s != null) const SizedBox(width: 4),
-                Expanded(
-                  child: _FilterBtn(
-                    label: label,
-                    selected: special == null && s == current,
-                    onTap: () => tapStatus(s),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: _FilterBtn(
-                  label: '待设计师处置',
-                  selected: special == 'designer',
-                  onTap: () => tapSpecial('designer'),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _identityAvatar(user.avatar, 24),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(user.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              height: 22 / 14,
+                              color: Color(0xFF202224))),
+                    ),
+                    const SizedBox(width: 8),
+                    // 角色标签（品牌蓝 5% 底 + 品牌蓝字）
+                    Container(
+                      height: 20,
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0x0D0395FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Center(
+                        child: Text(role,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                height: 20 / 12,
+                                color: Color(0xFF0395FF))),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
+              // 切换身份（灰底按钮）
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => showUserSwitchSheet(context, ref),
+                child: Container(
+                  height: 24,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F7),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Center(
+                    child: Text('切换身份',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 20 / 12,
+                            color: Color(0xFF60656B))),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 行2：两个等分行动按钮（待设计师处置 / 待施工方回复）
+          Row(
+            children: [
               Expanded(
-                child: _FilterBtn(
+                child: _ActionBtn(
+                  icon: MingCuteIcons.penLine,
+                  label: '待设计师处置',
+                  onTap: () => context.push('/defects/disposal/designer'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ActionBtn(
+                  icon: MingCuteIcons.comment2Line,
                   label: '待施工方回复',
-                  selected: special == 'reply',
-                  onTap: () => tapSpecial('reply'),
+                  onTap: () => context.push('/defects/disposal/reply'),
                 ),
               ),
             ],
@@ -748,36 +1136,68 @@ class _FilterChips extends ConsumerWidget {
   }
 }
 
-class _FilterBtn extends StatelessWidget {
+/// 行动按钮（Frame 2147228091 小按钮）：品牌蓝 5% 底，居中图标 16 + 文字 14/w400/#60656B。
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
   final String label;
-  final bool selected;
   final VoidCallback onTap;
-  const _FilterBtn(
-      {required this.label, required this.selected, required this.onTap});
+  const _ActionBtn(
+      {required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
+        child: Container(
           height: 34,
-          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: selected ? AppTokens.surface2 : AppTokens.surface,
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            color: const Color(0x0D0395FF), // rgba(3,149,255,0.05)
+            borderRadius: BorderRadius.circular(6),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              height: 34 / 14,
-              fontWeight: FontWeight.w600,
-              leadingDistribution: TextLeadingDistribution.even,
-              color: selected ? AppTokens.brand : AppTokens.note,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: const Color(0xFF60656B)),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 22 / 14,
+                      color: Color(0xFF60656B))),
+            ],
           ),
         ),
       );
+}
+
+/// 圆形头像（24/32 通用，无图则灰底）。
+Widget _identityAvatar(String avatar, double size) {
+  if (avatar.isEmpty) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFD9D9D9),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+  return ClipOval(
+    child: Image.asset(
+      avatar,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        width: size,
+        height: size,
+        color: const Color(0xFFD9D9D9),
+      ),
+    ),
+  );
 }
 
 /// 缺陷卡片（设计稿 Frame 2131330687 等）：
@@ -806,8 +1226,10 @@ class _DefectCard extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 56,
+          width: 64,
           child: Text(name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                   fontSize: 14, color: AppTokens.muted, height: 22 / 14)),
         ),
@@ -846,7 +1268,7 @@ class _DefectCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: AppTokens.fg),
                   ),
                 ),
@@ -908,22 +1330,69 @@ class _DefectCard extends StatelessWidget {
                 ),
               ),
             ],
-            // 任务5：整改回复条（已回复才显示）
+            // 任务5：整改回复块（已回复才显示，设计稿 Frame 2131330685）：
+            // 浅蓝底 rgba(3,149,255,0.05) = 0x0D0395FF、圆角 8、内边距 8、纵向间距 8。
+            // 顶行 space-between：左 回复人（单位+姓名 14/fg2） / 右「整改 回复：」；
+            // 中部回复正文（14/fg，自动换行自适应）；底部时间（12/muted）。
             if ((d.reply ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(AppTokens.space2),
                 decoration: BoxDecoration(
-                  color: const Color(0x1416A34A),
+                  color: const Color(0x0D0395FF),
                   borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 ),
-                child: Text(
-                  '整改回复（${d.replyBy ?? ''} · ${d.replyTs ?? ''}）：${d.reply}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF0E7A35)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            d.replyBy ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 22 / 14,
+                              color: AppTokens.fg2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppTokens.space4),
+                        const Text(
+                          '整改 回复：',
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 22 / 14,
+                            color: AppTokens.fg2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTokens.space2),
+                    Text(
+                      d.reply ?? '',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 22 / 14,
+                        color: AppTokens.fg,
+                      ),
+                    ),
+                    const SizedBox(height: AppTokens.space2),
+                    Text(
+                      d.replyTs ?? '',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 20 / 12,
+                        color: AppTokens.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -10,7 +10,6 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
-import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
@@ -41,28 +40,72 @@ class DrawingViewerPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
-        titleSpacing: 12,
-        title: current == null
-            ? const Text('图纸查看')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(current.title,
-                      style: const TextStyle(
+        toolbarHeight: 48,
+        leadingWidth: 0,
+        titleSpacing: 0,
+        centerTitle: true,
+        title: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: NavIconButton(
+                    icon: MingCuteIcons.leftLine,
+                    color: Color(0xFF09244B)),
+              ),
+            ),
+            // 标题两侧预留 48（避开左侧返回按钮），超长单行省略不压图标
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 48),
+              child: current == null
+                  ? const Text('图纸查看',
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppTokens.fg),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  Text(current.crumb,
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTokens.fg2,
-                          fontWeight: FontWeight.w400)),
-                ],
+                          height: 24 / 16,
+                          color: Colors.black))
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(current.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
+                                color: Colors.black),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        Text(current.crumb,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                height: 20 / 12,
+                                color: AppTokens.fg2,
+                                fontWeight: FontWeight.w400),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+            ),
+            // 右侧「更多」图标（more_1_line，#09244B，与左侧返回对称 right:12）
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: NavIconButton(
+                  icon: MingCuteIcons.more1Line,
+                  color: const Color(0xFF09244B),
+                  onPressed: current == null
+                      ? null
+                      : () => _showDrawingInfo(context, current),
+                ),
               ),
+            ),
+          ],
+        ),
       ),
       body: AsyncState(
         value: drawings,
@@ -78,6 +121,15 @@ class DrawingViewerPage extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+
+  /// 打开「详细信息」底部弹窗：图纸基础信息（名称/楼层/大小）。
+  void _showDrawingInfo(BuildContext context, Drawing d) {
+    AppBottomSheet.show(
+      context: context,
+      title: '详细信息',
+      body: (ctx) => _DrawingInfoSheet(d: d),
     );
   }
 }
@@ -290,14 +342,59 @@ class _ViewerState extends ConsumerState<_Viewer> {
   /// 打开 CAD 专业看图（GStarSDK 矢量渲染页）。
   /// 仅在 Web 平台可用；跳转到同一静态服务的 cad_viewer.html?key=xxx。
   /// 移动端（Android/iOS）走 Flutter 原生「截图底图 + 坐标校准」方案，
-  /// 此 Web 入口不可用，点击仅提示。
+  /// 此 Web 入口不可用，点击弹窗说明。
   void _openCadViewer() {
     if (!kIsWeb || !canOpenWebWindow) {
-      AppSnack.show(context, '平板端使用「校准 + 坐标」进行图纸定位');
+      _showCadUnavailable();
       return;
     }
     final key = widget.d.cadOcfKey ?? widget.d.key;
     openWebWindow('/cad_viewer.html?key=$key');
+  }
+
+  /// 移动端点击「矢量看图」时的说明弹窗（更醒目，替代原顶部 toast）。
+  void _showCadUnavailable() {
+    AppBottomSheet.show(
+      context: context,
+      title: '矢量看图',
+      body: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '矢量看图使用 GStarSDK 在浏览器中渲染 CAD 原图（矢量），可无损缩放、查看图层。',
+            style: TextStyle(
+                fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            '当前为平板 / 手机端，未集成矢量渲染能力，请改用「图层」与「校准 + 坐标」在截图底图上进行图纸定位。如需矢量看图，请在电脑浏览器打开本系统。',
+            style: TextStyle(
+                fontSize: 14, height: 22 / 14, color: AppTokens.fg2),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: Material(
+              color: AppTokens.brand,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                onTap: () => Navigator.pop(ctx),
+                child: const Center(
+                  child: Text('知道了',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          height: 24 / 16,
+                          color: AppTokens.onAccent)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 打开坐标校准弹窗：粘贴 JSON 校准参数（来自 web/cad_viewer_hybrid.html
@@ -309,78 +406,26 @@ class _ViewerState extends ConsumerState<_Viewer> {
         ? _jsonOfCurrent()
         : (_persistedRawJson ?? '');
     final controller = TextEditingController(text: initialText);
-    final result = await showDialog<String>(
+    final result = await AppBottomSheet.show<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('坐标校准'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。\n'
-                  '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。\n'
-                  '「应用内置B05」仅为离线演示（假设图纸中心=坐标原点），非真实校准，'
-                  '除图纸中心外均会偏移，不可用于验收数据。',
-                  style: TextStyle(fontSize: 12, color: AppTokens.muted),
-                ),
-                const SizedBox(height: AppTokens.space3),
-                TextField(
-                  controller: controller,
-                  maxLines: 5,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-                  decoration: const InputDecoration(
-                    hintText: '{"imgW":4500,"imgH":2551,"a":...,"d":...}',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: AppTokens.space3),
-                Row(
-                  children: [
-                    OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx, 'BUILTIN');
-                      },
-                      child: const Text('应用内置B05'),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx, 'AXIS');
-                      },
-                      child: const Text('图上多点校准'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          if (_isCalibrated)
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                _clearCalibration();
-              },
-              child: const Text('清除校准'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('应用'),
-          ),
-        ],
+      title: '坐标校准',
+      isScrollControlled: true,
+      body: (ctx) => _CalibrationSheet(
+        controller: controller,
+        isCalibrated: _isCalibrated,
+        onBuiltin: () => Navigator.of(ctx).pop('BUILTIN'),
+        onAxis: () => Navigator.of(ctx).pop('AXIS'),
+        onClear: () => Navigator.of(ctx).pop('CLEAR'),
+        onCancel: () => Navigator.of(ctx).pop(null),
+        onApply: () => Navigator.of(ctx).pop(controller.text),
       ),
     );
     if (result == null) return;
+
+    if (result == 'CLEAR') {
+      _clearCalibration();
+      return;
+    }
 
     if (result == 'AXIS') {
       _startAxisCalibration();
@@ -532,48 +577,35 @@ class _ViewerState extends ConsumerState<_Viewer> {
       xCtrl.text = w.dx.toStringAsFixed(1);
       yCtrl.text = w.dy.toStringAsFixed(1);
     }
-    final result = await showDialog<(String, String)>(
+    final result = await AppBottomSheet.show<(String, String)>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('$title 真实图纸坐标'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '输入该点在图纸坐标系中的真实坐标（mm）\n可从 CAD 轴号查（如轴线交点 ①-Ⓐ）',
-              style: TextStyle(fontSize: 12, color: AppTokens.muted),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: xCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'X (mm)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: yCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Y (mm)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
+      title: '$title 真实图纸坐标',
+      body: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '输入该点在图纸坐标系中的真实坐标（mm）\n可从 CAD 轴号查（如轴线交点 ①-Ⓐ）',
+            style: TextStyle(fontSize: 12, color: AppTokens.muted),
           ),
-          FilledButton(
-            onPressed: () {
+          const SizedBox(height: 12),
+          _SheetField(
+            label: 'X (mm)',
+            controller: xCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 8),
+          _SheetField(
+            label: 'Y (mm)',
+            controller: yCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+          ),
+          const SizedBox(height: 16),
+          AppSheetFooter.cancelSave(
+            onCancel: () => Navigator.pop(ctx),
+            onSave: () {
               final x = double.tryParse(xCtrl.text.trim());
               final y = double.tryParse(yCtrl.text.trim());
               if (x == null || y == null) {
@@ -582,7 +614,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
               }
               Navigator.pop(ctx, (xCtrl.text.trim(), yCtrl.text.trim()));
             },
-            child: const Text('确定'),
+            cancelLabel: '取消',
+            saveLabel: '确定',
           ),
         ],
       ),
@@ -688,14 +721,11 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   /// 打开 CAD 专业看图面板（图层开关 / 布局切换）。
   void _openCadPanel() {
-    showModalBottomSheet<void>(
+    AppBottomSheet.show(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTokens.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (sheetCtx) => CadInfoPanel(
+      title: '专业看图',
+      body: (ctx) => CadInfoPanel(
         drawingKey: widget.d.key,
         // 真实 DWG 关联后在此传入 dwgFileUrl / dwgBase64。
         // 可用 --dart-define=CAD_TEST_DWG_URL=<公网URL> 提供测试 DWG，
@@ -942,50 +972,77 @@ class _ViewerState extends ConsumerState<_Viewer> {
             '${mapper.worldTop.toStringAsFixed(0)}] mm';
     final pxImg = (a.relX * widget.d.w).toStringAsFixed(0);
     final pyImg = (a.relY * widget.d.h).toStringAsFixed(0);
-    showDialog(
+    AppBottomSheet.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('标注 #$idx'),
-        content: Column(
+      title: '标注 #$idx',
+      body: (ctx) {
+        final delete = () {
+          Navigator.pop(ctx);
+          ref.read(cadAnnotationsProvider.notifier).state = {
+            ...ref.read(cadAnnotationsProvider),
+            widget.d.key: (ref.read(cadAnnotationsProvider)[widget.d.key] ??
+                    const <CadAnnotation>[])
+                .where((x) => x.id != a.id)
+                .toList(),
+          };
+        };
+        final capture = () {
+          Navigator.pop(ctx);
+          _captureAtAnnotation(a);
+        };
+        return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _detailRow('图纸坐标', a.coordText),
-            _detailRow('整图像素', '($pxImg, $pyImg) / '
-                '${widget.d.w.toStringAsFixed(0)}×${widget.d.h.toStringAsFixed(0)}'),
-            _detailRow('相对位置', '${(a.relX * 100).toStringAsFixed(1)}% · ${(a.relY * 100).toStringAsFixed(1)}%'),
-            _detailRow('校准状态', _isCalibrated ? '已校准' : '未校准（演示值）'),
-            _detailRow('校准参数', calibInfo),
-            _detailRow('记录时间', a.createdAt.toString().substring(0, 19)),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _detailRow('图纸坐标', a.coordText),
+                  const SizedBox(height: 12),
+                  _detailRow('整图像素',
+                      '($pxImg, $pyImg) / ${widget.d.w.toStringAsFixed(0)}×${widget.d.h.toStringAsFixed(0)}'),
+                  const SizedBox(height: 12),
+                  _detailRow('相对位置',
+                      '${(a.relX * 100).toStringAsFixed(1)}% · ${(a.relY * 100).toStringAsFixed(1)}%'),
+                  const SizedBox(height: 12),
+                  _detailRow('校准状态', _isCalibrated ? '已校准' : '未校准（演示值）'),
+                  const SizedBox(height: 12),
+                  _detailRow('校准参数', calibInfo),
+                  const SizedBox(height: 12),
+                  _detailRow('记录时间', a.createdAt.toString().substring(0, 19)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: _sheetActionBtn('关闭', AppTokens.surface,
+                      AppTokens.fg2, () => Navigator.pop(ctx)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _sheetActionBtn(
+                      '删除标注', AppTokens.surface, const Color(0xFFFF4444), delete),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _sheetActionBtn(
+                      '拍照记录', AppTokens.brand, AppTokens.onAccent, capture),
+                ),
+              ],
+            ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ref.read(cadAnnotationsProvider.notifier).state = {
-                ...ref.read(cadAnnotationsProvider),
-                widget.d.key: (ref.read(cadAnnotationsProvider)[widget.d.key] ?? const <CadAnnotation>[])
-                    .where((x) => x.id != a.id).toList(),
-              };
-            },
-            style: TextButton.styleFrom(foregroundColor: AppTokens.danger),
-            child: const Text('删除'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('关闭'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _captureAtAnnotation(a);
-            },
-            style: FilledButton.styleFrom(backgroundColor: AppTokens.accent),
-            child: const Text('拍照记录'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1005,24 +1062,47 @@ class _ViewerState extends ConsumerState<_Viewer> {
     );
   }
 
-  Widget _detailRow(String k, String v) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 76,
-              child: Text(k,
-                  style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+  Widget _detailRow(String k, String v) => Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(k,
+                style: const TextStyle(
+                    fontSize: 14, height: 22 / 14, color: AppTokens.fg2)),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: Text(v,
+                style: const TextStyle(
+                    fontSize: 14,
+                    height: 22 / 14,
+                    color: AppTokens.fg,
+                    fontFeatures: [FontFeature.tabularFigures()])),
+          ),
+        ],
+      );
+
+  /// 弹窗底部操作按钮（Frame 2147228056）：高 48、圆角 8、字 16/w500。
+  Widget _sheetActionBtn(
+          String label, Color bg, Color fg, VoidCallback onTap) =>
+      SizedBox(
+        height: 48,
+        child: Material(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: onTap,
+            child: Center(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 24 / 16,
+                      color: fg)),
             ),
-            Expanded(
-              child: Text(v,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      color: AppTokens.fg,
-                      fontFeatures: [FontFeature.tabularFigures()])),
-            ),
-          ],
+          ),
         ),
       );
 
@@ -1032,7 +1112,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
     return Column(
       children: [
         Expanded(
-          child: InteractiveViewer(
+          child: Stack(
+            children: [
+              InteractiveViewer(
             transformationController: _controller,
             minScale: 0.5,
             maxScale: 4,
@@ -1123,8 +1205,6 @@ class _ViewerState extends ConsumerState<_Viewer> {
                                             color: AppTokens.surface,
                                             borderRadius: BorderRadius.circular(
                                                 AppTokens.radiusSm),
-                                            border: Border.all(
-                                                color: AppTokens.border),
                                             boxShadow:
                                                 AppTokens.elevationRaised,
                                           ),
@@ -1211,146 +1291,277 @@ class _ViewerState extends ConsumerState<_Viewer> {
               },
             ),
           ),
+              Positioned(
+                right: 12,
+                bottom: 40,
+                child: _ZoomFab(
+                  onZoomIn: () => _zoom(1.3),
+                  onZoomOut: () => _zoom(1 / 1.3),
+                  onReset: _reset,
+                ),
+              ),
+            ],
+          ),
         ),
         _Toolbar(
-          onZoomIn: () => _zoom(1.3),
-          onZoomOut: () => _zoom(1 / 1.3),
-          onReset: _reset,
+          d: d,
           onPdf: () => context.push('/blueprint'),
           onLayers: _openCadPanel,
           onCad: _openCadViewer,
           onCalibrate: () => _openCalibrationDialog(),
-          onPick: () {
-            final cur = ref.read(cadPickModeProvider);
-            ref.read(cadPickModeProvider.notifier).state = !cur;
-          },
+          onJump: _jumpConfirm,
+          onPick: () => ref.read(cadPickModeProvider.notifier).state =
+              !ref.read(cadPickModeProvider),
           pickActive: ref.watch(cadPickModeProvider),
-          isCalibrated: _isCalibrated,
         ),
-        if (d.hotspots.isNotEmpty) _IndexBar(d: d, onJump: _jumpConfirm),
       ],
     );
   }
 }
 
 class _Toolbar extends StatelessWidget {
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final VoidCallback onReset;
+  final Drawing d;
   final VoidCallback onPdf;
   final VoidCallback onLayers;
   final VoidCallback onCad;
   final VoidCallback onCalibrate;
+  final ValueChanged<Hotspot> onJump;
   final VoidCallback onPick;
   final bool pickActive;
-  final bool isCalibrated;
   const _Toolbar({
-    required this.onZoomIn,
-    required this.onZoomOut,
-    required this.onReset,
+    required this.d,
     required this.onPdf,
     required this.onLayers,
     required this.onCad,
     required this.onCalibrate,
+    required this.onJump,
     required this.onPick,
-    required this.pickActive,
-    required this.isCalibrated,
+    this.pickActive = false,
   });
 
   @override
   Widget build(BuildContext context) => Container(
         color: AppTokens.surface,
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 12,
+          bottom: 12 + MediaQuery.of(context).padding.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (d.hotspots.isNotEmpty) ...[
+              ScrollConfiguration(
+                behavior: const ScrollBehavior().copyWith(
+                  dragDevices: {
+                    ui.PointerDeviceKind.touch,
+                    ui.PointerDeviceKind.mouse,
+                    ui.PointerDeviceKind.trackpad,
+                  },
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: d.hotspots
+                        .map((h) => Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: _HotspotPill(h: h, onJump: onJump),
+                            ))
+                        .toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              children: [
+                Expanded(
+                  child: _BottomBtn(
+                    icon: MingCuteIcons.eyeLine,
+                    label: '矢量看图',
+                    onTap: onCad,
+                  ),
+                ),
+                Expanded(
+                  child: _BottomBtn(
+                    icon: MingCuteIcons.versionLine,
+                    label: '图层',
+                    onTap: onLayers,
+                  ),
+                ),
+                Expanded(
+                  child: _BottomBtn(
+                    icon: MingCuteIcons.liveLocationLine,
+                    label: '校准',
+                    onTap: onCalibrate,
+                  ),
+                ),
+                Expanded(
+                  child: _BottomBtn(
+                    icon: MingCuteIcons.locationLine,
+                    label: '坐标',
+                    onTap: onPick,
+                    active: pickActive,
+                  ),
+                ),
+                Expanded(
+                  child: _BottomBtn(
+                    icon: MingCuteIcons.pdfLine,
+                    label: 'PDF原稿',
+                    onTap: onPdf,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+}
+
+/// 底部面板里的热点导航药丸（Frame 2147228058）：浅灰底 + 品牌蓝编号圆 + 辅文标签。
+class _HotspotPill extends StatelessWidget {
+  final Hotspot h;
+  final ValueChanged<Hotspot> onJump;
+  const _HotspotPill({required this.h, required this.onJump});
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: () => onJump(h),
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        child: Container(
+          width: 152,
+          height: 36,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppTokens.bg,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _ToolBtn(
-                  icon: MingCuteIcons.boxLine,
-                  label: '专业看图',
-                  onTap: onCad,
-                  accent: true),
-              _ToolBtn(icon: MingCuteIcons.zoomInLine, label: '放大', onTap: onZoomIn),
-              _ToolBtn(icon: MingCuteIcons.zoomOutLine, label: '缩小', onTap: onZoomOut),
-              _ToolBtn(
-                  icon: MingCuteIcons.layersLine,
-                  label: '图层',
-                  onTap: onLayers,
-                  active: true),
-              _ToolBtn(
-                  icon: MingCuteIcons.rulerLine,
-                  label: '校准',
-                  onTap: onCalibrate,
-                  active: isCalibrated),
-              _ToolBtn(
-                  icon: MingCuteIcons.mapPinLine,
-                  label: '坐标',
-                  onTap: onPick,
-                  active: pickActive),
-              _ToolBtn(icon: MingCuteIcons.documentLine, label: 'PDF原稿', onTap: onPdf),
-              _ToolBtn(icon: MingCuteIcons.fullscreenLine, label: '复位', onTap: onReset),
+              Container(
+                width: 16,
+                height: 16,
+                decoration: const BoxDecoration(
+                  color: AppTokens.brand,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text('${h.num}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          height: 1,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w400)),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(h.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, height: 20 / 12, color: Color(0xFF60656B))),
+              ),
             ],
           ),
         ),
       );
 }
 
-class _ToolBtn extends StatelessWidget {
+/// 底部面板里的功能按钮（Frame 2147228078）：图标 24 + 标签 12，统一深色，无底色。
+/// 选中态（如坐标拾取中）图标与文字变品牌蓝，无底色。
+class _BottomBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool active;
-  final bool accent;
-  const _ToolBtn(
+  const _BottomBtn(
       {required this.icon,
       required this.label,
       required this.onTap,
-      this.active = false,
-      this.accent = false});
+      this.active = false});
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-        decoration: accent
-            ? BoxDecoration(
-                color: AppTokens.fg.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              )
-            : active
-                ? BoxDecoration(
-                    color: AppTokens.brand.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                  )
-                : null,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 18,
-                color: accent
-                    ? AppTokens.fg
-                    : active
-                        ? AppTokens.brand
-                        : AppTokens.muted),
-            const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 10,
-                    color: accent
-                        ? AppTokens.fg
-                        : active
-                            ? AppTokens.brand
-                            : AppTokens.muted)),
-          ],
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 48,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon,
+                  size: 24,
+                  color: active
+                      ? AppTokens.brand
+                      : const Color(0xFF202224)),
+              const SizedBox(height: 4),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: active
+                          ? AppTokens.brand
+                          : const Color(0xFF60656B))),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+}
+
+/// 画布右下悬浮的缩放控件（复位 / 放大 / 缩小），白卡药丸，距底部工具栏 40。
+/// 三张独立白卡（48×64，圆角 8），图标 #09244B + 辅文 #60656B。
+class _ZoomFab extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+  const _ZoomFab(
+      {required this.onZoomIn,
+      required this.onZoomOut,
+      required this.onReset});
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _zoomCard(MingCuteIcons.fullscreenLine, '复位', onReset),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.addLine, '放大', onZoomIn),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.minimizeLine, '缩小', onZoomOut),
+        ],
+      );
+
+  Widget _zoomCard(IconData icon, String label, VoidCallback onTap) => Material(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 40,
+            height: 64,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 24, color: const Color(0xFF09244B)),
+                  const SizedBox(height: 4),
+                  Text(label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          height: 20 / 12,
+                          color: Color(0xFF60656B))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
 }
 
 /// 轴网校准叠加层：检测到的红线 + 已选点标记（显示坐标 = 图片显示像素）。
@@ -1486,7 +1697,6 @@ class _CalibHintBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTokens.bg.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(AppTokens.radiusPill),
-        border: Border.all(color: AppTokens.border),
         boxShadow: AppTokens.elevationRaised,
       ),
       child: Row(
@@ -1544,43 +1754,6 @@ class _CalibHintBar extends StatelessWidget {
   }
 }
 
-class _IndexBar extends StatelessWidget {
-  final Drawing d;
-  final ValueChanged<Hotspot> onJump;
-  const _IndexBar({required this.d, required this.onJump});
-
-  @override
-  Widget build(BuildContext context) => Container(
-        color: AppTokens.surface,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: d.hotspots
-                .map(
-                  (h) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ActionChip(
-                      avatar: CircleAvatar(
-                        backgroundColor: AppTokens.fg,
-                        radius: 10,
-                        child: Text('${h.num}',
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 12)),
-                      ),
-                      label: Text(h.label),
-                      onPressed: () => onJump(h),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      );
-}
-
-/// CAD/OCF 图纸的待渲染占位。
-/// 真实 OCF 需 GStarSDK.js 矢量渲染（未接入）；当前展示图纸信息与状态提示。
 class _CadPlaceholder extends StatelessWidget {
   final String ocfKey;
   final String title;
@@ -1634,6 +1807,314 @@ class _CadPlaceholder extends StatelessWidget {
                       fontWeight: FontWeight.w400,
                       color: AppTokens.warning)),
             ),
+          ],
+        ),
+      );
+}
+
+/// 坐标校准弹窗内容（自绘 UI，替代 Material AlertDialog；样式 Frame 2147228009）。
+/// 结构：说明文字 12/#60656B → 白卡（描边 #E9EAEB）JSON 输入 → 两个白底操作行
+/// （46 高、图标 16 + 文字 14，均 #60656B）→ 底部三按钮（48 高、圆角 8、
+/// 取消灰字 / 清除校准红字 / 应用蓝底白字）。
+class _CalibrationSheet extends StatelessWidget {
+  final TextEditingController controller;
+  final bool isCalibrated;
+  final VoidCallback onBuiltin;
+  final VoidCallback onAxis;
+  final VoidCallback onClear;
+  final VoidCallback onCancel;
+  final VoidCallback onApply;
+  const _CalibrationSheet({
+    required this.controller,
+    required this.isCalibrated,
+    required this.onBuiltin,
+    required this.onAxis,
+    required this.onClear,
+    required this.onCancel,
+    required this.onApply,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 说明文字（12/W400/#60656B，随宽度自动换行）
+          const Text(
+            '粘贴浏览器端校准参数（JSON），获得与浏览器一致的 <2mm 精度。'
+            '获取方式：浏览器打开 cad_viewer_hybrid.html → 校准面板 → 「复制参数」。',
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.fg2),
+          ),
+          const SizedBox(height: 12),
+          // JSON 输入卡（白底 + 描边 #E9EAEB——输入外壳唯一可见边界，保留描边）
+          Container(
+            constraints: const BoxConstraints(minHeight: 92),
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              border: Border.all(color: const Color(0xFFE9EAEB)),
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            ),
+            child: TextField(
+              controller: controller,
+              maxLines: 5,
+              style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                  height: 22 / 14,
+                  color: AppTokens.fg2),
+              decoration: const InputDecoration(
+                hintText: '{"imgW":4500,"imgH":2551,"a":...,"d":...}',
+                hintStyle: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    color: AppTokens.muted),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(12),
+                isDense: true,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 操作行 1：应用内置B05（白底 46 高，图标 16 + 文字 14，#60656B 居中）
+          _CalibActionRow(
+            icon: MingCuteIcons.mapPinLine,
+            label: '应用内置B05',
+            onTap: onBuiltin,
+          ),
+          const SizedBox(height: 12),
+          // 操作行 2：图上多点校准
+          _CalibActionRow(
+            icon: MingCuteIcons.aiming2Line,
+            label: '图上多点校准',
+            onTap: onAxis,
+          ),
+          const SizedBox(height: 24),
+          // 底部按钮行（48 高、圆角 8、间距 12；清除校准仅已校准时出现）
+          Row(
+            children: [
+              Expanded(
+                child: _CalibBtn(
+                    label: '取消',
+                    background: AppTokens.surface,
+                    foreground: AppTokens.fg2,
+                    onTap: onCancel),
+              ),
+              if (isCalibrated) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _CalibBtn(
+                      label: '清除校准',
+                      background: AppTokens.surface,
+                      foreground: const Color(0xFFFF4444),
+                      onTap: onClear),
+                ),
+              ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CalibBtn(
+                    label: '应用',
+                    background: AppTokens.brand,
+                    foreground: Colors.white,
+                    onTap: onApply),
+              ),
+            ],
+          ),
+        ],
+      );
+}
+
+/// 校准弹窗操作行（Frame 2147228089/8090）：白底、高 46、圆角 8、pad 12，
+/// 内容水平居中（图标 16 + gap 8 + 文字 14，均 #60656B）。
+class _CalibActionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _CalibActionRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 46,
+        child: Material(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: AppTokens.fg2),
+                  const SizedBox(width: 8),
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          height: 22 / 14,
+                          color: AppTokens.fg2)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// 校准弹窗底部按钮（48 高、圆角 8、16/W500）。
+class _CalibBtn extends StatelessWidget {
+  final String label;
+  final Color background;
+  final Color foreground;
+  final VoidCallback onTap;
+  const _CalibBtn({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 48,
+        child: Material(
+          color: background,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            onTap: onTap,
+            child: Center(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 24 / 16,
+                      color: foreground)),
+            ),
+          ),
+        ),
+      );
+}
+
+/// 底部弹窗内的带标签输入框（白底 + 描边，统一输入样式）。
+class _SheetField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+  const _SheetField(
+      {required this.label, required this.controller, this.keyboardType});
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: AppTokens.muted)),
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            ),
+            child: TextField(
+              controller: controller,
+              keyboardType: keyboardType,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                isDense: true,
+              ),
+            ),
+          ),
+        ],
+      );
+}
+
+/// 「详细信息」底部弹窗（Frame 2147228047）：三张白卡（名称/楼层/大小），
+/// 每张 pad 12、行距 4，标签 14/W400/22 #919499 + 值 14/W400/22 #202224，
+/// 卡片高随内容自适应（基准 72），长名称自动换行。
+class _DrawingInfoSheet extends StatelessWidget {
+  final Drawing d;
+  const _DrawingInfoSheet({required this.d});
+
+  /// 读取 asset 字节数，格式化为「24k / 1.2M」；读不到（网络图/无底图）返回 —。
+  Future<String> _fileSizeOf(String src) async {
+    if (src.isEmpty) return '—';
+    try {
+      final data = await rootBundle.load(src);
+      final b = data.lengthInBytes;
+      if (b >= 1024 * 1024) {
+        return '${(b / 1024 / 1024).toStringAsFixed(1)}M';
+      }
+      return '${(b / 1024).round()}k';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _InfoCard(label: '图纸名称', value: d.title),
+          const SizedBox(height: 12),
+          _InfoCard(label: '图纸楼层', value: d.crumb),
+          const SizedBox(height: 12),
+          FutureBuilder<String>(
+            future: _fileSizeOf(d.src),
+            builder: (context, snap) => _InfoCard(
+              label: '图纸大小',
+              value: snap.data ?? '—',
+            ),
+          ),
+        ],
+      );
+}
+
+/// 详细信息白卡（Frame 2147228088/8089/8090）：白底圆角 8、pad 12、
+/// 内部 Column gap 4（标签 #919499 → 值 #202224，均 14/W400/22）。
+/// 纯展示白卡不加描边。
+class _InfoCard extends StatelessWidget {
+  final String label;
+  final String value;
+  const _InfoCard({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minHeight: 72),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: Color(0xFF919499))),
+            const SizedBox(height: 4),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: Color(0xFF202224))),
           ],
         ),
       );

@@ -994,15 +994,22 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(icon: MingCuteIcons.leftLine),
+        ),
         title: const Text('拍照量尺校对'),
         actions: [
-          NavIconButton(
-            icon: MingCuteIcons.saveLine,
-            onPressed: () async {
-              await _persist();
-              if (mounted) AppSnack.show(context, '已保存');
-            },
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: NavIconButton(
+              icon: MingCuteIcons.saveLine,
+              onPressed: () async {
+                await _persist();
+                if (mounted) AppSnack.show(context, '已保存');
+              },
+            ),
           ),
         ],
       ),

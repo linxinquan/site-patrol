@@ -77,7 +77,7 @@ class _Tab extends StatelessWidget {
           child: Text(label,
               style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: selected ? AppTokens.onAccent : AppTokens.fg)),
         ),
       ),
@@ -116,7 +116,7 @@ class _FloorButton extends StatelessWidget {
                 selected ? (floor ?? '楼层') : '楼层',
                 style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: selected ? AppTokens.onAccent : AppTokens.fg,
                     height: 1),
               ),

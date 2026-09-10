@@ -29,10 +29,14 @@ class RecordDetailPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        leading: NavIconButton(
-          icon: MingCuteIcons.leftLine,
-          color: const Color(0xFF000000),
-          onPressed: () => context.pop(),
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: const Color(0xFF000000),
+            onPressed: () => context.pop(),
+          ),
         ),
         title: const Text('记录详情',
             style: TextStyle(
@@ -674,9 +678,14 @@ class _ReplyCardState extends State<_ReplyCard> {
                       color: AppTokens.fg)),
               const SizedBox(width: 8),
               if (hasReply)
-                Text('已于 ${widget.d.replyTs ?? ''} 回复',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppTokens.muted)),
+                Expanded(
+                  child: Text('已于 ${widget.d.replyTs ?? ''} 回复',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppTokens.muted)),
+                ),
             ],
           ),
           const SizedBox(height: 10),

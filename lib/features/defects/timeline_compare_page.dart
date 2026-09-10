@@ -78,7 +78,11 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       appBar: AppBar(
         titleSpacing: 12,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine),
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(icon: MingCuteIcons.leftLine),
+        ),
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -252,7 +256,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                             style: TextStyle(
                                 fontSize: 10,
                                 color: AppTokens.brand,
-                                fontWeight: FontWeight.w400)),
+                                fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
@@ -431,6 +435,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       );
 }
 
+/// 角落状态标签（胶囊），垫底实色 + 白字。标签内文字按全局规范取 W500。
 class _CornerTag extends StatelessWidget {
   final String label;
   final Color bg;
@@ -444,7 +449,8 @@ class _CornerTag extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppTokens.radiusPill),
         ),
         child: Text(label,
-            style: const TextStyle(fontSize: 10, color: Colors.white)),
+            style: const TextStyle(
+                fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
       );
 }
 

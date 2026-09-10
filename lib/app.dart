@@ -138,6 +138,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: const DefectsPage(),
             ),
           ),
+          // 二级页：处置与回复（设计稿 Frame 2147228094，独立页面，不是工单主页复用）。
+          GoRoute(
+            path: '/defects/disposal/:kind',
+            pageBuilder: (_, state) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: DisposalReplyPage(kind: state.pathParameters['kind']!),
+            ),
+          ),
           // 中间相机按钮入口：拍照验收属于一级页面（与 4 个 tab 同级，保留底部导航）。
           GoRoute(
             path: '/capture',

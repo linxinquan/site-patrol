@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 /// 设计 Token：扁平化（浅色）风格。
 /// 主色为品牌蓝 #0395FF（accent 与 brand 已统一）；无重阴影、统一圆角、浅灰背景。
 class AppTokens {
+  // —— 字体 ——
+  /// 全局 UI 字体家族名：小米 MiSans（免费商用；四档字重见 pubspec.yaml，
+  /// 子集由 tools/build_ui_font.py 生成）。
+  /// 单列一份常量是因为 AppBar 标题、按钮文字、SnackBar 等「主题槽」里的
+  /// TextStyle 会整段替换默认文本样式（不走 textTheme.apply），必须显式带上
+  /// family，否则这些位置的文字会退回系统字体、与全局不一致。
+  static const String fontFamily = 'MiSans';
+
   // —— 主色（品牌蓝 #0395FF，accent 令牌族与 brand 同源）——
   static const Color accent = Color(0xFF0395FF); // 品牌蓝（全局主操作色）
   static const Color accentHover = Color(0xFF0284E6);
@@ -76,11 +84,16 @@ class AppTokens {
 
   // —— 按钮三档（高度为权威值：文字在固定高度内垂直居中，不再由上下 padding 撑高）——
   static const double buttonH_lg = 48; // 大按钮高度（严格 48）
-  static const double buttonH_md = 36; // 中按钮高度（默认档）
+  static const double buttonH_md = 40; // 中按钮高度（默认档）
   static const double buttonH_sm = 32; // 小按钮高度
   static const double buttonPadX_lg = 24; // 大按钮左右 padding 下限
   static const double buttonPadX_md = 12; // 中按钮左右 padding 下限
   static const double buttonPadX_sm = 12; // 小按钮左右 padding 下限
+
+  // —— 按钮文字字重：按档位区分，层级越高越重（lg/md 同档，为最轻的强调档）——
+  static const FontWeight buttonWeightLg = FontWeight.w600;
+  static const FontWeight buttonWeightMd = FontWeight.w600;
+  static const FontWeight buttonWeightSm = FontWeight.w500;
 
   // —— 阴影（按设计规范：所有卡片取消投影、统一扁平化，令牌置空）——
   static List<BoxShadow> get elevationRaised => const [];

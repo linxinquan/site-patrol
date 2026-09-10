@@ -27,9 +27,10 @@ ThemeData get lightTheme => ThemeData(
         surface: AppTokens.surface,
         error: AppTokens.danger,
       ),
-      // 不强制自定义字体：fontFamily 为 null 时 Flutter 自动使用各平台系统默认字体。
-      // fontFamilyFallback 仅作兜底（主要影响 Web HTML 渲染器的 CSS 字体栈）。
-      fontFamily: null,
+      // 内置小米 MiSans 作全局 UI 字体（四档字重 400/500/600/700，见 pubspec 与
+      // tools/build_ui_font.py），Web/iOS/安卓用同一套字形与渲染，跨端字重观感统一。
+      // fontFamilyFallback 仅兜底极罕见缺字（如生僻汉字）。
+      fontFamily: AppTokens.fontFamily,
       fontFamilyFallback: const [
         'PingFang SC',
         'Microsoft YaHei',
@@ -37,7 +38,7 @@ ThemeData get lightTheme => ThemeData(
         'Source Han Sans SC',
         'sans-serif',
       ],
-      // 字号阶梯（六档：32/22/16/14/12/10，字距统一 0，字重仅 w400/w700）
+      // 字号阶梯（六档：32/22/16/14/12/10，字距统一 0，字重 w400/w500/w700）
       textTheme: const TextTheme(
         // 大标题（如项目名） — SF Pro Display 风格
         displaySmall: TextStyle(
@@ -63,10 +64,10 @@ ThemeData get lightTheme => ThemeData(
           color: AppTokens.fg,
           height: 24 / 16,
         ),
-        // 卡内标题
+        // 卡内标题 — Medium(500)，位于 正文(Regular) 与 大标题(Bold) 之间
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: AppTokens.fg,
           height: 24 / 16,
@@ -97,19 +98,19 @@ ThemeData get lightTheme => ThemeData(
         // 按钮 / 强调
         labelLarge: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: AppTokens.buttonWeightLg,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelMedium: TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w700,
+          fontWeight: AppTokens.buttonWeightSm,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
         labelSmall: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0,
           color: AppTokens.muted,
         ),
@@ -120,12 +121,13 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        // 工具栏高度统一 44dp（贴合 iOS 原生 44pt，iOS/安卓一致）；
-        // AppBar 在 Scaffold 中会额外叠加状态栏留白，44 只控工具栏本身高度。
-        toolbarHeight: 44,
+        // 工具栏高度统一 48dp（iOS/安卓一致）；
+        // AppBar 在 Scaffold 中会额外叠加状态栏留白，48 只控工具栏本身高度。
+        toolbarHeight: 48,
         titleTextStyle: TextStyle(
+          fontFamily: AppTokens.fontFamily,
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0,
           color: AppTokens.fg,
         ),
@@ -153,7 +155,9 @@ ThemeData get lightTheme => ThemeData(
         elevation: 0,
         type: BottomNavigationBarType.fixed,
       ),
-      // 按钮默认 = 中档（高度36 严格 / 左右padding≥12 / 圆角12 / 白字 / 14·w700·行高22）
+      // 按钮默认 = 中档（高度40 严格 / 左右padding≥12 / 圆角12 / 白字 / 14·w600·行高22）
+      // 字重取 AppTokens.buttonWeightMd：AppButton 的 lg/md 档统一 W600、sm 档 W500，
+      // 主题默认值对应最常见的 md 档；直接用 FilledButton/OutlinedButton 时走这里。
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppTokens.accent,
@@ -166,8 +170,9 @@ ThemeData get lightTheme => ThemeData(
               borderRadius:
                   BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
+            fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.onAccent,
@@ -186,8 +191,9 @@ ThemeData get lightTheme => ThemeData(
               borderRadius:
                   BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
+            fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.accent,
@@ -205,8 +211,9 @@ ThemeData get lightTheme => ThemeData(
               borderRadius:
                   BorderRadius.all(Radius.circular(AppTokens.radiusButton))),
           textStyle: const TextStyle(
+            fontFamily: AppTokens.fontFamily,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: AppTokens.buttonWeightMd,
             letterSpacing: 0,
             height: 22 / 14,
             color: AppTokens.accent,
@@ -217,6 +224,7 @@ ThemeData get lightTheme => ThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: Color(0xFF2C2C2E),
         contentTextStyle: TextStyle(
+          fontFamily: AppTokens.fontFamily,
           color: Colors.white,
           fontSize: 14,
           fontWeight: FontWeight.w400,
@@ -240,7 +248,7 @@ ThemeData get patrolDarkTheme => ThemeData(
         primary: AppTokens.accent,
         surface: AppTokens.patrolSurface,
       ),
-      fontFamily: null,
+      fontFamily: AppTokens.fontFamily,
       fontFamilyFallback: const [
         'PingFang SC',
         'Microsoft YaHei',
@@ -251,5 +259,12 @@ ThemeData get patrolDarkTheme => ThemeData(
         backgroundColor: AppTokens.patrolBg,
         foregroundColor: AppTokens.patrolFg,
         elevation: 0,
+        titleTextStyle: TextStyle(
+          fontFamily: AppTokens.fontFamily,
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+          color: AppTokens.patrolFg,
+        ),
       ),
     );

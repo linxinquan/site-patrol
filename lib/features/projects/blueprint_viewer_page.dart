@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import 'package:go_router/go_router.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/mock/mock_data.dart';
 
-/// 蓝图原稿预览页（P4）：深色蓝图氛围 + InteractiveViewer 缩放 + 图纸切换。
+/// 蓝图原稿预览页（P4）：浅色（白底）原稿浏览 + InteractiveViewer 缩放 + 图纸切换。
 /// 图纸：assets/drawings 的 PNG 原稿（建施报_06 西楼一层 / 建施报_20 东楼一层 / 建施报_01 总平面图），离线可用、零新依赖。
 class BlueprintViewerPage extends StatefulWidget {
   const BlueprintViewerPage({super.key});
@@ -43,17 +44,26 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B1220),
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1220),
-        foregroundColor: Colors.white,
+        backgroundColor: AppTokens.bg,
+        foregroundColor: AppTokens.fg,
         elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leading: NavIconButton(icon: MingCuteIcons.leftLine, color: Colors.white),
+        centerTitle: true,
+        leadingWidth: 36,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: const Color(0xFF09244B),
+            onPressed: () => context.pop(),
+          ),
+        ),
         title: const Text('蓝图原稿',
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600)),
-        centerTitle: false,
+                fontSize: 16, fontWeight: FontWeight.w600, color: AppTokens.fg)),
       ),
       body: Column(
         children: [
@@ -73,16 +83,12 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
                               fontWeight: FontWeight.w400,
                               color: _index == i
                                   ? AppTokens.onAccent
-                                  : Colors.white70)),
+                                  : AppTokens.fg2)),
                       selected: _index == i,
                       onSelected: (_) => _switchTo(i),
-                      backgroundColor: Colors.white.withValues(alpha: 0.06),
-                      selectedColor: Colors.white,
-                      side: BorderSide(
-                        color: _index == i
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.18),
-                      ),
+                      backgroundColor: AppTokens.surface,
+                      selectedColor: AppTokens.brand,
+                      side: BorderSide.none,
                       showCheckmark: false,
                       shape: RoundedRectangleBorder(
                         borderRadius:
@@ -100,23 +106,23 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
             child: Row(
               children: [
                 const Icon(MingCuteIcons.documentsLine,
-                    size: 13, color: Colors.white54),
+                    size: 13, color: AppTokens.muted),
                 const SizedBox(width: 6),
                 Text(_title,
                     style: const TextStyle(
-                        fontSize: 12, color: Colors.white70)),
+                        fontSize: 12, color: AppTokens.fg2)),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: AppTokens.surface3,
                     borderRadius:
                         BorderRadius.circular(AppTokens.radiusPill),
                   ),
                   child: const Text('蓝图原稿 · 离线预览',
                       style: TextStyle(
-                          fontSize: 10, color: Colors.white54)),
+                          fontSize: 10, color: AppTokens.muted)),
                 ),
               ],
             ),
@@ -124,49 +130,38 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
           const SizedBox(height: AppTokens.space2),
           // 图纸交互区
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-                border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: InteractiveViewer(
-                transformationController: _controller,
-                minScale: 0.5,
-                maxScale: 4.0,
-                boundaryMargin: const EdgeInsets.all(80),
-                child: Center(
-                  child: Image.asset(_src,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium),
-                ),
-              ),
-            ),
-          ),
-          // 底部缩放工具条
-          Container(
-            color: const Color(0xFF0B1220),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Stack(
               children: [
-                _ToolBtn(
-                    icon: MingCuteIcons.zoomOutLine,
-                    label: '缩小',
-                    onTap: () => _zoom(0.8)),
-                const SizedBox(width: AppTokens.space3),
-                _ToolBtn(
-                    icon: MingCuteIcons.fullscreenLine,
-                    label: '复位',
-                    onTap: _reset),
-                const SizedBox(width: AppTokens.space3),
-                _ToolBtn(
-                    icon: MingCuteIcons.zoomInLine,
-                    label: '放大',
-                    onTap: () => _zoom(1.25)),
+                Container(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface2,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InteractiveViewer(
+                    transformationController: _controller,
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    boundaryMargin: const EdgeInsets.all(80),
+                    child: Center(
+                      child: Image.asset(_src,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium),
+                    ),
+                  ),
+                ),
+                // 右下角悬浮缩放控件（复用图纸详情页 _ZoomFab）
+                Positioned(
+                  right: 12,
+                  bottom: 40,
+                  child: _ZoomFab(
+                    onZoomIn: () => _zoom(1.3),
+                    onZoomOut: () => _zoom(1 / 1.3),
+                    onReset: _reset,
+                  ),
+                ),
               ],
             ),
           ),
@@ -176,39 +171,56 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
   }
 }
 
-class _ToolBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _ToolBtn({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+/// 画布右下悬浮的缩放控件（复位 / 放大 / 缩小），白卡药丸，距底 40。
+/// 三张独立白卡（40×64，圆角 8），图标 #09244B + 辅文 #60656B，
+/// 与图纸详情页 _ZoomFab 完全一致（直接复用）。
+class _ZoomFab extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+  const _ZoomFab({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
   });
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space4, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white)),
-            ],
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _zoomCard(MingCuteIcons.fullscreenLine, '复位', onReset),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.addLine, '放大', onZoomIn),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.minimizeLine, '缩小', onZoomOut),
+        ],
+      );
+
+  Widget _zoomCard(IconData icon, String label, VoidCallback onTap) => Material(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 40,
+            height: 64,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 24, color: const Color(0xFF09244B)),
+                  const SizedBox(height: 4),
+                  Text(label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          fontSize: 12,
+                          height: 20 / 12,
+                          color: Color(0xFF60656B))),
+                ],
+              ),
+            ),
           ),
         ),
       );

@@ -193,7 +193,6 @@ class _VoiceInputSheetState extends ConsumerState<VoiceInputSheet> {
               decoration: BoxDecoration(
                 color: AppTokens.surface2,
                 borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                border: Border.all(color: AppTokens.border),
               ),
               child: SingleChildScrollView(
                 child: _done
