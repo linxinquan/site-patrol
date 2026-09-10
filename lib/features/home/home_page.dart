@@ -127,7 +127,7 @@ class _HomePageState extends ConsumerState<HomePage>
         elevation: 0,
         scrolledUnderElevation: 0,
         backgroundColor: AppTokens.bg,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         titleSpacing: AppTokens.space3,
         title: AsyncState(
           value: project,

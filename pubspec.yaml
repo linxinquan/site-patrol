@@ -52,14 +52,19 @@ flutter:
     - family: MingCute
       fonts:
         - asset: assets/fonts/mingcute.ttf
-    # 全局中文 UI 字体：思源黑体(Noto Sans SC)简体子集，Regular/Medium/Bold 三档，
-    # 对应设计系统「字重 w400/w500/w700」。内置后 Web/iOS/安卓用同一套字形与 Skia 渲染，
-    # 跨端字重观感统一。Regular 复用 PDF 报告所用的 .ttf；Medium/Bold 为 .otf。
-    - family: NotoSansSC
+    # 全局中文 UI 字体：小米 MiSans（免费商用，官方 TTF 子集，见 tools/build_ui_font.py）。
+    # 四档字重 400/500/600/700 与设计系统 w400~w700 一一对应，内置后 Web/iOS/安卓
+    # 用同一套字形与渲染，跨端字重观感统一（此前 w600 无对应文件、会回退到 Bold，偏重）。
+    - family: MiSans
       fonts:
-        - asset: assets/fonts/NotoSansSC-Regular.ttf
+        - asset: assets/fonts/MiSans-Regular.ttf
           weight: 400
-        - asset: assets/fonts/NotoSansSC-Medium.otf
+        - asset: assets/fonts/MiSans-Medium.ttf
           weight: 500
-        - asset: assets/fonts/NotoSansSC-Bold.otf
+        - asset: assets/fonts/MiSans-Demibold.ttf
+          weight: 600
+        - asset: assets/fonts/MiSans-Semibold.ttf
           weight: 700
+    # 注：assets/fonts/NotoSansSC-Regular.ttf 仍保留——PDF 报告嵌入
+    # （lib/features/defects/report_pdf.dart）与 CAD 服务端（server/cad_local.py）
+    # 依赖它做中文渲染，与 UI 字体互不影响。

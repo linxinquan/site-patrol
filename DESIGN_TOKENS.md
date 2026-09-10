@@ -162,8 +162,8 @@
 
 ## 四、Typography（字号阶梯，定义于 app_theme.dart）
 
-字体栈：各平台系统默认字体——**不打包自定义字体**。iOS 用 苹方（PingFang SC）/ SF Pro；Android 用 Roboto + 思源黑体（Noto Sans CJK SC）；Web 用 HTML 渲染器 + 系统字体栈（Windows 微软雅黑 / macOS 苹方）。数字（NumText）跟随系统字体并启用等宽数字（tabular-nums）。
-字号规则：**六档 32/22/16/14/12/10（只用偶数）**，字重仅 **w400/w700** 两档，字间距统一 **0**。**行高统一规则：`行高 = 字号 + 8`**（精确整数，无小数点）。
+字体栈：**内置小米 MiSans**（家族名 `MiSans`，免费商用）——Web/iOS/安卓共用同一套字形，跨端观感统一，不再依赖各平台系统字体。打包四档字重（Regular 400 / Medium 500 / Demibold 600 / Semibold 700），字体文件为子集（`tools/build_ui_font.py` 生成，约 5.3 MB/档），`fontFamilyFallback` 兜底极罕见缺字（苹方 / 微软雅黑 / Noto Sans CJK）。字体常量见 `AppTokens.fontFamily`——注意 AppBar 标题、按钮文字、SnackBar 等「主题槽」的 TextStyle 会整段替换默认文本样式，必须显式带上 family。数字（NumText）跟随该字体并启用等宽数字（tabular-nums）。PDF 报告嵌入的字体仍为思源黑体（`assets/fonts/NotoSansSC-Regular.ttf`），与 UI 字体相互独立。
+字号规则：**六档 32/22/16/14/12/10（只用偶数）**，字重以 **w400/w500/w600/w700** 四档为主（w600 使用最多，原来无对应字重文件、会回退到 Bold，现已由 MiSans Demibold 承接），字间距统一 **0**。**行高统一规则：`行高 = 字号 + 8`**（精确整数，无小数点）。
 
 | 样式名 | 字号 | 行高系数（代码写法） | 实际行高 | 字重 | 字间距 | 用途 |
 |---|---|---|---|---|---|---|

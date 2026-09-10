@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
-import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
@@ -154,7 +153,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         centerTitle: false,
         titleSpacing: 12,
         title: const Text('图纸',
@@ -163,14 +162,9 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
                 fontWeight: FontWeight.w700,
                 color: AppTokens.fg,
                 height: 28 / 20)),
-        actions: [
-          NavIconButton(
-            onPressed: () => AppSnack.show(context, '按楼层 / 索引号检索图纸',
-                kind: AppSnackKind.brand),
-            icon: MingCuteIcons.searchLine,
-          ),
-          const Padding(
-            padding: EdgeInsets.only(right: 12),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.fromLTRB(0, 0, 12, 0),
             child: UserSwitcher(),
           ),
         ],

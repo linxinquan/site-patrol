@@ -62,7 +62,7 @@ class AppBottomNav extends StatelessWidget {
       );
 }
 
-/// 单个 Tab 项（抖音风：纯文字，选中 W700 主题蓝 #0395FF，未选中灰色）。
+/// 单个 Tab 项（抖音风：纯文字，选中 W600 主题蓝 #0395FF，未选中灰色）。
 class _TabItem extends StatelessWidget {
   final String label;
   final bool selected;
@@ -82,7 +82,7 @@ class _TabItem extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: selected ? AppTokens.brand : AppTokens.muted,
               ),
             ),

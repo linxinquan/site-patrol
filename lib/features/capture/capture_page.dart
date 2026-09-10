@@ -813,7 +813,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           backgroundColor: AppTokens.bg,
           surfaceTintColor: Colors.transparent,
           elevation: 0,
-          toolbarHeight: 44,
+          toolbarHeight: 48,
           titleSpacing: 12,
           actions: const [
             Padding(
@@ -1151,11 +1151,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             const Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(MingCuteIcons.layersLine, size: 16, color: AppTokens.accent),
+                Icon(MingCuteIcons.layersLine, size: 14, color: AppTokens.accent),
                 SizedBox(width: AppTokens.space2),
                 Text('选择图纸',
                     style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.w700, height: 1.2)),
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.w600, height: 1.2)),
               ],
             ),
             const SizedBox(height: AppTokens.space2),
@@ -1192,12 +1192,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(MingCuteIcons.mapPinLine,
-                    size: 16, color: AppTokens.accent),
+                    size: 14, color: AppTokens.accent),
                 const SizedBox(width: AppTokens.space2),
                 Expanded(
                   child: Text('已选部位：${_anchorLabel}',
                       style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700, height: 1.2)),
+                          fontSize: 14, fontWeight: FontWeight.w600, height: 1.2)),
                 ),
               ],
             ),
@@ -1524,7 +1524,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const SizedBox(width: 6),
               const Text('拍照量尺校对',
                   style:
-                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700, height: 1.1)),
+                      TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.1)),
               TextButton.icon(
                 onPressed: () async {
                   final projectId =
@@ -2443,7 +2443,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const Icon(MingCuteIcons.historyLine,
-                  size: 15, color: AppTokens.accent),
+                  size: 14, color: AppTokens.accent),
               const SizedBox(width: 6),
               const Text('本图纸拍照记录',
                   style: TextStyle(
@@ -2838,34 +2838,20 @@ class _FloorPickRow extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(AppTokens.radiusSm),
             onTap: onTap,
-            child: Padding(
+            child: Container(
+              alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(MingCuteIcons.versionLine,
-                      size: 16,
-                      color: selected ? AppTokens.brand : AppTokens.fg2),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: selected
-                                ? FontWeight.w500
-                                : FontWeight.w400,
-                            height: 22 / 14,
-                            color: AppTokens.fg)),
-                  ),
-                  if (selected) ...[
-                    const SizedBox(width: 8),
-                    const Icon(MingCuteIcons.checkLine,
-                        size: 20, color: AppTokens.brand),
-                  ],
-                ],
-              ),
+              width: double.infinity,
+              child: Text(label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: selected
+                          ? AppTokens.brand
+                          : AppTokens.fg2)),
             ),
           ),
         ),

@@ -3,6 +3,14 @@ import 'package:flutter/material.dart';
 /// 设计 Token：扁平化（浅色）风格。
 /// 主色为品牌蓝 #0395FF（accent 与 brand 已统一）；无重阴影、统一圆角、浅灰背景。
 class AppTokens {
+  // —— 字体 ——
+  /// 全局 UI 字体家族名：小米 MiSans（免费商用；四档字重见 pubspec.yaml，
+  /// 子集由 tools/build_ui_font.py 生成）。
+  /// 单列一份常量是因为 AppBar 标题、按钮文字、SnackBar 等「主题槽」里的
+  /// TextStyle 会整段替换默认文本样式（不走 textTheme.apply），必须显式带上
+  /// family，否则这些位置的文字会退回系统字体、与全局不一致。
+  static const String fontFamily = 'MiSans';
+
   // —— 主色（品牌蓝 #0395FF，accent 令牌族与 brand 同源）——
   static const Color accent = Color(0xFF0395FF); // 品牌蓝（全局主操作色）
   static const Color accentHover = Color(0xFF0284E6);

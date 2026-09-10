@@ -40,7 +40,7 @@ class DrawingViewerPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         leadingWidth: 0,
         titleSpacing: 0,
         centerTitle: true,
@@ -2112,7 +2112,7 @@ class _InfoCard extends StatelessWidget {
             Text(value,
                 style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                     height: 22 / 14,
                     color: Color(0xFF202224))),
           ],

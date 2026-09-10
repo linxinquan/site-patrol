@@ -43,7 +43,7 @@ class DefectsPage extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         centerTitle: false,
         titleSpacing: 0,
         title: Padding(
@@ -581,7 +581,7 @@ class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
-        toolbarHeight: 44,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: Padding(
