@@ -1,4 +1,4 @@
-﻿# 量房功能实施（超详细版，CodeBuddy 直接执行）
+# 量房功能实施（超详细版，CodeBuddy 直接执行）
 > 精简版见 `ROOM_MEASURE_IMPL.md`（分层/红线/演示路径）。本文是全量规格：纯逻辑给代码、UI 给规格、原生给骨架与契约。
 > 铁律：先在工程内读一遍下列"参照文件"确认现状；models.dart 一律追加不覆盖；fromJson 全默认值；不引新第三方库（绘制用 CustomPaint）。
 > 参照文件：`lib/data/models.dart`、`lib/core/storage/measure_store.dart`、`lib/core/utils/measure_math.dart`、`lib/features/measure/measure_page.dart`、`lib/features/measure/ar_measure_page.dart`、`lib/app.dart`(路由)、`lib/data/repository/repository.dart`、`lib/features/defects/report_content.dart`、`report_builder.dart`/`report_pdf.dart`/`report_docx.dart`/`report_xlsx.dart`、`lib/core/di/providers.dart`、`ios/Runner/AppDelegate.swift`、`ios/Runner/ArMeasureView.swift`。
@@ -233,6 +233,7 @@ class RoomScanStore {
 ```dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../data/models.dart'; // WallOpening（openingCentersUnit 用到）
 
 /// 量房几何纯函数：正交吸附 / 闭合差 / 面积 / 标注布局 / 洞口分段。
 /// 约定：点坐标 mm；多边形点按走墙顺序（顺/逆时针均可）。
@@ -352,17 +353,28 @@ List<double> openingCentersUnit(List<Offset> aB, List<WallOpening> ops, double w
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:site_patrol/core/room/room_geometry.dart';
+import 'package:gongdi_app/core/room/room_geometry.dart'; // 包名以 pubspec.yaml name: 为准（实际 gongdi_app）
+import 'package:gongdi_app/data/models.dart'; // WallOpening
 
 void main() {
-  test('直角正方形闭合差 0、面积正确', () {
+  test('开多边形闭合差=首尾缺口(底边长 3000)、面积正确', () {
     final pts = [
       const Offset(0, 0), const Offset(0, 4000),
       const Offset(3000, 4000), const Offset(3000, 0),
     ];
-    expect(closureDelta(pts), closeTo(0, 1e-6));
+    // closureDelta = dist(首,尾)；此 4 点未闭合（缺"回起点"边）→ 缺口=底边 3000
+    expect(closureDelta(pts), closeTo(3000, 1e-6));
     expect(areaM2(pts), closeTo(12.0, 1e-6)); // 3m×4m = 12㎡
     expect(wallLengthsMm(pts), [4000, 3000, 4000, 3000]);
+  });
+
+  test('闭合多边形（末点=首点）闭合差 0', () {
+    final closed = [
+      const Offset(0, 0), const Offset(0, 4000),
+      const Offset(3000, 4000), const Offset(3000, 0), const Offset(0, 0),
+    ];
+    expect(closureDelta(closed), closeTo(0, 1e-6));
+    expect(wallLengthsMm(closed).length, 4);
   });
 
   test('88° 角被吸附为 90°', () {
