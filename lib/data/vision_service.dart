@@ -211,13 +211,27 @@ class MeasureTarget {
   final Offset p2;
   final double conf;
 
+  /// 该线表示洞口哪一维：`width` 宽 / `height` 高 / `''` 未知。
+  ///
+  /// 门窗洞口需要两个维度才能给出制图编号（M0921 = 宽 900 × 高 2100），
+  /// 因此提示词要求门/窗各给两条线，并用 [group] 关联。
+  final String axis;
+
+  /// 同组编号：同一洞口的宽、高两条线共用一个 group 值（如 `door1`）。
+  final String group;
+
   const MeasureTarget({
     required this.kind,
     this.name = '',
     required this.p1,
     required this.p2,
     this.conf = 0,
+    this.axis = '',
+    this.group = '',
   });
+
+  bool get isWidth => axis == 'width';
+  bool get isHeight => axis == 'height';
 
   /// 支持的目类型（与提示词枚举保持一致）。
   static const List<String> kTargetKinds = [
@@ -264,6 +278,8 @@ class MeasureTarget {
           p1: Offset(n(a[0]), n(a[1])),
           p2: Offset(n(b[0]), n(b[1])),
           conf: n(e['conf']),
+          axis: e['axis']?.toString() ?? '',
+          group: e['group']?.toString() ?? '',
         );
         if (t.isValid) out.add(t);
       }
@@ -285,12 +301,17 @@ const String _targetPrompt =
     '要求：\n'
     '1) 目标须位于同一平面、两端边界清晰、无遮挡；拿不准就不要报；\n'
     '2) p1/p2 为被测方向两端点坐标，归一化 0~1（p1 在左/上，p2 在右/下）；\n'
-    '3) name 为简短中文描述（如「主卧门洞宽」）；\n'
-    '4) **不要输出任何尺寸数值**（尺寸由 App 按标定换算，你只需给位置）；\n'
-    '5) conf 为置信度 0~1；画面里没有可量目标时返回 {"targets":[]}。\n'
+    '3) **门/窗洞口必须给两条线**：宽度线 axis=width + 高度线 axis=height，'
+    '并给同一个 group 值（如 door1 / win1）以便配对；其它类型 axis 留空；\n'
+    '4) name 为简短中文描述（如「主卧门洞」）；\n'
+    '5) **不要输出任何尺寸数值**（尺寸由 App 按标定换算，你只需给位置）；\n'
+    '6) conf 为置信度 0~1；画面里没有可量目标时返回 {"targets":[]}。\n'
     '只输出 JSON，不要任何多余文字：\n'
-    '{"targets":[{"kind":"door","name":"门洞宽","p1":[0.31,0.62],'
-    '"p2":[0.72,0.63],"conf":0.88}]}';
+    '{"targets":['
+    '{"kind":"door","group":"door1","axis":"width","name":"主卧门洞宽",'
+    '"p1":[0.31,0.62],"p2":[0.72,0.63],"conf":0.88},'
+    '{"kind":"door","group":"door1","axis":"height","name":"主卧门洞高",'
+    '"p1":[0.31,0.62],"p2":[0.31,0.20],"conf":0.86}]}';
 
 /// AI 识别到的等距模数网格。
 ///

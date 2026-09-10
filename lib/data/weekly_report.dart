@@ -219,11 +219,15 @@ class MeasureCheck {
   final double tolMm;
   final double tolPct;
 
+  /// 项目级误差带门槛（±mm）：null = 用 `tolMm / 3`（测量不确定度规约）。
+  final double? judgeMaxErrorMm;
+
   const MeasureCheck({
     required this.drawingLabel,
     required this.item,
     this.tolMm = 15,
     this.tolPct = 2,
+    this.judgeMaxErrorMm,
   });
 }
 

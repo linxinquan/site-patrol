@@ -11,6 +11,7 @@ import 'package:app_settings/app_settings.dart';
 import '../../core/ar/ar_measure_service.dart';
 import '../../core/storage/ar_scale_calibration.dart';
 import '../../core/storage/measure_store.dart';
+import '../../core/storage/measure_threshold_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
@@ -46,6 +47,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   final _nameCtl = TextEditingController(text: 'AR实测');
   final _drawingCtl = TextEditingController();
   MeasureSession? _session;
+
+  /// 项目级判定门槛（可配置容差与误差带门槛）。
+  MeasureThresholds _thresholds = const MeasureThresholds();
 
   // —— 系统偏差校正（把「重复性」与「准确度」分开）——
   /// 本机尺度校正：读数 × k。null = 未校正（此时 ±误差带只代表重复性）。
@@ -102,6 +106,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     _svc.channel.setMethodCallHandler(_onNative);
     _loadSession();
     _loadScaleCalib();
+    _loadThresholds();
   }
 
   /// 读取本机已有的尺度校正（有则读数自动修正）。
@@ -110,15 +115,25 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     if (mounted && c != null) setState(() => _scaleCalib = c);
   }
 
-  /// 读取已有会话取容差（判定门控用），无则保持默认。
+  /// 读取已有会话取容差（判定门控用），无则用项目门槛。
   Future<void> _loadSession() async {
     final s =
         await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
     if (mounted && s != null) setState(() => _session = s);
   }
 
-  double get _tolMm => _session?.tolMm ?? 15;
-  double get _tolPct => _session?.tolPct ?? 2;
+  /// 项目级判定门槛（与照片量尺、报告口径同源）。
+  Future<void> _loadThresholds() async {
+    final t = await MeasureThresholdStore.load(widget.args.projectKey);
+    if (mounted) setState(() => _thresholds = t);
+  }
+
+  double get _tolMm => _session?.tolMm ?? _thresholds.tolMm;
+  double get _tolPct => _session?.tolPct ?? _thresholds.tolPct;
+
+  /// 误差带门槛：项目配置优先，未配置回退容差/3。
+  double get _judgeMaxErrorMm =>
+      _thresholds.judgeMaxErrorMm ?? _tolMm / 3;
 
   Future<dynamic> _onNative(MethodCall call) async {
     if (call.method == 'onMeasure') {
@@ -236,8 +251,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     if (drawingMm == null || drawingMm <= 0) return null;
     final dev = mm - drawingMm;
     final devPct = dev / drawingMm * 100;
-    if (!canJudgeByError(errMm, _tolMm)) {
-      return '重复性 ±${fmtMm(errMm)}mm 大于容差 1/3，需卷尺复核';
+    if (!(errMm > 0 && errMm <= _judgeMaxErrorMm)) {
+      return '重复性 ±${fmtMm(errMm)}mm 超过门槛 '
+          '±${fmtMm(_judgeMaxErrorMm)}mm，需卷尺复核';
     }
     final ok = dev.abs() <= _tolMm && devPct.abs() <= _tolPct;
     return ok ? '偏差 ${fmtMmSigned(dev)}mm · 合格' : '偏差 ${fmtMmSigned(dev)}mm · 超差';

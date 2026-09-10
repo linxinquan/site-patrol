@@ -9,6 +9,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
+import '../../core/storage/measure_threshold_store.dart';
 import '../../core/utils/open_web.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
@@ -453,6 +454,8 @@ class DefectsPage extends ConsumerWidget {
     final pid = ref.read(currentProjectIdProvider);
     if (pid == null || pid.isEmpty) return const [];
     final drawings = ref.read(drawingsProvider).valueOrNull ?? const {};
+    // 项目级判定门槛：报告的「需复核」口径必须与 App 内一致。
+    final th = await MeasureThresholdStore.load(pid);
     final out = <MeasureCheck>[];
     for (final e in drawings.entries) {
       MeasureSession? s;
@@ -469,6 +472,7 @@ class DefectsPage extends ConsumerWidget {
           item: item,
           tolMm: s.tolMm,
           tolPct: s.tolPct,
+          judgeMaxErrorMm: th.judgeMaxErrorMm,
         ));
       }
     }

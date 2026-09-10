@@ -181,6 +181,18 @@ String buildWeeklyReportHtml(
   buf.writeln(_statCard('已闭环', '$doneCount', '#1E9E4E', '#E4F6EB'));
   buf.writeln(
       _statCard('设计师远程解决', '$designerFixedCount', '#0E7A35', '#E4F6EB'));
+  // 尺寸校对统计（与缺陷统计并列；无数据时不占版面）
+  final cs = summarizeChecks(report.checks);
+  if (cs.total > 0) {
+    buf.writeln(_statCard('尺寸校对', '${cs.total}', '#0284E8', '#E8F4FE'));
+    buf.writeln(_statCard('校对合格', '${cs.ok}', '#1E9E4E', '#E4F6EB'));
+    if (cs.fail > 0) {
+      buf.writeln(_statCard('校对超差', '${cs.fail}', '#E0342B', '#FFE9E7'));
+    }
+    if (cs.review > 0) {
+      buf.writeln(_statCard('需复核', '${cs.review}', '#D98A00', '#FFF2DC'));
+    }
+  }
   buf.writeln('</section>');
 
   // ===== 各章节 =====
@@ -322,8 +334,11 @@ String _progressDetail(String detail) {
 ({String title, String body}) _checksSection(List<MeasureCheck> checks) {
   final sb = StringBuffer();
   sb.writeln('<div class="checks-block">');
-  sb.writeln('<p class="checks-summary">${_esc(checksSummaryText(checks))}'
-      '（「需复核」= 测量误差带大于容差 1/3，不下合格/超差结论）</p>');
+  for (final line in checksSummaryLines(checks)) {
+    sb.writeln('<p class="checks-summary">${_esc(line)}</p>');
+  }
+  sb.writeln('<p class="checks-summary">'
+      '（「需复核」= 测量误差带超过项目门槛，不下合格/超差结论）</p>');
   sb.writeln('<table class="report-table"><thead><tr>'
       '${kCheckTableHeadersWithSource.map((h) => '<th>${_esc(h)}</th>').join()}'
       '</tr></thead><tbody>');

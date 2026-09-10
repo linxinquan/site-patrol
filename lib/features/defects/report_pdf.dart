@@ -176,6 +176,13 @@ pw.Widget _overview(ReportStats s) {
     ('未闭环', '${s.open}', '#FF9500'),
     ('已闭环', '${s.done}', '#34C759'),
     ('设计师远程解决', '${s.designerFixed}', '#0E7A35'),
+    // 尺寸校对统计（与缺陷统计并列；无数据时不占版面）
+    if (s.checkTotal > 0) ...[
+      ('尺寸校对', '${s.checkTotal}', kBrandHex),
+      ('校对合格', '${s.checkOk}', '#34C759'),
+      if (s.checkFail > 0) ('校对超差', '${s.checkFail}', '#FF3B30'),
+      if (s.checkReview > 0) ('需复核', '${s.checkReview}', '#FF9500'),
+    ],
   ];
   return pw.Container(
     padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 10),
@@ -487,7 +494,8 @@ List<pw.Widget> _roomBlock(RoomScanRecord r) {
 
 /// 尺寸校对汇总（独立章节）：汇总口径 + 明细表（含误差带与测量方式）。
 List<pw.Widget> _checksBlock(List<MeasureCheck> checks) => [
-      pw.Text(checksSummaryText(checks), style: _ts(size: 8.5, color: _fg2)),
+      for (final line in checksSummaryLines(checks))
+        pw.Text(line, style: _ts(size: 8.5, color: _fg2)),
       pw.SizedBox(height: 3),
       pw.Table(
         border: _gridBorder(),

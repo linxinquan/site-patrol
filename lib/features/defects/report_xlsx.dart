@@ -100,6 +100,13 @@ class _XlsxBook {
       ['重要紧急', '${s.urgent}'],
       ['已回复', '${s.replied}'],
       ['设计师远程解决', '${s.designerFixed}'],
+      // 尺寸校对统计（与缺陷统计并列；无数据时不占版面）
+      if (s.checkTotal > 0) ...[
+        ['尺寸校对', '${s.checkTotal}'],
+        ['校对合格', '${s.checkOk}'],
+        if (s.checkFail > 0) ['校对超差', '${s.checkFail}'],
+        if (s.checkReview > 0) ['需复核', '${s.checkReview}'],
+      ],
     ];
     for (var i = 0; i < pairs.length; i++) {
       rows.add(_Row(r1++, [
@@ -183,11 +190,13 @@ class _XlsxBook {
       for (var i = 1; i < kCheckTableHeadersWithSource.length; i++)
         _c('', _sTitle),
     ]));
-    rows.add(_Row(idx++, [
-      _c(checksSummaryText(r.checks), _sGroup),
-      for (var i = 1; i < kCheckTableHeadersWithSource.length; i++)
-        _c('', _sGroup),
-    ]));
+    for (final line in checksSummaryLines(r.checks)) {
+      rows.add(_Row(idx++, [
+        _c(line, _sGroup),
+        for (var i = 1; i < kCheckTableHeadersWithSource.length; i++)
+          _c('', _sGroup),
+      ]));
+    }
     rows.add(_Row(idx++, [
       for (final h in kCheckTableHeadersWithSource) _c(h, _sHeader),
     ]));

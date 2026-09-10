@@ -141,6 +141,13 @@ class _DocxDoc {
       ('未闭环', '${s.open}', 'FF9500'),
       ('已闭环', '${s.done}', '34C759'),
       ('设计师远程解决', '${s.designerFixed}', '0E7A35'),
+      // 尺寸校对统计（与缺陷统计并列；无数据时不占版面）
+      if (s.checkTotal > 0) ...[
+        ('尺寸校对', '${s.checkTotal}', '0395FF'),
+        ('校对合格', '${s.checkOk}', '34C759'),
+        if (s.checkFail > 0) ('校对超差', '${s.checkFail}', 'FF3B30'),
+        if (s.checkReview > 0) ('需复核', '${s.checkReview}', 'FF9500'),
+      ],
     ];
     final col = (_contentW / items.length).round();
     _body.write(_table(
@@ -381,7 +388,13 @@ class _DocxDoc {
   void _checks(List<MeasureCheck> checks) {
     _body.write(_table([_contentW], [
       [
-        _Cell(_p(_r(checksSummaryText(checks), color: '60656B'), after: 0),
+        _Cell(
+            _p(
+              checksSummaryLines(checks)
+                  .map((l) => _r(l, color: '60656B'))
+                  .join(),
+              after: 0,
+            ),
             shade: 'F4F6F7'),
       ],
     ]));

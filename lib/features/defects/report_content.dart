@@ -1,3 +1,4 @@
+import '../../core/utils/measure_labels.dart';
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
 
@@ -266,6 +267,10 @@ class ReportStats {
     required this.urgent,
     required this.replied,
     required this.designerFixed,
+    this.checkTotal = 0,
+    this.checkOk = 0,
+    this.checkFail = 0,
+    this.checkReview = 0,
   });
 
   final int photos;
@@ -280,10 +285,19 @@ class ReportStats {
   final int replied;
   /// 设计师远程解决的条目数（designerAction == 'remoteFix'）。
   final int designerFixed;
+
+  /// 尺寸校对项数（拍照量尺 / AR 实测，与缺陷统计并列展示）。
+  final int checkTotal;
+
+  /// 其中：合格 / 超差 / 需复核（口径与 App 内判定同源）。
+  final int checkOk;
+  final int checkFail;
+  final int checkReview;
 }
 
 ReportStats buildReportStats(WeeklyReport report) {
   final defects = report.defects;
+  final cs = summarizeChecks(report.checks);
   return ReportStats(
     photos: report.photos.length,
     buildings: report.progress.length,
@@ -301,6 +315,10 @@ ReportStats buildReportStats(WeeklyReport report) {
         defects.where((d) => (d.reply ?? '').trim().isNotEmpty).length,
     designerFixed:
         defects.where((d) => d.designerAction == 'remoteFix').length,
+    checkTotal: cs.total,
+    checkOk: cs.ok,
+    checkFail: cs.fail,
+    checkReview: cs.review,
   );
 }
 

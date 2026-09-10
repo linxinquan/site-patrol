@@ -7,6 +7,7 @@ library;
 
 import '../../data/models.dart';
 import '../../data/weekly_report.dart' show MeasureCheck;
+import 'measure_stats.dart';
 import 'mm_format.dart';
 
 /// 测量方式显示名（`MeasureItem.source` / `RoomScanRecord.source`）。
@@ -36,9 +37,20 @@ String measureValueText(MeasureItem e) => e.errorMm == null
     ? '${fmtMm(e.photoMm)} mm'
     : '${fmtMm(e.photoMm)} mm ±${fmtMm(e.errorMm!)}';
 
-/// 判定文本：误差带 > 容差/3 时不下结论（测量不确定度规约），标「需卷尺复核」。
-String measureVerdictText(MeasureItem e, double tolMm, double tolPct) {
-  if (e.errorMm != null && !e.canJudge(tolMm)) return '需卷尺复核（误差过大）';
+/// 判定文本：误差带超过门槛时不下结论，标「需卷尺复核」。
+///
+/// 门槛优先用 [judgeMaxErrorMm]（项目级配置），未配置时回退容差/3
+/// （测量不确定度规约：测量不确定度应不大于容差的 1/3）。
+String measureVerdictText(
+  MeasureItem e,
+  double tolMm,
+  double tolPct, {
+  double? judgeMaxErrorMm,
+}) {
+  final gate = judgeMaxErrorMm ?? tolMm / 3;
+  if (e.errorMm != null && !(e.errorMm! > 0 && e.errorMm! <= gate)) {
+    return '需卷尺复核（误差过大）';
+  }
   return e.pass(tolMm, tolPct) ? '合格' : '超差';
 }
 
@@ -47,11 +59,12 @@ String measureCheckLine(
   MeasureItem e, {
   double tolMm = 15,
   double tolPct = 2,
+  double? judgeMaxErrorMm,
 }) =>
     '${e.name}：实测 ${measureValueText(e)}'
     ' · 图纸 ${fmtMm(e.drawingMm)} mm'
     ' · 偏差 ${fmtMmSigned(e.deviation)} mm (${fmtPctSigned(e.deviationPct)}%)'
-    ' · ${measureVerdictText(e, tolMm, tolPct)}'
+    ' · ${measureVerdictText(e, tolMm, tolPct, judgeMaxErrorMm: judgeMaxErrorMm)}'
     ' · 方式：${measureSourceLabel(e.source)}';
 
 /// 表头（PDF/HTML/XLSX 表格式呈现时共用，保证四端列名一致）。
@@ -79,17 +92,24 @@ const List<String> kCheckTableHeadersWithSource = [
 List<String> measureCheckRowWithSource(
   MeasureCheck c,
 ) =>
-    [c.drawingLabel, ...measureCheckRow(c.item, tolMm: c.tolMm, tolPct: c.tolPct)];
+    [
+      c.drawingLabel,
+      ...measureCheckRow(c.item,
+          tolMm: c.tolMm,
+          tolPct: c.tolPct,
+          judgeMaxErrorMm: c.judgeMaxErrorMm),
+    ];
 
 /// 汇总口径统计：合格 / 超差 / 需复核 三档计数。
 ///
-/// 「需复核」= 误差带 > 容差/3（测量不确定度规约），与 App 内判定完全同源。
+/// 「需复核」= 误差带超过项目门槛（未配置时为容差/3），与 App 内判定完全同源。
 ({int ok, int fail, int review, int total}) summarizeChecks(
   List<MeasureCheck> checks,
 ) {
   var ok = 0, fail = 0, review = 0;
   for (final c in checks) {
-    final v = measureVerdictText(c.item, c.tolMm, c.tolPct);
+    final v = measureVerdictText(c.item, c.tolMm, c.tolPct,
+        judgeMaxErrorMm: c.judgeMaxErrorMm);
     if (v.startsWith('合格')) {
       ok++;
     } else if (v.startsWith('超差')) {
@@ -107,17 +127,24 @@ String checksSummaryText(List<MeasureCheck> checks) {
   return '共 ${s.total} 项：合格 ${s.ok} · 超差 ${s.fail} · 需复核 ${s.review}';
 }
 
+/// 汇总行文案 + 偏差趋势（报告用）：两行，第二行用于发现系统性偏差。
+List<String> checksSummaryLines(List<MeasureCheck> checks) => [
+      checksSummaryText(checks),
+      deviationTrendText([for (final c in checks) c.item]),
+    ];
+
 /// 表格行（与 [kCheckTableHeaders] 一一对应）。
 List<String> measureCheckRow(
   MeasureItem e, {
   double tolMm = 15,
   double tolPct = 2,
+  double? judgeMaxErrorMm,
 }) =>
     [
       e.name,
       measureValueText(e),
       '${fmtMm(e.drawingMm)} mm',
       '${fmtMmSigned(e.deviation)} mm (${fmtPctSigned(e.deviationPct)}%)',
-      measureVerdictText(e, tolMm, tolPct),
+      measureVerdictText(e, tolMm, tolPct, judgeMaxErrorMm: judgeMaxErrorMm),
       measureSourceLabel(e.source),
     ];

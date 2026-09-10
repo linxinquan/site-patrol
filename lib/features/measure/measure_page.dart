@@ -17,12 +17,14 @@ import '../../core/cad/cad_calibration.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/storage/local_storage.dart';
+import '../../core/storage/measure_threshold_store.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/engineering_naming.dart';
 import '../../core/utils/homography.dart';
 import '../../core/utils/measure_math.dart';
+import '../../core/utils/measure_stats.dart';
 import '../../core/utils/mm_format.dart';
 import '../../core/utils/anchor_objects.dart';
 import '../../data/models.dart';
@@ -69,6 +71,60 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   final TextEditingController _gridColsCtl = TextEditingController(text: '3');
   final TextEditingController _gridRowsCtl = TextEditingController(text: '3');
 
+  // —— 项目级判定门槛（可配置，替代硬编码 15mm/2%）——
+  MeasureThresholds _thresholds = const MeasureThresholds();
+  final TextEditingController _judgeMaxCtl = TextEditingController();
+
+  /// 读取项目门槛并回填输入框。
+  Future<void> _loadThresholds() async {
+    final t = await MeasureThresholdStore.load(_projectKey);
+    if (!mounted) return;
+    setState(() {
+      _thresholds = t;
+      _tolMmCtl.text = fmtNumTrim(t.tolMm);
+      _tolPctCtl.text = fmtNumTrim(t.tolPct);
+      _judgeMaxCtl.text =
+          t.judgeMaxErrorMm == null ? '' : fmtNumTrim(t.judgeMaxErrorMm!);
+    });
+  }
+
+  /// 保存项目门槛（同时把容差写回当前会话，保证 App 内判定与报告一致）。
+  Future<void> _saveThresholds() async {
+    final tolMm = double.tryParse(_tolMmCtl.text.trim());
+    final tolPct = double.tryParse(_tolPctCtl.text.trim());
+    if (tolMm == null || tolMm <= 0 || tolPct == null || tolPct <= 0) {
+      AppSnack.show(context, '容差必须是正数', kind: AppSnackKind.danger);
+      return;
+    }
+    final gateRaw = _judgeMaxCtl.text.trim();
+    final gate = gateRaw.isEmpty ? null : double.tryParse(gateRaw);
+    if (gateRaw.isNotEmpty && (gate == null || gate <= 0)) {
+      AppSnack.show(context, '误差带门槛必须是正数，或留空用容差/3',
+          kind: AppSnackKind.danger);
+      return;
+    }
+    final t = MeasureThresholds(
+        tolMm: tolMm, tolPct: tolPct, judgeMaxErrorMm: gate);
+    await MeasureThresholdStore.save(_projectKey, t);
+    if (!mounted) return;
+    setState(() {
+      _thresholds = t;
+      _session = _session?.copyWith(tolMm: tolMm, tolPct: tolPct);
+    });
+    await _persist();
+    if (mounted) {
+      AppSnack.show(context, '已保存项目判定门槛：${t.summary}',
+          kind: AppSnackKind.success);
+    }
+  }
+
+  /// 该项是否允许给「合格/超差」结论（误差带超过门槛 → 需复核）。
+  bool _judgeOk(MeasureItem e, double tolMm) {
+    if (e.errorMm == null) return true;
+    final gate = _thresholds.judgeMaxErrorMm ?? tolMm / 3;
+    return e.errorMm! > 0 && e.errorMm! <= gate;
+  }
+
   // —— AI 网格识别（自动标定主路径：零输入，人工只做确认）——
   /// AI 识别到的网格（待确认 / 已确认都用它画绿色叠加层）。
   GridDetection? _aiGrid;
@@ -113,6 +169,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     super.initState();
     _loadCalibration();
     _loadSession();
+    _loadThresholds();
   }
 
   @override
@@ -126,6 +183,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     _gridColsCtl.dispose();
     _gridRowsCtl.dispose();
     _openingHeightCtl.dispose();
+    _judgeMaxCtl.dispose();
     _drawingTransform.dispose();
     _photoTransform.dispose();
     super.dispose();
@@ -629,14 +687,53 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     return math.max(res, mm * 0.005);
   }
 
-  /// 目标显示名：门窗按制图习惯给编号（M0921/C1518），其余用类型名。
-  String _targetDisplayName(MeasureTarget t, double mm) {
+  /// 找出与第 [i] 条同组的「高度线」（门窗宽高配对）。
+  int? _heightPartnerOf(int i) {
+    final t = _aiTargets[i];
+    if (!t.isWidth || t.group.isEmpty) return null;
+    for (var j = 0; j < _aiTargets.length; j++) {
+      final o = _aiTargets[j];
+      if (j != i && o.group == t.group && o.isHeight) return j;
+    }
+    return null;
+  }
+
+  /// 该条是否需要在列表里单独成行（高度线已配对时并入宽度线那一行）。
+  bool _targetShown(int i) {
+    final t = _aiTargets[i];
+    if (!t.isHeight || t.group.isEmpty) return true;
+    for (var j = 0; j < _aiTargets.length; j++) {
+      final o = _aiTargets[j];
+      if (j != i && o.group == t.group && o.isWidth) return false;
+    }
+    return true;
+  }
+
+  /// 目标显示名：门窗给制图编号（M0921/C1518，宽×高两条线配对后自动生成），
+  /// 其余用类型名；单条高度线显式标注「高」避免与宽度混淆。
+  String _targetDisplayName(MeasureTarget t, double mm, {double? heightMm}) {
     final label = targetKindLabel(t.kind);
+    if (t.isHeight) return '$label高';
     if (t.kind == 'door' || t.kind == 'window') {
-      final h = double.tryParse(_openingHeightCtl.text.trim()) ?? 0;
-      if (h > 0) return '$label ${openingCode(t.kind, mm, h)}';
+      final h =
+          heightMm ?? (double.tryParse(_openingHeightCtl.text.trim()) ?? 0);
+      if (h > 0) {
+        return '$label ${openingCode(t.kind, mm, h)}'
+            '（${fmtMm(mm)}×${fmtMm(h)}）';
+      }
+      return '$label（缺高度，按 ${fmtMm(mm)} 宽记录）';
     }
     return t.name.isNotEmpty ? t.name : label;
+  }
+
+  /// 图上标注用名称（含门窗编号）。
+  String _targetLabel(int i) {
+    final calib = _session?.photoCalib;
+    final t = _aiTargets[i];
+    if (calib == null) return targetKindLabel(t.kind);
+    final partner = _heightPartnerOf(i);
+    final h = partner == null ? null : _targetMm(_aiTargets[partner], calib);
+    return _targetDisplayName(t, _targetMm(t, calib), heightMm: h);
   }
 
   Future<void> _aiDetectTargets() async {
@@ -686,32 +783,43 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   }
 
   /// 采纳一条 AI 候选目标 → 写入校对清单（名称带工程编号、带估算误差带）。
+  ///
+  /// 门窗的门洞宽/高两条线会**配对采纳**为一条记录：编号（M0921）本身已含
+  /// 宽×高，误差带取两维中较大者（保守）。
   void _acceptTarget(int i) {
     final calib = _session?.photoCalib;
     if (calib == null || i < 0 || i >= _aiTargets.length) return;
     final t = _aiTargets[i];
     final mm = _targetMm(t, calib);
     if (mm <= 0) return;
-    final name = _targetDisplayName(t, mm);
+    final partner = _heightPartnerOf(i);
+    final hMm = partner == null ? null : _targetMm(_aiTargets[partner], calib);
+    final name = _targetDisplayName(t, mm, heightMm: hMm);
     final manual = double.tryParse(_drawingMmCtl.text.trim());
     final snap = snapToModule(mm, tol: 30);
     final drawingMm =
         (manual != null && manual > 0) ? manual : (snap?.value ?? 0);
+    final err = math.max(
+      _targetErrMm(calib, mm),
+      hMm == null ? 0.0 : _targetErrMm(calib, hMm),
+    );
     final item = MeasureItem(
       name: name,
       drawingMm: drawingMm,
       photoMm: mm,
       source: 'ai',
-      errorMm: _targetErrMm(calib, mm),
+      errorMm: err,
     );
     setState(() {
       _session = _session!.copyWith(items: [..._session!.items, item]);
       _aiTargetAccepted.add(i);
+      if (partner != null) _aiTargetAccepted.add(partner);
     });
     _persist();
     AppSnack.show(
       context,
-      '已采纳：$name = ${fmtMm(mm)} mm'
+      '已采纳：$name'
+      '${hMm != null ? '；宽 ${fmtMm(mm)} / 高 ${fmtMm(hMm)} mm' : ' = ${fmtMm(mm)} mm'}'
       '${snap != null ? '（${snapHint(mm)}）' : ''}',
       kind: AppSnackKind.success,
     );
@@ -732,12 +840,19 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   }
 
   /// 单条 AI 候选目标的列表行（含实测值、模数吸附提示、工程命名、采纳按钮）。
+  ///
+  /// 门窗的宽/高会合并成一行展示（高度线随宽度线一起采纳），
+  /// 避免列表里出现两条名字相同、只有"宽/高"差别的行。
   Widget _targetTile(int i) {
     final calib = _session?.photoCalib;
     if (calib == null || i >= _aiTargets.length) return const SizedBox.shrink();
     final t = _aiTargets[i];
     final mm = _targetMm(t, calib);
-    final accepted = _aiTargetAccepted.contains(i);
+    final partner = _heightPartnerOf(i);
+    final hMm = partner == null ? null : _targetMm(_aiTargets[partner], calib);
+    final accepted = _aiTargetAccepted.contains(i) ||
+        (partner != null && _aiTargetAccepted.contains(partner));
+    final name = _targetDisplayName(t, mm, heightMm: hMm);
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -746,10 +861,18 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         size: 18,
         color: accepted ? Colors.green : AppTokens.muted,
       ),
-      title: Text('${_targetDisplayName(t, mm)} · 实测 ${fmtMm(mm)} mm',
-          style: const TextStyle(fontSize: 13)),
-      subtitle: Text('${snapHint(mm)} · 置信度 ${(t.conf * 100).round()}%',
-          style: const TextStyle(fontSize: 11)),
+      title: Text(
+        '$name · 实测 ${fmtMm(mm)} mm'
+        '${hMm != null ? '（高 ${fmtMm(hMm)} mm）' : ''}',
+        style: const TextStyle(fontSize: 13),
+      ),
+      subtitle: Text(
+        '${snapHint(mm)}'
+        '${hMm != null ? ' · 高 ${snapHint(hMm)}' : ''}'
+        ' · 置信度 ${(t.conf * 100).round()}%'
+        '${hMm != null ? '（宽高配对）' : ''}',
+        style: const TextStyle(fontSize: 11),
+      ),
       trailing: accepted
           ? const Text('已采纳', style: TextStyle(fontSize: 12, color: Colors.green))
           : TextButton(onPressed: () => _acceptTarget(i), child: const Text('采纳')),
@@ -943,6 +1066,51 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 style: const TextStyle(fontWeight: FontWeight.w600, color: AppTokens.accent),
               ),
             ),
+          const SizedBox(height: AppTokens.space4),
+
+          // ①.5 判定门槛（项目级，可配置）
+          _sectionTitle('判定门槛（项目级）', _thresholds.summary),
+          const SizedBox(height: AppTokens.space2),
+          Card(
+            color: AppTokens.surface2,
+            child: Padding(
+              padding: const EdgeInsets.all(AppTokens.space3),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _numberField('容差(mm)', _tolMmCtl, suffix: 'mm')),
+                      const SizedBox(width: AppTokens.space2),
+                      Expanded(
+                          child: _numberField('容差(%)', _tolPctCtl, suffix: '%')),
+                      const SizedBox(width: AppTokens.space2),
+                      Expanded(
+                          child: _numberField('误差带门槛(mm)', _judgeMaxCtl,
+                              suffix: 'mm')),
+                    ],
+                  ),
+                  const SizedBox(height: AppTokens.space2),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          '误差带超过门槛 → 不下合格/超差结论（标「需复核」）。'
+                          '留空则按容差/3（测量不确定度规约）。',
+                          style: TextStyle(fontSize: 11, color: AppTokens.muted),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _saveThresholds,
+                        child: const Text('保存门槛'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: AppTokens.space4),
 
           // ② 照片侧量距
@@ -1387,7 +1555,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   Row(
                     children: [
                       Expanded(
-                        child: _numberField('洞口高(mm，用于命名)',
+                        child: _numberField('洞口高(mm，未识别到高时用)',
                             _openingHeightCtl,
                             suffix: 'mm'),
                       ),
@@ -1399,7 +1567,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                           onPressed: _clearAiTargets, child: const Text('清除')),
                     ],
                   ),
-                  for (var i = 0; i < _aiTargets.length; i++) _targetTile(i),
+                  for (var i = 0; i < _aiTargets.length; i++)
+                    if (_targetShown(i)) _targetTile(i),
                   const Text(
                     '说明：AI 只给端点位置，尺寸由当前标定换算；'
                     '名称按制图习惯编号（门 M0921 = 900×2100、窗 C1518 = 1500×1800）。',
@@ -1465,13 +1634,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                                                     _aiTargets[i].p2),
                                                 c.biggest,
                                                 _photoSize!),
-                                            label: _session?.photoCalib == null
-                                                ? targetKindLabel(
-                                                    _aiTargets[i].kind)
-                                                : _targetDisplayName(
-                                                    _aiTargets[i],
-                                                    _targetMm(_aiTargets[i],
-                                                        _session!.photoCalib!)),
+                                            label: _targetLabel(i),
                                             accepted: _aiTargetAccepted
                                                 .contains(i),
                                           ),
@@ -1636,38 +1799,63 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       return const Text('  —  暂无校对项', style: TextStyle(color: AppTokens.muted));
     }
     return Column(
-      children: _session!.items.asMap().entries.map((entry) {
-        final i = entry.key;
-        final e = entry.value;
-        final ok = e.pass(tolMm, tolPct);
-        final dev = e.deviation;
-        final devPct = e.deviationPct;
-        return Card(
-          margin: const EdgeInsets.only(bottom: AppTokens.space2),
-          child: ListTile(
-            leading: Icon(ok ? MingCuteIcons.checkCircleLine : MingCuteIcons.closeCircleLine,
-                color: ok ? Colors.green : Colors.red),
-            title: Text(e.name),
-            subtitle: Text(
-              '图纸 ${fmtMm(e.drawingMm)} mm  /  实测 ${fmtMm(e.photoMm)} mm\n'
-              '偏差 ${fmtMmSigned(dev)} mm (${fmtPctSigned(devPct)}%)'
-              '${e.errorMm != null ? '  ±${fmtMm(e.errorMm!)}' : ''}'
-              '${e.errorMm != null && !e.canJudge(tolMm) ? '\n⚠ 测量误差过大，判定需卷尺复核' : ''}',
-              style: const TextStyle(fontSize: 12),
+      children: [
+        ..._session!.items.asMap().entries.map((entry) {
+          final i = entry.key;
+          final e = entry.value;
+          final ok = e.pass(tolMm, tolPct);
+          final judgeOk = _judgeOk(e, tolMm);
+          final dev = e.deviation;
+          final devPct = e.deviationPct;
+          return Card(
+            margin: const EdgeInsets.only(bottom: AppTokens.space2),
+            child: ListTile(
+              leading: Icon(
+                !judgeOk
+                    ? MingCuteIcons.warningLine
+                    : (ok
+                        ? MingCuteIcons.checkCircleLine
+                        : MingCuteIcons.closeCircleLine),
+                color: !judgeOk
+                    ? Colors.orange
+                    : (ok ? Colors.green : Colors.red),
+              ),
+              title: Text(e.name),
+              subtitle: Text(
+                '图纸 ${fmtMm(e.drawingMm)} mm  /  实测 ${fmtMm(e.photoMm)} mm\n'
+                '偏差 ${fmtMmSigned(dev)} mm (${fmtPctSigned(devPct)}%)'
+                '${e.errorMm != null ? '  ±${fmtMm(e.errorMm!)}' : ''}'
+                '${!judgeOk ? '\n⚠ 测量误差超过门槛，须卷尺复核（不给合格/超差结论）' : ''}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: IconButton(
+                icon: const Icon(MingCuteIcons.deleteLine, size: 18),
+                onPressed: () {
+                  setState(() {
+                    final items = [..._session!.items]..removeAt(i);
+                    _session = _session!.copyWith(items: items);
+                  });
+                  _persist();
+                },
+              ),
             ),
-            trailing: IconButton(
-              icon: const Icon(MingCuteIcons.deleteLine, size: 18),
-              onPressed: () {
-                setState(() {
-                  final items = [..._session!.items]..removeAt(i);
-                  _session = _session!.copyWith(items: items);
-                });
-                _persist();
-              },
+          );
+        }),
+        // 偏差趋势：同图纸多项偏差的分布，用于发现系统性偏差（比逐条看快）
+        if (_session!.items.length >= 2)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTokens.space2),
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              deviationTrendText(_session!.items),
+              style: const TextStyle(fontSize: 11, color: AppTokens.muted),
             ),
           ),
-        );
-      }).toList(),
+      ],
     );
   }
 
