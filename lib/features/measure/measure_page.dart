@@ -1319,7 +1319,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                   ),
                 ),
                 icon: const Icon(MingCuteIcons.cubeLine),
-                label: const Text('AR量尺（iPhone Pro）'),
+                // 网页版拿不到 ARKit/LiDAR：按钮文案直说，避免误以为机型不支持
+                label: Text(kIsWeb ? 'AR量尺（网页版不可用）' : 'AR量尺（iPhone Pro）'),
               ),
             if (kIsWeb || Platform.isIOS) const SizedBox(width: AppTokens.space3),
             if (_session?.photoCalib != null)

@@ -394,8 +394,13 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     }
   }
 
-  /// 非 iOS / Web：LiDAR 不可用 → 提供「拍照→照片量尺」入口（接入 camera_pick 相机兜底）。
+  /// AR 不可用时的占位页。
+  ///
+  /// 必须区分两种原因（此前混为一谈，导致 iPhone 14 Pro Max 被误报"机型不支持"）：
+  /// - **Web**：浏览器拿不到 ARKit/LiDAR（是平台能力缺失，与机型无关）；
+  /// - **原生但无 LiDAR**：才是真正的机型不支持。
   Widget _buildUnsupported() {
+    final isWeb = kIsWeb;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -416,27 +421,36 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
             children: [
               const Icon(MingCuteIcons.phoneLine, size: 56, color: AppTokens.muted),
               const SizedBox(height: AppTokens.space3),
-              const Text(
-                'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
+              Text(
+                isWeb
+                    ? '网页版不支持 AR 量尺（需装 App）'
+                    : 'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: AppTokens.space2),
-              const Text(
-                '当前设备不支持 LiDAR，请拍照后到照片量尺完成现场测量。',
+              Text(
+                isWeb
+                    ? 'AR 量尺依赖 iOS 原生 ARKit + LiDAR，浏览器无法调用——'
+                        '这跟机型无关：iPhone 14 Pro Max 本身有 LiDAR，但网页里用不了。\n\n'
+                        '网页版请继续用「拍照量尺」：AI 识别模数网格 → 透视校正 → 量取尺寸，'
+                        '门窗洞口还能自动给出 M0921 这类编号。'
+                    : '当前设备没有 LiDAR，请拍照后到照片量尺完成现场测量。',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: AppTokens.muted),
+                style: const TextStyle(fontSize: 14, color: AppTokens.muted),
               ),
               const SizedBox(height: AppTokens.space4),
               FilledButton.icon(
-                onPressed: _captureForPhotoMeasure,
-                icon: const Icon(MingCuteIcons.cameraLine),
-                label: const Text('拍照并前往照片量尺'),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(MingCuteIcons.leftLine),
+                label: const Text('返回拍照量尺继续'),
               ),
               const SizedBox(height: AppTokens.space2),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('关闭并返回'),
+              TextButton.icon(
+                onPressed: _captureForPhotoMeasure,
+                icon: const Icon(MingCuteIcons.cameraLine),
+                label: const Text('拍照并前往拍照记录'),
               ),
             ],
           ),
