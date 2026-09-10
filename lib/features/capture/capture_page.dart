@@ -61,6 +61,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   late double _y;
   /// 当前流程步骤。
   late _CaptureStep _step;
+  /// 底部「验收结果」区分段索引：0 缺陷识别 / 1 量尺校对 / 2 问题描述 / 3 拍照记录。
+  ///
+  /// 用分段切换而非 TabBarView：本页整体是 SingleChildScrollView，
+  /// TabBarView 需要固定高度或外层 Expanded，嵌套滚动会冲突且图纸区需常驻；
+  /// 分段 + setState 切换内容，各区块自然撑高，无需写死高度。
+  int _resultTab = 0;
 
   /// 拍摄照片的压缩字节数据（Image.memory 展示）。
   Uint8List? _shotPhoto;
@@ -816,9 +822,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         ),
         body: Column(
           children: [
-            _buildStepBar(),
-            _buildAnchorBar(),
-            _buildSummaryCard(),
+            // ① 上下文卡（步骤进度 + 锚定部位）：常驻顶部，不随内容滚动。
+            _buildContextCard(),
+            // ② 概览卡：仅在本次验收已产生数据时出现，避免空状态显示三个 0。
+            if (_defects.isNotEmpty ||
+                _scaleChecks.isNotEmpty ||
+                _storedResults.isNotEmpty)
+              _buildSummaryCard(),
             Expanded(
               child: SingleChildScrollView(
                 primary: false,
@@ -827,25 +837,18 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // ③ 图纸交互区（含图钉 / 准星 / 双指缩放）
                     _buildDrawingStage(),
                     const SizedBox(height: AppTokens.space3),
+                    // ④ 步骤面板：按当前步骤渲染对应操作
                     _buildStepPanel(),
                     const SizedBox(height: AppTokens.space3),
-                    _buildWatermark(),
-                    const SizedBox(height: AppTokens.space3),
+                    // ⑤ 拍照区（水印条已并入照片卡底部，不再单独占一张卡）
                     _buildPhotoPanel(),
-                    if (_defects.isNotEmpty) ...[
-                      const SizedBox(height: AppTokens.space3),
-                      _buildDefectSection(),
-                    ],
                     const SizedBox(height: AppTokens.space3),
-                    _buildNoteField(),
-                    const SizedBox(height: AppTokens.space3),
-                    _buildScaleCheckSection(),
-                    const SizedBox(height: AppTokens.space3),
-                    // 「保存记录」按钮已抽到 Scaffold.bottomNavigationBar 固定显示，
-                    // 此处不再嵌入滚动区，避免被内容推到屏幕外。
-                    _buildStoredResults(),
+                    // ⑥ 验收结果区：识别 / 量尺 / 描述 / 记录 分段切换，
+                    //    取代原先四张卡纵向平铺造成的长列表。
+                    _buildResultCard(),
                     const SizedBox(height: AppTokens.space6),
                   ],
                 ),
@@ -857,130 +860,257 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       );
   }
 
-  /// 顶部锚定部位信息条。
-  Widget _buildAnchorBar() {
-    final currentDrawingName = _selectedFloor?.name ?? '—';
-    final subtitle = _step == _CaptureStep.selectFloor
-        ? '请选择图纸与具体部位'
-        : '$_anchorLabel · $currentDrawingName';
+  /// 全页统一的区块卡片外壳。
+  ///
+  /// 白底 + 外层圆角 12 + 内边距 12，**不加灰描边、不加阴影**（白底置于 #F4F6F7
+  /// 上已足够分离；此前量尺校对卡混用 border + elevationOverlay 导致卡片各异）。
+  /// 标题行统一：图标 14/accent + 标题 13/w600/height1 + 可选计数胶囊 + 右侧 action。
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    String? count,
+    Color? countColor,
+    Widget? action,
+    Widget? trailing,
+    required Widget child,
+  }) {
     return Container(
-        width: double.infinity,
-        margin: const EdgeInsets.fromLTRB(
-            AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space3, vertical: AppTokens.space3),
-        decoration: BoxDecoration(
-          color: AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(MingCuteIcons.mapPinLine, size: 16, color: AppTokens.accent),
-            const SizedBox(width: AppTokens.space2),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  text: '锚定部位：',
-                  style: const TextStyle(fontSize: 13, color: AppTokens.muted),
-                  children: [
-                    TextSpan(
-                      text: _step == _CaptureStep.selectFloor
-                          ? '待选择'
-                          : _anchorLabel,
-                      style: const TextStyle(
-                          fontSize: 13,
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: AppTokens.accent),
+              const SizedBox(width: AppTokens.space1 + 2),
+              Flexible(
+                child: Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1,
+                        color: AppTokens.fg)),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: AppTokens.space2),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: (countColor ?? AppTokens.accent)
+                        .withValues(alpha: 0.05),
+                    borderRadius:
+                        BorderRadius.circular(AppTokens.radiusPill),
+                  ),
+                  child: Text(count,
+                      style: TextStyle(
+                          fontSize: 11,
+                          height: 1,
                           fontWeight: FontWeight.w600,
-                          color: AppTokens.fg),
-                    ),
-                    TextSpan(
-                      text: ' · $subtitle',
-                      style:
-                          const TextStyle(fontSize: 12, color: AppTokens.muted),
-                    ),
-                  ],
+                          color: countColor ?? AppTokens.accent)),
                 ),
+              ],
+              if (trailing != null) trailing,
+              if (action != null) action,
+            ],
+          ),
+          const SizedBox(height: AppTokens.space3),
+          child,
+        ],
+      ),
+    );
+  }
+
+  /// 顶部上下文卡：合并「步骤进度」与「锚定部位」，
+  /// 替代原先两张独立白卡（中间只有 8px 间隙，视觉碎且重复）。
+  Widget _buildContextCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(
+          AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppTokens.space3, AppTokens.space3, AppTokens.space3, AppTokens.space3),
+            child: _buildStepRow(),
+          ),
+          const Divider(height: 1, thickness: 0.5),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppTokens.space3, vertical: AppTokens.space2 + 2),
+            child: _buildAnchorRow(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 锚定部位行：图标底方块 + 「锚定部位」小标签 + 部位/图纸名 + 右侧「更换」。
+  Widget _buildAnchorRow() {
+    final drawingName = _selectedFloor?.name ?? '未选择图纸';
+    final selected = _step != _CaptureStep.selectFloor;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: AppTokens.accent.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          child: const Icon(MingCuteIcons.mapPinLine,
+              size: 16, color: AppTokens.accent),
+        ),
+        const SizedBox(width: AppTokens.space2 + 2),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('锚定部位',
+                  style: TextStyle(
+                      fontSize: 11, height: 1, color: AppTokens.muted)),
+              const SizedBox(height: 3),
+              Text(
+                selected ? '$_anchorLabel · $drawingName' : '请选择图纸与具体部位',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 13,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppTokens.fg : AppTokens.muted),
               ),
-            ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppTokens.space2),
+        _buildGhostBtn(
+          icon: MingCuteIcons.repeatLine,
+          label: '更换',
+          onTap: _showFloorSheet,
+        ),
+      ],
+    );
+  }
+
+  /// 轻量幽灵按钮（区块右上角的次要操作，带图标 + 文字严格居中对齐）。
+  Widget _buildGhostBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = AppTokens.accent,
+  }) {
+    return SizedBox(
+      height: 28,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: color,
+          backgroundColor: color.withValues(alpha: 0.06),
+          padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTokens.radiusPill)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 3),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500, height: 1)),
           ],
         ),
-      );
+      ),
+    );
   }
 
   /// 步骤进度指示：选图纸 → 选部位 → 拍照 → 识别。
   /// 当前步高亮、已完成步打勾、未到达步置灰，让拍照验收流程一目了然。
-  Widget _buildStepBar() {
+  Widget _buildStepRow() {
     const labels = ['选图纸', '选部位', '拍照', '识别'];
     final current = _step == _CaptureStep.selectFloor
         ? 0
         : _step == _CaptureStep.selectPoint
             ? 1
             : (_scanning ? 2 : (_defects.isNotEmpty ? 3 : 2));
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(
-          AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppTokens.space3, vertical: AppTokens.space3),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
-      child: Row(
-        children: List.generate(labels.length * 2 - 1, (i) {
-          if (i.isOdd) {
-            final idx = i ~/ 2;
-            final done = idx < current;
-            return Expanded(
-              child: Container(
-                height: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: done ? AppTokens.accent : AppTokens.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            );
-          }
+    return Row(
+      children: List.generate(labels.length * 2 - 1, (i) {
+        if (i.isOdd) {
           final idx = i ~/ 2;
           final done = idx < current;
-          final active = idx == current;
-          final reached = done || active;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: reached ? AppTokens.accent : AppTokens.surface2,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: done
-                      ? const Icon(MingCuteIcons.checkLine,
-                          size: 14, color: Colors.white)
-                      : Text('${idx + 1}',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: reached
-                                  ? Colors.white
-                                  : AppTokens.muted)),
-                ),
+          return Expanded(
+            child: Container(
+              height: 2,
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: done ? AppTokens.accent : AppTokens.border,
+                borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(height: 4),
-              Text(labels[idx],
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                      color: reached ? AppTokens.fg : AppTokens.muted)),
-            ],
+            ),
           );
-        }),
-      ),
+        }
+        final idx = i ~/ 2;
+        final done = idx < current;
+        final active = idx == current;
+        final reached = done || active;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: active ? 28 : 24,
+              height: active ? 28 : 24,
+              decoration: BoxDecoration(
+                color: reached ? AppTokens.accent : AppTokens.surface2,
+                shape: BoxShape.circle,
+                border: active
+                    ? Border.all(
+                        color: AppTokens.accent.withValues(alpha: 0.25),
+                        width: 3)
+                    : null,
+              ),
+              child: Center(
+                child: done
+                    ? const Icon(MingCuteIcons.checkLine,
+                        size: 13, color: Colors.white)
+                    : Text('${idx + 1}',
+                        style: TextStyle(
+                            fontSize: 12,
+                            height: 1,
+                            fontWeight: FontWeight.w600,
+                            color: reached ? Colors.white : AppTokens.muted)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(labels[idx],
+                style: TextStyle(
+                    fontSize: 11,
+                    height: 1,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    color: reached ? AppTokens.fg : AppTokens.muted)),
+          ],
+        );
+      }),
     );
   }
 
@@ -1049,6 +1179,167 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           const SizedBox(height: 2),
           Text(sub ?? label,
               style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+        ],
+      ),
+    );
+  }
+
+  /// 验收结果区：把「AI 识别 / 量尺校对 / 问题描述 / 拍照记录」收进一张卡，
+  /// 用分段胶囊切换 —— 取代原先四张卡纵向平铺造成的超长滚动。
+  ///
+  /// 用分段 + setState 而非 TabBarView：本页整体是 SingleChildScrollView，
+  /// TabBarView 需固定高度或外层 Expanded，会与图纸区常驻、外层滚动冲突；
+  /// 分段切换则各区块自然撑高，无需写死高度。
+  Widget _buildResultCard() {
+    final tabs = <_ResultTabDef>[
+      _ResultTabDef('AI 识别', _defects.isEmpty ? null : '${_defects.length}'),
+      _ResultTabDef(
+          '量尺校对', _scaleChecks.isEmpty ? null : '${_scaleChecks.length}'),
+      const _ResultTabDef('问题描述', null),
+      _ResultTabDef('拍照记录',
+          _filteredStoredResults.isEmpty ? null : '${_filteredStoredResults.length}'),
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 分段控件：灰底胶囊槽 + 选中片白底（唯一允许加投影处：需浮出槽底）
+          Container(
+            height: 36,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+            ),
+            child: Row(
+              children: List.generate(tabs.length, (i) {
+                final t = tabs[i];
+                final selected = _resultTab == i;
+                return Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _resultTab = i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      decoration: BoxDecoration(
+                        color:
+                            selected ? AppTokens.surface : Colors.transparent,
+                        borderRadius:
+                            BorderRadius.circular(AppTokens.radiusPill),
+                        boxShadow: selected
+                            ? const [
+                                BoxShadow(
+                                    color: Color(0x14000000),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 1))
+                              ]
+                            : null,
+                      ),
+                      alignment: Alignment.center,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              t.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1,
+                                  fontWeight: selected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: selected
+                                      ? AppTokens.fg
+                                      : AppTokens.fg2),
+                            ),
+                          ),
+                          if (t.badge != null) ...[
+                            const SizedBox(width: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AppTokens.accent.withValues(alpha: 0.1)
+                                    : AppTokens.border,
+                                borderRadius:
+                                    BorderRadius.circular(AppTokens.radiusPill),
+                              ),
+                              child: Text(t.badge!,
+                                  style: TextStyle(
+                                      fontSize: 10,
+                                      height: 1,
+                                      fontWeight: FontWeight.w600,
+                                      color: selected
+                                          ? AppTokens.accent
+                                          : AppTokens.fg2)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: AppTokens.space3),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: KeyedSubtree(
+              key: ValueKey(_resultTab),
+              child: switch (_resultTab) {
+                0 => _resultDefects(),
+                1 => _resultScale(),
+                2 => _resultNote(),
+                _ => _resultStored(),
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 结果区空状态：统一的居中占位（图标 + 说明 + 可选操作）。
+  Widget _resultEmpty(
+      {required IconData icon, required String text, Widget? action}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: AppTokens.space5),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 22, color: AppTokens.muted),
+          ),
+          const SizedBox(height: AppTokens.space2 + 2),
+          Text(text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                  fontSize: 12, height: 1.5, color: AppTokens.muted)),
+          if (action != null) ...[
+            const SizedBox(height: AppTokens.space3),
+            action,
+          ],
         ],
       ),
     );
@@ -1173,7 +1464,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                               color: AppTokens.surface,
                               borderRadius:
                                   BorderRadius.circular(AppTokens.radiusLg),
-                              border: Border.all(color: AppTokens.border),
                             ),
                             alignment: Alignment.center,
                             child: Column(
@@ -1603,35 +1893,62 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// VL 识别缺陷卡片区块（独立放在页面 Column 内，突破图纸 Stack 边界，
   /// 避免缺陷卡片被图纸裁剪/遮挡）。
-  Widget _buildDefectSection() {
+  /// 分段「AI 识别」：严重度分布概览 + 缺陷卡列表。
+  Widget _resultDefects() {
+    if (_defects.isEmpty) {
+      return _resultEmpty(
+        icon: MingCuteIcons.scanLine,
+        text: '尚未识别到缺陷\n在下方拍照区拍摄后，点「AI 分析」自动识别',
+      );
+    }
+    final counts = <DefectSeverity, int>{};
+    for (final d in _defects) {
+      counts[d.severity] = (counts[d.severity] ?? 0) + 1;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 严重度分布（Wrap 自动换行，防窄屏溢出）
+        Wrap(
+          spacing: AppTokens.space1 + 2,
+          runSpacing: AppTokens.space1 + 2,
+          children: DefectSeverity.values
+              .where(counts.containsKey)
+              .map((s) => _severityChip(s, counts[s]!))
+              .toList(),
+        ),
+        const SizedBox(height: AppTokens.space2 + 2),
+        ..._defects.map(_buildDefectCard),
+      ],
+    );
+  }
+
+  /// 严重度分布胶囊：色点 + 标签 + 数量（浅底取自身 5% 透明）。
+  Widget _severityChip(DefectSeverity s, int n) {
+    final c = s.color;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppTokens.space3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        color: c.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(MingCuteIcons.scanLine,
-                  size: 14, color: AppTokens.accent),
-              const SizedBox(width: 6),
-              const Text('视觉识别结果',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTokens.fg)),
-              const Spacer(),
-              Text('AI · VL · ${_defects.length} 处',
-                  style: const TextStyle(fontSize: 10, color: AppTokens.muted)),
-            ],
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
           ),
-          const SizedBox(height: AppTokens.space2),
-          ..._defects.map(_buildDefectCard),
+          const SizedBox(width: 5),
+          Text('${s.label} $n',
+              style: TextStyle(
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w500,
+                  color: c)),
         ],
       ),
     );
@@ -1639,33 +1956,59 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   // ============ 量尺校对（实测 vs 图纸标注） ============
 
-  /// 量尺校对区块：列出各构件实测/图纸尺寸，按容差判定合格，并显示当前图纸标定比例。
-  Widget _buildScaleCheckSection() {
+  /// 分段「量尺校对」：列出各构件实测 / 图纸标注，按容差判定合格。
+  Widget _resultScale() {
     final passCount = _scaleChecks.where((c) => c.pass(_tolMm, _tolPct)).length;
     final total = _scaleChecks.length;
     final rate = total == 0 ? 0.0 : passCount / total * 100;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppTokens.space3),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
-        boxShadow: AppTokens.elevationOverlay,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final allPass = total > 0 && passCount == total;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(MingCuteIcons.rulerLine, size: 14, color: AppTokens.accent),
-              const SizedBox(width: 6),
-              const Text('拍照量尺校对',
-                  style:
-                      TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.1)),
-              TextButton.icon(
-                onPressed: () async {
+              if (total > 0)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: allPass
+                        ? AppTokens.success.withValues(alpha: 0.05)
+                        : AppTokens.warning.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                          allPass
+                              ? MingCuteIcons.checkCircleLine
+                              : MingCuteIcons.alertLine,
+                          size: 13,
+                          color: allPass
+                              ? AppTokens.success
+                              : AppTokens.warning),
+                      const SizedBox(width: 4),
+                      Text(
+                        '合格 $passCount/$total · ${rate.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                            fontSize: 11,
+                            height: 1,
+                            fontWeight: FontWeight.w600,
+                            color: allPass
+                                ? AppTokens.success
+                                : AppTokens.warning),
+                      ),
+                    ],
+                  ),
+                ),
+              const Spacer(),
+              _buildGhostBtn(
+                icon: MingCuteIcons.rulerLine,
+                label: '智能量尺',
+                onTap: () async {
                   final projectId =
                       ref.read(currentProjectIdProvider) ??
                           (await ref.read(projectProvider.future)).id;
@@ -1679,36 +2022,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   );
                 },
-                icon: const Icon(MingCuteIcons.rulerLine, size: 14),
-                label: const Text('智能量尺校对',
-                    style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTokens.accent,
-                  visualDensity: VisualDensity.compact,
-                ),
               ),
-              const Spacer(),
-              if (total > 0)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: passCount == total
-                        ? AppTokens.success.withValues(alpha: 0.12)
-                        : AppTokens.warning.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '合格 $passCount/$total · ${rate.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: passCount == total
-                          ? AppTokens.success
-                          : AppTokens.warning,
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
@@ -1745,37 +2059,44 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           _buildToleranceRow(),
           const SizedBox(height: AppTokens.space2),
           if (total == 0)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('尚未添加量尺项。点击「+ 添加量尺项」，录入现场实测与图纸标注尺寸进行比对。',
-                  style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+            _resultEmpty(
+              icon: MingCuteIcons.rulerLine,
+              text: '尚未添加量尺项\n录入现场实测与图纸标注尺寸，系统按容差自动判定',
+              action: AppButton(
+                size: AppButtonSize.sm,
+                outlined: true,
+                label: '添加量尺项',
+                onPressed: _addScaleCheck,
+              ),
             )
-          else
+          else ...[
             ..._scaleChecks.asMap().entries.map((e) {
               final i = e.key;
               final c = e.value;
               final ok = c.pass(_tolMm, _tolPct);
               return _buildScaleCheckCard(i, c, ok);
             }),
-          const SizedBox(height: AppTokens.space2),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _addScaleCheck,
-              icon: const Icon(MingCuteIcons.addLine, size: 14),
-              label: const Text('添加量尺项',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTokens.accent,
-                side: BorderSide(color: AppTokens.accent.withValues(alpha: 0.5)),
-                shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(AppTokens.radiusButton)),
+            const SizedBox(height: AppTokens.space2 + 2),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _addScaleCheck,
+                icon: const Icon(MingCuteIcons.addLine, size: 14),
+                label: const Text('继续添加量尺项',
+                    style:
+                        TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTokens.accent,
+                  side:
+                      BorderSide(color: AppTokens.accent.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTokens.radiusButton)),
+                ),
               ),
             ),
-          ),
+          ],
         ],
-      ),
     );
   }
 
@@ -1987,10 +2308,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   Widget _buildDefectCard(VlDefect d) {
     final sev = d.severity;
     final sevColor = sev.color;
+    final conf = (d.conf * 100).clamp(0.0, 100.0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
-        padding: const EdgeInsets.all(AppTokens.space2),
+        padding: const EdgeInsets.all(AppTokens.space2 + 2),
         decoration: BoxDecoration(
           color: AppTokens.surface2,
           borderRadius: BorderRadius.circular(AppTokens.radiusSm),
@@ -1999,73 +2321,120 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 30,
-              height: 30,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: sevColor.withValues(alpha: 0.12),
+                // 标签浅底规范：取自身文字色 5% 透明
+                color: sevColor.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppTokens.radiusSm),
               ),
-              child: Icon(MingCuteIcons.alertLine, size: 16, color: sevColor),
+              child: Icon(MingCuteIcons.alertLine, size: 17, color: sevColor),
             ),
-            const SizedBox(width: AppTokens.space2),
+            const SizedBox(width: AppTokens.space2 + 2),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
                         child: Text(d.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
+                                height: 1.3,
                                 color: AppTokens.fg)),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                                color: sevColor, shape: BoxShape.circle),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(sev.label,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTokens.fg2)),
-                          const SizedBox(width: 6),
-                          Text('${(d.conf * 100).toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                  fontSize: 11, color: AppTokens.muted)),
-                        ],
+                      const SizedBox(width: AppTokens.space2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: sevColor.withValues(alpha: 0.05),
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusPill),
+                        ),
+                        child: Text(sev.label,
+                            style: TextStyle(
+                                fontSize: 11,
+                                height: 1,
+                                fontWeight: FontWeight.w600,
+                                color: sevColor)),
                       ),
                     ],
                   ),
                   if (d.desc != null && d.desc!.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppTokens.space1 + 2),
                     Text(d.desc!,
                         style: const TextStyle(
-                            fontSize: 12, height: 1.4, color: AppTokens.muted)),
+                            fontSize: 12, height: 1.5, color: AppTokens.muted)),
                   ],
+                  const SizedBox(height: AppTokens.space2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusPill),
+                          child: LinearProgressIndicator(
+                            value: conf / 100,
+                            minHeight: 4,
+                            backgroundColor: AppTokens.border,
+                            valueColor: AlwaysStoppedAnimation(sevColor),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppTokens.space2),
+                      Text('置信度 ${conf.toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              height: 1,
+                              color: AppTokens.muted)),
+                    ],
+                  ),
                   if (d.suggestion != null && d.suggestion!.isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppTokens.space2 + 2),
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 6),
+                          horizontal: AppTokens.space2,
+                          vertical: AppTokens.space1 + 2),
                       decoration: BoxDecoration(
                         color: AppTokens.brandTint,
                         borderRadius:
                             BorderRadius.circular(AppTokens.radiusSm),
                       ),
-                      child: Text('AI整改建议：${d.suggestion!}',
-                          style: const TextStyle(
-                              fontSize: 12,
-                              height: 1.45,
-                              color: AppTokens.fg)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Icon(MingCuteIcons.flashLine,
+                                  size: 12, color: AppTokens.accent),
+                              const SizedBox(width: 4),
+                              Text('整改建议 · ${sev.action}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      height: 1,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTokens.accent)),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(d.suggestion!,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.5,
+                                  color: AppTokens.fg)),
+                        ],
+                      ),
                     ),
                   ],
                 ],
@@ -2306,13 +2675,17 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 照片预览面板（图纸下方独立卡片）：
   /// 拍后确认卡 → 拍照控制行（加点/快门/重拍/标注）→ 已拍大图 → AI 分析按钮。
   Widget _buildPhotoPanel() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppTokens.space3),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
+    return _sectionCard(
+      icon: MingCuteIcons.cameraLine,
+      title: '现场留痕',
+      trailing: const Spacer(),
+      action: _shotPhoto != null
+          ? _buildGhostBtn(
+              icon: MingCuteIcons.cameraRotateLine,
+              label: '重拍',
+              onTap: _retake,
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2430,7 +2803,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ],
             ),
           ],
-          const SizedBox(height: AppTokens.space2),
+          // 水印条并入照片卡底部 —— 原本它独占一张卡，割裂了「属于这张照片」的从属关系
+          if (_shotPhoto != null) ...[
+            const SizedBox(height: AppTokens.space2 + 2),
+            _buildWatermark(),
+          ],
+          const SizedBox(height: AppTokens.space3),
           // 3) AI 分析按钮（点击才调用，未拍照置灰）
           SizedBox(
             width: double.infinity,
@@ -2444,71 +2822,82 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
-  /// 问题描述输入区：手打文本框 + 语音录入（结果追加到 note）。
-  Widget _buildNoteField() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppTokens.space3),
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('问题描述',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppTokens.fg)),
-          const SizedBox(height: AppTokens.space2),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _noteController,
-                  maxLines: 3,
-                  minLines: 1,
-                  style: const TextStyle(fontSize: 13, color: AppTokens.fg),
-                  decoration: InputDecoration(
-                    hintText: '记录现场情况，或点右侧麦克风语音输入…',
-                    hintStyle:
-                        TextStyle(fontSize: 12, color: AppTokens.muted),
-                    filled: true,
-                    fillColor: AppTokens.surface2,
-                    contentPadding: const EdgeInsets.all(AppTokens.space2),
-                    border: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      borderSide: BorderSide(color: AppTokens.border),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusMd),
-                      borderSide: BorderSide(color: AppTokens.border),
-                    ),
+  /// 分段「问题描述」：手打文本框 + 语音录入（结果追加到 note）。
+  Widget _resultNote() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(MingCuteIcons.editLine, size: 13, color: AppTokens.muted),
+            const SizedBox(width: 4),
+            const Text('现场情况说明',
+                style:
+                    TextStyle(fontSize: 11, height: 1, color: AppTokens.muted)),
+            const Spacer(),
+            Text('${_noteController.text.trim().length} 字',
+                style: const TextStyle(
+                    fontSize: 11, height: 1, color: AppTokens.note)),
+          ],
+        ),
+        const SizedBox(height: AppTokens.space2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _noteController,
+                maxLines: 4,
+                minLines: 3,
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(
+                    fontSize: 13, height: 1.5, color: AppTokens.fg),
+                decoration: InputDecoration(
+                  hintText: '记录现场情况，或点右侧麦克风语音输入…',
+                  hintStyle: const TextStyle(
+                      fontSize: 12, height: 1.5, color: AppTokens.muted),
+                  filled: true,
+                  fillColor: AppTokens.surface2,
+                  contentPadding: const EdgeInsets.all(AppTokens.space2 + 2),
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTokens.radiusMd),
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTokens.radiusMd),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppTokens.radiusMd),
+                    borderSide:
+                        const BorderSide(color: AppTokens.accent, width: 1),
                   ),
                 ),
               ),
-              const SizedBox(width: AppTokens.space2),
-              VoiceInputButton(
-                holdToTalk: false,
-                size: 44,
-                iconSize: 20,
-                onResult: (t) {
-                  final cur = _noteController.text;
-                  _noteController.text =
-                      cur.isEmpty ? t : '$cur${cur.endsWith(' ') ? '' : ' '}$t';
+            ),
+            const SizedBox(width: AppTokens.space2),
+            VoiceInputButton(
+              holdToTalk: false,
+              size: 44,
+              iconSize: 20,
+              onResult: (t) {
+                final cur = _noteController.text;
+                final next = cur.isEmpty ? t : '$cur${cur.endsWith(' ') ? '' : ' '}$t';
+                setState(() {
+                  _noteController.text = next;
                   _noteController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: _noteController.text.length),
+                    TextPosition(offset: next.length),
                   );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
+                });
+              },
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -2569,47 +2958,37 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   List<Map<String, dynamic>> get _filteredStoredResults =>
       _storedResults.where((e) => (e['drawingKey'] as String? ?? '') == _drawingKey).toList();
 
-  /// 拍照记录列表（按当前图纸筛选，置于页内底部）。
-  Widget _buildStoredResults() {
+  /// 分段「拍照记录」：当前图纸的历史留痕列表（按 drawingKey 过滤）。
+  Widget _resultStored() {
     final items = _filteredStoredResults;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-      ),
-      padding: const EdgeInsets.all(AppTokens.space3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (items.isEmpty)
+          _resultEmpty(
+            icon: MingCuteIcons.historyLine,
+            text: '本图纸暂无拍照记录\n保存后会自动归档到此处，可随时回看',
+          )
+        else ...[
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(MingCuteIcons.historyLine,
-                  size: 14, color: AppTokens.accent),
-              const SizedBox(width: 6),
+              Icon(MingCuteIcons.historyLine,
+                  size: 13, color: AppTokens.muted),
+              const SizedBox(width: 4),
               const Text('本图纸拍照记录',
                   style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                      color: AppTokens.fg)),
+                      fontSize: 11, height: 1, color: AppTokens.muted)),
               const Spacer(),
               Text('${items.length} 条',
-                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+                  style: const TextStyle(
+                      fontSize: 11, height: 1, color: AppTokens.note)),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
-          if (items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: Text('本图纸暂无拍照记录',
-                  style: TextStyle(fontSize: 12, color: AppTokens.muted)),
-            )
-          else
-            ...items.map((e) => _buildStoredResultTile(e)),
+          ...items.map(_buildStoredResultTile),
         ],
-      ),
+      ],
     );
   }
 
@@ -3009,6 +3388,13 @@ class _FloorPickRow extends StatelessWidget {
 ///   「批量转工单（N）」。调用方负责：构造 [Defect] → `Repository.addDefect` →
 ///   `refreshDefects(ref)` → 验收记录 status 回写。返回 `true` 表示至少有一条
 ///   转换成功，弹层会就地刷新显示「已转工单 ✓」（不会关闭弹层）。
+/// 结果区分段项：标签 + 可选计数徽标。
+class _ResultTabDef {
+  final String label;
+  final String? badge;
+  const _ResultTabDef(this.label, this.badge);
+}
+
 class StoredDetailSheet extends StatefulWidget {
   final Map<String, dynamic> entry;
   final VoidCallback onDelete;
