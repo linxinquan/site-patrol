@@ -268,6 +268,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       body: (ctx) => ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 424),
         child: SingleChildScrollView(
+          // 给长列表补底部安全区滚动余量，避免最后一项被 Home 指示条遮挡。
+          padding: EdgeInsets.only(
+            bottom: math.max(12, MediaQuery.viewPaddingOf(ctx).bottom),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

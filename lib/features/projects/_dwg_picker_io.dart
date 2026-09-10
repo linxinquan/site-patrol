@@ -1,14 +1,7 @@
-// 移动端（Android/iOS）选文件实现：继续用 file_picker。
 import 'dart:typed_data';
 
-import 'package:file_picker/file_picker.dart';
-
 Future<({String? name, Uint8List? bytes})> pickerDwg() async {
-  final r = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: ['dwg'],
-    allowMultiple: false,
-  );
-  final f = r?.files.single;
-  return (name: f?.name, bytes: f?.bytes);
+  // 测试 APK 先关闭移动端 DWG 选择，避免老旧三方依赖阻塞 Android 打包。
+  // 上层会把 null 视为“未选择文件”并给出提示。
+  return (name: null, bytes: null);
 }

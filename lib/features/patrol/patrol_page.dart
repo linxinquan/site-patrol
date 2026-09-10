@@ -75,8 +75,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     _resolvePlan();
     // 监听巡场路线列表变化（编辑器保存后 invalidate 触发），自动刷新当前计划与穿墙段，
     // 避免"编辑后没保存"的错觉。保留当前巡场状态（progress/status）。
-    ref.listenManual(patrolPlansProvider(ref.read(currentProjectIdProvider) ??
-        (ref.read(projectsProvider).valueOrNull?.firstOrNull?.id ?? '')),
+    ref.listenManual(
+        patrolPlansProvider(ref.read(currentProjectIdProvider) ??
+            (ref.read(projectsProvider).valueOrNull?.firstOrNull?.id ?? '')),
         (_, __) {
       if (mounted) _resolvePlan();
     });
@@ -214,7 +215,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       mapper ??= await loadCadCalibration(ref, plan.drawingKey);
       final walls = await loadWallLinesRel(plan.drawingKey, mapper);
       if (walls == null) return const {};
-      final pts = [for (final p in plan.points) [p.dx, p.dy]];
+      final pts = [
+        for (final p in plan.points) [p.dx, p.dy]
+      ];
       return crossingSegments(pts, walls);
     } catch (_) {
       return const {};
@@ -229,7 +232,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   /// 样条采样（缓存）：把推荐路线密集化为平滑曲线点。
   List<Offset>? _planSamples;
   List<Offset> _getPlanSamples() {
-    if (_planSamples != null && _planSamples!.length == _planOffsets.length * 16) {
+    if (_planSamples != null &&
+        _planSamples!.length == _planOffsets.length * 16) {
       return _planSamples!;
     }
     return _planSamples = catmullRomSamples(_planOffsets, samplesPerSeg: 16);
@@ -272,8 +276,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _elapsed = Duration.zero;
       _progress = 0;
     });
-    AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点',
-        kind: AppSnackKind.brand);
+    AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点', kind: AppSnackKind.brand);
   }
 
   void _pause() {
@@ -321,8 +324,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   void _showSummary() {
     final t = _checkpointTotal;
     final d = _checkedInIdxs.length;
-    final ck =
-        t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
+    final ck = t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
     AppSnack.show(
       context,
       '巡场完成：${_distKm.toStringAsFixed(2)} km · $_pointCount 点 · $_durationStr$ck',
@@ -333,8 +335,10 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   // —— 任务2：检查点打卡 ——
   /// 路线检查点总数（达成率分母）。
   int get _checkpointTotal => _plan?.checkpointIdxs.length ?? 0;
+
   /// 已打卡的检查点下标集合。
   Set<int> get _checkedInIdxs => {for (final c in _checkins) c.pointIdx};
+
   /// 顶点 idx 沿折线的累计弧长占比（0~1，pointAtProgress 同体系）。
   double _arcFracAt(int idx) {
     final pts = _planOffsets;
@@ -360,8 +364,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         .where((i) => _arcFracAt(i) <= _progress + 1e-6)
         .toList();
     if (reached.isEmpty) {
-      AppSnack.show(context, '尚未到达检查点，请沿路线继续前进',
-          kind: AppSnackKind.muted);
+      AppSnack.show(context, '尚未到达检查点，请沿路线继续前进', kind: AppSnackKind.muted);
       return;
     }
     final already = _checkedInIdxs;
@@ -501,9 +504,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   @override
   Widget build(BuildContext context) {
     final drawingsAsync = ref.watch(drawingsProvider);
-    final drawing = _plan == null
-        ? null
-        : drawingsAsync.valueOrNull?[_plan!.drawingKey];
+    final drawing =
+        _plan == null ? null : drawingsAsync.valueOrNull?[_plan!.drawingKey];
     return Scaffold(
       backgroundColor: AppTokens.patrolBg,
       appBar: AppBar(
@@ -561,29 +563,29 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     final (double pillW, Color pillBg, IconData pillIcon, String pillLabel) =
         switch (_status) {
       _PatrolStatus.idle => (
-        60.0,
-        const Color(0xFFFF4444),
-        MingCuteIcons.circleDashLine,
-        '待机'
-      ),
+          60.0,
+          const Color(0xFFFF4444),
+          MingCuteIcons.circleDashLine,
+          '待机'
+        ),
       _PatrolStatus.running => (
-        72.0,
-        const Color(0xFF00B84A),
-        MingCuteIcons.camcorder3Line,
-        '记录中'
-      ),
+          72.0,
+          const Color(0xFF00B84A),
+          MingCuteIcons.camcorder3Line,
+          '记录中'
+        ),
       _PatrolStatus.paused => (
-        72.0,
-        const Color(0xFFFF9500),
-        MingCuteIcons.pauseCircleLine,
-        '已暂停'
-      ),
+          72.0,
+          const Color(0xFFFF9500),
+          MingCuteIcons.pauseCircleLine,
+          '已暂停'
+        ),
       _PatrolStatus.finished => (
-        72.0,
-        const Color(0xFF0395FF),
-        MingCuteIcons.checkCircleLine,
-        '已完成'
-      ),
+          72.0,
+          const Color(0xFF0395FF),
+          MingCuteIcons.checkCircleLine,
+          '已完成'
+        ),
     };
     return Column(
       children: [
@@ -599,7 +601,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
               Flexible(
                 fit: FlexFit.loose,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
@@ -781,8 +784,7 @@ class _EmptyPlanView extends StatelessWidget {
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             const Text('路线编辑入口将在后续版本开放',
-                style: TextStyle(
-                    color: AppTokens.patrolMuted, fontSize: 12)),
+                style: TextStyle(color: AppTokens.patrolMuted, fontSize: 12)),
             const SizedBox(height: 16),
             AppButton(
               size: AppButtonSize.md,
@@ -854,7 +856,9 @@ class _StatChips extends StatelessWidget {
           child: Row(
             children: [
               Expanded(child: _Chip(label: '楼层', value: floorKey)),
-              Expanded(child: _Chip(label: '里程', value: '${distKm.toStringAsFixed(2)} km')),
+              Expanded(
+                  child: _Chip(
+                      label: '里程', value: '${distKm.toStringAsFixed(2)} km')),
               Expanded(child: _Chip(label: '点数', value: '$pointCount')),
               Expanded(child: _Chip(label: '时长', value: duration)),
               Expanded(child: _Chip(label: '模式', value: mode)),
@@ -882,8 +886,7 @@ class _Chip extends StatelessWidget {
           const SizedBox(height: 2),
           Text(label,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFF60656B))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF60656B))),
         ],
       );
 }
@@ -910,8 +913,8 @@ class _CheckInBar extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTokens.patrolSurface2,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: AppTokens.patrolBorder.withValues(alpha: 0.5)),
+          border:
+              Border.all(color: AppTokens.patrolBorder.withValues(alpha: 0.5)),
         ),
         child: Row(
           children: [
@@ -920,9 +923,7 @@ class _CheckInBar extends StatelessWidget {
                     ? MingCuteIcons.checkCircleLine
                     : MingCuteIcons.mapPinLine,
                 size: 18,
-                color: allDone
-                    ? const Color(0xFF16A34A)
-                    : AppTokens.patrolFg),
+                color: allDone ? const Color(0xFF16A34A) : AppTokens.patrolFg),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -930,9 +931,8 @@ class _CheckInBar extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: allDone
-                        ? const Color(0xFF16A34A)
-                        : AppTokens.patrolFg),
+                    color:
+                        allDone ? const Color(0xFF16A34A) : AppTokens.patrolFg),
               ),
             ),
             const SizedBox(width: 8),
@@ -953,8 +953,7 @@ class _CheckInBar extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color:
-                          allDone ? AppTokens.patrolMuted : Colors.white),
+                      color: allDone ? AppTokens.patrolMuted : Colors.white),
                 ),
               ),
             ),
@@ -989,15 +988,43 @@ class _PatrolPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     // 过渡动画：开始巡场←→(暂停/结束) 切换时，5 个按钮常驻，用隐式动画做位移动画：
     // 历史轨迹左移、标记问题右移、开始巡场在中央淡出、暂停/结束从中央一分为二向两侧分开。
-    final started = status == _PatrolStatus.running ||
-        status == _PatrolStatus.paused;
+    final started =
+        status == _PatrolStatus.running || status == _PatrolStatus.paused;
 
     return LayoutBuilder(
       builder: (ctx, constraints) {
         final panelW = constraints.maxWidth;
         // 设计基准宽 366：整机纯等比缩放（按钮尺寸与槽位位置同比例）。
-        // 310×s + 56×s = 366×s = panelW，最右槽位 + 按钮宽正好贴齐右缘不溢出。
+        // 按钮尺寸仍按基准宽缩放，但槽位位置改为按当前按钮数量动态均分，
+        // 避免 4 按钮状态下左右按钮贴边。
         final s = panelW <= 0 ? 1.0 : panelW / 366;
+        final buttonW = 56.0 * s;
+        // 两侧保留最小安全边距；宽屏下跟随整体同比放大，窄屏也不会被压到 12 以下。
+        final sideInset = math.max(12.0, 12.0 * s);
+        final contentW = math.max(0.0, panelW - sideInset * 2);
+
+        // 4 按钮态：历史轨迹 / 暂停(继续) / 结束 / 标记问题。
+        final runGap =
+            contentW <= buttonW * 4 ? 0.0 : (contentW - buttonW * 4) / 3;
+        final runLefts = <double>[
+          sideInset,
+          sideInset + buttonW + runGap,
+          sideInset + (buttonW + runGap) * 2,
+          sideInset + (buttonW + runGap) * 3,
+        ];
+        // “开始巡场”淡出时仍停留在面板正中，暂停/结束从这里向两侧分开。
+        final centerLeft = (panelW - buttonW) / 2;
+        // 3 按钮态不要直接贴到两边，保留“开始后向两侧展开”的位移动画。
+        // 这里给左右按钮额外预留一段收拢边距，让默认状态更聚中。
+        final idleEdgeInset = math.max(
+          sideInset,
+          math.min(40.0 * s, panelW * 0.11),
+        );
+        final idleLefts = <double>[
+          idleEdgeInset,
+          centerLeft,
+          panelW - idleEdgeInset - buttonW,
+        ];
 
         Widget slot({
           required double idleLeft,
@@ -1005,7 +1032,8 @@ class _PatrolPanel extends StatelessWidget {
           required bool visible,
           required Widget child,
         }) {
-          final left = (started ? runLeft : idleLeft) * s;
+          // 这里的 left 已经是按当前面板宽度算好的实际像素值，不能再次乘缩放系数。
+          final left = started ? runLeft : idleLeft;
           return AnimatedPositioned(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOutCubic,
@@ -1087,16 +1115,41 @@ class _PatrolPanel extends StatelessWidget {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  // 历史轨迹：idle 居中偏左(39) → running 最左(0)
-                  slot(idleLeft: 39, runLeft: 0, visible: true, child: history),
-                  // 开始 / 重新巡场：常驻中央(155)，切换时淡出缩小
-                  slot(idleLeft: 155, runLeft: 155, visible: !started, child: start),
-                  // 暂停 / 继续：从中央(155)向左分开到(103.3)
-                  slot(idleLeft: 155, runLeft: 103.3, visible: started, child: pause),
-                  // 结束：从中央(155)向右分开到(206.7)
-                  slot(idleLeft: 155, runLeft: 206.7, visible: started, child: end),
-                  // 标记问题：idle 居中偏右(271) → running 最右(310)
-                  slot(idleLeft: 271, runLeft: 310, visible: true, child: mark),
+                  // 历史轨迹：3 按钮态在最左槽位，4 按钮态保持左一。
+                  slot(
+                    idleLeft: idleLefts[0],
+                    runLeft: runLefts[0],
+                    visible: true,
+                    child: history,
+                  ),
+                  // 开始 / 重新巡场：3 按钮态占中间槽位；开始后停留中心并淡出。
+                  slot(
+                    idleLeft: idleLefts[1],
+                    runLeft: centerLeft,
+                    visible: !started,
+                    child: start,
+                  ),
+                  // 暂停 / 继续：从正中展开到 4 按钮态的左二槽位。
+                  slot(
+                    idleLeft: centerLeft,
+                    runLeft: runLefts[1],
+                    visible: started,
+                    child: pause,
+                  ),
+                  // 结束：从正中展开到 4 按钮态的右二槽位。
+                  slot(
+                    idleLeft: centerLeft,
+                    runLeft: runLefts[2],
+                    visible: started,
+                    child: end,
+                  ),
+                  // 标记问题：3 按钮态在最右槽位，4 按钮态保持右一。
+                  slot(
+                    idleLeft: idleLefts[2],
+                    runLeft: runLefts[3],
+                    visible: true,
+                    child: mark,
+                  ),
                 ],
               ),
             ),
@@ -1272,140 +1325,127 @@ class _HistorySheetState extends State<_HistorySheet> {
         const SizedBox(height: 12),
         // 列表
         ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: n,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (ctx, i) {
-                  final r = widget.records[i];
-                  final checked = _visible.contains(i);
-                  final c = _colorFor(i, n);
-                  return InkWell(
-                    onTap: () => _toggle(i, !checked),
+          constraints: const BoxConstraints(maxHeight: 360),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: n,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (ctx, i) {
+              final r = widget.records[i];
+              final checked = _visible.contains(i);
+              final c = _colorFor(i, n);
+              return InkWell(
+                onTap: () => _toggle(i, !checked),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTokens.patrolSurface2,
                     borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTokens.patrolSurface2,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: checked
-                                ? c.withValues(alpha: 0.7)
-                                : AppTokens.patrolBorder
-                                    .withValues(alpha: 0.4),
-                            width: checked ? 1.4 : 1),
+                    border: Border.all(
+                        color: checked
+                            ? c.withValues(alpha: 0.7)
+                            : AppTokens.patrolBorder.withValues(alpha: 0.4),
+                        width: checked ? 1.4 : 1),
+                  ),
+                  child: Row(
+                    children: [
+                      // 自绘 checkbox + 色块
+                      Container(
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: checked ? c : Colors.transparent,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                              color: checked ? c : AppTokens.patrolBorder,
+                              width: 1.2),
+                        ),
+                        alignment: Alignment.center,
+                        child: checked
+                            ? const Icon(
+                                MingCuteIcons.checkLine,
+                                size: 12,
+                                color: Colors.white,
+                              )
+                            : null,
                       ),
-                      child: Row(
-                        children: [
-                          // 自绘 checkbox + 色块
-                          Container(
-                            width: 18,
-                            height: 18,
-                            decoration: BoxDecoration(
-                              color: checked
-                                  ? c
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                  color: checked
-                                      ? c
-                                      : AppTokens.patrolBorder,
-                                  width: 1.2),
-                            ),
-                            alignment: Alignment.center,
-                            child: checked
-                                ? const Icon(
-                                    MingCuteIcons.checkLine,
-                                    size: 12,
-                                    color: Colors.white,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 10),
-                          // 色相色带
-                          Container(
-                            width: 4,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: c,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                      const SizedBox(width: 10),
+                      // 色相色带
+                      Container(
+                        width: 4,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: c,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(r.name,
-                                          overflow:
-                                              TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              color:
-                                                  AppTokens.patrolFg,
-                                              fontSize: 14,
-                                              fontWeight:
-                                                  FontWeight.w600)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                        _durationStr(r.startedAt,
-                                            r.finishedAt),
-                                        style: const TextStyle(
-                                            color: AppTokens.patrolMuted,
-                                            fontSize: 12)),
-                                  ],
+                                Expanded(
+                                  child: Text(r.name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: AppTokens.patrolFg,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600)),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    _MetricChip(
-                                        label: '里程',
-                                        value:
-                                            '${r.distKm.toStringAsFixed(2)} km'),
-                                    const SizedBox(width: 8),
-                                    _MetricChip(
-                                        label: '点数',
-                                        value: '${r.pointCount}'),
-                                    const SizedBox(width: 8),
-                                    _MetricChip(
-                                        label: '问题',
-                                        value: '${r.issueCount}',
-                                        highlight: r.issueCount > 0),
-                                    if (r.checkpointTotal > 0) ...[
-                                      const SizedBox(width: 8),
-                                      _MetricChip(
-                                          label: '打卡',
-                                          value:
-                                              '${r.checkins.length}/${r.checkpointTotal}',
-                                          highlight: r.checkins.length >=
-                                              r.checkpointTotal),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                    '开始 ${_formatTime(r.startedAt)}'
-                                    '${r.finishedAt > 0 ? '  ·  结束 ${_formatTime(r.finishedAt)}' : ''}',
+                                const SizedBox(width: 8),
+                                Text(_durationStr(r.startedAt, r.finishedAt),
                                     style: const TextStyle(
                                         color: AppTokens.patrolMuted,
-                                        fontSize: 11)),
+                                        fontSize: 12)),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                _MetricChip(
+                                    label: '里程',
+                                    value: '${r.distKm.toStringAsFixed(2)} km'),
+                                const SizedBox(width: 8),
+                                _MetricChip(
+                                    label: '点数', value: '${r.pointCount}'),
+                                const SizedBox(width: 8),
+                                _MetricChip(
+                                    label: '问题',
+                                    value: '${r.issueCount}',
+                                    highlight: r.issueCount > 0),
+                                if (r.checkpointTotal > 0) ...[
+                                  const SizedBox(width: 8),
+                                  _MetricChip(
+                                      label: '打卡',
+                                      value:
+                                          '${r.checkins.length}/${r.checkpointTotal}',
+                                      highlight: r.checkins.length >=
+                                          r.checkpointTotal),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                                '开始 ${_formatTime(r.startedAt)}'
+                                '${r.finishedAt > 0 ? '  ·  结束 ${_formatTime(r.finishedAt)}' : ''}',
+                                style: const TextStyle(
+                                    color: AppTokens.patrolMuted,
+                                    fontSize: 11)),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        );
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 

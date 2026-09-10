@@ -10,15 +10,15 @@ enum ReportExportFormat {
   // 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）：
   //   Excel 紫 #7F83FF / PDF 红 #FF5959 / Word 蓝 #34A8FE / 网页链接 绿 #38D06F
   // 卡片图标（MingCute Fill 系列）：
-  //   Excel → tableFill（表格；MingCute 无 Excel 专用图标，表格最直观）
+  //   Excel → xlsFill（Excel 专属图标）
   //   PDF   → pdfFill（PDF 专用）
-  //   Word  → documentFill（文档；MingCute 无 Word 专用图标，文档最直观）
+  //   Word  → docFill（Word 专属图标）
   //   网页链接 → webFill（地球+窗口图形，呼应"浏览器打开"）
   xlsx(
     'Excel',
     '对齐设计师巡场报告单，可直接销项流转',
     0xFF7F83FF,
-    MingCuteIcons.tableFill,
+    MingCuteIcons.xlsFill,
   ),
   pdf(
     'PDF',
@@ -30,7 +30,7 @@ enum ReportExportFormat {
     'Word',
     '可继续编辑、批注流转',
     0xFF34A8FE,
-    MingCuteIcons.documentFill,
+    MingCuteIcons.docFill,
   ),
   html(
     '网页链接',

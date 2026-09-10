@@ -377,7 +377,7 @@ class DefectsPage extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 左侧色块：LinearGradient 顶部 20% 白色高光 → 底部纯色，立体感
+                  // 左侧色块：保留格式色渐变底；图标本身再叠加白色 70%→100% 的纵向渐变。
                   Container(
                     width: 40,
                     height: 40,
@@ -394,8 +394,24 @@ class DefectsPage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    child: Icon(format.icon,
-                        size: 24, color: Colors.white),
+                    child: ShaderMask(
+                      // 导出图标统一使用从上到下的白色透明度渐变：
+                      // 顶部 70%，底部 100%，和项目内其他功能图标风格保持一致。
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (rect) => const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xB3FFFFFF),
+                          Color(0xFFFFFFFF),
+                        ],
+                      ).createShader(rect),
+                      child: Icon(
+                        format.icon,
+                        size: 24,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
