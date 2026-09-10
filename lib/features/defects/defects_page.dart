@@ -394,7 +394,7 @@ class DefectsPage extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    child: const Icon(MingCuteIcons.fileFill,
+                    child: Icon(format.icon,
                         size: 24, color: Colors.white),
                   ),
                   const SizedBox(width: 12),

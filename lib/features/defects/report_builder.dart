@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_mingcute/flutter_mingcute.dart';
+
 import '../../data/models.dart';
 import '../../data/weekly_report.dart';
 import 'report_content.dart';
@@ -6,17 +9,45 @@ import 'report_content.dart';
 enum ReportExportFormat {
   // 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）：
   //   Excel 紫 #7F83FF / PDF 红 #FF5959 / Word 蓝 #34A8FE / 网页链接 绿 #38D06F
-  xlsx('Excel', '对齐设计师巡场报告单，可直接销项流转', 0xFF7F83FF),
-  pdf('PDF', '标准打印版式，适合汇报存档', 0xFFFF5959),
-  docx('Word', '可继续编辑、批注流转', 0xFF34A8FE),
-  html('网页链接', '浏览器打开，可另存为 PDF', 0xFF38D06F);
+  // 卡片图标（MingCute Fill 系列）：
+  //   Excel → tableFill（表格；MingCute 无 Excel 专用图标，表格最直观）
+  //   PDF   → pdfFill（PDF 专用）
+  //   Word  → documentFill（文档；MingCute 无 Word 专用图标，文档最直观）
+  //   网页链接 → webFill（地球+窗口图形，呼应"浏览器打开"）
+  xlsx(
+    'Excel',
+    '对齐设计师巡场报告单，可直接销项流转',
+    0xFF7F83FF,
+    MingCuteIcons.tableFill,
+  ),
+  pdf(
+    'PDF',
+    '标准打印版式，适合汇报存档',
+    0xFFFF5959,
+    MingCuteIcons.pdfFill,
+  ),
+  docx(
+    'Word',
+    '可继续编辑、批注流转',
+    0xFF34A8FE,
+    MingCuteIcons.documentFill,
+  ),
+  html(
+    '网页链接',
+    '浏览器打开，可另存为 PDF',
+    0xFF38D06F,
+    MingCuteIcons.webFill,
+  );
 
-  const ReportExportFormat(this.label, this.subtitle, this.colorHex);
+  const ReportExportFormat(
+      this.label, this.subtitle, this.colorHex, this.icon);
 
   final String label;
   final String subtitle;
   /// 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）。
   final int colorHex;
+  /// 卡片左侧 24×24 图标（设计稿：每个格式对应专属图标，非统一 fileFill）。
+  final IconData icon;
 }
 
 /// 现场工作汇报（周报）生成器。
