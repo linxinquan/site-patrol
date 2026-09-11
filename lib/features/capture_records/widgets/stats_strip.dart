@@ -20,19 +20,37 @@ class StatsStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.border),
       ),
       child: Row(
         children: [
-          Expanded(child: _Stat(label: '累计', value: total)),
+          Expanded(
+            child: _Stat(
+              label: '累计记录',
+              value: total,
+              icon: Icons.widgets_outlined,
+            ),
+          ),
           const _Divider(),
-          Expanded(child: _Stat(label: '今日', value: today)),
+          Expanded(
+            child: _Stat(
+              label: '今日新增',
+              value: today,
+              icon: Icons.today_outlined,
+            ),
+          ),
           const _Divider(),
-          Expanded(child: _Stat(label: '待整改', value: pending, accent: true)),
+          Expanded(
+            child: _Stat(
+              label: '待整改',
+              value: pending,
+              accent: true,
+              icon: Icons.error_outline,
+            ),
+          ),
         ],
       ),
     );
@@ -44,7 +62,7 @@ class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         width: 1,
-        height: 28,
+        height: 36,
         color: AppTokens.border,
       );
 }
@@ -53,20 +71,32 @@ class _Stat extends StatelessWidget {
   final String label;
   final int value;
   final bool accent;
-  const _Stat({required this.label, required this.value, this.accent = false});
+  final IconData icon;
+  const _Stat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.accent = false,
+  });
   @override
   Widget build(BuildContext context) {
+    final color = accent ? AppTokens.danger : AppTokens.fg;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(icon, size: 16, color: accent ? AppTokens.danger : AppTokens.fg2),
+        const SizedBox(height: 4),
         Text('$value',
             style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: accent ? AppTokens.danger : AppTokens.fg)),
-        const SizedBox(height: 2),
+                fontSize: 20, fontWeight: FontWeight.w700, color: color)),
+        const SizedBox(height: 4),
         Text(label,
-            style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 20 / 12,
+              color: AppTokens.muted,
+            )),
       ],
     );
   }

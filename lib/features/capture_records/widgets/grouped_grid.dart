@@ -104,25 +104,36 @@ class _GroupHeader extends StatelessWidget {
       required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space3, 12, AppTokens.space3, 8),
-        child: Row(
-          children: [
-            Text('$label（$count）',
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg2)),
-            const Spacer(),
-            Icon(
-              collapsed ? MingCuteIcons.downSmallLine : MingCuteIcons.upSmallLine,
-              size: 14,
-              color: AppTokens.muted,
-            ),
-          ],
+    return Padding(
+      padding:
+          const EdgeInsets.fromLTRB(AppTokens.space3, 12, AppTokens.space3, 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Text('$label（$count）',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      height: 20 / 12,
+                      color: AppTokens.fg2)),
+              const Spacer(),
+              Icon(
+                collapsed
+                    ? MingCuteIcons.downSmallLine
+                    : MingCuteIcons.upSmallLine,
+                size: 14,
+                color: AppTokens.muted,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -137,20 +148,30 @@ class _GroupGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 0.78,
-        ),
-        itemCount: items.length,
-        itemBuilder: (_, i) => CaptureThumbnailCard(
-          entry: items[i],
-          onTap: () => onTapEntry(items[i]),
-        ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final crossAxisCount = width >= 520
+              ? 4
+              : width >= 400
+                  ? 3
+                  : 2;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: items.length,
+            itemBuilder: (_, i) => CaptureThumbnailCard(
+              entry: items[i],
+              onTap: () => onTapEntry(items[i]),
+            ),
+          );
+        },
       ),
     );
   }

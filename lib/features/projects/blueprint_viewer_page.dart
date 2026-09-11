@@ -63,96 +63,120 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
         ),
         title: const Text('蓝图原稿',
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w600, color: AppTokens.fg)),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppTokens.fg)),
       ),
       body: Column(
         children: [
-          // 顶部图纸切换
           Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppTokens.space4, vertical: AppTokens.space2),
-            child: Row(
-              children: [
-                for (var i = 0; i < blueprintDrawings.length; i++) ...[
-                  if (i > 0) const SizedBox(width: AppTokens.space2),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: Text(blueprintDrawings[i]['label']!,
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: _index == i
-                                  ? AppTokens.onAccent
-                                  : AppTokens.fg2)),
-                      selected: _index == i,
-                      onSelected: (_) => _switchTo(i),
-                      backgroundColor: AppTokens.surface,
-                      selectedColor: AppTokens.brand,
-                      side: BorderSide.none,
-                      showCheckmark: false,
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppTokens.radiusMd),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppTokens.brandTint,
+                          borderRadius:
+                              BorderRadius.circular(AppTokens.radiusSm),
+                        ),
+                        child: const Icon(
+                          MingCuteIcons.documentsLine,
+                          size: 18,
+                          color: AppTokens.brand,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _title,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                height: 22 / 14,
+                                color: AppTokens.fg,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '保留原图缩放和复位操作，当前页面只优化原稿承载区和图纸切换样式',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                height: 20 / 12,
+                                color: AppTokens.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (var i = 0; i < blueprintDrawings.length; i++)
+                        _DrawingSwitchChip(
+                          label: blueprintDrawings[i]['label']!,
+                          selected: _index == i,
+                          onTap: () => _switchTo(i),
+                        ),
+                    ],
                   ),
                 ],
-              ],
-            ),
-          ),
-          // 图纸标题水印
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space4),
-            child: Row(
-              children: [
-                const Icon(MingCuteIcons.documentsLine,
-                    size: 13, color: AppTokens.muted),
-                const SizedBox(width: 6),
-                Text(_title,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTokens.fg2)),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTokens.surface3,
-                    borderRadius:
-                        BorderRadius.circular(AppTokens.radiusPill),
-                  ),
-                  child: const Text('蓝图原稿 · 离线预览',
-                      style: TextStyle(
-                          fontSize: 10, color: AppTokens.muted)),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: AppTokens.space2),
-          // 图纸交互区
           Expanded(
             child: Stack(
               children: [
                 Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: AppTokens.space3),
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTokens.surface2,
+                    color: AppTokens.surface,
                     borderRadius: BorderRadius.circular(AppTokens.radiusLg),
                   ),
-                  clipBehavior: Clip.antiAlias,
-                  child: InteractiveViewer(
-                    transformationController: _controller,
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    boundaryMargin: const EdgeInsets.all(80),
-                    child: Center(
-                      child: Image.asset(_src,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTokens.surface2,
+                      borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InteractiveViewer(
+                      transformationController: _controller,
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      boundaryMargin: const EdgeInsets.all(80),
+                      child: Center(
+                        child: Image.asset(
+                          _src,
                           fit: BoxFit.contain,
-                          filterQuality: FilterQuality.medium),
+                          filterQuality: FilterQuality.medium,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                // 右下角悬浮缩放控件（复用图纸详情页 _ZoomFab）
+                // 缩放控件保持原逻辑不变，只保留当前位置。
                 Positioned(
                   right: 12,
                   bottom: 40,
@@ -169,6 +193,43 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
       ),
     );
   }
+}
+
+/// 图纸切换按钮：改成轻量按钮式切换，避免默认 ChoiceChip 的系统感。
+class _DrawingSwitchChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DrawingSwitchChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppTokens.accent : AppTokens.surface2,
+            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 20 / 12,
+              color: selected ? AppTokens.onAccent : AppTokens.fg2,
+            ),
+          ),
+        ),
+      );
 }
 
 /// 画布右下悬浮的缩放控件（复位 / 放大 / 缩小），白卡药丸，距底 40。

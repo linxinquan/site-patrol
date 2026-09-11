@@ -41,9 +41,11 @@ class AppBottomSheet {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      builder: (ctx) {
+        // 底部额外叠加系统安全区高度，避免内容被底部手势条/小黑条遮挡。
+        final bottomSafeInset = MediaQuery.paddingOf(ctx).bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(12, 0, 12, 24 + bottomSafeInset),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,8 +55,8 @@ class AppBottomSheet {
               body(ctx),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

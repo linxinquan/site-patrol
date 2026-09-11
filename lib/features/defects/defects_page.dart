@@ -1297,6 +1297,18 @@ class _DefectCard extends StatelessWidget {
   final Defect d;
   const _DefectCard(this.d);
 
+  /// 设计师处置展示态的标签色，工单页按列表卡片样式单独处理。
+  static Color _designerActionColor(String? action) {
+    switch (action) {
+      case 'remoteFix':
+        return const Color(0xFF34C759);
+      case 'remoteConfirm':
+        return const Color(0xFF0395FF);
+      default:
+        return const Color(0xFFFF9500);
+    }
+  }
+
   /// 严重程度文本色（规范分区色）：严重 #FF4444 / 较重 #FF9500 / 一般 #FF9500 / 轻微 #34C759。
   /// 注：设计稿 Frame 2147228012 中「一般」档取值为 #FF9500（与较重同橙），故 yellow 档对齐使用 warning。
   static Color _severityColor(DefectSeverity s) {
@@ -1401,89 +1413,219 @@ class _DefectCard extends StatelessWidget {
                     fontSize: 14, color: AppTokens.fg2, height: 22 / 14),
               ),
             ),
-            // 任务4：设计师处置结果条（处置过才显示）
+            // 设计师处置展示态：灰底块 + 处置人 + 状态标签 + 说明 + 时间。
             if (d.designerAction != null) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0x120395FF),
+                  color: const Color(0xFFF4F6F7),
                   borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 ),
-                child: Text(
-                  '设计师${d.designerActionLabel} · ${d.designerBy ?? ''}'
-                  '${(d.designerNote ?? '').isNotEmpty ? '：${d.designerNote}' : ''}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF0395FF)),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 280;
+                    final tagColor = _designerActionColor(d.designerAction);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (compact) ...[
+                          Text(
+                            '处置人：${d.designerBy ?? ''}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 22 / 14,
+                              color: AppTokens.fg2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Container(
+                              height: 20,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                d.designerActionLabel,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  height: 20 / 12,
+                                  color: tagColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ] else
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '处置人：${d.designerBy ?? ''}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    height: 22 / 14,
+                                    color: AppTokens.fg2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Container(
+                                height: 20,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  d.designerActionLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    height: 20 / 12,
+                                    color: tagColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          (d.designerNote ?? '').trim().isEmpty
+                              ? '暂无处置说明'
+                              : d.designerNote!.trim(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            height: 22 / 14,
+                            color: AppTokens.fg,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          d.designerTs ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 12,
+                            color: AppTokens.muted,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
-            // 任务5：整改回复块（已回复才显示，设计稿 Frame 2131330685）：
-            // 浅蓝底 rgba(3,149,255,0.05) = 0x0D0395FF、圆角 8、内边距 8、纵向间距 8。
-            // 顶行 space-between：左 回复人（单位+姓名 14/fg2） / 右「整改 回复：」；
-            // 中部回复正文（14/fg，自动换行自适应）；底部时间（12/muted）。
+            // 整改回复展示态：浅绿色底块 + 回复人 / 标题 + 内容 + 时间。
             if ((d.reply ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppTokens.space2),
                 decoration: BoxDecoration(
-                  color: const Color(0x0D0395FF),
+                  color: const Color(0x0D00B84A),
                   borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 280;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Text(
+                        if (compact) ...[
+                          Text(
                             d.replyBy ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 14,
+                              fontWeight: FontWeight.w400,
                               height: 22 / 14,
                               color: AppTokens.fg2,
                             ),
                           ),
-                        ),
-                        const SizedBox(width: AppTokens.space4),
-                        const Text(
-                          '整改 回复：',
-                          style: TextStyle(
+                          const SizedBox(height: 6),
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              '整改回复',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                height: 22 / 14,
+                                color: AppTokens.fg2,
+                              ),
+                            ),
+                          ),
+                        ] else
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  d.replyBy ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    height: 22 / 14,
+                                    color: AppTokens.fg2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Text(
+                                '整改回复',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  height: 22 / 14,
+                                  color: AppTokens.fg2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        Text(
+                          d.reply ?? '',
+                          style: const TextStyle(
                             fontSize: 14,
+                            fontWeight: FontWeight.w400,
                             height: 22 / 14,
-                            color: AppTokens.fg2,
+                            color: AppTokens.fg,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          d.replyTs ?? '',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 12,
+                            color: AppTokens.muted,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: AppTokens.space2),
-                    Text(
-                      d.reply ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 22 / 14,
-                        color: AppTokens.fg,
-                      ),
-                    ),
-                    const SizedBox(height: AppTokens.space2),
-                    Text(
-                      d.replyTs ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 20 / 12,
-                        color: AppTokens.muted,
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ],

@@ -15,7 +15,6 @@ class AppSnack {
       Duration? duration}) {
     final style = _resolve(kind);
     final overlay = Overlay.of(context);
-    if (overlay == null) return;
     final key = GlobalKey<_ToastWidgetState>();
     late final OverlayEntry entry;
     void dismiss() => entry.remove();
@@ -33,11 +32,11 @@ class AppSnack {
     );
     overlay.insert(entry);
     // 带操作按钮时也给较长自动消失时间（默认 4s），避免 toast 一直停在顶部。
-    final _autoHide = duration ??
+    final autoHideDuration = duration ??
         ((actionLabel != null && onAction != null)
             ? const Duration(seconds: 4)
             : const Duration(seconds: 2));
-    Future.delayed(_autoHide, () {
+    Future.delayed(autoHideDuration, () {
       key.currentState?.hide();
     });
   }
@@ -97,6 +96,8 @@ class _ToastWidget extends StatefulWidget {
 
 class _ToastWidgetState extends State<_ToastWidget>
     with SingleTickerProviderStateMixin {
+  // 项目里的导航栏大多使用 48 高度，toast 默认放到其下方，避免遮挡标题栏。
+  static const double _defaultAppBarHeight = 48;
   late final AnimationController _ac = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 200));
   late final Animation<double> _fade =
@@ -128,76 +129,80 @@ class _ToastWidgetState extends State<_ToastWidget>
   Widget build(BuildContext context) {
     final raw = widget.margin?.resolve(Directionality.of(context)) ??
         const EdgeInsets.symmetric(horizontal: 12);
+    final topInset = MediaQuery.paddingOf(context).top;
     final horizontal = EdgeInsets.only(left: raw.left, right: raw.right);
+    final topOffset =
+        widget.margin != null ? raw.top : topInset + _defaultAppBarHeight + 12;
     return Positioned.fill(
-      child: SafeArea(
-        top: true,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: FadeTransition(
-              opacity: _fade,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  margin: horizontal,
-                  constraints: const BoxConstraints(maxWidth: 360),
-                  decoration: BoxDecoration(
-                    color: AppTokens.surface,
-                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(widget.style.icon, color: widget.style.fg, size: 16),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(widget.message,
-                        style: TextStyle(
-                            color: widget.style.fg,
-                            fontSize: 14,
-                            height: 22 / 14,
-                            fontWeight: FontWeight.w400)),
-                  ),
-                  if (widget.actionLabel != null && widget.onAction != null)
-                    GestureDetector(
-                      onTap: () {
-                        widget.onAction!();
-                        widget.onActionDismiss?.call();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTokens.brand,
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusSm),
-                        ),
-                        child: Text(widget.actionLabel!,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                height: 22 / 14,
-                                fontWeight: FontWeight.w400,
-                                color: Colors.white)),
-                      ),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: EdgeInsets.only(top: topOffset),
+          child: FadeTransition(
+            opacity: _fade,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: horizontal,
+                constraints: const BoxConstraints(maxWidth: 360),
+                decoration: BoxDecoration(
+                  color: AppTokens.surface,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                ],
+                  ],
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(widget.style.icon, color: widget.style.fg, size: 16),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(widget.message,
+                          style: TextStyle(
+                              color: widget.style.fg,
+                              fontSize: 14,
+                              height: 22 / 14,
+                              fontWeight: FontWeight.w400)),
+                    ),
+                    if (widget.actionLabel != null && widget.onAction != null)
+                      // 按钮和提示文案之间保留 12 间距，文案仍可按可用宽度自动换行。
+                      const SizedBox(width: 12),
+                    if (widget.actionLabel != null && widget.onAction != null)
+                      GestureDetector(
+                        onTap: () {
+                          widget.onAction!();
+                          widget.onActionDismiss?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTokens.brand,
+                            borderRadius:
+                                BorderRadius.circular(AppTokens.radiusSm),
+                          ),
+                          child: Text(widget.actionLabel!,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  height: 22 / 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white)),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  ),
     );
   }
 }

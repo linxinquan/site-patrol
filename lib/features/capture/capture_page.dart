@@ -30,6 +30,7 @@ import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 import '../../shared/widgets/voice_input.dart';
 import '../../shared/widgets/user_switcher.dart';
 
@@ -52,6 +53,9 @@ class CapturePage extends ConsumerStatefulWidget {
 enum _CaptureStep { selectFloor, selectPoint, capture }
 
 class _CapturePageState extends ConsumerState<CapturePage> {
+  /// 是否从巡场“标记问题”快捷进入：用于区分顶部提示、按钮文案和保存后动作。
+  bool get _isPatrolEntry => widget.args.source == CaptureEntrySource.patrol;
+
   late String _projectId;
   late String _floor;
 
@@ -60,6 +64,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   late String _anchorLabel;
   late double _x;
   late double _y;
+
+  /// 当前选点对应的图纸坐标：跟随选点变化，避免继续标记时仍沿用入口旧坐标。
+  double? _drawPointWorldX;
+  double? _drawPointWorldY;
 
   /// 当前流程步骤。
   late _CaptureStep _step;
@@ -162,6 +170,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         widget.args.anchorLabel.isEmpty ? '待选点' : widget.args.anchorLabel;
     _x = widget.args.x;
     _y = widget.args.y;
+    _drawPointWorldX = widget.args.drawPointWorldX;
+    _drawPointWorldY = widget.args.drawPointWorldY;
     // 若未指定楼层/图纸，则默认选中当前项目的地下一层平面图并进入选坐标步骤。
     if (widget.args.drawingKey != null || _floor.isNotEmpty) {
       _step = _CaptureStep.capture;
@@ -175,6 +185,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       _selectedFloorKey = defaultFloor?.key ?? '';
       _floor = defaultFloor?.floor ?? '';
       _anchorLabel = '待选点';
+      final world = _resolveWorldCoordFor(
+        relX: _x,
+        relY: _y,
+        drawingKey: _selectedFloorKey,
+      );
+      _drawPointWorldX = world?.dx;
+      _drawPointWorldY = world?.dy;
     }
     _loadStoredResults();
   }
@@ -247,7 +264,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 选中平面 → 进入选坐标步骤。
   void _selectFloor(Floor f) {
-    final d = _resolveDrawing(ref.read(drawingsProvider).valueOrNull ?? {});
+    final projectMap =
+        ref.read(drawingsProvider).valueOrNull ?? const <String, Drawing>{};
+    final d = projectMap[f.key] ?? dy7Drawings[f.key] ?? drawings[f.key];
+    final world =
+        _resolveWorldCoordFor(relX: 0.5, relY: 0.5, drawingKey: f.key);
     setState(() {
       _selectedFloorKey = f.key;
       _floor = f.floor;
@@ -258,6 +279,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       _anchorLabel = '待选点';
       _x = 0.5;
       _y = 0.5;
+      _drawPointWorldX = world?.dx;
+      _drawPointWorldY = world?.dy;
     });
     // 若本地无 PNG 但有 CAD OCF key，则尝试从服务端生成/加载 PNG 底图。
     if (d != null && d.src.isEmpty && (d.cadOcfKey?.isNotEmpty ?? false)) {
@@ -338,6 +361,24 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return projectMap[key] ?? dy7Drawings[key] ?? drawings[key];
   }
 
+  /// 把当前相对点位换算成图纸坐标；无标定时返回 null，保持页面降级可用。
+  Offset? _resolveWorldCoordFor({
+    required double relX,
+    required double relY,
+    String? drawingKey,
+  }) {
+    final key = (drawingKey ?? _drawingKey).trim();
+    if (key.isEmpty) return null;
+    final projectMap =
+        ref.read(drawingsProvider).valueOrNull ?? const <String, Drawing>{};
+    final drawing = projectMap[key] ?? dy7Drawings[key] ?? drawings[key];
+    final mapper = ref.read(cadCalibrationMapProvider)[key];
+    if (drawing == null || mapper == null) return null;
+    final px = relX * drawing.w;
+    final py = relY * drawing.h;
+    return mapper.screenToWorld(px, py);
+  }
+
   double get _ratio =>
       _drawing == null ? 1.0 : (_drawing!.h / _drawing!.w).clamp(0.6, 1.0);
 
@@ -345,9 +386,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final nx = (local.dx / size.width).clamp(0.02, 0.98).toDouble();
     final ny = (local.dy / size.height).clamp(0.02, 0.98).toDouble();
     final inSelectStep = _step == _CaptureStep.selectPoint;
+    final world = _resolveWorldCoordFor(relX: nx, relY: ny);
     setState(() {
       _x = nx;
       _y = ny;
+      _drawPointWorldX = world?.dx;
+      _drawPointWorldY = world?.dy;
       _anchorLabel = '已选点';
       _snapToNearestAnchor();
       // 选点完成后直接进入拍照步骤，由圆快门负责实际拍照，
@@ -426,6 +470,61 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
+  /// 巡场入口说明条：明确告诉用户这是“快捷标记”模式，而不是普通验收入口。
+  Widget _buildPatrolEntryBanner() => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppTokens.space3),
+        decoration: BoxDecoration(
+          color: AppTokens.brandTint,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                MingCuteIcons.routeLine,
+                size: 16,
+                color: AppTokens.brand,
+              ),
+            ),
+            const SizedBox(width: AppTokens.space3),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '来自巡场快捷标记',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: AppTokens.brand,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '当前图纸和当前位置已带入，保存后可直接返回巡场继续。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 20 / 12,
+                      color: AppTokens.fg2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
   Future<void> _doCapture() async {
     if (_scanning || _committing) return;
 
@@ -495,10 +594,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         altitude: '${_location.altitude.toStringAsFixed(1)}m',
         reporter: _currentUser,
         serial: '${now.millisecondsSinceEpoch}',
-        worldCoord: widget.args.drawPointWorldX != null &&
-                widget.args.drawPointWorldY != null
-            ? '图纸坐标 X=${widget.args.drawPointWorldX!.toStringAsFixed(1)} '
-                'Y=${widget.args.drawPointWorldY!.toStringAsFixed(1)}'
+        worldCoord: _drawPointWorldX != null && _drawPointWorldY != null
+            ? '图纸坐标 X=${_drawPointWorldX!.toStringAsFixed(1)} '
+                'Y=${_drawPointWorldY!.toStringAsFixed(1)}'
             : null,
       );
 
@@ -645,8 +743,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final entry = <String, dynamic>{
       'id': now.microsecondsSinceEpoch.toString(),
       'drawingKey': _drawingKey,
-      'worldX': widget.args.drawPointWorldX,
-      'worldY': widget.args.drawPointWorldY,
+      'worldX': _drawPointWorldX,
+      'worldY': _drawPointWorldY,
       'ts': ts,
       'anchor': _anchorLabel,
       'floor': _floor,
@@ -717,8 +815,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       await repo.addDefect(Defect(
         id: 'cap_${now.microsecondsSinceEpoch}',
         part: names.length > 1
-            ? '${anchor}·${primary}等${names.length}项'
-            : '${anchor}·${primary}',
+            ? '$anchor·$primary等${names.length}项'
+            : '$anchor·$primary',
         type: primary,
         category: DefectCategory.other,
         severity: sev,
@@ -734,8 +832,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         note: mergedNote,
         seed: 'capture',
         drawingKey: _drawingKey,
-        worldX: widget.args.drawPointWorldX,
-        worldY: widget.args.drawPointWorldY,
+        worldX: _drawPointWorldX,
+        worldY: _drawPointWorldY,
         photoPath: photoRel,
         suggestion: mergedSuggestion.isEmpty ? null : mergedSuggestion,
       ));
@@ -754,7 +852,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     if (mounted) {
       AppSnack.show(
         context,
-        _defects.isEmpty ? '记录已保存（未分析）' : '记录已保存',
+        _isPatrolEntry
+            ? (_defects.isEmpty ? '巡场标记已保存（未分析）' : '巡场标记已保存')
+            : (_defects.isEmpty ? '记录已保存（未分析）' : '记录已保存'),
         kind: AppSnackKind.brand,
       );
     }
@@ -796,6 +896,42 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     }
   }
 
+  /// 返回巡场页：从巡场 push 进入时优先 pop，兜底再回到巡场根路由。
+  void _returnToPatrol() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go('/patrol');
+  }
+
+  /// 保存后继续下一条：清空本次拍照草稿，并回到“重新选点”状态。
+  void _startNextCaptureCycle() {
+    _scanTimer?.cancel();
+    _noteController.clear();
+    setState(() {
+      _pendingShot = null;
+      _shotPhoto = null;
+      _watermarkedPhoto = null;
+      _originalPhoto = null;
+      _watermarkMeta = null;
+      _photoHash = null;
+      _defects = const [];
+      _scanError = null;
+      _scanning = false;
+      _saved = false;
+      _committing = false;
+      _resultTab = 0;
+      _step = _CaptureStep.selectPoint;
+      _anchorLabel = '待选点';
+    });
+    AppSnack.show(
+      context,
+      _isPatrolEntry ? '请在图纸上点选下一个问题位置' : '请重新选择部位，继续验收',
+      kind: AppSnackKind.brand,
+    );
+  }
+
   // —— 渲染 ——
   @override
   Widget build(BuildContext context) {
@@ -804,23 +940,61 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        title: const Text('验收',
-            style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTokens.fg,
-                height: 24 / 16)),
-        centerTitle: true,
         backgroundColor: AppTokens.bg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 48,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: UserSwitcher(),
-          ),
-        ],
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leadingWidth: _isPatrolEntry ? 0 : null,
+        titleSpacing: _isPatrolEntry ? 0 : 12,
+        centerTitle: _isPatrolEntry,
+        // 普通验收页不需要返回按钮，也不能塞一个空 leading，否则标题会被整体右推。
+        leading: null,
+        title: _isPatrolEntry
+            // 巡场里的“标记问题”使用标准二级导航栏：左返回、标题居中、右侧不放身份按钮。
+            ? Stack(
+                alignment: Alignment.center,
+                children: const [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 12),
+                      child: NavIconButton(
+                        icon: MingCuteIcons.leftLine,
+                        color: Color(0xFF09244B),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 48),
+                    child: Text(
+                      '标记问题',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 24 / 16,
+                        color: AppTokens.fg,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : const Text('验收',
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTokens.fg,
+                    height: 28 / 20)),
+        actions: _isPatrolEntry
+            ? const []
+            : const [
+                Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: UserSwitcher(),
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -1007,10 +1181,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     ),
                   ],
                 ),
+                if (_isPatrolEntry) ...[
+                  const SizedBox(height: AppTokens.space3),
+                  _buildPatrolEntryBanner(),
+                ],
                 const SizedBox(height: AppTokens.space3),
                 _buildStepRow(),
                 const SizedBox(height: AppTokens.space3),
                 _buildAnchorRow(),
+                const SizedBox(height: AppTokens.space2),
+                _buildLocationEntryCard(),
                 const SizedBox(height: AppTokens.space2),
                 Wrap(
                   spacing: 8,
@@ -1019,10 +1199,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     _buildMetaPill(
                       icon: MingCuteIcons.mapLine,
                       label: drawingName,
-                    ),
-                    _buildMetaPill(
-                      icon: MingCuteIcons.mapPinLine,
-                      label: _location.name,
                     ),
                     _buildMetaPill(
                       icon: MingCuteIcons.cameraLine,
@@ -1039,15 +1215,98 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
+  /// 单独的定位入口卡片：比胶囊更明显，点击后打开“选择附近定位”弹窗。
+  Widget _buildLocationEntryCard() => Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          onTap: _pickLocation,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: AppTokens.brandTint,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    MingCuteIcons.location2Line,
+                    size: 18,
+                    color: AppTokens.brand,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '附近定位',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 20 / 12,
+                          color: AppTokens.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _location.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 22 / 14,
+                          color: AppTokens.fg,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_location.gpsText} · ${_location.altitude.toStringAsFixed(0)}m',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 20 / 12,
+                          color: AppTokens.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Icon(
+                  MingCuteIcons.rightLine,
+                  size: 16,
+                  color: AppTokens.muted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
   /// 顶部工作台里的轻量状态胶囊：承载步骤、定位、拍照状态等高频信息。
   Widget _buildMetaPill({
     required IconData icon,
     required String label,
     bool active = false,
+    VoidCallback? onTap,
   }) {
     final fg = active ? AppTokens.accent : AppTokens.fg2;
     final bg = active ? AppTokens.brandTint : AppTokens.surface2;
-    return Container(
+    final pill = Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
@@ -1069,6 +1328,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             ),
           ),
         ],
+      ),
+    );
+    if (onTap == null) return pill;
+    // 给定位胶囊补回点击入口：点击后打开“选择附近定位”底部弹窗。
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+        onTap: onTap,
+        child: pill,
       ),
     );
   }
@@ -1770,7 +2039,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return _sectionCard(
       icon: MingCuteIcons.cameraLine,
       title: '现场拍照',
-      helper: '当前图纸和部位已锁定，拍照后可直接进行 AI 识别和记录保存。',
+      helper: _isPatrolEntry
+          ? '当前图纸和巡场位置已带入，拍照后可直接保存为本次巡场标记。'
+          : '当前图纸和部位已锁定，拍照后可直接进行 AI 识别和记录保存。',
       action: _buildGhostBtn(
         icon: MingCuteIcons.arrowLeftLine,
         label: '重选部位',
@@ -2675,21 +2946,39 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('${siteLocations.length} 处',
-                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
-              const SizedBox(width: AppTokens.space2),
+              Text(
+                '附近 ${siteLocations.length} 处定位',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 24 / 14,
+                  color: AppTokens.fg2,
+                ),
+              ),
+              const SizedBox(width: 12),
               const Expanded(
-                child: Text('定位将烧录到照片水印中（工程取证）',
-                    style: TextStyle(fontSize: 11, color: AppTokens.muted)),
+                child: Text(
+                  '定位将烧录到照片水印中（工程取证）',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 24 / 14,
+                    color: AppTokens.fg2,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppTokens.space3),
-          Flexible(
-            child: ListView.builder(
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 424),
+            child: ListView.separated(
               shrinkWrap: true,
               itemCount: siteLocations.length,
-              itemBuilder: (ctx, i) => _buildLocationTile(siteLocations[i]),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (ctx, i) =>
+                  _buildLocationTile(ctx, siteLocations[i]),
             ),
           ),
         ],
@@ -2698,81 +2987,77 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   /// 单个附近定位项：名称 + 地址 + GPS/海拔 + 距当前定位距离。
-  Widget _buildLocationTile(SiteLocation loc) {
+  Widget _buildLocationTile(BuildContext sheetContext, SiteLocation loc) {
     final selected = loc.id == _location.id;
     final km = _location.distanceKmTo(loc);
     final distText =
         km < 1 ? '${(km * 1000).round()}m' : '${km.toStringAsFixed(1)}km';
     return InkWell(
       onTap: () {
-        Navigator.pop(context);
+        // 只关闭底部弹窗本身，避免误把整个验收页面路由 pop 掉导致黑屏。
+        Navigator.pop(sheetContext);
         setState(() => _location = loc);
         AppSnack.show(context, '定位已切换：${loc.name}', kind: AppSnackKind.accent);
       },
       borderRadius: BorderRadius.circular(AppTokens.radiusMd),
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppTokens.space3, vertical: AppTokens.space3),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected
-              ? AppTokens.brand.withValues(alpha: 0.08)
-              : Colors.transparent,
+          color: AppTokens.surface,
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           border: Border.all(
-            color: selected ? AppTokens.brand : AppTokens.border,
-            width: selected ? 1.5 : 1,
+            color: selected ? AppTokens.brand : Colors.transparent,
           ),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: selected ? AppTokens.brand : AppTokens.bg,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                selected ? MingCuteIcons.mapPinLine : MingCuteIcons.mapPinLine,
-                size: 16,
-                color: selected ? Colors.white : AppTokens.muted,
-              ),
+            Icon(
+              MingCuteIcons.location2Line,
+              size: 20,
+              color: selected ? AppTokens.brand : AppTokens.fg,
             ),
-            const SizedBox(width: AppTokens.space3),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loc.name,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppTokens.fg)),
-                  const SizedBox(height: 2),
                   Text(
-                    '${loc.address} · ${loc.gpsText} · ${loc.altitude.toStringAsFixed(0)}m',
-                    style:
-                        const TextStyle(fontSize: 10.5, color: AppTokens.muted),
+                    loc.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: selected ? AppTokens.brand : AppTokens.fg,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${loc.address} · ${loc.gpsText} · ${loc.altitude.toStringAsFixed(0)}m',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 20 / 12,
+                      color: selected ? AppTokens.muted : AppTokens.fg2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (!selected) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '距 ${_location.name} $distText',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 20 / 12,
+                        color: AppTokens.muted,
+                      ),
+                    ),
+                  ],
                 ],
-              ),
-            ),
-            const SizedBox(width: AppTokens.space2),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: AppTokens.bg,
-                borderRadius: BorderRadius.circular(AppTokens.radiusPill),
-              ),
-              child: Text(
-                selected ? '当前' : '距 ${_location.name} $distText',
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    color: selected ? AppTokens.brand : AppTokens.muted),
               ),
             ),
           ],
@@ -3033,9 +3318,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final canSave =
         _shotPhoto != null && _pendingShot == null && !_scanning && !_saved;
     String label;
-    if (_saved) {
-      label = '已保存（可继续拍摄）';
-    } else if (_committing) {
+    if (_committing) {
       // 注：水印烧录期间 main thread 阻塞，build 推迟，
       // 此分支实际不会渲染；但保留 UI 设计以适配未来 isolate 化水印。
       label = '处理中…';
@@ -3046,7 +3329,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     } else if (_shotPhoto == null) {
       label = '请先拍照';
     } else {
-      label = '保存记录';
+      label = _isPatrolEntry ? '保存巡场标记' : '保存记录';
     }
     return Material(
       color: AppTokens.surface,
@@ -3055,15 +3338,63 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space2,
               AppTokens.space3, AppTokens.space2),
-          child: SizedBox(
-            width: double.infinity,
-            child: AppButton(
-              size: AppButtonSize.lg,
-              width: double.infinity,
-              label: label,
-              onPressed: canSave ? _saveRecord : null,
-            ),
-          ),
+          child: _saved
+              ? LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 340;
+                    final secondaryLabel = _isPatrolEntry ? '返回巡场继续' : '查看验收记录';
+                    final primaryLabel = _isPatrolEntry ? '继续标记下一个问题' : '继续验收';
+                    final secondaryAction = SizedBox(
+                      width: compact ? double.infinity : null,
+                      child: AppButton(
+                        size: AppButtonSize.lg,
+                        width: compact ? double.infinity : null,
+                        outlined: true,
+                        label: secondaryLabel,
+                        onPressed: _isPatrolEntry
+                            ? _returnToPatrol
+                            : () => context.push('/capture-records'),
+                      ),
+                    );
+                    final primaryAction = SizedBox(
+                      width: compact ? double.infinity : null,
+                      child: AppButton(
+                        size: AppButtonSize.lg,
+                        width: compact ? double.infinity : null,
+                        label: primaryLabel,
+                        onPressed: _startNextCaptureCycle,
+                      ),
+                    );
+                    if (compact) {
+                      // 窄屏时把两个底部动作改成上下堆叠，避免文案过长挤压。
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          secondaryAction,
+                          const SizedBox(height: AppTokens.space2),
+                          primaryAction,
+                        ],
+                      );
+                    }
+                    // 常规宽度保持左右并排，强调“查看/返回”和“继续下一条”的分层关系。
+                    return Row(
+                      children: [
+                        Expanded(child: secondaryAction),
+                        const SizedBox(width: AppTokens.space3),
+                        Expanded(child: primaryAction),
+                      ],
+                    );
+                  },
+                )
+              : SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    size: AppButtonSize.lg,
+                    width: double.infinity,
+                    label: label,
+                    onPressed: canSave ? _saveRecord : null,
+                  ),
+                ),
         ),
       ),
     );
@@ -3445,8 +3776,8 @@ class _IconBtn extends StatelessWidget {
   }
 }
 
-/// 重选图纸底部弹窗的图纸行：白底 46 高圆角 8，图纸图标 + 名称，
-/// 当前选中行右侧显示品牌蓝对勾。
+/// 重选图纸底部弹窗的图纸行：白底 46 高圆角 8，
+/// 当前选中态使用品牌蓝描边卡，和其他底部弹窗列表风格保持一致。
 class _FloorPickRow extends StatelessWidget {
   final String label;
   final bool selected;
@@ -3471,6 +3802,12 @@ class _FloorPickRow extends StatelessWidget {
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                border: Border.all(
+                  color: selected ? AppTokens.brand : Colors.transparent,
+                ),
+              ),
               child: Text(label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

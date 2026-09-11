@@ -23,31 +23,33 @@ class RecordFilterTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppTokens.space3),
-      child: Row(
-        children: [
-          _Tab(
-            label: '全部',
-            selected: time == RecordTimeRange.all,
-            onTap: () => onTimeChange(RecordTimeRange.all),
-          ),
-          const SizedBox(width: 8),
-          _Tab(
-            label: '今日',
-            selected: time == RecordTimeRange.today,
-            onTap: () => onTimeChange(RecordTimeRange.today),
-          ),
-          const SizedBox(width: 8),
-          _Tab(
-            label: '本周',
-            selected: time == RecordTimeRange.week,
-            onTap: () => onTimeChange(RecordTimeRange.week),
-          ),
-          const SizedBox(width: 8),
-          _FloorButton(floor: floor, onTap: onOpenFloorSheet),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _Tab(
+              label: '全部',
+              selected: time == RecordTimeRange.all,
+              onTap: () => onTimeChange(RecordTimeRange.all),
+            ),
+            const SizedBox(width: 8),
+            _Tab(
+              label: '今日',
+              selected: time == RecordTimeRange.today,
+              onTap: () => onTimeChange(RecordTimeRange.today),
+            ),
+            const SizedBox(width: 8),
+            _Tab(
+              label: '本周',
+              selected: time == RecordTimeRange.week,
+              onTap: () => onTimeChange(RecordTimeRange.week),
+            ),
+            const SizedBox(width: 8),
+            _FloorButton(floor: floor, onTap: onOpenFloorSheet),
+          ],
+        ),
       ),
     );
   }
@@ -63,22 +65,26 @@ class _Tab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: selected ? AppTokens.accent : AppTokens.surface,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-                color: selected ? AppTokens.accent : AppTokens.border),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(label,
-              style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: selected ? AppTokens.onAccent : AppTokens.fg)),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 20 / 12,
+              color: selected ? AppTokens.onAccent : AppTokens.fg,
+            ),
+          ),
         ),
       ),
     );
@@ -94,31 +100,30 @@ class _FloorButton extends StatelessWidget {
     final selected = floor != null && floor!.isNotEmpty;
     return Material(
       color: selected ? AppTokens.accent : AppTokens.surface,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-                color: selected ? AppTokens.accent : AppTokens.border),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(MingCuteIcons.layersLine,
-                  size: 12,
-                  color: AppTokens.fg2),
+                  size: 12, color: AppTokens.fg2),
               const SizedBox(width: 4),
               Text(
                 selected ? (floor ?? '楼层') : '楼层',
                 style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: selected ? AppTokens.onAccent : AppTokens.fg,
-                    height: 1),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  height: 20 / 12,
+                  color: selected ? AppTokens.onAccent : AppTokens.fg,
+                ),
               ),
               const SizedBox(width: 4),
               Icon(

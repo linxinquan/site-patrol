@@ -5,8 +5,8 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../data/models.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../capture/capture_page.dart' show StoredDetailSheet;
@@ -31,9 +31,6 @@ class CaptureRecordsPage extends ConsumerStatefulWidget {
 
 class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
   final Set<String> _collapsedGroups = {};
-
-  /// 当前详情弹层正在显示的 entry；用于转工单 / 删除时回写。
-  Map<String, dynamic>? _activeEntry;
 
   @override
   void initState() {
@@ -63,18 +60,18 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
         centerTitle: true,
         title: const Text('验收记录',
             style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppTokens.fg)),
-        leadingWidth: 30,
+        leadingWidth: 36,
         leading: const Padding(
           padding: EdgeInsets.only(left: 12),
           child: NavIconButton(
-            icon: MingCuteIcons.arrowLeftLine,
-            size: 18,
+            icon: MingCuteIcons.leftLine,
           ),
         ),
       ),
@@ -94,6 +91,59 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
               )
             : CustomScrollView(
                 slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: AppCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: AppTokens.brandTint,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                MingCuteIcons.package2Line,
+                                size: 18,
+                                color: AppTokens.brand,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '当前项目验收归档',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      height: 22 / 14,
+                                      color: AppTokens.fg,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '按时间、楼层和 AI 识别结果快速筛选，点开单条记录可继续转为工单',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      height: 20 / 12,
+                                      color: AppTokens.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(
@@ -141,8 +191,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                             }
                           });
                         },
-                        onTapEntry: (entry) =>
-                            _openDetail(context, entry, records),
+                        onTapEntry: (entry) => _openDetail(context, entry),
                       ),
                     ),
                   const SliverToBoxAdapter(child: SizedBox(height: 96)),
@@ -157,9 +206,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
   Future<void> _openDetail(
     BuildContext context,
     Map<String, dynamic> entry,
-    List<Map<String, dynamic>> allRecords,
   ) async {
-    _activeEntry = entry;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -180,7 +227,6 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         onConvert: (idxs) => _onConvert(entry, idxs),
       ),
     );
-    _activeEntry = null;
   }
 
   /// 转工单：构造 Defect → repo.addDefect → refreshDefects → 回写 status → Snack。

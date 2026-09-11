@@ -66,8 +66,10 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   // GPS 轨迹采集：`PatrolRecord.track` 字段已存在，此处补真实定位来源。
   final List<Map<String, double>> _track = [];
   StreamSubscription<Position>? _posSub;
+
   /// 定位不可用（无权限 / 服务关闭 / 室内无信号）→ 里程回退为图纸估算。
   bool _gpsDenied = false;
+
   /// GPS 实测累计里程（km），>0 时优先于图纸估算。
   double _gpsKm = 0;
 
@@ -287,8 +289,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _elapsed = Duration.zero;
       _progress = 0;
     });
-    AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点',
-        kind: AppSnackKind.brand);
+    AppSnack.show(context, '巡场开始：沿规划路线行进，请留意沿途检查点', kind: AppSnackKind.brand);
     // 尽力采集 GPS 轨迹；不可用时自动降级为图纸估算里程。
     _startGps();
   }
@@ -324,16 +325,14 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
           perm == LocationPermission.deniedForever) {
         if (mounted) {
           setState(() => _gpsDenied = true);
-          AppSnack.show(context, '未开启定位权限，里程将按图纸估算',
-              kind: AppSnackKind.muted);
+          AppSnack.show(context, '未开启定位权限，里程将按图纸估算', kind: AppSnackKind.muted);
         }
         return;
       }
       if (!await Geolocator.isLocationServiceEnabled()) {
         if (mounted) {
           setState(() => _gpsDenied = true);
-          AppSnack.show(context, '定位服务未开启，里程将按图纸估算',
-              kind: AppSnackKind.muted);
+          AppSnack.show(context, '定位服务未开启，里程将按图纸估算', kind: AppSnackKind.muted);
         }
         return;
       }
@@ -406,12 +405,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   void _showSummary() {
     final t = _checkpointTotal;
     final d = _checkedInIdxs.length;
-    final ck =
-        t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
+    final ck = t > 0 ? ' · 打卡 $d/$t（${(d / t * 100).round()}%）' : ' · 无检查点';
     // 里程来源：GPS 实测 > 图纸估算；未取到定位时明确提示，避免误读数值。
-    final src = _gpsKm > 0
-        ? 'GPS实测'
-        : (_gpsDenied ? '未取到定位·按图纸估算' : '图纸估算');
+    final src = _gpsKm > 0 ? 'GPS实测' : (_gpsDenied ? '未取到定位·按图纸估算' : '图纸估算');
     AppSnack.show(
       context,
       '巡场完成：${_distKm.toStringAsFixed(2)} km（$src）'
@@ -548,6 +544,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       '/capture',
       extra: CaptureArgs(
         projectId: plan.projectId,
+        // 标记问题从巡场进入：显式标记来源，供验收页切换为快捷标记模式。
+        source: CaptureEntrySource.patrol,
         floor: plan.floor,
         anchorLabel: '巡场中·当前位置',
         x: rel.dx,
@@ -888,8 +886,7 @@ class _EmptyPlanView extends StatelessWidget {
 }
 
 class _BlinkDot extends StatefulWidget {
-  final bool active;
-  const _BlinkDot({this.active = false});
+  const _BlinkDot();
 
   @override
   State<_BlinkDot> createState() => _BlinkDotState();
@@ -914,7 +911,7 @@ class _BlinkDotState extends State<_BlinkDot>
           width: 8,
           height: 8,
           decoration: BoxDecoration(
-            color: widget.active ? AppTokens.danger : AppTokens.patrolMuted,
+            color: AppTokens.patrolMuted,
             shape: BoxShape.circle,
           ),
         ),
@@ -1346,19 +1343,6 @@ class _HistorySheetState extends State<_HistorySheet> {
     });
   }
 
-  // 与父级 painter 同一调色板：紫→粉→橙（时间倒序）。
-  static const _palette = <Color>[
-    Color(0xFF8B5CF6),
-    Color(0xFFEC4899),
-    Color(0xFFF59E0B),
-  ];
-
-  Color _colorFor(int idx, int total) {
-    if (total <= 1) return _palette.first;
-    final ci = (idx * (_palette.length - 1) / (total - 1)).round();
-    return _palette[ci.clamp(0, _palette.length - 1)];
-  }
-
   String _formatTime(int ms) {
     if (ms == 0) return '—';
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
@@ -1370,7 +1354,7 @@ class _HistorySheetState extends State<_HistorySheet> {
     if (startedAt == 0 || finishedAt == 0) return '未完成';
     final s = ((finishedAt - startedAt) / 1000).round();
     final m = s ~/ 60, ss = s % 60;
-    return '$m分${ss}秒';
+    return '$m 分 $ss 秒';
   }
 
   @override
@@ -1380,155 +1364,141 @@ class _HistorySheetState extends State<_HistorySheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 标题与关闭由 AppBottomSheet 头部提供；计数 + 全选移入内容区顶部
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTokens.patrolSurface2,
-                borderRadius: BorderRadius.circular(10),
-              ),
+            Expanded(
               child: Text(
-                  '已加载 $n 条${_visible.isNotEmpty ? ' · 已选 ${_visible.length}' : ''}',
-                  style: const TextStyle(
-                      fontSize: 11, color: AppTokens.patrolMuted)),
-            ),
-            const Spacer(),
-            TextButton(
-              onPressed: () => _selectAll(_visible.length < n),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: AppTokens.patrolFg,
+                '选择轨迹后叠加到底图显示${_visible.isNotEmpty ? '，已叠加 ${_visible.length} 条' : ''}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 24 / 14,
+                  color: AppTokens.fg2,
+                ),
               ),
+            ),
+            const SizedBox(width: 12),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _selectAll(_visible.length < n),
               child: Text(
                 _visible.length < n ? '全选' : '全不选',
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 24 / 14,
+                  color: AppTokens.brand,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        const Text('勾选后叠加到底图（默认不显示，保持底图干净）',
-            style: TextStyle(color: AppTokens.patrolMuted, fontSize: 12)),
         const SizedBox(height: 12),
-        // 列表
         ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 360),
+          constraints: const BoxConstraints(maxHeight: 402),
           child: ListView.separated(
             shrinkWrap: true,
             itemCount: n,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (ctx, i) {
               final r = widget.records[i];
               final checked = _visible.contains(i);
-              final c = _colorFor(i, n);
               return InkWell(
                 onTap: () => _toggle(i, !checked),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTokens.patrolSurface2,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTokens.surface,
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: checked
-                            ? c.withValues(alpha: 0.7)
-                            : AppTokens.patrolBorder.withValues(alpha: 0.4),
-                        width: checked ? 1.4 : 1),
+                      color: checked ? AppTokens.brand : Colors.transparent,
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      // 自绘 checkbox + 色块
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: checked ? c : Colors.transparent,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                              color: checked ? c : AppTokens.patrolBorder,
-                              width: 1.2),
-                        ),
-                        alignment: Alignment.center,
-                        child: checked
-                            ? const Icon(
-                                MingCuteIcons.checkLine,
-                                size: 12,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 10),
-                      // 色相色带
-                      Container(
-                        width: 4,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: c,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(r.name,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          color: AppTokens.patrolFg,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600)),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 320;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _HistoryHeader(
+                            title: r.name,
+                            duration: _durationStr(r.startedAt, r.finishedAt),
+                            issueCount: r.issueCount,
+                          ),
+                          const SizedBox(height: 12),
+                          const _HistoryDivider(),
+                          const SizedBox(height: 8),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _HistoryMetricColumn(
+                                  value: '${r.distKm.toStringAsFixed(2)} km',
+                                  label: '里程',
+                                  align: CrossAxisAlignment.start,
                                 ),
-                                const SizedBox(width: 8),
-                                Text(_durationStr(r.startedAt, r.finishedAt),
-                                    style: const TextStyle(
-                                        color: AppTokens.patrolMuted,
-                                        fontSize: 12)),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                _MetricChip(
-                                    label: '里程',
-                                    value: '${r.distKm.toStringAsFixed(2)} km'),
-                                const SizedBox(width: 8),
-                                _MetricChip(
-                                    label: '点数', value: '${r.pointCount}'),
-                                const SizedBox(width: 8),
-                                _MetricChip(
-                                    label: '问题',
-                                    value: '${r.issueCount}',
-                                    highlight: r.issueCount > 0),
-                                if (r.checkpointTotal > 0) ...[
-                                  const SizedBox(width: 8),
-                                  _MetricChip(
-                                      label: '打卡',
-                                      value:
-                                          '${r.checkins.length}/${r.checkpointTotal}',
-                                      highlight: r.checkins.length >=
-                                          r.checkpointTotal),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                                '开始 ${_formatTime(r.startedAt)}'
-                                '${r.finishedAt > 0 ? '  ·  结束 ${_formatTime(r.finishedAt)}' : ''}',
-                                style: const TextStyle(
-                                    color: AppTokens.patrolMuted,
-                                    fontSize: 11)),
-                          ],
-                        ),
-                      ),
-                    ],
+                              ),
+                              Expanded(
+                                child: _HistoryMetricColumn(
+                                  value: '${r.pointCount}',
+                                  label: '点数',
+                                  valueColor: AppTokens.brand,
+                                  align: CrossAxisAlignment.center,
+                                ),
+                              ),
+                              Expanded(
+                                child: _HistoryMetricColumn(
+                                  value: r.checkpointTotal > 0
+                                      ? '${r.checkins.length}/${r.checkpointTotal}'
+                                      : '—',
+                                  label: '打卡',
+                                  align: CrossAxisAlignment.end,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          compact
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _HistoryMetricColumn(
+                                      value: _formatTime(r.startedAt),
+                                      label: '开始时间',
+                                      align: CrossAxisAlignment.start,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    _HistoryMetricColumn(
+                                      value: _formatTime(r.finishedAt),
+                                      label: '结束时间',
+                                      align: CrossAxisAlignment.start,
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: _HistoryMetricColumn(
+                                        value: _formatTime(r.startedAt),
+                                        label: '开始时间',
+                                        align: CrossAxisAlignment.start,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: _HistoryMetricColumn(
+                                        value: _formatTime(r.finishedAt),
+                                        label: '结束时间',
+                                        align: CrossAxisAlignment.end,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               );
@@ -1540,38 +1510,137 @@ class _HistorySheetState extends State<_HistorySheet> {
   }
 }
 
-class _MetricChip extends StatelessWidget {
-  final String label;
+/// 历史轨迹卡片头部：左侧标题+时长，右侧问题数量。
+class _HistoryHeader extends StatelessWidget {
+  final String title;
+  final String duration;
+  final int issueCount;
+  const _HistoryHeader({
+    required this.title,
+    required this.duration,
+    required this.issueCount,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    height: 24 / 16,
+                    color: AppTokens.fg,
+                  ),
+                ),
+                const SizedBox(height: 0),
+                Text(
+                  duration,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 20 / 12,
+                    color: AppTokens.fg,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$issueCount',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  height: 24 / 16,
+                  color:
+                      issueCount > 0 ? const Color(0xFFFF4444) : AppTokens.fg,
+                ),
+              ),
+              const Text(
+                '问题',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  color: AppTokens.fg,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+}
+
+/// 历史轨迹卡片中的通用指标列：上值下标题，按 CSS 分左右对齐。
+class _HistoryMetricColumn extends StatelessWidget {
   final String value;
-  final bool highlight;
-  const _MetricChip(
-      {required this.label, required this.value, this.highlight = false});
+  final String label;
+  final Color valueColor;
+  final CrossAxisAlignment align;
+  const _HistoryMetricColumn({
+    required this.value,
+    required this.label,
+    required this.align,
+    this.valueColor = AppTokens.fg,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: align,
+        children: [
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: align == CrossAxisAlignment.end
+                ? TextAlign.right
+                : align == CrossAxisAlignment.center
+                    ? TextAlign.center
+                    : TextAlign.left,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 22 / 14,
+              color: valueColor,
+            ),
+          ),
+          Text(
+            label,
+            textAlign: align == CrossAxisAlignment.end
+                ? TextAlign.right
+                : align == CrossAxisAlignment.center
+                    ? TextAlign.center
+                    : TextAlign.left,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 20 / 12,
+              color: AppTokens.muted,
+            ),
+          ),
+        ],
+      );
+}
+
+/// 分割线：和设计稿里 1px 浅灰线一致。
+class _HistoryDivider extends StatelessWidget {
+  const _HistoryDivider();
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: highlight
-              ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-              : AppTokens.patrolSurface,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('$label ',
-                style: const TextStyle(
-                    color: AppTokens.patrolMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500)),
-            Text(value,
-                style: TextStyle(
-                    color: highlight
-                        ? const Color(0xFFEF4444)
-                        : AppTokens.patrolFg,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
+        width: double.infinity,
+        height: 1,
+        color: AppTokens.border,
       );
 }

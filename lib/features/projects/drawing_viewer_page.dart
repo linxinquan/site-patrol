@@ -1933,7 +1933,7 @@ class _CalibrationSheet extends StatelessWidget {
 }
 
 /// 校准弹窗操作行（Frame 2147228089/8090）：白底、高 46、圆角 8、pad 12，
-/// 内容水平居中（图标 16 + gap 8 + 文字 14，均 #60656B）。
+/// 内容水平居中（图标 16 + gap 4 + 文字 14，均 #60656B）。
 class _CalibActionRow extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1961,7 +1961,7 @@ class _CalibActionRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(icon, size: 16, color: AppTokens.fg2),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   Text(label,
                       style: const TextStyle(
                           fontSize: 14,

@@ -35,7 +35,6 @@ class CaptureThumbnailCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            border: Border.all(color: AppTokens.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,12 +102,13 @@ class CaptureThumbnailCard extends StatelessWidget {
                   children: [
                     Text(
                       anchor,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           // 缩略卡的部位标题统一使用 W500。
                           fontWeight: FontWeight.w500,
+                          height: 20 / 13,
                           color: AppTokens.fg),
                     ),
                     const SizedBox(height: 2),
@@ -119,7 +119,9 @@ class CaptureThumbnailCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontSize: 10, color: AppTokens.muted),
+                          fontSize: 11,
+                          height: 18 / 11,
+                          color: AppTokens.muted),
                     ),
                   ],
                 ),

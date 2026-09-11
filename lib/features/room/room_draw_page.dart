@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
+import '../../core/theme/design_tokens.dart';
 import '../../core/room/room_geometry.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/storage/room_scan_store.dart';
 import '../../core/utils/mm_format.dart';
 import '../../data/models.dart';
+import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
+import '../../shared/widgets/nav_icon_button.dart';
 
 /// 量房成图页（手动打点成图，ROOM_MEASURE_IMPL §7.2）。
 ///
@@ -74,27 +78,6 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       ..scale(eff)
       ..translate(-c.dx, -c.dy);
     _view.value = m;
-  }
-
-  Widget _zoomBtn(IconData icon, VoidCallback onTap, {String? tip}) {
-    final btn = Material(
-      color: Colors.white,
-      shape: const CircleBorder(),
-      elevation: 2,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: Icon(icon, size: 20, color: const Color(0xFF4A4F5E)),
-        ),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: tip == null ? btn : Tooltip(message: tip, child: btn),
-    );
   }
 
   @override
@@ -216,44 +199,68 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     final offsetCtl =
         TextEditingController(text: (ab * t).distance.toStringAsFixed(0));
     final widthCtl = TextEditingController(text: '900');
-    final type = await showDialog<String>(
+    final type = await AppDialog.show<String>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          title: Text('墙段 ${wallIdx + 1} 添加洞口'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'door', label: Text('门')),
-                  ButtonSegment(value: 'window', label: Text('窗')),
-                ],
-                selected: {typeCtl.text},
-                onSelectionChanged: (s) => setD(() => typeCtl.text = s.first),
+      title: '添加门窗洞口',
+      content: StatefulBuilder(
+        builder: (ctx, setD) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '选择洞口类型并填写尺寸，系统会挂到当前墙段上。',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: AppTokens.fg2,
               ),
-              const SizedBox(height: 8),
-              TextField(
-                  controller: offsetCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: '距墙段起点 (mm)', isDense: true)),
-              TextField(
-                  controller: widthCtl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: '洞口宽 (mm)', isDense: true)),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop('cancel'),
-                child: const Text('取消')),
-            FilledButton(
-                onPressed: () => Navigator.of(ctx).pop('ok'),
-                child: const Text('添加')),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDialogTypeOption(
+                    label: '门',
+                    selected: typeCtl.text == 'door',
+                    onTap: () => setD(() => typeCtl.text = 'door'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildDialogTypeOption(
+                    label: '窗',
+                    selected: typeCtl.text == 'window',
+                    onTap: () => setD(() => typeCtl.text = 'window'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildDialogInputField(
+              label: '距墙段起点 (mm)',
+              controller: offsetCtl,
+            ),
+            const SizedBox(height: 12),
+            _buildDialogInputField(
+              label: '洞口宽 (mm)',
+              controller: widthCtl,
+            ),
           ],
         ),
+      ),
+      actions: AppDialogActions(
+        children: [
+          AppDialogButton.secondary(
+            label: '取消',
+            onTap: () =>
+                Navigator.of(context, rootNavigator: true).pop('cancel'),
+          ),
+          AppDialogButton.primary(
+            label: '添加',
+            onTap: () => Navigator.of(context, rootNavigator: true).pop('ok'),
+          ),
+        ],
       ),
     );
     if (type != 'ok') return;
@@ -284,18 +291,21 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     }
     final delta = _closeGap ?? closureDelta(_pts);
     if (delta > 50) {
-      final ok = await showDialog<bool>(
+      final ok = await AppDialog.show<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('闭合差偏大'),
-          content: Text('首尾缺口 ${fmtMm(delta)}mm > 50mm，可能漏了某段墙。仍要保存吗？'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('回去改')),
-            FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('仍保存')),
+        title: '闭合差偏大',
+        description: '首尾缺口 ${fmtMm(delta)}mm 大于 50mm，可能漏画了某段墙，建议先回去检查。',
+        actions: AppDialogActions(
+          children: [
+            AppDialogButton.secondary(
+              label: '回去改',
+              onTap: () =>
+                  Navigator.of(context, rootNavigator: true).pop(false),
+            ),
+            AppDialogButton.primary(
+              label: '仍然保存',
+              onTap: () => Navigator.of(context, rootNavigator: true).pop(true),
+            ),
           ],
         ),
       );
@@ -363,139 +373,579 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     final area = ptsCount >= 3 ? areaM2(_pts) : 0.0;
     final delta = _closeGap ?? (ptsCount >= 3 ? closureDelta(_pts) : 0.0);
     final ortho = _orthoOn;
+    final canvasHeight =
+        MediaQuery.sizeOf(context).height < 760 ? 360.0 : 420.0;
     return Scaffold(
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
+        backgroundColor: AppTokens.bg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
-        title: const Text(
-          '量房成图（手动）',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        actions: [
-          TextButton(onPressed: _undo, child: const Text('撤销')),
-          IconButton(
-              onPressed: _clearAll, icon: const Icon(MingCuteIcons.deleteLine)),
-          TextButton(
-            onPressed: () => setState(() => _orthoOn = !_orthoOn),
-            child: Text(ortho ? '正交开' : '正交关',
+        leadingWidth: 0,
+        titleSpacing: 0,
+        title: Stack(
+          alignment: Alignment.center,
+          children: const [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: NavIconButton(
+                  icon: MingCuteIcons.leftLine,
+                  color: Color(0xFF09244B),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 48),
+              child: Text(
+                '量房成图',
+                textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 12,
-                    color: ortho ? const Color(0xFF1DB954) : appRed)),
-          ),
-          TextButton(
-              onPressed: _pts.isEmpty ? null : _save, child: const Text('保存')),
-        ],
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  height: 24 / 16,
+                  color: AppTokens.fg,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: LayoutBuilder(builder: (context, box) {
-              // 缩放按钮兜底：桌面浏览器无捏合手势，InteractiveViewer 也不吃滚轮缩放。
-              return Stack(
-                children: [
-                  ClipRect(
-                    child: InteractiveViewer(
-                      transformationController: _view,
-                      constrained: false,
-                      minScale: 0.05,
-                      maxScale: 4,
-                      child: GestureDetector(
-                        onTapUp: (e) => _onTap(e.localPosition),
-                        onLongPressStart: (e) => _onLongPress(e.localPosition),
-                        onDoubleTapDown: (e) => _onDoubleTap(e.localPosition),
-                        child: CustomPaint(
-                          size: const Size(_canvas, _canvas),
-                          painter: _RoomGridPainter(
-                            pts: _pts,
-                            snapped: _snapped,
-                            openings: _openings,
-                            viewScale: _view.value.getMaxScaleOnAxis(),
-                          ),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildWorktopCard(
+                title: '量房概览',
+                helper: '按房间轮廓依次点墙角，闭合后再补门窗洞口，生成结果会自动关联当前项目。',
+                child: Column(
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildMetricPill(
+                          label: '墙角',
+                          value: '$ptsCount 个',
+                        ),
+                        _buildMetricPill(
+                          label: '周长',
+                          value: '${_fmtM(perim)} m',
+                        ),
+                        _buildMetricPill(
+                          label: '面积',
+                          value: '${area.toStringAsFixed(2)} ㎡',
+                        ),
+                        _buildMetricPill(
+                          label: '闭合差',
+                          value: '${fmtMm(delta)}mm',
+                          highlight: delta > 15,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTokens.surface2,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        '操作说明：单击加点，点回起点闭合，长按删除最近点，双击墙段添加门窗洞口。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 20 / 12,
+                          color: AppTokens.fg2,
                         ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Column(
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildWorktopCard(
+                title: '量房画布',
+                helper: '支持拖动画布、双指缩放，右下角的复位 / 放大 / 缩小与图纸详情保持同一套样式。',
+                action: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 360;
+                    if (compact) {
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        alignment: WrapAlignment.end,
+                        children: [
+                          _buildToolChip(
+                            icon: MingCuteIcons.back2Line,
+                            label: '撤销',
+                            onTap: _pts.isEmpty ? null : _undo,
+                          ),
+                          _buildToolChip(
+                            icon: MingCuteIcons.deleteLine,
+                            label: '清空',
+                            onTap: _pts.isEmpty ? null : _clearAll,
+                          ),
+                          _buildToolChip(
+                            icon: MingCuteIcons.rulerLine,
+                            label: ortho ? '正交开' : '正交关',
+                            onTap: () => setState(() => _orthoOn = !_orthoOn),
+                            active: ortho,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _zoomBtn(Icons.add, () => _zoomBy(box.biggest, 1.25)),
-                        _zoomBtn(
-                            Icons.remove, () => _zoomBy(box.biggest, 1 / 1.25)),
-                        _zoomBtn(Icons.home_outlined, _resetView, tip: '回到起点'),
+                        _buildToolChip(
+                          icon: MingCuteIcons.back2Line,
+                          label: '撤销',
+                          onTap: _pts.isEmpty ? null : _undo,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildToolChip(
+                          icon: MingCuteIcons.deleteLine,
+                          label: '清空',
+                          onTap: _pts.isEmpty ? null : _clearAll,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildToolChip(
+                          icon: MingCuteIcons.rulerLine,
+                          label: ortho ? '正交开' : '正交关',
+                          onTap: () => setState(() => _orthoOn = !_orthoOn),
+                          active: ortho,
+                        ),
                       ],
-                    ),
+                    );
+                  },
+                ),
+                child: SizedBox(
+                  height: canvasHeight,
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      // 画布工作区保持白底轻量化，缩放按钮沿用图纸详情那套 40×64 白卡。
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: AppTokens.surface2,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: InteractiveViewer(
+                                  transformationController: _view,
+                                  constrained: false,
+                                  minScale: 0.05,
+                                  maxScale: 4,
+                                  child: GestureDetector(
+                                    onTapUp: (e) => _onTap(e.localPosition),
+                                    onLongPressStart: (e) =>
+                                        _onLongPress(e.localPosition),
+                                    onDoubleTapDown: (e) =>
+                                        _onDoubleTap(e.localPosition),
+                                    child: CustomPaint(
+                                      size: const Size(_canvas, _canvas),
+                                      painter: _RoomGridPainter(
+                                        pts: _pts,
+                                        snapped: _snapped,
+                                        openings: _openings,
+                                        viewScale:
+                                            _view.value.getMaxScaleOnAxis(),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 12,
+                              top: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppTokens.surface,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  ptsCount < 3 ? '请先顺时针点出房间轮廓' : '已闭合后可继续补门窗洞口',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    height: 20 / 12,
+                                    color: AppTokens.fg2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 12,
+                              bottom: 12,
+                              child: _RoomZoomFab(
+                                onZoomIn: () => _zoomBy(box.biggest, 1.25),
+                                onZoomOut: () => _zoomBy(box.biggest, 1 / 1.25),
+                                onReset: _resetView,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                ],
-              );
-            }),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildWorktopCard(
+                title: '房间信息',
+                helper: '保存后会进入量房记录，可继续查看户型图、墙段长度和闭合差。',
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _buildInputField(
+                      label: '房间名称',
+                      width: 168,
+                      child: TextField(
+                        controller: _nameCtl,
+                        decoration: const InputDecoration(
+                          hintText: '例如：主卧 / 会议室',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                        ),
+                      ),
+                    ),
+                    _buildInputField(
+                      label: '空间用途',
+                      width: 132,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _roomUse,
+                          isDense: true,
+                          items: [
+                            for (final u in _roomUses)
+                              DropdownMenuItem<String>(
+                                value: u,
+                                child: Text(
+                                  u,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    height: 22 / 14,
+                                    color: AppTokens.fg,
+                                  ),
+                                ),
+                              ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _roomUse = v ?? '其他'),
+                        ),
+                      ),
+                    ),
+                    _buildInputField(
+                      label: '净高 (mm)',
+                      width: 120,
+                      child: TextField(
+                        controller: _netHeightCtl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: '选填',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                        ),
+                      ),
+                    ),
+                    _buildInputField(
+                      label: '墙厚 (mm)',
+                      width: 120,
+                      child: TextField(
+                        controller: _thicknessCtl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          hintText: '默认 200',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
-          // 底部状态条
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            width: double.infinity,
-            color: const Color(0xFFF5F6F9),
-            child: Text(
-              '${_pts.length} 角 · 周长 ${_fmtM(perim)} · '
-              '面积 ${area.toStringAsFixed(2)} ㎡ · '
-              '闭合差 ${fmtMm(delta)}mm${delta > 15 ? '（需复核）' : ''}'
-              '   提示：单击加点 · 点回起点闭合 · 长按删最近点 · 双击墙段加门/窗',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF4A4F5E)),
+        ),
+      ),
+      bottomNavigationBar: Material(
+        color: AppTokens.surface,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: AppButton(
+              size: AppButtonSize.lg,
+              width: double.infinity,
+              label: _pts.isEmpty ? '请先开始量房' : '保存量房记录',
+              onPressed: _pts.isEmpty ? null : _save,
             ),
           ),
-          // 工程信息卡
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: Column(
+        ),
+      ),
+    );
+  }
+
+  /// 白底工作台卡片：统一量房页各区块的标题、说明和内容布局。
+  Widget _buildWorktopCard({
+    required String title,
+    String? helper,
+    Widget? action,
+    required Widget child,
+  }) =>
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTokens.surface,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('工程信息',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    SizedBox(
-                        width: 110,
-                        child: TextField(
-                            controller: _nameCtl,
-                            decoration: const InputDecoration(
-                                labelText: '房间名', isDense: true))),
-                    DropdownButton<String>(
-                      value: _roomUse,
-                      items: [
-                        for (final u in _roomUses)
-                          DropdownMenuItem(value: u, child: Text(u)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 22 / 14,
+                          color: AppTokens.fg,
+                        ),
+                      ),
+                      if (helper != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          helper,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 12,
+                            color: AppTokens.fg2,
+                          ),
+                        ),
                       ],
-                      onChanged: (v) => setState(() => _roomUse = v ?? '其他'),
-                    ),
-                    SizedBox(
-                        width: 90,
-                        child: TextField(
-                            controller: _netHeightCtl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                                labelText: '净高mm', isDense: true))),
-                    SizedBox(
-                        width: 90,
-                        child: TextField(
-                            controller: _thicknessCtl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                                labelText: '墙厚mm', isDense: true))),
-                  ],
+                    ],
+                  ),
+                ),
+                if (action != null) ...[
+                  const SizedBox(width: 12),
+                  Flexible(child: action),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      );
+
+  /// 顶部概览的轻量指标胶囊：用来快速扫点数、面积和闭合差状态。
+  Widget _buildMetricPill({
+    required String label,
+    required String value,
+    bool highlight = false,
+  }) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: highlight ? const Color(0x0DFF4444) : AppTokens.surface2,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: RichText(
+          text: TextSpan(
+            text: '$label ',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 20 / 12,
+              color: AppTokens.fg2,
+            ),
+            children: [
+              TextSpan(
+                text: value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  height: 20 / 12,
+                  color: highlight ? const Color(0xFFFF4444) : AppTokens.fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  /// 画布右上角轻操作：撤销、清空、正交开关统一做成轻量胶囊按钮。
+  Widget _buildToolChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+    bool active = false,
+  }) =>
+      Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: active ? AppTokens.brandTint : AppTokens.surface2,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 14,
+                  color: active ? AppTokens.brand : AppTokens.fg2,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 20 / 12,
+                    color: active ? AppTokens.brand : AppTokens.fg2,
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+
+  /// 表单字段壳：统一成浅灰底信息块，避免原生输入框的重边框样式。
+  Widget _buildInputField({
+    required String label,
+    required Widget child,
+    double? width,
+  }) =>
+      SizedBox(
+        width: width,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTokens.surface2,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  color: AppTokens.muted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              child,
+            ],
+          ),
+        ),
+      );
+
+  /// 洞口类型选择项：弹窗里使用蓝描边选中态，和全局选中卡风格一致。
+  Widget _buildDialogTypeOption({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) =>
+      Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? AppTokens.brandTint : AppTokens.surface2,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected ? AppTokens.brand : Colors.transparent,
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 22 / 14,
+                color: selected ? AppTokens.brand : AppTokens.fg,
+              ),
+            ),
+          ),
+        ),
+      );
+
+  /// 洞口弹窗输入框：统一成浅灰底输入块，避免系统原生输入框风格过重。
+  Widget _buildDialogInputField({
+    required String label,
+    required TextEditingController controller,
+  }) =>
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.muted,
+              ),
+            ),
+            const SizedBox(height: 4),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isCollapsed: true,
+              ),
+            ),
+          ],
+        ),
+      );
 
   double _perimeterMm() {
     var s = 0.0;
@@ -508,7 +958,62 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   String _fmtM(double mm) => (mm / 1000).toStringAsFixed(2);
 }
 
-const appRed = Color(0xFFFF5959);
+/// 与图纸详情保持一致的右下缩放控件：复位 / 放大 / 缩小三张独立白卡。
+class _RoomZoomFab extends StatelessWidget {
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+  final VoidCallback onReset;
+
+  const _RoomZoomFab({
+    required this.onZoomIn,
+    required this.onZoomOut,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _zoomCard(MingCuteIcons.fullscreenLine, '复位', onReset),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.addLine, '放大', onZoomIn),
+          const SizedBox(height: 8),
+          _zoomCard(MingCuteIcons.minimizeLine, '缩小', onZoomOut),
+        ],
+      );
+
+  Widget _zoomCard(IconData icon, String label, VoidCallback onTap) => Material(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 40,
+            height: 64,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 24, color: const Color(0xFF09244B)),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 20 / 12,
+                      color: Color(0xFF60656B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+}
 
 /// 画布绘制：网格 + 当前墙角连线 + 吸附高亮 + 洞口示意。
 class _RoomGridPainter extends CustomPainter {

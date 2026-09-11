@@ -6,6 +6,7 @@ import 'core/di/providers.dart';
 import 'data/models.dart';
 import 'shared/widgets/device_frame.dart';
 import 'features/home/home_page.dart';
+import 'features/home/voice_records_page.dart';
 import 'core/navigation/route_observer.dart';
 import 'features/projects/projects_page.dart';
 import 'features/projects/drawing_viewer_page.dart';
@@ -89,8 +90,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             // 故无 tab 选中高亮，仅底部相机按钮保留「active」反馈。
             index = -1;
           }
-          final cameraActive = loc.startsWith('/capture') ||
-              loc.startsWith('/capture-records');
+          final cameraActive =
+              loc.startsWith('/capture') || loc.startsWith('/capture-records');
           return Scaffold(
             body: child,
             bottomNavigationBar: AppBottomNav(
@@ -154,7 +155,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               transitionDuration: Duration.zero,
               transitionsBuilder: (_, __, ___, child) => child,
               child: CapturePage(
-                args: state.extra is CaptureArgs ? state.extra as CaptureArgs : const CaptureArgs(),
+                args: state.extra is CaptureArgs
+                    ? state.extra as CaptureArgs
+                    : const CaptureArgs(),
               ),
             ),
           ),
@@ -188,6 +191,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/blueprint',
         builder: (_, __) => const BlueprintViewerPage(),
+      ),
+      GoRoute(
+        path: '/voice-records',
+        builder: (_, __) => const VoiceRecordsPage(),
       ),
       GoRoute(
         path: '/measure',
@@ -262,7 +269,9 @@ class App extends ConsumerWidget {
       // Web 调试：当切到手机尺寸模拟时，显式注入 MediaQuery，避免 FittedBox/SizedBox
       // 在 web release 下推断尺寸导致的边界问题（之前报错：`test inject(injectKey)!`）。
       builder: (context, child) {
-        if (!phoneMode || child == null) return child ?? const SizedBox.shrink();
+        if (!phoneMode || child == null) {
+          return child ?? const SizedBox.shrink();
+        }
         final base = MediaQuery.of(context);
         return MediaQuery(
           data: base.copyWith(

@@ -11,8 +11,6 @@ import '../../shared/widgets/async_state.dart';
 import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/project_switcher.dart';
 import '../../shared/widgets/user_switcher.dart';
-import '../../shared/widgets/voice_input.dart';
-import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
@@ -893,16 +891,8 @@ class _QuickActions extends ConsumerWidget {
                 icon: MingCuteIcons.micFill,
                 title: '语音记录',
                 color: _qaCyan,
-                onTap: () => AppBottomSheet.show<void>(
-                  context: context,
-                  title: '语音记录',
-                  body: (_) => VoiceInputSheet(
-                    onResult: (text) {
-                      AppSnack.show(context, '已识别：$text',
-                          kind: AppSnackKind.success);
-                    },
-                  ),
-                ),
+                // 语音记录改为独立页面，避免临时弹层承载过多操作。
+                onTap: () => context.push('/voice-records'),
               ),
               _QuickCard(
                 icon: MingCuteIcons.layerFill,

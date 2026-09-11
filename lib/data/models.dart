@@ -49,7 +49,15 @@ extension DefectStatusX on DefectStatus {
 }
 
 /// 缺陷专业分类（7 类）。
-enum DefectCategory { architecture, structure, decoration, water, hvac, electric, other }
+enum DefectCategory {
+  architecture,
+  structure,
+  decoration,
+  water,
+  hvac,
+  electric,
+  other
+}
 
 extension DefectCategoryX on DefectCategory {
   String get label {
@@ -217,8 +225,10 @@ class Project {
   final String floorArea;
   final int beds;
   final String concept;
+
   /// 参与方列表（甲方 / 设计院 / 监理 / 咨询 / PMO）。
   final List<Party> parties;
+
   /// 施工进度里程碑（项目时间轴数据源）。
   final List<Milestone> milestones;
   const Project({
@@ -240,16 +250,22 @@ class Project {
 /// 用户在拍照前可从附近定位点列表中选择一个作为水印定位信息。
 class SiteLocation {
   final String id;
+
   /// 地点名称（如项目名 / 工地名）。
   final String name;
+
   /// 详细地址。
   final String address;
+
   /// 纬度（°N）。
   final double lat;
+
   /// 经度（°E）。
   final double lng;
+
   /// 海拔（m）。
   final double altitude;
+
   /// 关联项目 id（可空）。
   final String? projectId;
   const SiteLocation({
@@ -343,6 +359,7 @@ class Drawing {
   final double w;
   final double h;
   final List<Hotspot> hotspots;
+
   /// 若为 CAD/OCF 图纸，标记对应 OCF 缓存 key（如 `dy04_7_B01`）。
   /// 非空时图纸查看页走 CAD 渲染/占位逻辑，而非 Image.asset。
   final String? cadOcfKey;
@@ -391,8 +408,10 @@ class Defect {
   final String id;
   final String part;
   final String type;
+
   /// 专业分类（建筑/结构/装饰/给排水/暖通/电气/其他）。
   final DefectCategory category;
+
   /// 紧急/重要程度（红/橙/黄/绿）。
   final DefectSeverity severity;
   final DefectStatus status;
@@ -401,58 +420,83 @@ class Defect {
   final String ts;
   final String gps;
   final String alt;
+
   /// 责任人（责任单位 + 人），如 "深圳市建工集团 王工"。
   final String resp;
+
   /// 责任单位（拆分字段，便于单独展示）。
   final String respUnit;
+
   /// 记录人（谁发现/记录的）。
   final String reporter;
+
   /// 附加标签（自由标签，如 "二次结构"、"防火重点"、"总包责任"）。
   final List<String> tags;
   final String note;
   final String seed;
+
   /// 所属图纸 key（CAD 打点来源，可为空）。
   final String? drawingKey;
+
   /// 图纸坐标 X（mm，CAD 打点换算，用于图纸上回溯定位）。
   final double? worldX;
+
   /// 图纸坐标 Y（mm，CAD 打点换算，用于图纸上回溯定位）。
   final double? worldY;
+
   /// 照片 SHA-256 指纹（防篡改留痕：水印照片字节哈希，与原始记录比对）。
   final String? photoHash;
+
   /// 水印凭证号（拍摄流水，唯一）。
   final String? watermarkSerial;
+
   /// 关联照片相对路径列表（验收转工单时填入验收记录的拍照水印图）。
   final List<String> photos;
+
   /// 来源拍照验收记录 id（验收转工单时填入 `${captureId}#${idx}`）；
   /// 为空表示非验收转工单来源（图纸打点 / 手动录入等）。
   final String? sourceCaptureId;
+
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。
   /// 报告导出时按此路径读取照片字节内嵌到 PDF / Word / HTML。
   final String? photoPath;
+
   /// 重要等级（巡场报告单「重要等级」列）。为空时按 [severity] 推导。
   final DefectImportance? importance;
+
   /// 楼栋 / 栋号（巡场销项表按此分组，如「9栋」「7栋、8栋」）。
   final String? building;
+
   /// 整改回复内容（施工单位回复 / 整改说明，对应巡场报告单「回复内容」）。
   final String? reply;
+
   /// 回复人（整改回复的责任方 / 回复单位）。
   final String? replyBy;
+
   /// 回复时间（格式同 [ts]）。
   final String? replyTs;
+
   /// 整改回复照片相对路径（整改后现场照片，对应「回复·截图」列）。
   final String? replyPhotoPath;
+
   /// 未闭合说明（对应巡场报告单「如未，填写意见」）。
   final String? closeNote;
+
   /// AI 整改建议（给施工单位的处置建议，AI 识别生成 / 人工修订）。
   final String? suggestion;
+
   /// 完成状态（对应巡场报告单「完成状态」，如 已完成 / 进行中 / 未开始）。
   final String? completion;
+
   /// 设计师处置动作：null=未处置 / remoteFix=远程已解决(销项) / remoteConfirm=远程已答复 / onsite=需到场。
   final String? designerAction;
+
   /// 设计师处置说明。
   final String? designerNote;
+
   /// 处置设计师（默认当前用户）。
   final String? designerBy;
+
   /// 设计师处置时间（格式同 [ts]）。
   final String? designerTs;
   const Defect({
@@ -665,11 +709,13 @@ class Defect {
   String get buildingOrEmpty => (building ?? '').trim();
 
   /// 是否有 CAD 图纸坐标（可回溯定位）。
-  bool get hasCadCoord => drawingKey != null && worldX != null && worldY != null;
+  bool get hasCadCoord =>
+      drawingKey != null && worldX != null && worldY != null;
 
   /// CAD 坐标文本（"X=… Y=…"），无坐标时返回 null。
-  String? get coordText =>
-      hasCadCoord ? 'X=${worldX!.toStringAsFixed(1)}  Y=${worldY!.toStringAsFixed(1)}' : null;
+  String? get coordText => hasCadCoord
+      ? 'X=${worldX!.toStringAsFixed(1)}  Y=${worldY!.toStringAsFixed(1)}'
+      : null;
 }
 
 class TimelinePhoto {
@@ -685,14 +731,27 @@ class TimelinePhoto {
   });
 }
 
+/// 拍照验收入口来源：区分普通验收进入，还是巡场里的快捷标记进入。
+enum CaptureEntrySource {
+  /// 默认入口：TabBar / 首页 / 图纸页等常规进入方式。
+  standard,
+
+  /// 巡场入口：从“标记问题”快捷带入当前图纸和当前位置。
+  patrol,
+}
+
 /// 拍照验收路由参数：楼层 + 预锚定部位 + 相对坐标（0~1） + 可选图纸坐标。
 class CaptureArgs {
   /// 所属项目 ID（无项目时按 currentProjectIdProvider 推断）。
   final String? projectId;
+
+  /// 当前入口来源：用于区分巡场快捷标记和普通验收的 UI 与后续动作。
+  final CaptureEntrySource source;
   final String floor;
   final String anchorLabel;
   final double x;
   final double y;
+
   /// 若从图纸打点跳转：关联的图纸 key；拍照记录时一并写入缺陷
   /// （真实坐标由 drawPointWorldX/drawPointWorldY 提供）。
   final String? drawingKey;
@@ -700,6 +759,7 @@ class CaptureArgs {
   final double? drawPointWorldY;
   const CaptureArgs({
     this.projectId,
+    this.source = CaptureEntrySource.standard,
     this.floor = '',
     this.anchorLabel = '',
     this.x = 0.5,
@@ -715,8 +775,10 @@ class VlDefect {
   final String name;
   final DefectSeverity severity;
   final double conf;
+
   /// 缺陷描述（真实模型返回；mock 阶段为空）。
   final String? desc;
+
   /// AI 整改建议（给施工单位的处置建议；模型未返回时由本地建议库兜底）。
   final String? suggestion;
   const VlDefect({
@@ -760,8 +822,10 @@ class ScaleCheck {
 
   /// 偏差 = 实测 - 图纸（mm）
   double get deviation => measuredMm - drawingMm;
+
   /// 偏差率 = 偏差 / 图纸（%）
   double get deviationPct => drawingMm == 0 ? 0 : deviation / drawingMm * 100;
+
   /// 是否合格：偏差绝对值 <= 容差
   bool pass(double tolMm, double tolPct) =>
       deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
@@ -854,8 +918,7 @@ class PhotoCalib {
         imgW: imgW ?? this.imgW,
         imgH: imgH ?? this.imgH,
         homography: homography ?? this.homography,
-        homographyResidualMm:
-            homographyResidualMm ?? this.homographyResidualMm,
+        homographyResidualMm: homographyResidualMm ?? this.homographyResidualMm,
         calibWidthMm: calibWidthMm ?? this.calibWidthMm,
         calibHeightMm: calibHeightMm ?? this.calibHeightMm,
         calibPoints: calibPoints ?? this.calibPoints,
@@ -918,6 +981,7 @@ class MeasureItem {
   /// 测量来源：'photo' 默认（照片标尺法）| 'ar_lidar'（AR量尺）| 'manual'。
   /// 旧会话数据无该字段时按 'photo' 处理，保证向后兼容。
   final String source;
+
   /// 测量误差带半宽（±mm）。LiDAR/AR 等有误差来源时填写；
   /// 旧数据 / 手动录入为 null = 误差未知（不参与判定门控，pass() 逻辑不变）。
   final double? errorMm;
@@ -931,8 +995,10 @@ class MeasureItem {
 
   /// 偏差 = 照片实测 - 图纸（mm）
   double get deviation => photoMm - drawingMm;
+
   /// 偏差率 = 偏差 / 图纸（%）
   double get deviationPct => drawingMm == 0 ? 0 : deviation / drawingMm * 100;
+
   /// 是否合格：偏差绝对值 <= 容差
   bool pass(double tolMm, double tolPct) =>
       deviation.abs() <= tolMm && deviationPct.abs() <= tolPct;
@@ -1098,7 +1164,9 @@ class CadLayer {
   });
 
   factory CadLayer.fromJson(dynamic v) {
-    if (v is String) return CadLayer(name: v, isOff: false, isFrozen: false, isLock: false);
+    if (v is String) {
+      return CadLayer(name: v, isOff: false, isFrozen: false, isLock: false);
+    }
     final j = (v as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     return CadLayer(
       name: j['name']?.toString() ?? '',
@@ -1113,6 +1181,7 @@ class CadLayer {
 /// 浩辰返回两种形态：字符串，或 Map（{globalName, handle, nickName} / {name}）。
 class CadLayout {
   final String name;
+
   /// 布局句柄（用于前端切换布局定位）。
   final String? handle;
   const CadLayout({required this.name, this.handle});
@@ -1174,8 +1243,10 @@ class DwgInfo {
       resultMsg: biz?['resultMsg']?.toString(),
       deflayout: biz?['deflayout']?.toString(),
       layers: ((biz?['layers'] as List?) ?? []).map(CadLayer.fromJson).toList(),
-      layouts: ((biz?['layouts'] as List?) ?? []).map(CadLayout.fromJson).toList(),
-      blocks: ((biz?['blocks'] as List?) ?? []).map((e) => e.toString()).toList(),
+      layouts:
+          ((biz?['layouts'] as List?) ?? []).map(CadLayout.fromJson).toList(),
+      blocks:
+          ((biz?['blocks'] as List?) ?? []).map((e) => e.toString()).toList(),
       xrefs: ((biz?['xrefs'] as List?) ?? []).map((e) => e.toString()).toList(),
       error: j['msg']?.toString(),
     );
@@ -1186,13 +1257,17 @@ class DwgInfo {
 /// 用真实 CAD 图纸坐标（mm）记录缺陷位置，配合 CadCoordMapper 实现屏幕坐标自动换算。
 class CadAnnotation {
   final String id;
+
   /// 所属图纸 key。
   final String drawingKey;
+
   /// 缺陷/标注名称。
   final String label;
+
   /// 图纸坐标（mm）。
   final double worldX;
   final double worldY;
+
   /// 屏幕相对坐标（0~1，便于无坐标系时的兜底定位）。
   final double relX;
   final double relY;
@@ -1230,8 +1305,8 @@ class CadAnnotation {
         worldY: (j['worldY'] as num?)?.toDouble() ?? 0,
         relX: (j['relX'] as num?)?.toDouble() ?? 0,
         relY: (j['relY'] as num?)?.toDouble() ?? 0,
-        createdAt:
-            DateTime.tryParse(j['createdAt']?.toString() ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt']?.toString() ?? '') ??
+            DateTime.now(),
       );
 }
 
@@ -1549,8 +1624,8 @@ class PatrolRecord {
         issueCount: (m['issueCount'] as num? ?? 0).toInt(),
         track: (m['track'] as List? ?? [])
             .whereType<Map>()
-            .map((e) => e.map(
-                (k, v) => MapEntry(k.toString(), (v as num).toDouble())))
+            .map((e) =>
+                e.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())))
             .toList(),
         checkins: (m['checkins'] as List? ?? [])
             .whereType<Map<String, dynamic>>()
@@ -1567,11 +1642,14 @@ class UploadedDrawing {
   final String fileName; // 原始文件名（含扩展）
   final int sizeBytes;
   final int tsMs;
+
   /// 底图 PNG 像素宽/高（后端渲染时返回；0 = 旧数据未记录）。
   final int width;
   final int height;
+
   /// CAD 坐标范围 "xmin,ymin,xmax,ymax"（mm，供后续自动校准）。
   final String? bounds;
+
   /// 'converting'（转换中）/ 'done'（已转换）/ 'failed'（失败）。
   final String status;
   final String? error; // failed 时给可读错误
@@ -1602,8 +1680,7 @@ class UploadedDrawing {
       };
 
   /// 旧数据读取缺字段一律给默认值。
-  factory UploadedDrawing.fromJson(Map<String, dynamic> m) =>
-      UploadedDrawing(
+  factory UploadedDrawing.fromJson(Map<String, dynamic> m) => UploadedDrawing(
         key: m['key']?.toString() ?? '',
         name: m['name']?.toString() ?? '',
         fileName: m['fileName']?.toString() ?? '',
@@ -1680,8 +1757,13 @@ class RoomWall {
   });
 
   RoomWall copyWith({
-    double? ax, double? ay, double? bx, double? by,
-    double? lengthMm, double? thicknessMm, List<WallOpening>? openings,
+    double? ax,
+    double? ay,
+    double? bx,
+    double? by,
+    double? lengthMm,
+    double? thicknessMm,
+    List<WallOpening>? openings,
   }) =>
       RoomWall(
         id: id,
@@ -1696,7 +1778,10 @@ class RoomWall {
 
   Map<String, dynamic> toJson() => {
         'id': id,
-        'ax': ax, 'ay': ay, 'bx': bx, 'by': by,
+        'ax': ax,
+        'ay': ay,
+        'bx': bx,
+        'by': by,
         'lengthMm': lengthMm,
         'thicknessMm': thicknessMm,
         'openings': openings.map((o) => o.toJson()).toList(),
@@ -1752,9 +1837,15 @@ class RoomScanRecord {
       ];
 
   RoomScanRecord copyWith({
-    String? name, String? roomUse, String? source,
-    List<RoomWall>? walls, double? closureDeltaMm, double? netHeightMm,
-    String? drawingKey, List<MeasureItem>? checks, String? note,
+    String? name,
+    String? roomUse,
+    String? source,
+    List<RoomWall>? walls,
+    double? closureDeltaMm,
+    double? netHeightMm,
+    String? drawingKey,
+    List<MeasureItem>? checks,
+    String? note,
   }) =>
       RoomScanRecord(
         id: id,

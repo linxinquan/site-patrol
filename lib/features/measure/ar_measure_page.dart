@@ -17,6 +17,7 @@ import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 
@@ -82,8 +83,9 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   String? get _depthHint {
     final d = _lastDepthMm;
     if (d == null || d <= 0) return null;
-    if (d > _rejectMm)
+    if (d > _rejectMm) {
       return '距相机 ${(d / 1000).toStringAsFixed(1)}m 超出 LiDAR 量程，读数不可信';
+    }
     if (d > _bestMaxMm || d < _bestMinMm) {
       return '距相机 ${(d / 1000).toStringAsFixed(2)}m，超出最佳区间 '
           '0.3~3m，误差会明显放大';
@@ -409,9 +411,13 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   /// - **Web**：浏览器拿不到 ARKit/LiDAR（是平台能力缺失，与机型无关）；
   /// - **原生但无 LiDAR**：才是真正的机型不支持。
   Widget _buildUnsupported() {
-    final isWeb = kIsWeb;
+    const isWeb = kIsWeb;
     return Scaffold(
+      backgroundColor: AppTokens.bg,
       appBar: AppBar(
+        backgroundColor: AppTokens.bg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         centerTitle: true,
         leadingWidth: 36,
@@ -522,6 +528,59 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: AppCard(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppTokens.brandTint,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      MingCuteIcons.pencilRulerLine,
+                      size: 18,
+                      color: AppTokens.brand,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.args.floor.isNotEmpty
+                              ? '${widget.args.floor} · AR量尺'
+                              : 'AR实时量尺工作台',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 22 / 14,
+                            color: AppTokens.fg,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '先在现场完成采点，再采纳本组结果，最后统一保存到当前图纸量尺记录',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 12,
+                            color: AppTokens.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Expanded(
             child: Stack(
               children: [
@@ -604,30 +663,48 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(AppTokens.space3),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Column(
               children: [
                 // 主按钮：校正模式 → 完成校正；常态 → 采纳本组
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _calibMode
-                        ? (_supported && _samples.length >= 2
-                            ? _finishCalib
-                            : null)
-                        : (_supported && _samples.length >= 2
-                            ? _adoptSamples
-                            : null),
-                    icon: const Icon(MingCuteIcons.checkCircleLine, size: 18),
-                    label: Text(
-                      _calibMode
-                          ? (_samples.length < 2
-                              ? '完成校正（再测 ${2 - _samples.length} 次可启用）'
-                              : '完成校正 → k=$_calibKPreview')
-                          : (_samples.length < 2
-                              ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
-                              : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
-                                  '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppTokens.surface,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide.none,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: _calibMode
+                          ? (_supported && _samples.length >= 2
+                              ? _finishCalib
+                              : null)
+                          : (_supported && _samples.length >= 2
+                              ? _adoptSamples
+                              : null),
+                      icon: const Icon(MingCuteIcons.checkCircleLine, size: 18),
+                      label: Text(
+                        _calibMode
+                            ? (_samples.length < 2
+                                ? '完成校正（再测 ${2 - _samples.length} 次可启用）'
+                                : '完成校正 → k=$_calibKPreview')
+                            : (_samples.length < 2
+                                ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
+                                : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
+                                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 22 / 14,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -671,24 +748,27 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _supported
+                      child: _MeasureActionButton(
+                        primary: true,
+                        label: _paused ? '继续' : '暂停',
+                        icon: _paused
+                            ? MingCuteIcons.playLine
+                            : MingCuteIcons.pauseLine,
+                        onTap: _supported
                             ? () async {
                                 _paused = !_paused;
                                 await _svc.setMode(_paused ? 0 : 1);
                                 setState(() {});
                               }
                             : null,
-                        icon: Icon(_paused
-                            ? MingCuteIcons.playLine
-                            : MingCuteIcons.pauseLine),
-                        label: Text(_paused ? '继续' : '暂停'),
                       ),
                     ),
                     const SizedBox(width: AppTokens.space2),
                     Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: _supported
+                      child: _MeasureActionButton(
+                        label: '清除',
+                        icon: MingCuteIcons.deleteLine,
+                        onTap: _supported
                             ? () async {
                                 await _svc.clear();
                                 setState(() {
@@ -698,17 +778,16 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                                 });
                               }
                             : null,
-                        icon: const Icon(MingCuteIcons.deleteLine),
-                        label: const Text('清除'),
                       ),
                     ),
                     const SizedBox(width: AppTokens.space2),
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: _supported && _readings.isNotEmpty
+                      child: _MeasureActionButton(
+                        label: '保存',
+                        icon: MingCuteIcons.saveLine,
+                        onTap: _supported && _readings.isNotEmpty
                             ? _saveAll
                             : null,
-                        child: const Text('保存'),
                       ),
                     ),
                   ],
@@ -718,6 +797,10 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                 Container(
                   height: 180,
                   padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: ListView.builder(
                     itemCount: _readings.length,
                     itemBuilder: (ctx, i) {
@@ -806,4 +889,56 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       ),
     );
   }
+}
+
+/// AR量尺页底部操作按钮：统一为 48 高度，一主两次，和当前 App 操作风格保持一致。
+class _MeasureActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool primary;
+
+  const _MeasureActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Opacity(
+          opacity: onTap == null ? 0.5 : 1,
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: primary ? AppTokens.accent : AppTokens.surface,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 18,
+                  color: primary ? AppTokens.onAccent : AppTokens.fg2,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 22 / 14,
+                    color: primary ? AppTokens.onAccent : AppTokens.fg2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
