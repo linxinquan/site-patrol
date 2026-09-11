@@ -740,9 +740,10 @@ class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
+          centerTitle: true,
           title: Text(widget.name,
               style:
-                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           actions: [
             IconButton(
               tooltip: _showText ? '隐藏文字/标注层' : '显示文字/标注层',

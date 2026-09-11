@@ -260,6 +260,13 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
   int? _selectedIdx; // 选中的里程碑（默认当前节点）；点击后持久、并自动聚焦居中
 
   @override
+  void initState() {
+    super.initState();
+    // 记录首个项目 id，便于后续切换项目时正确重置自动定位状态。
+    _projectId = widget.project.id;
+  }
+
+  @override
   void didUpdateWidget(covariant _ProjectTimelineCard old) {
     super.didUpdateWidget(old);
     // 项目切换后重置自动滚动定位
@@ -276,13 +283,51 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     super.dispose();
   }
 
-  /// 把指定索引的里程碑卡滚动到列表可视区居中（alignment 0.5），避免边缘卡片被遮挡。
+  /// 估算单张里程碑卡宽度。
+  /// 不能继续依赖 ensureVisible，因为离屏较远的卡片尚未构建，拿不到 context。
+  double _itemWidth(Milestone m) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final dateWidth = _measureTextWidth(
+      _cnDate(m.date, fullYear: false),
+      const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 22 / 14,
+        fontFeatures: [FontFeature.tabularFigures()],
+      ),
+      textScaler,
+    );
+    final nameWidth = _measureTextWidth(
+      m.name,
+      const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        height: 24 / 16,
+      ),
+      textScaler,
+    );
+    // 卡片结构：左右 padding 16 + 状态条 20 + 间距 8 + 右侧文字列最大宽度。
+    return 16 + 20 + 8 + (dateWidth > nameWidth ? dateWidth : nameWidth);
+  }
+
+  /// 按内容宽度计算列表偏移，让目标卡片尽量居中显示。
   void _scrollToItem(int i) {
     if (!_scrollCtrl.hasClients) return;
-    final ctx = _chipKeys[i].currentContext;
-    if (ctx == null) return;
-    Scrollable.ensureVisible(ctx,
-        alignment: 0.5, duration: const Duration(milliseconds: 250));
+    final ms = widget.project.milestones;
+    if (i < 0 || i >= ms.length) return;
+    var leadingWidth = 0.0;
+    for (var idx = 0; idx < i; idx++) {
+      leadingWidth += _itemWidth(ms[idx]) + 8; // 卡片之间固定 gap 8。
+    }
+    final targetCenter = leadingWidth + _itemWidth(ms[i]) / 2;
+    final viewport = _scrollCtrl.position.viewportDimension;
+    final targetOffset = (targetCenter - viewport / 2)
+        .clamp(0.0, _scrollCtrl.position.maxScrollExtent);
+    _scrollCtrl.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   /// 首帧后把「当前」节点卡滚动到列表中间（居中聚焦），仅首次执行。
@@ -298,6 +343,11 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
     final sm = ms[selectedIdx];
     final planDate = sm.date;
     final statusText = sm.done ? '已完成' : (sm.current ? '进行中' : '未开始');
+    const planColor = Color(0xFF60656B);
+    const statusMetaColor = Color(0xFF919499);
+    final statusColor = sm.done
+        ? const Color(0xFF00B84A)
+        : (sm.current ? const Color(0xFF0395FF) : const Color(0xFFFF4444));
     return Container(
       // 撑满卡片宽度：避免只按内容撑开导致占不满或长内容溢出
       width: double.infinity,
@@ -313,28 +363,45 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _planRow(MingCuteIcons.timeLine, '计划时间：', _cnDate(planDate),
-              const Color(0xFF60656B)),
+          _planRow(
+            MingCuteIcons.timeLine,
+            '计划时间：',
+            _cnDate(planDate),
+            planColor,
+          ),
           const SizedBox(height: 4),
-          _planRow(MingCuteIcons.threeQuartersCircleDashLine, '状态：', statusText,
-              const Color(0xFF0395FF)),
+          _planRow(
+            MingCuteIcons.threeQuartersCircleDashLine,
+            '状态：',
+            statusText,
+            statusColor,
+            metaColor: statusMetaColor,
+          ),
         ],
       ),
     );
   }
 
-  Widget _planRow(IconData icon, String label, String value, Color valueColor) {
+  Widget _planRow(
+    IconData icon,
+    String label,
+    String value,
+    Color valueColor, {
+    Color? metaColor,
+  }) {
+    final labelColor = metaColor ?? valueColor;
     return Row(
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF919499)),
+        // 标题和图标可单独指定颜色；状态行保持灰色标题，仅状态值高亮。
+        Icon(icon, size: 16, color: labelColor),
         const SizedBox(width: 4),
         Text(label,
             maxLines: 1,
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
                 height: 20 / 12,
-                color: Color(0xFF919499))),
+                color: labelColor)),
         const SizedBox(width: 4),
         Expanded(
           child: Text(value,
@@ -514,6 +581,21 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
         ],
       ),
     );
+  }
+
+  /// 量出单行文本宽度，用来估算横向卡片的内容宽度。
+  double _measureTextWidth(
+    String text,
+    TextStyle style,
+    TextScaler textScaler,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      textScaler: textScaler,
+    )..layout();
+    return painter.width;
   }
 }
 

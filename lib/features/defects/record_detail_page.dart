@@ -7,7 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_card.dart';
-import '../../shared/widgets/app_dialog.dart';
+import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import 'defects_page.dart' show StatusPill;
 
@@ -77,34 +77,117 @@ class RecordDetailPage extends ConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+class _Body extends StatefulWidget {
   final Defect d;
   final String byName;
   final Future<void> Function(Defect nu) onUpdate;
   const _Body(this.d, {required this.byName, required this.onUpdate});
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space2,
-            AppTokens.space3, AppTokens.space3),
+  State<_Body> createState() => _BodyState();
+}
+
+class _BodyState extends State<_Body> {
+  bool _busy = false;
+  late final TextEditingController _replyCtl =
+      TextEditingController(text: widget.d.reply ?? '');
+
+  @override
+  void didUpdateWidget(covariant _Body oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.d.reply != widget.d.reply &&
+        _replyCtl.text != (widget.d.reply ?? '')) {
+      _replyCtl.text = widget.d.reply ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _replyCtl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _editReply() async {
+    final text = await AppBottomSheet.show<String>(
+      context: context,
+      title: '整改回复',
+      isScrollControlled: true,
+      body: (ctx) => _ReplyActionSheet(
+        initialText: _replyCtl.text,
+        helper: '填写整改回复内容后确认保存',
+        hintText: '填写整改回复内容',
+        accent: AppTokens.brand,
+        icon: MingCuteIcons.editLine,
+      ),
+    );
+    if (!mounted || text == null) return;
+    _replyCtl.text = text;
+    setState(() => _busy = true);
+    await widget.onUpdate(widget.d.copyWith(
+      reply: text,
+      replyBy: widget.byName,
+      replyTs: _fmtNow(),
+    ));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _submitRecordAction({required bool closeNow}) async {
+    final text = _replyCtl.text.trim();
+    if (text.isEmpty) {
+      AppSnack.show(context, '请先填写整改回复内容', kind: AppSnackKind.muted);
+      return;
+    }
+    setState(() => _busy = true);
+    await widget.onUpdate(widget.d.copyWith(
+      reply: text,
+      replyBy: widget.byName,
+      replyTs: _fmtNow(),
+      status: closeNow ? DefectStatus.done : null,
+      completion: closeNow ? '已完成（整改销项）' : null,
+    ));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
         children: [
-          // 水印照片（保留水印）+ 右上校验胶囊
-          _WatermarkPhoto(d),
-          const SizedBox(height: AppTokens.space3),
-          // 缺陷信息卡：标题 + 状态胶囊 / 红色说明框 / 责任人
-          _InfoCard(d),
-          const SizedBox(height: AppTokens.space3),
-          // 时间轴入口
-          _TimelineCard(d),
-          const SizedBox(height: AppTokens.space3),
-          // 参数卡：拍摄时间 / 海拔 / GPS 坐标 / 楼层部位
-          _ParamsCard(d),
-          const SizedBox(height: AppTokens.space3),
-          // 任务4：设计师远程处置卡
-          _DesignerCard(d: d, byName: byName, onUpdate: onUpdate),
-          const SizedBox(height: AppTokens.space3),
-          // 任务5：施工方整改回复卡
-          _ReplyCard(d: d, byName: byName, onUpdate: onUpdate),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                  AppTokens.space3, AppTokens.space2, AppTokens.space3, 96),
+              children: [
+                // 水印照片（保留水印）+ 右上校验胶囊
+                _WatermarkPhoto(widget.d),
+                const SizedBox(height: AppTokens.space3),
+                // 缺陷信息卡：标题 + 状态胶囊 / 红色说明框 / 责任人
+                _InfoCard(widget.d),
+                const SizedBox(height: AppTokens.space3),
+                // 时间轴入口
+                _TimelineCard(widget.d),
+                const SizedBox(height: AppTokens.space3),
+                // 参数卡：拍摄时间 / 海拔 / GPS 坐标 / 楼层部位
+                _ParamsCard(widget.d),
+                const SizedBox(height: AppTokens.space3),
+                // 任务4：设计师远程处置卡
+                _DesignerCard(
+                    d: widget.d,
+                    byName: widget.byName,
+                    onUpdate: widget.onUpdate),
+                const SizedBox(height: AppTokens.space3),
+                // 任务5：施工方整改回复卡（在卡片内直接输入）
+                _ReplyCard(
+                  d: widget.d,
+                  onTap: _busy ? null : _editReply,
+                ),
+              ],
+            ),
+          ),
+          // 底部固定操作栏用于整条记录的保存和销项操作。
+          _RecordActionBar(
+            busy: _busy,
+            onSave: () => _submitRecordAction(closeNow: false),
+            onSubmit: () => _submitRecordAction(closeNow: true),
+          ),
         ],
       );
 }
@@ -219,16 +302,19 @@ class _TimelineCard extends StatelessWidget {
         radius: AppTokens.radiusSm,
         onTap: () => context.push('/timeline', extra: d.anchor),
         child: const Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Icon(MingCuteIcons.eyeLine, color: AppTokens.brand, size: 20),
             SizedBox(width: 8),
             Expanded(
               child: Text('查看同部位时间轴对比',
                   style: TextStyle(
-                      fontSize: 14,
-                      // 入口卡主文案也按卡片标题规则统一为 W500。
-                      fontWeight: FontWeight.w500,
-                      color: AppTokens.brand)),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    color: AppTokens.brand,
+                  )),
             ),
             SizedBox(width: 8),
             Icon(MingCuteIcons.rightLine, color: AppTokens.muted, size: 16),
@@ -348,7 +434,7 @@ class _WatermarkPhoto extends StatelessWidget {
                   ? const _VerifiedBadge(
                       icon: MingCuteIcons.checkCircleLine,
                       label: '已效验',
-                      bg: const Color(0xB300B84A),
+                      bg: Color(0xB300B84A),
                       fg: AppTokens.onAccent,
                     )
                   : const _VerifiedBadge(
@@ -451,42 +537,58 @@ class _DesignerCard extends StatelessWidget {
     required this.onUpdate,
   });
 
+  // 设计师处置动作采用浅底色块，颜色和底部弹窗中的身份/状态色体系一致。
+  (Color fg, Color bg, IconData icon, String title, String hint, bool required)
+      _actionMeta(String action) {
+    switch (action) {
+      case 'remoteFix':
+        return (
+          const Color(0xFF00B84A),
+          const Color(0x0D00B84A),
+          MingCuteIcons.checkCircleLine,
+          '远程已解决',
+          '填写处理说明后提交并同步更新记录状态',
+          true,
+        );
+      case 'remoteConfirm':
+        return (
+          const Color(0xFFFF4444),
+          const Color(0x0DFF4444),
+          MingCuteIcons.phoneSuccessLine,
+          '远程已答复',
+          '填写远程答复内容后提交给施工方查看',
+          false,
+        );
+      default:
+        return (
+          const Color(0xFFFF9500),
+          const Color(0x0DFF9500),
+          MingCuteIcons.location2Line,
+          '需要到现场',
+          '补充到场说明或准备事项后再提交',
+          false,
+        );
+    }
+  }
+
   Future<void> _act(BuildContext context, String action) async {
     final isFix = action == 'remoteFix';
-    final ctl = TextEditingController();
-    final title = switch (action) {
-      'remoteFix' => '远程已解决（销项）',
-      'remoteConfirm' => '远程已答复',
-      _ => '需到场',
-    };
-    final note = await AppDialog.show<String>(
+    final meta = _actionMeta(action);
+    final note = await AppBottomSheet.show<String>(
       context: context,
-      title: title,
-      content: AppDialogInput(
-        controller: ctl,
-        hintText: isFix ? '填写处置说明（必填）…' : '填写说明（可空）…',
-        autofocus: true,
-        maxLines: 3,
-      ),
-      actions: AppDialogActions(
-        children: [
-          AppDialogButton.secondary(
-            label: '取消',
-            onTap: () => Navigator.of(context, rootNavigator: true).pop(),
-          ),
-          AppDialogButton.primary(
-            label: '确认提交',
-            onTap: () =>
-                Navigator.of(context, rootNavigator: true).pop(ctl.text.trim()),
-          ),
-        ],
+      title: meta.$4,
+      isScrollControlled: true,
+      body: (ctx) => _DesignerActionSheet(
+        actionLabel: meta.$4,
+        helper: meta.$5,
+        requiredNote: meta.$6,
+        accent: meta.$1,
+        icon: meta.$3,
+        hintText: isFix ? '填写处置说明（必填）' : '填写处置说明（选填）',
       ),
     );
+    if (!context.mounted) return;
     if (note == null) return; // 取消
-    if (isFix && note.isEmpty) {
-      AppSnack.show(context, '请填写处置说明后再销项', kind: AppSnackKind.muted);
-      return;
-    }
     await onUpdate(d.copyWith(
       status: isFix ? DefectStatus.done : null,
       completion: isFix ? '已完成（设计师远程销项）' : null,
@@ -500,80 +602,189 @@ class _DesignerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final acted = d.designerAction != null;
+    final resultMeta = _actionMeta(d.designerAction ?? 'remoteConfirm');
+    final resultFg = resultMeta.$1;
     return AppCard(
       padding: const EdgeInsets.all(AppTokens.space3),
       radius: AppTokens.radiusSm,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('设计师处置',
-              style: TextStyle(
-                  fontSize: 15,
-                  // 卡片区块标题统一使用 W500。
-                  fontWeight: FontWeight.w500,
-                  color: AppTokens.fg)),
-          const SizedBox(height: 10),
           if (acted)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0x120395FF),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(d.designerActionLabel,
-                          style: const TextStyle(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 已提交后的展示态按设计稿拆成标题区和灰底内容区，避免整块染色过重。
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Expanded(
+                      child: Text('设计师处置',
+                          style: TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF0395FF))),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(d.designerTs ?? '',
-                            style: const TextStyle(
-                                fontSize: 11, color: AppTokens.muted)),
+                              height: 22 / 14,
+                              color: AppTokens.fg)),
+                    ),
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: resultFg.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                    ],
-                  ),
-                  if ((d.designerNote ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(d.designerNote!,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppTokens.fg2)),
+                      alignment: Alignment.center,
+                      child: Text(
+                        d.designerActionLabel,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          height: 20 / 12,
+                          color: resultFg,
+                        ),
+                      ),
+                    ),
                   ],
-                  const SizedBox(height: 4),
-                  Text('处置人：${d.designerBy ?? ''}',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppTokens.muted)),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 280;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            (d.designerNote ?? '').trim().isEmpty
+                                ? '暂无处置说明'
+                                : d.designerNote!.trim(),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 22 / 14,
+                              color: AppTokens.fg2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (compact) ...[
+                            Text('处置人：${d.designerBy ?? ''}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  height: 20 / 12,
+                                  color: AppTokens.muted,
+                                )),
+                            const SizedBox(height: 2),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(d.designerTs ?? '',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    height: 20 / 12,
+                                    color: AppTokens.muted,
+                                  )),
+                            ),
+                          ] else
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text('处置人：${d.designerBy ?? ''}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                        height: 20 / 12,
+                                        color: AppTokens.muted,
+                                      )),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(d.designerTs ?? '',
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w400,
+                                      height: 20 / 12,
+                                      color: AppTokens.muted,
+                                    )),
+                              ],
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
             )
           else
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                    child: _ActBtn(
+                const Text('设计师处置',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 22 / 14,
+                        color: AppTokens.fg)),
+                const SizedBox(height: 8),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 336;
+                    final buttons = [
+                      _ActBtn(
                         label: '远程已解决',
                         icon: MingCuteIcons.checkCircleLine,
-                        bg: const Color(0xFF16A34A),
-                        onTap: () => _act(context, 'remoteFix'))),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _ActBtn(
+                        fg: const Color(0xFF00B84A),
+                        bg: const Color(0x0D00B84A),
+                        onTap: () => _act(context, 'remoteFix'),
+                      ),
+                      _ActBtn(
                         label: '远程已答复',
-                        icon: MingCuteIcons.eyeLine,
-                        bg: const Color(0xFF0395FF),
-                        onTap: () => _act(context, 'remoteConfirm'))),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _ActBtn(
-                        label: '需到场',
-                        icon: MingCuteIcons.mapPinLine,
-                        bg: const Color(0xFFF59E0B),
-                        onTap: () => _act(context, 'onsite'))),
+                        icon: MingCuteIcons.phoneSuccessLine,
+                        fg: const Color(0xFFFF4444),
+                        bg: const Color(0x0DFF4444),
+                        onTap: () => _act(context, 'remoteConfirm'),
+                      ),
+                      _ActBtn(
+                        label: '需要到现场',
+                        icon: MingCuteIcons.location2Line,
+                        fg: const Color(0xFFFF9500),
+                        bg: const Color(0x0DFF9500),
+                        onTap: () => _act(context, 'onsite'),
+                      ),
+                    ];
+                    if (compact) {
+                      return Wrap(
+                        spacing: 13,
+                        runSpacing: 13,
+                        children: buttons
+                            .map((btn) => SizedBox(
+                                  width: (constraints.maxWidth - 13) / 2,
+                                  child: btn,
+                                ))
+                            .toList(),
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: buttons[0]),
+                        const SizedBox(width: 13),
+                        Expanded(child: buttons[1]),
+                        const SizedBox(width: 13),
+                        Expanded(child: buttons[2]),
+                      ],
+                    );
+                  },
+                ),
               ],
             ),
         ],
@@ -586,11 +797,13 @@ class _DesignerCard extends StatelessWidget {
 class _ActBtn extends StatelessWidget {
   final String label;
   final IconData icon;
+  final Color fg;
   final Color bg;
   final VoidCallback onTap;
   const _ActBtn({
     required this.label,
     required this.icon,
+    required this.fg,
     required this.bg,
     required this.onTap,
   });
@@ -598,47 +811,57 @@ class _ActBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          height: 38,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: Colors.white),
-              const SizedBox(height: 4),
+              Icon(icon, size: 20, color: fg),
+              const SizedBox(width: 4),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, color: Colors.white)),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: fg,
+                  )),
             ],
           ),
         ),
       );
 }
 
-// ==================== 任务5：施工方整改回复 ====================
+class _DesignerActionSheet extends StatefulWidget {
+  final String actionLabel;
+  final String helper;
+  final bool requiredNote;
+  final Color accent;
+  final IconData icon;
+  final String hintText;
 
-class _ReplyCard extends StatefulWidget {
-  final Defect d;
-  final String byName;
-  final Future<void> Function(Defect nu) onUpdate;
-  const _ReplyCard({
-    required this.d,
-    required this.byName,
-    required this.onUpdate,
+  const _DesignerActionSheet({
+    required this.actionLabel,
+    required this.helper,
+    required this.requiredNote,
+    required this.accent,
+    required this.icon,
+    required this.hintText,
   });
 
   @override
-  State<_ReplyCard> createState() => _ReplyCardState();
+  State<_DesignerActionSheet> createState() => _DesignerActionSheetState();
 }
 
-class _ReplyCardState extends State<_ReplyCard> {
-  late final TextEditingController _ctl =
-      TextEditingController(text: widget.d.reply ?? '');
-  bool _busy = false;
+class _DesignerActionSheetState extends State<_DesignerActionSheet> {
+  late final TextEditingController _ctl = TextEditingController();
 
   @override
   void dispose() {
@@ -646,85 +869,450 @@ class _ReplyCardState extends State<_ReplyCard> {
     super.dispose();
   }
 
-  Future<void> _submit({bool closeNow = false}) async {
-    final text = _ctl.text.trim();
-    if (text.isEmpty) {
-      AppSnack.show(context, '请先填写整改回复内容', kind: AppSnackKind.muted);
-      return;
-    }
-    setState(() => _busy = true);
-    await widget.onUpdate(widget.d.copyWith(
-      reply: text,
-      replyBy: widget.byName,
-      replyTs: _fmtNow(),
-      status: closeNow ? DefectStatus.done : null,
-      completion: closeNow ? '已完成（整改销项）' : null,
-    ));
-    if (mounted) setState(() => _busy = false);
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      // 键盘弹出时允许内容整体上移并滚动，避免输入框被遮挡。
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.accent.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(widget.icon, size: 20, color: widget.accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.helper,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _ctl,
+              autofocus: true,
+              maxLines: 4,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: AppTokens.fg,
+              ),
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                hintStyle: AppBottomSheet.helperStyle(),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                      BorderSide(color: widget.accent.withValues(alpha: 0.2)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            AppSheetFooter.cancelSave(
+              onCancel: () => Navigator.of(context).pop(),
+              onSave: () {
+                final text = _ctl.text.trim();
+                if (widget.requiredNote && text.isEmpty) {
+                  AppSnack.show(context, '请先填写处置说明', kind: AppSnackKind.muted);
+                  return;
+                }
+                Navigator.of(context).pop(text);
+              },
+              saveLabel: '确认提交',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 回复区底部操作按钮：左侧中性浅底，右侧品牌主按钮。
+class _ReplyActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  final bool primary;
+  final double height;
+  final FontWeight fontWeight;
+  const _ReplyActionButton({
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+    this.height = 36,
+    this.fontWeight = FontWeight.w500,
+  });
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Opacity(
+          opacity: onTap == null ? 0.5 : 1,
+          child: Container(
+            height: height,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: primary ? AppTokens.accent : const Color(0xFFF4F6F7),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: height >= 48 ? 16 : 14,
+                // 底部固定主操作使用 48 高按钮，字重统一为 W600。
+                fontWeight: fontWeight,
+                height: height >= 48 ? 24 / 16 : 22 / 14,
+                color: primary ? AppTokens.onAccent : const Color(0xFF60656B),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+// ==================== 任务5：施工方整改回复 ====================
+
+class _ReplyCard extends StatelessWidget {
+  final Defect d;
+  final VoidCallback? onTap;
+  const _ReplyCard({
+    required this.d,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        radius: AppTokens.radiusSm,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('整改回复（施工方）',
+                style: TextStyle(
+                    fontSize: 14,
+                    // 卡片区块标题统一使用 W500。
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 8),
+            if ((d.reply ?? '').trim().isEmpty)
+              Semantics(
+                button: true,
+                enabled: onTap != null,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onTap,
+                  child: Opacity(
+                    opacity: onTap == null ? 0.5 : 1,
+                    child: Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(minHeight: 38),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0x0D0395FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      // 空状态是浅蓝按钮，图标和文案整体居中。
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(MingCuteIcons.editLine,
+                              size: 20, color: AppTokens.brand),
+                          SizedBox(width: 4),
+                          Text(
+                            '填写回复',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              height: 22 / 14,
+                              color: AppTokens.brand,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4F6F7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 280;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          d.reply!.trim(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            height: 22 / 14,
+                            color: AppTokens.fg2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (compact) ...[
+                          Text('回复人：${d.replyBy ?? ''}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                height: 20 / 12,
+                                color: AppTokens.muted,
+                              )),
+                          const SizedBox(height: 2),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              d.replyTs ?? '',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                height: 20 / 12,
+                                color: AppTokens.muted,
+                              ),
+                            ),
+                          ),
+                        ] else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '回复人：${d.replyBy ?? ''}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    height: 20 / 12,
+                                    color: AppTokens.muted,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                d.replyTs ?? '',
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  height: 20 / 12,
+                                  color: AppTokens.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      );
+}
+
+/// 整改回复底部弹窗：交互和设计师处置保持一致，确认后返回填写内容。
+class _ReplyActionSheet extends StatefulWidget {
+  final String initialText;
+  final String helper;
+  final String hintText;
+  final Color accent;
+  final IconData icon;
+
+  const _ReplyActionSheet({
+    required this.initialText,
+    required this.helper,
+    required this.hintText,
+    required this.accent,
+    required this.icon,
+  });
+
+  @override
+  State<_ReplyActionSheet> createState() => _ReplyActionSheetState();
+}
+
+class _ReplyActionSheetState extends State<_ReplyActionSheet> {
+  late final TextEditingController _ctl =
+      TextEditingController(text: widget.initialText);
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasReply = (widget.d.reply ?? '').isNotEmpty;
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
-      radius: AppTokens.radiusSm,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('整改回复（施工方）',
-                  style: TextStyle(
-                      fontSize: 15,
-                      // 卡片区块标题统一使用 W500。
-                      fontWeight: FontWeight.w500,
-                      color: AppTokens.fg)),
-              const SizedBox(width: 8),
-              if (hasReply)
-                Expanded(
-                  child: Text('已于 ${widget.d.replyTs ?? ''} 回复',
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      // 键盘弹出时允许内容整体上移并滚动，避免输入框被遮挡。
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.accent.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(widget.icon, size: 20, color: widget.accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.helper,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                          fontSize: 11, color: AppTokens.muted)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _ctl,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: '填写整改回复内容…',
-              border: OutlineInputBorder(),
+                      style:
+                          AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _busy ? null : () => _submit(),
-                  child: const Text('仅保存，待复核'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _ctl,
+              autofocus: true,
+              maxLines: 4,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 22 / 14,
+                color: AppTokens.fg,
+              ),
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                hintStyle: AppBottomSheet.helperStyle(),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.all(12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide:
+                      BorderSide(color: widget.accent.withValues(alpha: 0.2)),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A)),
-                  onPressed: _busy ? null : () => _submit(closeNow: true),
-                  child: const Text('提交并销项'),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+            AppSheetFooter.cancelSave(
+              onCancel: () => Navigator.of(context).pop(),
+              onSave: () {
+                final text = _ctl.text.trim();
+                if (text.isEmpty) {
+                  AppSnack.show(context, '请先填写整改回复内容',
+                      kind: AppSnackKind.muted);
+                  return;
+                }
+                Navigator.of(context).pop(text);
+              },
+              saveLabel: '确认提交',
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+/// 记录详情页底部固定操作栏：承载整条记录的保存和销项操作。
+class _RecordActionBar extends StatelessWidget {
+  final bool busy;
+  final VoidCallback onSave;
+  final VoidCallback onSubmit;
+
+  const _RecordActionBar({
+    required this.busy,
+    required this.onSave,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        color: AppTokens.surface,
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+        child: SafeArea(
+          top: false,
+          child: Row(
+            children: [
+              Expanded(
+                child: _ReplyActionButton(
+                  onTap: busy ? null : onSave,
+                  label: '仅保存，待复核',
+                  height: 48,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _ReplyActionButton(
+                  primary: true,
+                  onTap: busy ? null : onSubmit,
+                  label: '提交并销项',
+                  height: 48,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 extension _IterableFirstOrNull<E> on Iterable<E> {

@@ -34,8 +34,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
   }
 
   Future<void> _load() async {
-    final list =
-        await ref.read(repositoryProvider).getTimeline(_anchor);
+    final list = await ref.read(repositoryProvider).getTimeline(_anchor);
     if (!mounted) return;
     setState(() {
       _photos = list;
@@ -68,46 +67,72 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
 
   @override
   Widget build(BuildContext context) {
-    final left =
-        _leftIdx != null && _leftIdx! < _photos.length ? _photos[_leftIdx!] : null;
+    final left = _leftIdx != null && _leftIdx! < _photos.length
+        ? _photos[_leftIdx!]
+        : null;
     final right = _rightIdx != null && _rightIdx! < _photos.length
         ? _photos[_rightIdx!]
         : null;
     return Scaffold(
       backgroundColor: AppTokens.bg,
       appBar: AppBar(
-        titleSpacing: 12,
+        titleSpacing: 0,
         automaticallyImplyLeading: false,
-        leadingWidth: 36,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: NavIconButton(icon: MingCuteIcons.leftLine),
-        ),
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        leadingWidth: 0,
+        title: Stack(
+          alignment: Alignment.center,
           children: [
-            Text('时间轴对比',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg)),
-            Text('F8 · 滑块前后对比',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: AppTokens.fg2,
-                    fontWeight: FontWeight.w400)),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: NavIconButton(icon: MingCuteIcons.leftLine),
+              ),
+            ),
+            // 和图纸详情页一致：标题区两侧预留 48，避免被返回按钮顶偏。
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 48),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '时间轴对比',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 24 / 16,
+                      color: AppTokens.fg,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'F8 · 滑块前后对比',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 20 / 12,
+                      color: AppTokens.fg2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: AppTokens.bg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space3, AppTokens.space2, AppTokens.space3, AppTokens.space3),
+        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space2,
+            AppTokens.space3, AppTokens.space3),
         children: [
           _buildAnchorBar(),
           const SizedBox(height: AppTokens.space3),
@@ -127,8 +152,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   SizedBox(width: AppTokens.space2),
                   Expanded(
                     child: Text('请从上方照片中至少选择两张进行对比',
-                        style: TextStyle(
-                            fontSize: 14, color: AppTokens.muted)),
+                        style: TextStyle(fontSize: 14, color: AppTokens.muted)),
                   ),
                 ],
               ),
@@ -239,12 +263,11 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                 ),
                 if (p.verified)
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
                       color: AppTokens.brandTint,
-                      borderRadius:
-                          BorderRadius.circular(AppTokens.radiusPill),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusPill),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -264,8 +287,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
             ),
             const SizedBox(height: 2),
             Text(_stateLabel(p.state),
-                style: const TextStyle(
-                    fontSize: 10, color: AppTokens.muted)),
+                style: const TextStyle(fontSize: 10, color: AppTokens.muted)),
           ],
         ),
       ),
@@ -300,8 +322,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                 onTap: _swap,
                 borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 child: const Padding(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -421,7 +442,9 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
             alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
         children: [
           Icon(
-            alignLeft ? MingCuteIcons.arrowLeftLine : MingCuteIcons.arrowRightLine,
+            alignLeft
+                ? MingCuteIcons.arrowLeftLine
+                : MingCuteIcons.arrowRightLine,
             size: 12,
             color: AppTokens.muted,
           ),
@@ -450,7 +473,9 @@ class _CornerTag extends StatelessWidget {
         ),
         child: Text(label,
             style: const TextStyle(
-                fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                fontSize: 10,
+                color: Colors.white,
+                fontWeight: FontWeight.w500)),
       );
 }
 
@@ -501,13 +526,21 @@ class _MockPhotoPainter extends CustomPainter {
         // 空鼓斑块 + 裂缝
         canvas.drawOval(
           Rect.fromCenter(
-              center: Offset(cx, cy), width: size.width * 0.34, height: size.height * 0.4),
+              center: Offset(cx, cy),
+              width: size.width * 0.34,
+              height: size.height * 0.4),
           Paint()..color = const Color(0xFFC9C2B2).withValues(alpha: 0.75),
         );
-        _drawCrack(canvas, size, Offset(cx - size.width * 0.08, cy),
+        _drawCrack(
+            canvas,
+            size,
+            Offset(cx - size.width * 0.08, cy),
             Offset(cx + size.width * 0.12, cy + size.height * 0.12),
             const Color(0xFF6B6355));
-        _drawCrack(canvas, size, Offset(cx, cy),
+        _drawCrack(
+            canvas,
+            size,
+            Offset(cx, cy),
             Offset(cx + size.width * 0.05, cy + size.height * 0.22),
             const Color(0xFF7A7163));
         break;
@@ -527,7 +560,10 @@ class _MockPhotoPainter extends CustomPainter {
               height: size.height * 0.2),
           Paint()..color = const Color(0xFF5E574C).withValues(alpha: 0.7),
         );
-        _drawCrack(canvas, size, Offset(cx, cy),
+        _drawCrack(
+            canvas,
+            size,
+            Offset(cx, cy),
             Offset(cx + size.width * 0.1, cy + size.height * 0.12),
             const Color(0xFF3E3A33));
         break;
@@ -538,10 +574,12 @@ class _MockPhotoPainter extends CustomPainter {
               center: Offset(cx, cy),
               width: size.width * 0.3,
               height: size.height * 0.36),
-          Paint()
-            ..color = const Color(0xFFCFC8B8).withValues(alpha: 0.4),
+          Paint()..color = const Color(0xFFCFC8B8).withValues(alpha: 0.4),
         );
-        _drawCrack(canvas, size, Offset(cx, cy),
+        _drawCrack(
+            canvas,
+            size,
+            Offset(cx, cy),
             Offset(cx + size.width * 0.1, cy + size.height * 0.12),
             const Color(0xFFB5AC9C).withValues(alpha: 0.5));
     }

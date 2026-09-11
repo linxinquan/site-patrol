@@ -20,7 +20,11 @@ class RoomRecordsPage extends ConsumerWidget {
     final scans = ref.watch(roomScansProvider(projectId));
     return Scaffold(
       appBar: AppBar(
-        title: const Text('量房记录'),
+        centerTitle: true,
+        title: const Text(
+          '量房记录',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: [
           IconButton(
             icon: const Icon(MingCuteIcons.addLine),
@@ -49,7 +53,8 @@ class RoomRecordsPage extends ConsumerWidget {
           return ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: list.length,
-            itemBuilder: (ctx, i) => _RoomCard(record: list[i], projectId: projectId),
+            itemBuilder: (ctx, i) =>
+                _RoomCard(record: list[i], projectId: projectId),
           );
         },
         orElse: () => const SizedBox.shrink(),
@@ -130,8 +135,9 @@ class _RoomCard extends ConsumerWidget {
                     Text(
                       _fmt(record.scannedAtMs) +
                           ' · ${area.toStringAsFixed(2)} ㎡'
-                          ' · ${record.walls.length} 段',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF8A90A0)),
+                              ' · ${record.walls.length} 段',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFF8A90A0)),
                     ),
                     const SizedBox(height: 4),
                     Row(children: [
@@ -140,7 +146,9 @@ class _RoomCard extends ConsumerWidget {
                             ? MingCuteIcons.checkCircleLine
                             : MingCuteIcons.warningLine,
                         size: 14,
-                        color: deltaOk ? const Color(0xFF1DB954) : const Color(0xFFFF5959),
+                        color: deltaOk
+                            ? const Color(0xFF1DB954)
+                            : const Color(0xFFFF5959),
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -157,7 +165,8 @@ class _RoomCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              const Icon(MingCuteIcons.rightLine, size: 18, color: Color(0xFFB9BFCC)),
+              const Icon(MingCuteIcons.rightLine,
+                  size: 18, color: Color(0xFFB9BFCC)),
             ],
           ),
         ),

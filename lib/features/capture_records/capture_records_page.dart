@@ -26,8 +26,7 @@ class CaptureRecordsPage extends ConsumerStatefulWidget {
   const CaptureRecordsPage({super.key});
 
   @override
-  ConsumerState<CaptureRecordsPage> createState() =>
-      _CaptureRecordsPageState();
+  ConsumerState<CaptureRecordsPage> createState() => _CaptureRecordsPageState();
 }
 
 class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
@@ -64,10 +63,11 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         backgroundColor: AppTokens.bg,
         elevation: 0,
         scrolledUnderElevation: 0,
+        centerTitle: true,
         title: const Text('验收记录',
             style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
                 color: AppTokens.fg)),
         leadingWidth: 30,
         leading: const Padding(
@@ -97,8 +97,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.only(
-                          top: AppTokens.space2,
-                          bottom: AppTokens.space3),
+                          top: AppTokens.space2, bottom: AppTokens.space3),
                       child: StatsStrip(
                         total: stats.total,
                         today: stats.today,
@@ -124,8 +123,9 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                       hasScrollBody: false,
                       child: _NoMatchState(
                         onReset: () {
-                          ref.read(captureRecordsFilterProvider.notifier).state =
-                              const CaptureRecordsFilter();
+                          ref
+                              .read(captureRecordsFilterProvider.notifier)
+                              .state = const CaptureRecordsFilter();
                         },
                       ),
                     )
@@ -145,8 +145,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                             _openDetail(context, entry, records),
                       ),
                     ),
-                  const SliverToBoxAdapter(
-                      child: SizedBox(height: 96)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 96)),
                 ],
               ),
       ),
@@ -186,8 +185,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
 
   /// 转工单：构造 Defect → repo.addDefect → refreshDefects → 回写 status → Snack。
   /// 全部成功返回 `true`，弹层会就地标记 converted。
-  Future<bool> _onConvert(
-      Map<String, dynamic> entry, List<int> idxs) async {
+  Future<bool> _onConvert(Map<String, dynamic> entry, List<int> idxs) async {
     if (idxs.isEmpty) return false;
     final repo = ref.read(repositoryProvider);
     final defectsRaw = (entry['defects'] as List? ?? const [])
@@ -242,7 +240,8 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
       final ds = e['defects'];
       if (ds is List) {
         for (final d in ds) {
-          if (d is Map && (d['status']?.toString() ?? 'pending') != 'converted') {
+          if (d is Map &&
+              (d['status']?.toString() ?? 'pending') != 'converted') {
             pending++;
           }
         }
@@ -330,17 +329,15 @@ class _EmptyState extends StatelessWidget {
               style: FilledButton.styleFrom(
                 backgroundColor: AppTokens.accent,
                 foregroundColor: AppTokens.onAccent,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 22, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppTokens.radiusButton),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusButton),
                 ),
               ),
               icon: const Icon(MingCuteIcons.cameraLine, size: 16),
               label: const Text('去拍照',
-                  style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w700)),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -366,7 +363,8 @@ class _NoMatchState extends StatelessWidget {
           const SizedBox(height: 12),
           const Text('当前筛选条件下没有记录',
               style: TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: AppTokens.fg2)),
           const SizedBox(height: 12),
           TextButton(

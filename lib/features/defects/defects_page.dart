@@ -1034,6 +1034,21 @@ class _EmptyState extends StatelessWidget {
 class _ActionCard extends ConsumerWidget {
   const _ActionCard();
 
+  // 工单卡片的身份标签颜色与「选择身份」底部弹窗保持一致。
+  static const Color _roleRed = Color(0xFFFF4444);
+  static const Color _roleGreen = Color(0xFF00B84A);
+  static const Color _roleBlue = Color(0xFF0395FF);
+
+  (Color, Color) _roleBadge(String role) {
+    if (role.contains('业主')) {
+      return (_roleRed, _roleRed.withValues(alpha: 0.05));
+    }
+    if (role.contains('咨询') || role.contains('PMO')) {
+      return (_roleGreen, _roleGreen.withValues(alpha: 0.05));
+    }
+    return (_roleBlue, _roleBlue.withValues(alpha: 0.05));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
@@ -1115,44 +1130,53 @@ class _ActionCard extends ConsumerWidget {
 
   /// 顶部左侧身份信息：头像 + 姓名 + 角色标签。
   Widget _identityInfo({required User user, required String role}) {
+    final (badgeFg, badgeBg) = _roleBadge(role);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _identityAvatar(user.avatar, 24),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            user.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 22 / 14,
-              color: Color(0xFF202224),
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
-        // 身份标签改为内容自适应宽度，不再占用弹性宽度。
-        Container(
-          height: 20,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          decoration: BoxDecoration(
-            color: const Color(0x0D0395FF),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            role,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              height: 20 / 12,
-              color: Color(0xFF0395FF),
-            ),
+          // 姓名和身份标签放在同一组里，标签紧跟在名称后面，间距固定 4。
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  user.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: Color(0xFF202224),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                height: 20,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  role.replaceAll(' ', ''),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 20 / 12,
+                    color: badgeFg,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

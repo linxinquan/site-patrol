@@ -50,8 +50,8 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
 
   Future<void> _editWall(RoomScanRecord r, int i) async {
     final w = r.walls[i];
-    final thickCtl = TextEditingController(
-        text: (w.thicknessMm ?? 200).toStringAsFixed(0));
+    final thickCtl =
+        TextEditingController(text: (w.thicknessMm ?? 200).toStringAsFixed(0));
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -59,11 +59,16 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
         content: TextField(
           controller: thickCtl,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: '墙厚 (mm)', isDense: true),
+          decoration:
+              const InputDecoration(labelText: '墙厚 (mm)', isDense: true),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('取消')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('保存')),
         ],
       ),
     );
@@ -88,7 +93,11 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     final r = _record;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('量房详情'),
+        centerTitle: true,
+        title: const Text(
+          '量房详情',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: r == null
             ? null
             : [
@@ -104,9 +113,7 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
                 ),
               ],
       ),
-      body: r == null
-          ? const Center(child: Text('记录不存在或已删除'))
-          : _buildBody(r),
+      body: r == null ? const Center(child: Text('记录不存在或已删除')) : _buildBody(r),
     );
   }
 
@@ -145,7 +152,8 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
           style: const TextStyle(fontSize: 12, color: Color(0xFF8A90A0)),
         ),
         const SizedBox(height: 12),
-        const Text('墙段', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        const Text('墙段',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
         const SizedBox(height: 4),
         for (var i = 0; i < r.walls.length; i++)
           Card(
@@ -153,8 +161,7 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
             child: ListTile(
               dense: true,
               title: Text('墙 ${i + 1} · ${fmtMm(r.walls[i].lengthMm)} mm'),
-              subtitle: Text(
-                  '墙厚 ${fmtMm(r.walls[i].thicknessMm ?? 200)} mm'
+              subtitle: Text('墙厚 ${fmtMm(r.walls[i].thicknessMm ?? 200)} mm'
                   ' · 洞口 ${r.walls[i].openings.length} 处'
                   '${r.walls[i].openings.isEmpty ? '' : ' · ${r.walls[i].openings.map((o) => o.type == 'door' ? '门${fmtMm(o.widthMm)}' : '窗${fmtMm(o.widthMm)}').join('、')}'}'),
               trailing: Row(
@@ -185,8 +192,12 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
               child: ListTile(
                 dense: true,
                 leading: Icon(
-                  c.pass(15, 2) ? MingCuteIcons.checkCircleLine : MingCuteIcons.closeCircleLine,
-                  color: c.pass(15, 2) ? const Color(0xFF1DB954) : const Color(0xFFFF5959),
+                  c.pass(15, 2)
+                      ? MingCuteIcons.checkCircleLine
+                      : MingCuteIcons.closeCircleLine,
+                  color: c.pass(15, 2)
+                      ? const Color(0xFF1DB954)
+                      : const Color(0xFFFF5959),
                 ),
                 title: Text(c.name),
                 subtitle: Text(

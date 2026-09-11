@@ -36,6 +36,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   bool _orthoOn = true;
   // 临时洞口（保存时归入对应 RoomWall）
   final List<({int wallIdx, WallOpening op})> _openings = [];
+
   /// 点回起点完成闭合时记录的首尾缺口（≤60mm），此后闭合差以此为准
   /// （否则开环点列 closureDelta = 首尾距离恒为大值，演示与工程口径不符）。
   double? _closeGap;
@@ -56,7 +57,9 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
 
   /// 视野复位到画布起点区域（~0.12 倍）。
   void _resetView() {
-    _view.value = Matrix4.identity()..translate(80.0, 80.0)..scale(0.12);
+    _view.value = Matrix4.identity()
+      ..translate(80.0, 80.0)
+      ..scale(0.12);
   }
 
   /// 以视口中心为锚点缩放。
@@ -124,8 +127,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     if (_pts.length >= 3 && (_pts.first - mm).distance <= 60) {
       setState(() => _closeGap = (_pts.first - mm).distance);
       _applySnap();
-      AppSnack.show(context,
-          '已闭合（缺口 ${fmtMm(_closeGap!)}mm），可保存',
+      AppSnack.show(context, '已闭合（缺口 ${fmtMm(_closeGap!)}mm），可保存',
           kind: AppSnackKind.success);
       return;
     }
@@ -211,8 +213,8 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
         : ((((tapMm.dx - a.dx) * ab.dx + (tapMm.dy - a.dy) * ab.dy) / len2)
             .clamp(0.0, 1.0));
     final typeCtl = TextEditingController(text: 'door');
-    final offsetCtl = TextEditingController(
-        text: (ab * t).distance.toStringAsFixed(0));
+    final offsetCtl =
+        TextEditingController(text: (ab * t).distance.toStringAsFixed(0));
     final widthCtl = TextEditingController(text: '900');
     final type = await showDialog<String>(
       context: context,
@@ -228,8 +230,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
                   ButtonSegment(value: 'window', label: Text('窗')),
                 ],
                 selected: {typeCtl.text},
-                onSelectionChanged: (s) =>
-                    setD(() => typeCtl.text = s.first),
+                onSelectionChanged: (s) => setD(() => typeCtl.text = s.first),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -278,8 +279,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
   // —— 保存 ——
   Future<void> _save() async {
     if (_pts.length < 3) {
-      AppSnack.show(context, '请至少点出 3 个墙角（沿房间走一圈）',
-          kind: AppSnackKind.danger);
+      AppSnack.show(context, '请至少点出 3 个墙角（沿房间走一圈）', kind: AppSnackKind.danger);
       return;
     }
     final delta = _closeGap ?? closureDelta(_pts);
@@ -302,8 +302,8 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       if (ok != true) return;
       if (!mounted) return;
     }
-    final projectKey = widget.args.projectKey ??
-        (ref.read(currentProjectIdProvider) ?? '');
+    final projectKey =
+        widget.args.projectKey ?? (ref.read(currentProjectIdProvider) ?? '');
     if (projectKey.isEmpty) {
       AppSnack.show(context, '缺少项目，无法保存', kind: AppSnackKind.danger);
       return;
@@ -365,7 +365,11 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
     final ortho = _orthoOn;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('量房成图（手动）'),
+        centerTitle: true,
+        title: const Text(
+          '量房成图（手动）',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: [
           TextButton(onPressed: _undo, child: const Text('撤销')),
           IconButton(
@@ -378,8 +382,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
                     color: ortho ? const Color(0xFF1DB954) : appRed)),
           ),
           TextButton(
-              onPressed: _pts.isEmpty ? null : _save,
-              child: const Text('保存')),
+              onPressed: _pts.isEmpty ? null : _save, child: const Text('保存')),
         ],
       ),
       body: Column(
@@ -419,8 +422,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
                         _zoomBtn(Icons.add, () => _zoomBy(box.biggest, 1.25)),
                         _zoomBtn(
                             Icons.remove, () => _zoomBy(box.biggest, 1 / 1.25)),
-                        _zoomBtn(Icons.home_outlined, _resetView,
-                            tip: '回到起点'),
+                        _zoomBtn(Icons.home_outlined, _resetView, tip: '回到起点'),
                       ],
                     ),
                   ),
@@ -513,6 +515,7 @@ class _RoomGridPainter extends CustomPainter {
   final List<Offset> pts;
   final Set<int> snapped;
   final List<({int wallIdx, WallOpening op})> openings;
+
   /// 当前视图缩放（mm→屏幕px）。画布元素都画在毫米坐标系里，
   /// 缩小视图时线宽会被同步缩小到亚像素（0.12 倍时 1px→0.12px）而不可见，
   /// 因此线宽/点径统一除以 viewScale 换算回屏幕像素。
@@ -534,12 +537,12 @@ class _RoomGridPainter extends CustomPainter {
       ..color = const Color(0xFFC9D2E0)
       ..strokeWidth = 1.5 * k;
     for (var v = 0.0; v <= size.width; v += 500) {
-      canvas.drawLine(Offset(v, 0), Offset(v, size.height),
-          v % 1000 == 0 ? major : minor);
+      canvas.drawLine(
+          Offset(v, 0), Offset(v, size.height), v % 1000 == 0 ? major : minor);
     }
     for (var h = 0.0; h <= size.height; h += 500) {
-      canvas.drawLine(Offset(0, h), Offset(size.width, h),
-          h % 1000 == 0 ? major : minor);
+      canvas.drawLine(
+          Offset(0, h), Offset(size.width, h), h % 1000 == 0 ? major : minor);
     }
 
     if (pts.isEmpty) return;
@@ -558,7 +561,9 @@ class _RoomGridPainter extends CustomPainter {
           final len = (b - a).distance;
           final u0 = (e.op.offsetFromMm / len).clamp(0.0, 1.0);
           final u1 = ((e.op.offsetFromMm + e.op.widthMm) / len).clamp(0.0, 1.0);
-          canvas.drawLine(a + (b - a) * u0, a + (b - a) * u1,
+          canvas.drawLine(
+              a + (b - a) * u0,
+              a + (b - a) * u1,
               Paint()
                 ..color = Colors.white
                 ..strokeWidth = 9 * k);

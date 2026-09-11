@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
@@ -33,7 +32,6 @@ import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/voice_input.dart';
 import '../../shared/widgets/user_switcher.dart';
-import '../../shared/widgets/app_card.dart';
 
 /// 量尺校对容差默认值：±10mm 且 ±5%
 const double _defaultTolMm = 10;
@@ -808,16 +806,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       appBar: AppBar(
         title: const Text('验收',
             style: TextStyle(
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppTokens.fg,
-                height: 28 / 20)),
-        centerTitle: false,
+                height: 24 / 16)),
+        centerTitle: true,
         backgroundColor: AppTokens.bg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 48,
-        titleSpacing: 12,
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 12),
@@ -867,12 +864,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 全页统一的区块卡片外壳。
   ///
-  /// 白底 + 外层圆角 12 + 内边距 12，**不加灰描边、不加阴影**（白底置于 #F4F6F7
-  /// 上已足够分离；此前量尺校对卡混用 border + elevationOverlay 导致卡片各异）。
-  /// 标题行统一：图标 14/accent + 标题 13/w600/height1 + 可选计数胶囊 + 右侧 action。
+  /// 白底 + 外层圆角 12 + 内边距 12，**不加灰描边、不加阴影**。
+  /// 标题层级统一收口到 14/W500，减少局部标题抢戏。
   Widget _sectionCard({
     required IconData icon,
     required String title,
+    String? helper,
     String? count,
     Color? countColor,
     Widget? action,
@@ -899,9 +896,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 22 / 14,
                         color: AppTokens.fg)),
               ),
               if (count != null) ...[
@@ -926,6 +923,18 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               if (action != null) action,
             ],
           ),
+          if (helper != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              helper,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.muted,
+              ),
+            ),
+          ],
           const SizedBox(height: AppTokens.space3),
           child,
         ],
@@ -933,9 +942,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
-  /// 顶部上下文卡：合并「步骤进度」与「锚定部位」，
-  /// 替代原先两张独立白卡（中间只有 8px 间隙，视觉碎且重复）。
+  /// 顶部上下文卡：把步骤、图纸、部位、定位收成一个统一工作台头部。
   Widget _buildContextCard() {
+    final drawingName = _selectedFloor?.name ?? '未选择图纸';
+    final currentStepLabel = switch (_step) {
+      _CaptureStep.selectFloor => '选择图纸',
+      _CaptureStep.selectPoint => '定位部位',
+      _CaptureStep.capture => _scanning ? '识别中' : '现场拍照',
+    };
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(
@@ -948,22 +962,118 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppTokens.space3,
-                AppTokens.space3, AppTokens.space3, AppTokens.space3),
-            child: _buildStepRow(),
-          ),
-          const Divider(height: 1, thickness: 0.5),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppTokens.space3, vertical: AppTokens.space2 + 2),
-            child: _buildAnchorRow(),
+            padding: const EdgeInsets.all(AppTokens.space3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '当前验收任务',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              height: 20 / 12,
+                              color: AppTokens.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _anchorLabel == '待选点'
+                                ? drawingName
+                                : '$_anchorLabel · $drawingName',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 24 / 16,
+                              color: AppTokens.fg,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppTokens.space3),
+                    _buildMetaPill(
+                      icon: MingCuteIcons.task2Line,
+                      label: currentStepLabel,
+                      active: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTokens.space3),
+                _buildStepRow(),
+                const SizedBox(height: AppTokens.space3),
+                _buildAnchorRow(),
+                const SizedBox(height: AppTokens.space2),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildMetaPill(
+                      icon: MingCuteIcons.mapLine,
+                      label: drawingName,
+                    ),
+                    _buildMetaPill(
+                      icon: MingCuteIcons.mapPinLine,
+                      label: _location.name,
+                    ),
+                    _buildMetaPill(
+                      icon: MingCuteIcons.cameraLine,
+                      label: _shotPhoto == null ? '未拍照' : '已拍照',
+                      active: _shotPhoto != null,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// 锚定部位行：图标底方块 + 「锚定部位」小标签 + 部位/图纸名 + 右侧「更换」。
+  /// 顶部工作台里的轻量状态胶囊：承载步骤、定位、拍照状态等高频信息。
+  Widget _buildMetaPill({
+    required IconData icon,
+    required String label,
+    bool active = false,
+  }) {
+    final fg = active ? AppTokens.accent : AppTokens.fg2;
+    final bg = active ? AppTokens.brandTint : AppTokens.surface2;
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              height: 20 / 12,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 锚定部位行：主信息放左侧，右侧只保留一个轻量“更换图纸”动作。
   Widget _buildAnchorRow() {
     final drawingName = _selectedFloor?.name ?? '未选择图纸';
     final selected = _step != _CaptureStep.selectFloor;
@@ -971,16 +1081,19 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            color: AppTokens.accent.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            color: AppTokens.surface2,
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           ),
-          child: const Icon(MingCuteIcons.mapPinLine,
-              size: 16, color: AppTokens.accent),
+          child: Icon(
+            selected ? MingCuteIcons.mapPinLine : MingCuteIcons.mapLine,
+            size: 18,
+            color: selected ? AppTokens.accent : AppTokens.muted,
+          ),
         ),
-        const SizedBox(width: AppTokens.space2 + 2),
+        const SizedBox(width: AppTokens.space3),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,16 +1101,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             children: [
               const Text('锚定部位',
                   style: TextStyle(
-                      fontSize: 11, height: 1, color: AppTokens.muted)),
-              const SizedBox(height: 3),
+                      fontSize: 12, height: 20 / 12, color: AppTokens.muted)),
+              const SizedBox(height: 2),
               Text(
                 selected ? '$_anchorLabel · $drawingName' : '请选择图纸与具体部位',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                    fontSize: 13,
-                    height: 1,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    height: 22 / 14,
+                    fontWeight: FontWeight.w500,
                     color: selected ? AppTokens.fg : AppTokens.muted),
               ),
             ],
@@ -1006,7 +1119,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         const SizedBox(width: AppTokens.space2),
         _buildGhostBtn(
           icon: MingCuteIcons.repeatLine,
-          label: '更换',
+          label: '更换图纸',
           onTap: _showFloorSheet,
         ),
       ],
@@ -1216,7 +1329,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 分段控件：灰底胶囊槽 + 选中片白底（唯一允许加投影处：需浮出槽底）
+          // 分段控件：灰底胶囊槽 + 选中片浅蓝底，保持扁平化，不再使用投影。
           Container(
             height: 36,
             padding: const EdgeInsets.all(3),
@@ -1237,17 +1350,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       curve: Curves.easeOutCubic,
                       decoration: BoxDecoration(
                         color:
-                            selected ? AppTokens.surface : Colors.transparent,
+                            selected ? AppTokens.brandTint : Colors.transparent,
                         borderRadius:
                             BorderRadius.circular(AppTokens.radiusPill),
-                        boxShadow: selected
-                            ? const [
-                                BoxShadow(
-                                    color: Color(0x14000000),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 1))
-                              ]
-                            : null,
                       ),
                       alignment: Alignment.center,
                       child: Row(
@@ -1403,162 +1508,175 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final stepHint = _step == _CaptureStep.selectFloor
         ? '请先选择下方图纸，再进入图纸选点'
         : '点击图纸选点，将自动吸附最近锚点';
-    return AspectRatio(
-      aspectRatio: 1 / _ratio,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final box = constraints.biggest;
-          return Stack(
-            children: [
-              InteractiveViewer(
-                transformationController: _drawingTransform,
-                minScale: 0.8,
-                maxScale: 8.0,
-                boundaryMargin: const EdgeInsets.all(40),
-                child: SizedBox(
-                  width: box.width,
-                  height: box.height,
-                  child: GestureDetector(
-                    onTapUp: _step == _CaptureStep.selectFloor
-                        ? null
-                        : (d) => _onTapDrawing(d.localPosition, box),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        if (_drawing != null && _drawing!.src.isNotEmpty)
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(AppTokens.radiusLg),
-                            child: DrawingImage(
-                              _drawing!.src,
-                              fit: BoxFit.fill,
-                            ),
-                          )
-                        else if (_drawing != null &&
-                            _drawing!.src.isEmpty &&
-                            _remotePngUrl != null)
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(AppTokens.radiusLg),
-                            child: Image.network(
-                              _remotePngUrl!,
-                              fit: BoxFit.fill,
-                              filterQuality: FilterQuality.medium,
-                              loadingBuilder: (context, child, progress) =>
-                                  progress == null
-                                      ? child
-                                      : Container(
-                                          alignment: Alignment.center,
-                                          child: CircularProgressIndicator(
-                                            value: progress
-                                                        .expectedTotalBytes !=
-                                                    null
-                                                ? progress
-                                                        .cumulativeBytesLoaded /
-                                                    progress.expectedTotalBytes!
-                                                : null,
+    return _sectionCard(
+      icon: MingCuteIcons.mapLine,
+      title: '图纸工作区',
+      helper: '先选图纸，再在图纸上点击具体部位，随后进行现场拍照和识别。',
+      child: AspectRatio(
+        aspectRatio: 1 / _ratio,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final box = constraints.biggest;
+            return Stack(
+              children: [
+                InteractiveViewer(
+                  transformationController: _drawingTransform,
+                  minScale: 0.8,
+                  maxScale: 8.0,
+                  boundaryMargin: const EdgeInsets.all(40),
+                  child: SizedBox(
+                    width: box.width,
+                    height: box.height,
+                    child: GestureDetector(
+                      onTapUp: _step == _CaptureStep.selectFloor
+                          ? null
+                          : (d) => _onTapDrawing(d.localPosition, box),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (_drawing != null && _drawing!.src.isNotEmpty)
+                            ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusLg),
+                              child: DrawingImage(
+                                _drawing!.src,
+                                fit: BoxFit.fill,
+                              ),
+                            )
+                          else if (_drawing != null &&
+                              _drawing!.src.isEmpty &&
+                              _remotePngUrl != null)
+                            ClipRRect(
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusLg),
+                              child: Image.network(
+                                _remotePngUrl!,
+                                fit: BoxFit.fill,
+                                filterQuality: FilterQuality.medium,
+                                loadingBuilder: (context, child, progress) =>
+                                    progress == null
+                                        ? child
+                                        : Container(
+                                            alignment: Alignment.center,
+                                            child: CircularProgressIndicator(
+                                              value: progress
+                                                          .expectedTotalBytes !=
+                                                      null
+                                                  ? progress
+                                                          .cumulativeBytesLoaded /
+                                                      progress
+                                                          .expectedTotalBytes!
+                                                  : null,
+                                            ),
                                           ),
-                                        ),
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildMissingPngPlaceholder(error.toString()),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    _buildMissingPngPlaceholder(
+                                        error.toString()),
+                              ),
+                            )
+                          else if (_drawing != null && _drawing!.src.isEmpty)
+                            _buildMissingPngPlaceholder(_remotePngError)
+                          else
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppTokens.surface,
+                                borderRadius:
+                                    BorderRadius.circular(AppTokens.radiusLg),
+                              ),
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(MingCuteIcons.mapLine,
+                                      size: 48, color: AppTokens.muted),
+                                  const SizedBox(height: AppTokens.space2),
+                                  Text('未选择图纸',
+                                      style: TextStyle(
+                                          color: AppTokens.muted,
+                                          fontWeight: FontWeight.w600)),
+                                ],
+                              ),
                             ),
-                          )
-                        else if (_drawing != null && _drawing!.src.isEmpty)
-                          _buildMissingPngPlaceholder(_remotePngError)
-                        else
-                          Container(
-                            decoration: BoxDecoration(
-                              color: AppTokens.surface,
-                              borderRadius:
-                                  BorderRadius.circular(AppTokens.radiusLg),
+                          // 半透明遮罩，突出蓝图观感
+                          if (_drawing != null &&
+                              (_drawing!.src.isNotEmpty ||
+                                  _remotePngUrl != null))
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                    BorderRadius.circular(AppTokens.radiusLg),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.10),
+                                    Colors.black.withValues(alpha: 0.28),
+                                  ],
+                                ),
+                              ),
                             ),
-                            alignment: Alignment.center,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(MingCuteIcons.mapLine,
-                                    size: 48, color: AppTokens.muted),
-                                const SizedBox(height: AppTokens.space2),
-                                Text('未选择图纸',
-                                    style: TextStyle(
-                                        color: AppTokens.muted,
-                                        fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ),
-                        // 半透明遮罩，突出蓝图观感
-                        if (_drawing != null &&
-                            (_drawing!.src.isNotEmpty || _remotePngUrl != null))
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius:
-                                  BorderRadius.circular(AppTokens.radiusLg),
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.10),
-                                  Colors.black.withValues(alpha: 0.28),
+                          // 预置照片锚点图钉
+                          if (_drawing != null &&
+                              (_drawing!.src.isNotEmpty ||
+                                  _remotePngUrl != null))
+                            ..._anchors.map((a) => _buildPin(a)),
+                          // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
+                          if (_drawing != null &&
+                              _step != _CaptureStep.selectFloor) ...[
+                            _buildCrosshair(),
+                            _buildPickPin(),
+                          ],
+                          // 顶部提示条：只承担当前操作提示，不再承载过多信息。
+                          Positioned(
+                            top: AppTokens.space3,
+                            left: AppTokens.space3,
+                            right: AppTokens.space3,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppTokens.space3, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                borderRadius:
+                                    BorderRadius.circular(AppTokens.radiusPill),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(MingCuteIcons.cursorLine,
+                                      size: 12, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(stepHint,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.white)),
+                                  ),
                                 ],
                               ),
                             ),
                           ),
-                        // 预置照片锚点图钉
-                        if (_drawing != null &&
-                            (_drawing!.src.isNotEmpty || _remotePngUrl != null))
-                          ..._anchors.map((a) => _buildPin(a)),
-                        // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
-                        if (_drawing != null &&
-                            _step != _CaptureStep.selectFloor) ...[
-                          _buildCrosshair(),
-                          _buildPickPin(),
+                          // 扫描动画
+                          if (_scanning) _buildScanOverlay(),
                         ],
-                        // 顶部提示条
-                        Positioned(
-                          top: AppTokens.space3,
-                          left: AppTokens.space3,
-                          right: AppTokens.space3,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: AppTokens.space3, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.45),
-                              borderRadius:
-                                  BorderRadius.circular(AppTokens.radiusPill),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(MingCuteIcons.cursorLine,
-                                    size: 12, color: Colors.white),
-                                const SizedBox(width: 6),
-                                Text(stepHint,
-                                    style: const TextStyle(
-                                        fontSize: 11, color: Colors.white)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // 扫描动画
-                        if (_scanning) _buildScanOverlay(),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // 缩放控制按钮（浮在图纸之上，保持不随图纸缩放）
-              Positioned(
-                top: 8,
-                right: 8,
-                child: _ZoomToolbar(
-                  onZoomIn: () => _zoomDrawing(1.2),
-                  onZoomOut: () => _zoomDrawing(1 / 1.2),
-                  onReset: _resetDrawingZoom,
+                // 缩放控制按钮（浮在图纸之上，保持不随图纸缩放）
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: _ZoomToolbar(
+                    onZoomIn: () => _zoomDrawing(1.2),
+                    onZoomOut: () => _zoomDrawing(1 / 1.2),
+                    onReset: _resetDrawingZoom,
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -1577,39 +1695,21 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 步骤 ①：选择平面（楼层）。
   Widget _buildFloorSelector() {
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
+    return _sectionCard(
+      icon: MingCuteIcons.layersLine,
+      title: '选择图纸',
+      helper: '图纸名称会完整显示，当前选中的图纸会固定高亮。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(MingCuteIcons.layersLine, size: 14, color: AppTokens.accent),
-              SizedBox(width: AppTokens.space2),
-              Text('选择图纸',
-                  style: TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600, height: 1.2)),
-            ],
-          ),
-          const SizedBox(height: AppTokens.space2),
-          Wrap(
-            spacing: AppTokens.space2,
-            runSpacing: AppTokens.space2,
-            children: _floorOptions.map((f) {
-              return ChoiceChip(
-                label: Text(_floorLabel(f)),
-                selected: _selectedFloorKey == f.key,
-                onSelected: (_) => _selectFloor(f),
-                selectedColor: AppTokens.accent.withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: _selectedFloorKey == f.key
-                      ? AppTokens.accent
-                      : AppTokens.fg,
-                ),
-              );
-            }).toList(),
-          ),
+          for (int i = 0; i < _floorOptions.length; i++) ...[
+            if (i > 0) const SizedBox(height: AppTokens.space2),
+            _FloorOptionTile(
+              label: _floorLabel(_floorOptions[i]),
+              selected: _selectedFloorKey == _floorOptions[i].key,
+              onTap: () => _selectFloor(_floorOptions[i]),
+            ),
+          ],
         ],
       ),
     );
@@ -1617,36 +1717,47 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 步骤 ②：确认图纸上选中的部位。
   Widget _buildPointConfirm() {
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
+    return _sectionCard(
+      icon: MingCuteIcons.mapPinLine,
+      title: '确认部位',
+      helper: '若点位不准确，可以继续在图纸上点击修正，或重新切换图纸。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(MingCuteIcons.mapPinLine,
-                  size: 14, color: AppTokens.accent),
-              const SizedBox(width: AppTokens.space2),
               Expanded(
-                child: Text('已选部位：${_anchorLabel}',
+                child: Text('已选部位：$_anchorLabel',
                     style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.2)),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        height: 24 / 16)),
               ),
             ],
           ),
-          const SizedBox(height: AppTokens.space1),
-          Text('在图纸上点击可重新选择部位',
-              style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+          const SizedBox(height: AppTokens.space2),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppTokens.space3),
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+            ),
+            child: const Text('在图纸上点击可重新选择部位，系统会自动吸附到最近的预设锚点。',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: AppTokens.fg2)),
+          ),
           const SizedBox(height: AppTokens.space3),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
+            child: AppButton(
+              outlined: true,
+              label: '重选图纸',
               onPressed: _showFloorSheet,
-              icon: const Icon(MingCuteIcons.arrowLeftLine, size: 16),
-              label: const Text('重选图纸'),
             ),
           ),
         ],
@@ -1656,25 +1767,31 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 步骤 ③：拍照阶段信息条。
   Widget _buildCaptureInfo() {
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(MingCuteIcons.cameraLine,
-              size: 16, color: AppTokens.accent),
-          const SizedBox(width: AppTokens.space2),
-          Expanded(
-            child: Text('${_drawing?.title ?? '—'} · ${_anchorLabel}',
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600, height: 1.2)),
+    return _sectionCard(
+      icon: MingCuteIcons.cameraLine,
+      title: '现场拍照',
+      helper: '当前图纸和部位已锁定，拍照后可直接进行 AI 识别和记录保存。',
+      action: _buildGhostBtn(
+        icon: MingCuteIcons.arrowLeftLine,
+        label: '重选部位',
+        onTap: () => setState(() => _step = _CaptureStep.selectPoint),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppTokens.space3),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Text(
+          '${_drawing?.title ?? '—'} · $_anchorLabel',
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            height: 22 / 14,
+            color: AppTokens.fg,
           ),
-          TextButton.icon(
-            onPressed: () => setState(() => _step = _CaptureStep.selectPoint),
-            icon: const Icon(MingCuteIcons.arrowLeftLine, size: 14),
-            label: const Text('重选', style: TextStyle(fontSize: 12)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2672,6 +2789,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return _sectionCard(
       icon: MingCuteIcons.cameraLine,
       title: '现场留痕',
+      helper: '完成拍照后可直接进行 AI 识别，水印信息会和照片一起保存。',
       trailing: const Spacer(),
       action: _shotPhoto != null
           ? _buildGhostBtn(
@@ -2688,8 +2806,13 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           //    流程结束时一次性 setState 清掉 _pendingShot，预览卡消失。
           if (_pendingShot != null) _buildPendingPreview(),
           // 2) 拍照控制行：两端控件 + 中央快门（Stack 叠放让快门始终水平居中）
-          SizedBox(
-            height: 80,
+          Container(
+            height: 88,
+            padding: const EdgeInsets.symmetric(horizontal: AppTokens.space2),
+            decoration: BoxDecoration(
+              color: AppTokens.surface2,
+              borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+            ),
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -2792,9 +2915,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                             : AppTokens.fg),
                   ),
                 ),
-                TextButton(
-                  onPressed: _retake,
-                  child: const Text('重拍 / 重选', style: TextStyle(fontSize: 12)),
+                _buildGhostBtn(
+                  icon: MingCuteIcons.cameraRotateLine,
+                  label: '重拍 / 重选',
+                  onTap: _retake,
                 ),
               ],
             ),
@@ -2809,7 +2933,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           SizedBox(
             width: double.infinity,
             child: AppButton(
-              label: _scanning ? '分析中…' : 'AI 分析',
+              label: _scanning ? '分析中…' : '开始 AI 识别',
               onPressed: (_shotPhoto == null || _scanning) ? null : _runScan,
             ),
           ),
@@ -2926,7 +3050,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     }
     return Material(
       color: AppTokens.surface,
-      elevation: 6,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -3135,31 +3258,29 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   Widget _buildControlBtn(IconData icon, String label, VoidCallback onTap) {
-    final enabled = onTap != null;
-    final fg = enabled ? AppTokens.fg : AppTokens.note;
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppTokens.space2, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 22, color: fg),
-              const SizedBox(height: 4),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      height: 1,
-                      color: fg)),
-            ],
-          ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18, color: AppTokens.fg2),
+            const SizedBox(height: 4),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                    color: AppTokens.fg2)),
+          ],
         ),
       ),
     );
@@ -3174,7 +3295,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        border: Border.all(color: AppTokens.brand.withOpacity(0.4)),
+        border: Border.all(color: AppTokens.brand.withValues(alpha: 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3214,18 +3335,17 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
+                child: AppButton(
+                  outlined: true,
+                  label: '重拍',
                   onPressed: _committing ? null : _cancelPending,
-                  icon: const Icon(MingCuteIcons.cameraRotateLine, size: 16),
-                  label: const Text('重拍'),
                 ),
               ),
               const SizedBox(width: AppTokens.space3),
               Expanded(
-                child: FilledButton.icon(
+                child: AppButton(
+                  label: '使用照片',
                   onPressed: _committing ? null : _commitPhoto,
-                  icon: const Icon(MingCuteIcons.checkLine, size: 16),
-                  label: const Text('使用'),
                 ),
               ),
             ],
@@ -3245,22 +3365,24 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         height: 72,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppTokens.accent, AppTokens.accentHover],
-          ),
-          border: Border.all(color: Colors.white, width: 4),
-          boxShadow: [
-            BoxShadow(
-              color: AppTokens.accent.withValues(alpha: 0.4),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: Colors.white,
+          border: Border.all(color: AppTokens.accent, width: 2),
         ),
-        child:
-            const Icon(MingCuteIcons.cameraLine, color: Colors.white, size: 28),
+        child: Center(
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTokens.accent,
+            ),
+            child: const Icon(
+              MingCuteIcons.cameraLine,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -3285,13 +3407,6 @@ class _ZoomToolbar extends StatelessWidget {
         color: AppTokens.surface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(AppTokens.radiusMd),
         border: Border.all(color: AppTokens.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3364,6 +3479,68 @@ class _FloorPickRow extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       height: 22 / 14,
                       color: selected ? AppTokens.brand : AppTokens.fg2)),
+            ),
+          ),
+        ),
+      );
+}
+
+/// 验收页步骤里的图纸选项行：比底部弹窗项更高一些，方便在主页面直接选择。
+class _FloorOptionTile extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FloorOptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: selected ? AppTokens.brandTint : AppTokens.surface2,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: selected ? AppTokens.accent : AppTokens.fg,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: selected ? AppTokens.accent : Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border:
+                        selected ? null : Border.all(color: AppTokens.border),
+                  ),
+                  child: selected
+                      ? const Icon(
+                          MingCuteIcons.checkLine,
+                          size: 12,
+                          color: Colors.white,
+                        )
+                      : null,
+                ),
+              ],
             ),
           ),
         ),

@@ -133,18 +133,27 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
   Widget build(BuildContext context) {
     final rec = _record;
     if (_loading) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (rec == null) {
       return Scaffold(
-          appBar: AppBar(title: const Text('图纸核尺')),
+          appBar: AppBar(
+            centerTitle: true,
+            title: const Text(
+              '图纸核尺',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
           body: const Center(child: Text('记录不存在')));
     }
     final drawings = ref.watch(drawingsProvider).valueOrNull ?? {};
     return Scaffold(
       appBar: AppBar(
-        title: const Text('图纸核尺对照'),
+        centerTitle: true,
+        title: const Text(
+          '图纸核尺对照',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: [
           TextButton(onPressed: _saveAndExit, child: const Text('保存')),
         ],
@@ -162,7 +171,8 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
                   value: _drawing?.key,
                   items: [
                     for (final e in drawings.entries)
-                      DropdownMenuItem(value: e.key, child: Text(e.value.title)),
+                      DropdownMenuItem(
+                          value: e.key, child: Text(e.value.title)),
                   ],
                   onChanged: (k) {
                     if (k == null) return;
@@ -266,7 +276,8 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
             color: Colors.white,
             child: rec.checks.isEmpty
                 ? const Center(
-                    child: Text('还没有对照结果', style: TextStyle(color: Color(0xFF8A90A0))))
+                    child: Text('还没有对照结果',
+                        style: TextStyle(color: Color(0xFF8A90A0))))
                 : ListView(
                     children: [
                       for (final c in rec.checks)
@@ -280,7 +291,8 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
                                 ? const Color(0xFF1DB954)
                                 : const Color(0xFFFF5959),
                           ),
-                          title: Text('${c.name} · 偏差 ${fmtMmSigned(c.deviation)}mm'),
+                          title: Text(
+                              '${c.name} · 偏差 ${fmtMmSigned(c.deviation)}mm'),
                           subtitle: Text(
                               '图纸 ${fmtMm(c.drawingMm)} / 量得 ${fmtMm(c.photoMm)}'),
                         ),

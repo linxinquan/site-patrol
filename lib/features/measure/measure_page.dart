@@ -995,12 +995,16 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
           padding: EdgeInsets.only(left: 12),
           child: NavIconButton(icon: MingCuteIcons.leftLine),
         ),
-        title: const Text('拍照量尺校对'),
+        title: const Text(
+          '拍照量尺校对',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),

@@ -413,12 +413,16 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
           padding: EdgeInsets.only(left: 12),
           child: NavIconButton(icon: MingCuteIcons.leftLine),
         ),
-        title: const Text('AR量尺'),
+        title: const Text(
+          'AR量尺',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -505,12 +509,16 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
           padding: EdgeInsets.only(left: 12),
           child: NavIconButton(icon: MingCuteIcons.leftLine),
         ),
-        title: const Text('AR量尺（LiDAR）'),
+        title: const Text(
+          'AR量尺（LiDAR）',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
       ),
       body: Column(
         children: [
