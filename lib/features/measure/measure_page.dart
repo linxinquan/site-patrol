@@ -995,6 +995,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
@@ -1030,7 +1031,9 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     final pass = _session!.passCount;
     final total = _session!.items.length;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTokens.space4),
+      // 只把顶部与导航栏的距离统一为 12，左右和底部保留当前页面自己的工作区留白。
+      padding: const EdgeInsets.fromLTRB(AppTokens.space4, AppTokens.space3,
+          AppTokens.space4, AppTokens.space4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

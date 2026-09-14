@@ -171,8 +171,9 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
             Expanded(
               child: ListView(
                 primary: false,
+                // 首块项目卡与导航栏底部统一保持 12 的间距。
                 padding: const EdgeInsets.fromLTRB(AppTokens.space3,
-                    AppTokens.space2, AppTokens.space3, AppTokens.space3),
+                    AppTokens.space3, AppTokens.space3, AppTokens.space3),
                 children: [
                   // 项目卡
                   AsyncState(
@@ -740,6 +741,7 @@ class _LocalDwgPreviewPageState extends State<_LocalDwgPreviewPage> {
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
           elevation: 0,
+          toolbarHeight: 48,
           centerTitle: true,
           title: Text(widget.name,
               style:

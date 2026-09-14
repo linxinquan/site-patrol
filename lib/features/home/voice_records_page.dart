@@ -60,6 +60,7 @@ class _VoiceRecordsPageState extends ConsumerState<VoiceRecordsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
@@ -81,7 +82,8 @@ class _VoiceRecordsPageState extends ConsumerState<VoiceRecordsPage> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                // 页面首块说明卡与导航栏底部统一保持 12 的间距。
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                 children: [
                   // 顶部说明卡：先交代当前页面作用和操作方式。
                   const AppCard(

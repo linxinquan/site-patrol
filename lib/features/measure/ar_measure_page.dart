@@ -419,6 +419,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
@@ -515,6 +516,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: const Padding(
@@ -529,7 +531,8 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            // 顶部工作台卡与导航栏底部统一保持 12 的间距。
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             child: AppCard(
               padding: const EdgeInsets.all(12),
               child: Row(

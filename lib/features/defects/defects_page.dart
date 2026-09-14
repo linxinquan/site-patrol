@@ -10,11 +10,9 @@ import '../../core/di/providers.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/storage/measure_threshold_store.dart';
-import '../../core/utils/open_web.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
 import '../../shared/widgets/app_card.dart';
-import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_date_range_picker.dart';
@@ -51,35 +49,32 @@ class DefectsPage extends ConsumerWidget {
         automaticallyImplyLeading: false,
         toolbarHeight: 48,
         centerTitle: false,
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Row(
-            children: [
-              const Text('问题清单',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppTokens.fg,
-                      height: 28 / 20)),
-              const Spacer(),
-              // Frame 2147228050：右侧两个 24×24 图标，gap 16，右对齐
-              IconButton(
-                icon: const Icon(MingCuteIcons.fileExportLine,
-                    size: 24, color: AppTokens.fg),
-                onPressed: () => _export(context, ref, defects),
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-              ),
-              const SizedBox(width: 16),
-              const UserSwitcher(),
-            ],
+        titleSpacing: 12,
+        title: const Text('问题清单',
+            style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: AppTokens.fg,
+                height: 28 / 20)),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            // 和巡场页一致：右侧图标作为一组统一控制，gap=16，整组右边距=12。
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                NavIconButton(
+                  icon: MingCuteIcons.fileExportLine,
+                  size: 24,
+                  color: AppTokens.fg,
+                  onPressed: () => _export(context, ref, defects),
+                ),
+                const SizedBox(width: 16),
+                const UserSwitcher(),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
       body: AsyncState(
         value: defects,
@@ -94,7 +89,8 @@ class DefectsPage extends ConsumerWidget {
 
           return ListView.separated(
             primary: false,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            // 列表首块内容与导航栏底部统一保持 12 的间距。
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             itemCount: itemCount,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
@@ -215,7 +211,7 @@ class DefectsPage extends ConsumerWidget {
   String _fmtCompact(DateTime d) => '${d.year}${_pad(d.month)}${_pad(d.day)}';
 
   /// 导出方式弹层（设计稿 Frame 2147228009）：
-  /// 描述段 → 日期范围单行 48h → 已筛选提示 → 4 个导出选项 68h。
+  /// 描述段 → 日期范围单行 48h → 导出小结入口 → 4 个导出选项两列 → 下载 HTML 报告。
   void _showExportSheet(
     BuildContext context, {
     required List<Defect> allDefects,
@@ -228,18 +224,19 @@ class DefectsPage extends ConsumerWidget {
         onPreview,
   }) {
     final canExport = canExportReportFile;
-    final canPreview = canOpenWebWindow;
+    final canDownloadHtml = canDownloadFile;
     final today = DateTime.now();
     // 巡场小结：App 内手填，随报告导出（0902 任务5b）。
     var patrolSummary = '';
+    // 把日期范围提升到弹窗外层状态，避免刷新弹窗时被重置。
+    var selectedRange = initialRange;
     AppBottomSheet.show<void>(
       context: context,
       title: '导出现场工作汇报',
       isScrollControlled: true,
       body: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
-          var range = initialRange;
-          final list = _filterByPeriod(allDefects, range);
+          final list = _filterByPeriod(allDefects, selectedRange);
           final filtered = list.length != allDefects.length;
           return SingleChildScrollView(
             child: Column(
@@ -247,10 +244,10 @@ class DefectsPage extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 描述段统一按底部弹窗辅助说明样式展示。
-                Text(
+                const Text(
                   '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
-                  '可选 Excel / PDF / Word / 网页链接 四种格式，导出后无需再手工整理。',
-                  style: const TextStyle(
+                  '可选 Excel / PDF / Word / 网页链接，并支持下载 HTML 报告。',
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
                     height: 22 / 14,
@@ -261,22 +258,24 @@ class DefectsPage extends ConsumerWidget {
                 // 日期范围白卡（设计稿：48h padding 12 圆角 8，单行紧凑）
                 _dateRangeTile(
                   ctx: ctx,
-                  range: range,
+                  range: selectedRange,
                   count: list.length,
                   onTap: () async {
                     final picked = await AppDateRangePicker.show(
                       ctx,
                       firstDate: DateTime(2024, 1, 1),
                       lastDate: DateTime(today.year, today.month, today.day),
-                      initialRange: range,
+                      initialRange: selectedRange,
                     );
-                    if (picked != null) setSheet(() => range = picked);
+                    if (picked != null) {
+                      setSheet(() => selectedRange = picked);
+                    }
                   },
                 ),
                 if (filtered) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '已筛选：共筛出 ${list.length} 条记录',
+                    '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -285,71 +284,74 @@ class DefectsPage extends ConsumerWidget {
                     ),
                   ),
                 ],
-                if (list.length != allDefects.length)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      '已按周期过滤：全部 ${allDefects.length} 条中筛出 ${list.length} 条',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        height: 22 / 14,
-                        color: AppTokens.muted,
-                      ),
-                    ),
-                  ),
                 const SizedBox(height: 14),
-                // 巡场小结（0902 任务5b）：选填，渲染进报告「巡场小结」区
-                const Text(
-                  '巡场小结（选填）',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    height: 22 / 14,
-                    color: AppTokens.fg2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  maxLines: 3,
-                  minLines: 2,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(
-                    hintText: '本次巡场概述：路线 / 检查点达成 / 主要问题…',
-                    hintStyle: TextStyle(fontSize: 13),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                  onChanged: (v) => patrolSummary = v,
+                // 导出小结改成白色卡片，标题放入卡片内部，填写后直接展示内容。
+                _summaryEntryTile(
+                  summary: patrolSummary,
+                  onTap: () async {
+                    final text = await _showSummaryEditSheet(
+                      ctx,
+                      initialText: patrolSummary,
+                    );
+                    if (text != null) {
+                      setSheet(() => patrolSummary = text);
+                    }
+                  },
                 ),
                 const SizedBox(height: 14),
-                for (final format in ReportExportFormat.values)
-                  _formatTile(
-                    ctx,
-                    format,
-                    enabled: list.isNotEmpty,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = (constraints.maxWidth - 12) / 2;
+                    return Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        for (final format in ReportExportFormat.values)
+                          SizedBox(
+                            width: itemWidth,
+                            child: _formatTile(
+                              format,
+                              onTap: () {
+                                if (list.isEmpty) {
+                                  AppSnack.show(
+                                    ctx,
+                                    '暂无可导出的数据',
+                                    kind: AppSnackKind.muted,
+                                  );
+                                  return;
+                                }
+                                Navigator.of(ctx).pop();
+                                onPick(
+                                  format,
+                                  selectedRange,
+                                  list,
+                                  patrolSummary,
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+                if (canDownloadHtml) ...[
+                  const SizedBox(height: 12),
+                  _downloadHtmlTile(
                     onTap: () {
+                      if (list.isEmpty) {
+                        AppSnack.show(
+                          ctx,
+                          '暂无可导出的数据',
+                          kind: AppSnackKind.muted,
+                        );
+                        return;
+                      }
                       Navigator.of(ctx).pop();
-                      onPick(format, range, list, patrolSummary);
+                      onPreview(selectedRange, list, patrolSummary);
                     },
                   ),
-                if (canPreview)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: AppButton(
-                      label: '下载 HTML 报告（浏览器打开后可另存为 PDF）',
-                      width: double.infinity,
-                      outlined: true,
-                      onPressed: list.isEmpty
-                          ? null
-                          : () {
-                              Navigator.of(ctx).pop();
-                              onPreview(range, list, patrolSummary);
-                            },
-                    ),
-                  ),
-                if (!canExport && !canPreview)
+                ],
+                if (!canExport && !canDownloadHtml)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text(
@@ -370,9 +372,9 @@ class DefectsPage extends ConsumerWidget {
     );
   }
 
-  /// 日期范围选择卡（设计稿 Frame 2147228009）：
-  /// 高度 48、padding 12、圆角 8、白底；
-  /// 行内容：[calendar 24] [日期 W600/14/22] ["N条" #0395FF W600] [right_line 16 #919499]。
+  /// 日期范围选择卡（设计稿 Frame 2147228069）：
+  /// 高度 46、padding 12、圆角 8、白底；
+  /// 左侧为蓝色日历 + 日期，右侧为数量 + 右箭头，整体按一条中心线对齐。
   Widget _dateRangeTile({
     required BuildContext ctx,
     required DateTimeRange range,
@@ -386,41 +388,66 @@ class DefectsPage extends ConsumerWidget {
         onTap: onTap,
         child: Ink(
           width: double.infinity,
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 46,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppTokens.surface,
             borderRadius: BorderRadius.circular(AppTokens.radiusSm),
           ),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(MingCuteIcons.calendarLine,
-                  size: 24, color: AppTokens.fg),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 22 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTokens.fg,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 图标固定 20，和 22 高的时间文字走同一中心线。
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: Center(
+                      child: Icon(MingCuteIcons.calendar2Line,
+                          size: 20, color: AppTokens.brand),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 22 / 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTokens.fg,
+                    ),
+                  ),
+                ],
               ),
-              Text(
-                '${count}条',
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 22 / 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTokens.brand,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    '$count',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 22 / 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppTokens.brand,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: Center(
+                      child: Icon(MingCuteIcons.rightLine,
+                          size: 16, color: AppTokens.muted),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              const Icon(MingCuteIcons.rightLine,
-                  size: 16, color: AppTokens.muted),
             ],
           ),
         ),
@@ -428,95 +455,224 @@ class DefectsPage extends ConsumerWidget {
     );
   }
 
-  /// 单个格式选项卡片（弹层内，按设计稿 Frame 2147228009）：
-  /// 卡片 68h padding 12 圆角 8；左侧 40×40 圆角 8 渐变高光色块 + 24×24 文件图标；
-  /// 名称 W600/16/24 #202224，副标题 W400/12/20 #919499，right_line 16×16 #919499。
-  Widget _formatTile(BuildContext ctx, ReportExportFormat format,
-      {required VoidCallback onTap, bool enabled = true}) {
-    final base = Color(format.colorHex);
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            onTap: enabled ? onTap : null,
-            child: Ink(
-              width: double.infinity,
-              // 高度由内容撑开（色块 40 + 上下 padding 各 14 = 68）
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTokens.surface,
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              ),
-              child: Row(
+  /// 导出小结入口卡：主弹层里只做摘要展示，真正输入放到单独底部弹窗。
+  Widget _summaryEntryTile({
+    required String summary,
+    required VoidCallback onTap,
+  }) {
+    final hasSummary = summary.trim().isNotEmpty;
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AppCard(
+          padding: const EdgeInsets.all(12),
+          radius: AppTokens.radiusSm,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // 左侧色块：保留格式色渐变底；图标本身再叠加白色 70%→100% 的纵向渐变。
-                  Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color.lerp(base, Colors.white, 0.22) ?? base,
-                          base,
-                        ],
-                      ),
+                children: const [
+                  Text(
+                    '导出小结（选填）',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: AppTokens.fg,
                     ),
-                    child: ShaderMask(
-                      // 导出图标统一使用从上到下的白色透明度渐变：
-                      // 顶部 70%，底部 100%，和项目内其他功能图标风格保持一致。
-                      blendMode: BlendMode.srcIn,
-                      shaderCallback: (rect) => const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xB3FFFFFF),
-                          Color(0xFFFFFFFF),
-                        ],
-                      ).createShader(rect),
+                  ),
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: Center(
                       child: Icon(
-                        format.icon,
-                        size: 24,
-                        color: Colors.white,
+                        MingCuteIcons.rightLine,
+                        size: 16,
+                        color: AppTokens.muted,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(format.label,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              height: 24 / 16,
-                              color: AppTokens.fg,
-                            )),
-                        const SizedBox(height: 2),
-                        Text(format.subtitle,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              height: 22 / 14,
-                              color: AppTokens.muted,
-                            )),
-                      ],
-                    ),
-                  ),
-                  const Icon(MingCuteIcons.rightLine,
-                      size: 16, color: AppTokens.muted),
                 ],
               ),
+              if (hasSummary) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 82),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4F6F7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    summary.trim(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 22 / 14,
+                      color: AppTokens.fg2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 导出小结输入弹窗：交互和“修改路线名称”一致，由外层入口触发。
+  Future<String?> _showSummaryEditSheet(
+    BuildContext context, {
+    required String initialText,
+  }) async {
+    final ctl = TextEditingController(text: initialText);
+    return AppBottomSheet.show<String>(
+      context: context,
+      title: '导出小结',
+      isScrollControlled: true,
+      body: (ctx) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '导出小结',
+            style: AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppBottomSheet.inputBoxDecoration(),
+            child: TextField(
+              controller: ctl,
+              autofocus: true,
+              maxLines: 4,
+              minLines: 3,
+              textInputAction: TextInputAction.done,
+              style: AppBottomSheet.inputTextStyle,
+              decoration: AppBottomSheet.inputDecoration(
+                hintText: '本次巡场概述：路线 / 检查点达成 / 主要问题…',
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          AppSheetFooter.cancelSave(
+            onCancel: () => Navigator.pop(ctx),
+            onSave: () => Navigator.pop(ctx, ctl.text.trim()),
+            saveLabel: '确认',
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 单个格式选项卡片：两列布局时保持同一套卡片结构，让标题和副标题自己换行适配。
+  Widget _formatTile(ReportExportFormat format, {required VoidCallback onTap}) {
+    return _exportOptionTile(
+      icon: format.icon,
+      label: format.label,
+      subtitle: format.subtitle,
+      color: Color(format.colorHex),
+      onTap: onTap,
+    );
+  }
+
+  /// 第三行补充「下载 HTML 报告」入口：结构和其他导出卡片一致，只替换图标。
+  Widget _downloadHtmlTile({required VoidCallback onTap}) {
+    return _exportOptionTile(
+      icon: MingCuteIcons.downloadLine,
+      label: '下载 HTML 报告',
+      subtitle: '下载到本地查看',
+      color: const Color(0xFF38D06F),
+      onTap: onTap,
+    );
+  }
+
+  /// 导出卡片公共壳：外层白卡 + 纯色图标底 + 图标白色渐变。
+  Widget _exportOptionTile({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 68),
+          child: Ink(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTokens.surface,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                    color: color,
+                  ),
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (rect) => const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xB3FFFFFF),
+                        Color(0xFFFFFFFF),
+                      ],
+                    ).createShader(rect),
+                    child: Icon(
+                      icon,
+                      size: 24,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          height: 24 / 16,
+                          color: AppTokens.fg,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 20 / 12,
+                          color: AppTokens.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

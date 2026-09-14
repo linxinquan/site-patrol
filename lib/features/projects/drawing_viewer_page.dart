@@ -584,6 +584,8 @@ class _ViewerState extends ConsumerState<_Viewer> {
     final result = await AppBottomSheet.show<(String, String)>(
       context: context,
       title: '$title 真实图纸坐标',
+      // 录入坐标时会弹出数字键盘，需要让底部弹窗整体跟随键盘上移。
+      isScrollControlled: true,
       body: (ctx) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

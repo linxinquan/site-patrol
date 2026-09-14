@@ -450,6 +450,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         leadingWidth: 36,
         leading: Padding(
           padding: const EdgeInsets.only(left: 12),
@@ -476,7 +477,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                   style: TextStyle(color: AppTokens.patrolMuted)))
           : Column(
               children: [
-                const SizedBox(height: 8),
+                // 页面首块信息卡与导航栏底部统一保持 12 的间距。
+                const SizedBox(height: 12),
                 // 信息卡片：路线名称 / 楼层（可点击改）/ 路线点
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -497,12 +499,9 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                   calibrationOk: _calibrationOk,
                 ),
                 const SizedBox(height: 8),
-                // 图纸画布
+                // 图纸画布直接铺在页面主体区域，不再额外包卡片式边距。
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: _buildCanvas(drawing),
-                  ),
+                  child: _buildCanvas(drawing),
                 ),
                 const SizedBox(height: 8),
                 // 加点 / 删点
@@ -538,57 +537,54 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
         final box = constraints.biggest;
         _canvasBox = box;
         _canvasDrawing = drawing;
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (e) =>
-                _onTapUp(_viewportToLocal(e.localPosition), box, drawing),
-            onDoubleTap: () {},
-            onDoubleTapDown: (e) =>
-                _onDoubleTap(_viewportToLocal(e.localPosition), box, drawing),
-            onLongPressStart: (e) =>
-                _onLongPress(_viewportToLocal(e.localPosition), box, drawing),
-            child: InteractiveViewer(
-              transformationController: _transformController,
-              minScale: 1.0,
-              maxScale: 12.0,
-              boundaryMargin: const EdgeInsets.all(160),
-              clipBehavior: Clip.hardEdge,
-              // 拖动路点时临时禁用图纸平移，避免「拖点变拖图」
-              panEnabled: _draggingIdx == null,
-              scaleEnabled: true,
-              onInteractionStart: _onInteractionStart,
-              onInteractionUpdate: _onInteractionUpdate,
-              onInteractionEnd: _onInteractionEnd,
-              child: SizedBox(
-                width: box.width,
-                height: box.height,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: DrawingImage(
-                        drawing.src,
-                        fit: BoxFit.contain,
-                      ),
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapUp: (e) =>
+              _onTapUp(_viewportToLocal(e.localPosition), box, drawing),
+          onDoubleTap: () {},
+          onDoubleTapDown: (e) =>
+              _onDoubleTap(_viewportToLocal(e.localPosition), box, drawing),
+          onLongPressStart: (e) =>
+              _onLongPress(_viewportToLocal(e.localPosition), box, drawing),
+          child: InteractiveViewer(
+            transformationController: _transformController,
+            minScale: 1.0,
+            maxScale: 12.0,
+            boundaryMargin: const EdgeInsets.all(160),
+            clipBehavior: Clip.hardEdge,
+            // 拖动路点时临时禁用图纸平移，避免「拖点变拖图」
+            panEnabled: _draggingIdx == null,
+            scaleEnabled: true,
+            onInteractionStart: _onInteractionStart,
+            onInteractionUpdate: _onInteractionUpdate,
+            onInteractionEnd: _onInteractionEnd,
+            child: SizedBox(
+              width: box.width,
+              height: box.height,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: DrawingImage(
+                      drawing.src,
+                      fit: BoxFit.contain,
                     ),
-                    CustomPaint(
-                      size: Size.infinite,
-                      painter: _RouteEditorPainter(
-                        points: [
-                          for (final p in _points)
-                            _relToDisplay(Offset(p.dx, p.dy), box, drawing),
-                        ],
-                        checkpoints: [
-                          for (var i = 0; i < _points.length; i++)
-                            if (_points[i].isCheckpoint) i
-                        ],
-                        crossingSegs: _crossingSegs,
-                        selectedIdx: _selectedIdx,
-                      ),
+                  ),
+                  CustomPaint(
+                    size: Size.infinite,
+                    painter: _RouteEditorPainter(
+                      points: [
+                        for (final p in _points)
+                          _relToDisplay(Offset(p.dx, p.dy), box, drawing),
+                      ],
+                      checkpoints: [
+                        for (var i = 0; i < _points.length; i++)
+                          if (_points[i].isCheckpoint) i
+                      ],
+                      crossingSegs: _crossingSegs,
+                      selectedIdx: _selectedIdx,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -820,6 +816,8 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     AppBottomSheet.show(
       context: context,
       title: isName ? '修改路线名称' : '修改楼层',
+      // 带输入框的底部弹窗需要允许整张弹窗跟随键盘上移。
+      isScrollControlled: true,
       body: (ctx) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -833,23 +831,18 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                 color: AppTokens.muted),
           ),
           const SizedBox(height: 8),
-          // 输入框：白底 + 1px #E9EAEB 边框 + 圆角 8（Frame 2147228055）
+          // 输入框：统一复用底部弹窗公共输入区样式。
           Container(
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppTokens.surface,
-              border: Border.all(color: AppTokens.border),
-              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            ),
+            decoration: AppBottomSheet.inputBoxDecoration(),
             child: TextField(
               controller: ctl,
               autofocus: true,
               textAlign: TextAlign.left,
-              style: const TextStyle(
-                  fontSize: 14, height: 22 / 14, color: AppTokens.fg),
-              decoration: const InputDecoration.collapsed(hintText: ''),
+              style: AppBottomSheet.inputTextStyle,
+              decoration: AppBottomSheet.inputDecoration(hintText: ''),
             ),
           ),
           const SizedBox(height: 24),

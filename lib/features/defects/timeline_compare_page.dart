@@ -1,8 +1,11 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/di/providers.dart';
+import '../../core/storage/local_storage.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_card.dart';
@@ -25,6 +28,8 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
   int? _leftIdx;
   int? _rightIdx;
   double _slider = 0.5;
+  // 复用本地图片读取 Future，避免拖动滑块时重复读文件。
+  final Map<String, Future<Uint8List?>> _photoBytesFutures = {};
 
   @override
   void initState() {
@@ -42,6 +47,12 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       _rightIdx = list.length > 1 ? list.length - 1 : (_leftIdx);
     });
   }
+
+  Future<Uint8List?> _readPhotoBytes(String relativePath) =>
+      _photoBytesFutures.putIfAbsent(
+        relativePath,
+        () => LocalStorage.instance.readFile(relativePath),
+      );
 
   void _pick(int idx) {
     setState(() {
@@ -78,11 +89,12 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       appBar: AppBar(
         titleSpacing: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         leadingWidth: 0,
-        title: Stack(
+        title: const Stack(
           alignment: Alignment.center,
           children: [
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Padding(
                 padding: EdgeInsets.only(left: 12),
@@ -90,7 +102,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
               ),
             ),
             // 和图纸详情页一致：标题区两侧预留 48，避免被返回按钮顶偏。
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 48),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -131,34 +143,13 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
         scrolledUnderElevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space2,
+        // 页面首块内容与导航栏底部统一保持 12 的间距。
+        padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space3,
             AppTokens.space3, AppTokens.space3),
         children: [
           _buildAnchorBar(),
           const SizedBox(height: AppTokens.space3),
-          _buildSelectionPanel(),
-          const SizedBox(height: AppTokens.space3),
-          _buildThumbGrid(),
-          const SizedBox(height: AppTokens.space3),
-          if (left != null && right != null) ...[
-            _buildCompareCard(left, right),
-            const SizedBox(height: AppTokens.space3),
-          ],
-          if (left == null || right == null)
-            const AppCard(
-              padding: EdgeInsets.all(AppTokens.space4),
-              child: Row(
-                children: [
-                  Icon(MingCuteIcons.forbidCircleLine,
-                      size: 16, color: AppTokens.muted),
-                  SizedBox(width: AppTokens.space2),
-                  Expanded(
-                    child: Text('请从上方照片中至少选择两张进行对比',
-                        style: TextStyle(fontSize: 14, color: AppTokens.muted)),
-                  ),
-                ],
-              ),
-            ),
+          _buildWorkbenchCard(left: left, right: right),
         ],
       ),
     );
@@ -166,258 +157,274 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
 
   Widget _buildAnchorBar() => AppCard(
         padding: const EdgeInsets.all(AppTokens.space3),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTokens.brandSoft,
-                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              ),
-              child: const Icon(MingCuteIcons.timeLine,
-                  size: 18, color: AppTokens.brand),
-            ),
-            const SizedBox(width: AppTokens.space3),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_anchor,
-                      style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 22 / 14,
-                          color: AppTokens.fg)),
-                  const SizedBox(height: 4),
-                  Text('已归档 ${_photos.length} 个时点，先选择两张照片，再拖动滑块查看变化',
-                      style: const TextStyle(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 320;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _anchor,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 24 / 16,
+                    color: AppTokens.fg,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (!compact)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_photos.length} 个时点',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 12,
+                            color: AppTokens.fg2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '注：点击照片选择左右对比',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
                           fontSize: 12,
+                          fontWeight: FontWeight.w400,
                           height: 20 / 12,
-                          color: AppTokens.muted)),
+                          color: Color(0xFFFF4444),
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  Text(
+                    '${_photos.length} 个时点',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 20 / 12,
+                      color: AppTokens.fg2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '注：点击照片选择左右对比',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 20 / 12,
+                      color: Color(0xFFFF4444),
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       );
 
-  /// 选择说明区：把当前左右对比关系直接展示出来，减少用户来回理解。
-  Widget _buildSelectionPanel() => AppCard(
+  /// 主工作区：上面选照片，下面看滑块前后对比。
+  Widget _buildWorkbenchCard({
+    required TimelinePhoto? left,
+    required TimelinePhoto? right,
+  }) =>
+      AppCard(
         padding: const EdgeInsets.all(AppTokens.space3),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '当前对比',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 22 / 14,
-                color: AppTokens.fg,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _selectionMeta(
-                    label: '左侧照片',
-                    value: _leftIdx == null ? '未选择' : _photos[_leftIdx!].date,
-                    active: _leftIdx != null,
-                  ),
+            _buildThumbRail(),
+            const SizedBox(height: 12),
+            Container(height: 1, color: AppTokens.border),
+            const SizedBox(height: 12),
+            if (left != null && right != null)
+              _buildCompareCard(left, right)
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppTokens.space4),
+                decoration: BoxDecoration(
+                  color: AppTokens.surface2,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppTokens.surface2,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    onPressed:
-                        (_leftIdx != null && _rightIdx != null) ? _swap : null,
-                    icon: const Icon(
-                      MingCuteIcons.unfoldHorizontalLine,
-                      size: 16,
-                      color: AppTokens.fg2,
+                child: const Row(
+                  children: [
+                    Icon(MingCuteIcons.forbidCircleLine,
+                        size: 16, color: AppTokens.muted),
+                    SizedBox(width: AppTokens.space2),
+                    Expanded(
+                      child: Text(
+                        '请从上方照片中至少选择两张进行对比',
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 22 / 14,
+                          color: AppTokens.muted,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _selectionMeta(
-                    label: '右侧照片',
-                    value: _rightIdx == null ? '未选择' : _photos[_rightIdx!].date,
-                    active: _rightIdx != null,
-                  ),
-                ),
-              ],
-            ),
+              ),
           ],
         ),
       );
 
-  Widget _selectionMeta({
-    required String label,
-    required String value,
-    required bool active,
-  }) =>
-      Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: active ? AppTokens.surface2 : AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-          border:
-              Border.all(color: active ? Colors.transparent : AppTokens.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 20 / 12,
-                color: AppTokens.muted,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                height: 22 / 14,
-                color: active ? AppTokens.fg : AppTokens.muted,
-              ),
-            ),
-          ],
-        ),
-      );
-
-  Widget _buildThumbGrid() {
+  Widget _buildThumbRail() {
     if (_photos.isEmpty) {
-      return const AppCard(
-        padding: EdgeInsets.all(AppTokens.space4),
-        child: Center(
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppTokens.space4),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        ),
+        child: const Center(
           child: Text('该部位暂无时间轴照片',
               style: TextStyle(fontSize: 14, color: AppTokens.muted)),
         ),
       );
     }
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 340;
-          final itemWidth = compact
-              ? (constraints.maxWidth - 8) / 2
-              : (constraints.maxWidth - 16) / 3;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '时间点照片',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 22 / 14,
-                  color: AppTokens.fg,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = constraints.maxWidth < 360 ? 102.0 : 108.0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '选择对比照片',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 24 / 16,
+                color: AppTokens.fg,
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+            ),
+            const SizedBox(height: 8),
+            // 照片很多时允许横向滑动，避免缩略图被挤窄。
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  for (var i = 0; i < _photos.length; i++)
+                  for (var i = 0; i < _photos.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
                     SizedBox(width: itemWidth, child: _buildThumb(i)),
+                  ],
                 ],
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildThumb(int i) {
     final p = _photos[i];
     final selected = i == _leftIdx || i == _rightIdx;
+    final roleLabel = i == _leftIdx
+        ? '左侧'
+        : i == _rightIdx
+            ? '右侧'
+            : null;
     return InkWell(
       onTap: () => _pick(i),
-      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: selected ? const Color(0x0D0395FF) : AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          color: selected ? const Color(0x0D0395FF) : Colors.white,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
           border: Border.all(
             color: selected ? AppTokens.brand : AppTokens.border,
-            width: 1.5,
+            width: 1,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: CustomPaint(
-                  painter: _MockPhotoPainter(
-                    state: p.state,
-                    date: p.date,
-                    seed: i + 1,
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: _buildPhotoContent(p),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(p.date,
-                      style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppTokens.fg)),
-                ),
                 if (p.verified)
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: const Color(0x0D00B84A),
-                      borderRadius: BorderRadius.circular(AppTokens.radiusPill),
+                  Positioned(
+                    left: 5,
+                    top: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xB300B84A),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        '已校验',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
+                          height: 18 / 10,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(MingCuteIcons.checkLine,
-                            size: 9, color: Color(0xFF00B84A)),
-                        SizedBox(width: 2),
-                        Text('已校验',
-                            style: TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF00B84A),
-                                fontWeight: FontWeight.w500)),
-                      ],
+                  ),
+                if (roleLabel != null)
+                  Positioned(
+                    right: 5,
+                    top: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 0),
+                      decoration: BoxDecoration(
+                        color: const Color(0xCC0395FF),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        roleLabel,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          height: 18 / 10,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 2),
-            Text(_stateLabel(p.state),
-                style: const TextStyle(fontSize: 10, color: AppTokens.muted)),
+            const SizedBox(height: 4),
+            Text(
+              p.date,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 22 / 14,
+                color: selected ? AppTokens.brand : AppTokens.fg,
+              ),
+            ),
+            Text(
+              _stateLabel(p.state),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.fg2,
+              ),
+            ),
           ],
         ),
       ),
@@ -432,121 +439,242 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       };
 
   Widget _buildCompareCard(TimelinePhoto left, TimelinePhoto right) {
-    return AppCard(
-      padding: const EdgeInsets.all(AppTokens.space3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(MingCuteIcons.columns2Line,
-                  size: 16, color: AppTokens.fg),
-              const SizedBox(width: 6),
-              const Text('前后对比',
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 22 / 14,
-                      color: AppTokens.fg)),
-              const Spacer(),
-              InkWell(
-                onTap: _swap,
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(MingCuteIcons.unfoldHorizontalLine,
-                          size: 12, color: AppTokens.muted),
-                      SizedBox(width: 4),
-                      Text('交换',
-                          style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              color: AppTokens.muted)),
-                    ],
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('前后对比',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 24 / 16,
+                    color: AppTokens.fg)),
+            const Spacer(),
+            InkWell(
+              onTap: _swap,
+              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: Center(
+                        child: Icon(MingCuteIcons.transformationLine,
+                            size: 16, color: AppTokens.brand),
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Text('交换照片',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 20 / 12,
+                            color: AppTokens.brand)),
+                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '拖动下方滑块查看 ${left.date} 到 ${right.date} 的现场变化',
+          style: const TextStyle(
+              fontSize: 12, height: 20 / 12, color: AppTokens.fg2),
+        ),
+        const SizedBox(height: 12),
+        _buildSwipeView(left, right),
+        const SizedBox(height: 12),
+        _buildCompareSlider(),
+        const SizedBox(height: 12),
+        _buildCompareSummary(left, right),
+      ],
+    );
+  }
+
+  /// 自定义滑块外观，贴近设计稿的粗轨道和圆形拖拽点。
+  Widget _buildCompareSlider() => SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          trackHeight: 6,
+          activeTrackColor: AppTokens.border,
+          inactiveTrackColor: AppTokens.border,
+          overlayShape: SliderComponentShape.noOverlay,
+          thumbShape: const _CompareSliderThumbShape(),
+          thumbColor: AppTokens.brand,
+        ),
+        child: Slider(
+          value: _slider,
+          min: 0,
+          max: 1,
+          onChanged: (v) => setState(() => _slider = v),
+        ),
+      );
+
+  /// 底部对比摘要：把两次时点的日期和描述拆开显示，阅读更清晰。
+  Widget _buildCompareSummary(TimelinePhoto left, TimelinePhoto right) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+        ),
+        child: Column(
+          children: [
+            _buildSummaryBlock(left),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              height: 1,
+              color: AppTokens.border,
+            ),
+            _buildSummaryBlock(right),
+          ],
+        ),
+      );
+
+  Widget _buildSummaryBlock(TimelinePhoto p) => Column(
+        children: [
           Text(
-            '拖动下方滑块查看 ${left.date} 到 ${right.date} 的现场变化',
+            p.date,
             style: const TextStyle(
-                fontSize: 12, height: 20 / 12, color: AppTokens.muted),
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 20 / 12,
+              color: AppTokens.muted,
+            ),
           ),
-          const SizedBox(height: AppTokens.space3),
-          _buildSwipeView(left, right),
-          const SizedBox(height: AppTokens.space3),
-          Slider(
-            value: _slider,
-            activeColor: AppTokens.fg,
-            inactiveColor: AppTokens.border,
-            onChanged: (v) => setState(() => _slider = v),
-          ),
-          Row(
-            children: [
-              _buildDateTag(left, alignLeft: true),
-              const Spacer(),
-              _buildDateTag(right, alignLeft: false),
-            ],
-          ),
-          const SizedBox(height: AppTokens.space3),
+          const SizedBox(height: 2),
           Text(
-            '${left.date}（${left.caption}） → ${right.date}（${right.caption}）',
+            p.caption,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-                fontSize: 12, color: AppTokens.muted, height: 20 / 12),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              height: 22 / 14,
+              color: AppTokens.fg,
+            ),
           ),
         ],
+      );
+
+  /// 统一渲染时间轴图片：优先 assets，其次本地存储文件。
+  Widget _buildPhotoContent(TimelinePhoto photo) {
+    final imagePath = photo.imagePath;
+    final contentKey =
+        ValueKey('${photo.isAsset}-${photo.imagePath ?? ''}-${photo.date}');
+    if (imagePath == null || imagePath.isEmpty) {
+      return KeyedSubtree(
+        key: contentKey,
+        child: _buildPhotoPlaceholder('暂无对比照片'),
+      );
+    }
+    if (photo.isAsset) {
+      return KeyedSubtree(
+        key: contentKey,
+        child: Image.asset(
+          imagePath,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          errorBuilder: (_, __, ___) => _buildPhotoPlaceholder('图片加载失败'),
+        ),
+      );
+    }
+    return KeyedSubtree(
+      key: contentKey,
+      child: FutureBuilder<Uint8List?>(
+        future: _readPhotoBytes(imagePath),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return _buildPhotoPlaceholder('照片加载中');
+          }
+          final bytes = snap.data;
+          if (bytes == null || bytes.isEmpty) {
+            return _buildPhotoPlaceholder('照片不存在');
+          }
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            gaplessPlayback: true,
+          );
+        },
       ),
     );
   }
+
+  /// 图片缺失时给一个稳定占位，避免整块留白。
+  Widget _buildPhotoPlaceholder(String text) => Container(
+        color: AppTokens.surface2,
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              MingCuteIcons.picLine,
+              size: 22,
+              color: AppTokens.muted,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 20 / 12,
+                color: AppTokens.muted,
+              ),
+            ),
+          ],
+        ),
+      );
 
   /// 裁剪对比：底层 right 全幅，上层 left 裁剪到滑块位置。
   Widget _buildSwipeView(TimelinePhoto left, TimelinePhoto right) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final w = constraints.maxWidth;
         return ClipRRect(
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
           child: AspectRatio(
-            aspectRatio: 4 / 3,
+            aspectRatio: 1,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 // 底层：右侧照片（全幅）
-                CustomPaint(
-                  painter: _MockPhotoPainter(
-                    state: right.state,
-                    date: right.date,
-                    seed: _rightIdx! + 1,
+                Positioned.fill(child: _buildPhotoContent(right)),
+                // 上层：左侧照片（裁剪到滑块位置）
+                Positioned.fill(
+                  child: ClipRect(
+                    clipper: _LeftPhotoClipper(_slider),
+                    child: _buildPhotoContent(left),
                   ),
                 ),
-                // 上层：左侧照片（裁剪到滑块位置）
-                ClipRect(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: _slider,
-                    child: SizedBox(
-                      width: w,
-                      child: CustomPaint(
-                        painter: _MockPhotoPainter(
-                          state: left.state,
-                          date: left.date,
-                          seed: _leftIdx! + 1,
-                        ),
+                // 在图片上显示当前拖拽位置，方便直观看到前后分界。
+                Positioned(
+                  left: (constraints.maxWidth * _slider) - 1,
+                  top: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      width: 2,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 6,
+                            offset: Offset(0, 0),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-                // 分隔线
-                Positioned(
-                  left: w * _slider - 1.5,
-                  top: 0,
-                  bottom: 0,
-                  child: Container(width: 3, color: AppTokens.fg),
                 ),
                 // 日期角标
                 Positioned(
@@ -554,7 +682,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   top: 8,
                   child: _CornerTag(
                     label: '前 ${left.date}',
-                    bg: AppTokens.fg,
+                    bg: Colors.black54,
                   ),
                 ),
                 Positioned(
@@ -562,7 +690,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                   top: 8,
                   child: _CornerTag(
                     label: '后 ${right.date}',
-                    bg: const Color(0xFF0B1220),
+                    bg: Colors.black54,
                   ),
                 ),
               ],
@@ -572,27 +700,6 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
       },
     );
   }
-
-  Widget _buildDateTag(TimelinePhoto p, {required bool alignLeft}) => Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment:
-            alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
-        children: [
-          Icon(
-            alignLeft
-                ? MingCuteIcons.arrowLeftLine
-                : MingCuteIcons.arrowRightLine,
-            size: 12,
-            color: AppTokens.muted,
-          ),
-          const SizedBox(width: 4),
-          Text(p.date,
-              style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTokens.fg)),
-        ],
-      );
 }
 
 /// 角落状态标签（胶囊），垫底实色 + 白字。标签内文字按全局规范取 W500。
@@ -616,155 +723,87 @@ class _CornerTag extends StatelessWidget {
       );
 }
 
-/// 模拟照片：墙面 + 缺陷痕迹（对齐 HTML mockPhotoSVG）。
-class _MockPhotoPainter extends CustomPainter {
-  final String state; // before / mid / after
-  final String date;
-  final int seed;
-  const _MockPhotoPainter({
-    required this.state,
-    required this.date,
-    required this.seed,
-  });
+/// 只保留左侧一定比例区域，用于前后照片滑块裁切。
+class _LeftPhotoClipper extends CustomClipper<Rect> {
+  final double fraction;
+  const _LeftPhotoClipper(this.fraction);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    // 墙面底色（不同时点色温不同）
-    final baseColor = switch (state) {
-      'before' => const Color(0xFFE7E3DA),
-      'mid' => const Color(0xFFD8D3C6),
-      _ => const Color(0xFFF2EEE6),
-    };
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-      rect,
+  Rect getClip(Size size) {
+    final width = (size.width * fraction).clamp(0.0, size.width);
+    return Rect.fromLTWH(0, 0, width, size.height);
+  }
+
+  @override
+  bool shouldReclip(covariant _LeftPhotoClipper oldClipper) =>
+      oldClipper.fraction != fraction;
+}
+
+/// 下方滑块拖拽圆：蓝底、白描边、阴影，中间带拖拽图标。
+class _CompareSliderThumbShape extends SliderComponentShape {
+  const _CompareSliderThumbShape();
+
+  static const double _radius = 16;
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      const Size.fromRadius(_radius);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final canvas = context.canvas;
+    const fillColor = AppTokens.brand;
+    const borderColor = Colors.white;
+    const shadowColor = Color(0x26012D4D);
+
+    canvas.drawShadow(
+      Path()..addOval(Rect.fromCircle(center: center, radius: _radius)),
+      shadowColor,
+      8,
+      true,
+    );
+    canvas.drawCircle(center, _radius, Paint()..color = fillColor);
+    canvas.drawCircle(
+      center,
+      _radius - 1,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            baseColor.withValues(alpha: 1),
-            Color.lerp(baseColor, const Color(0xFFB8B2A4), 0.35)!,
-          ],
-        ).createShader(rect),
+        ..color = borderColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
 
-    // 顶部光带
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, 2),
-      Paint()..color = Colors.white.withValues(alpha: 0.35),
-    );
-
-    final cx = size.width * (0.32 + (seed % 3) * 0.18);
-    final cy = size.height * 0.55;
-
-    switch (state) {
-      case 'before':
-        // 空鼓斑块 + 裂缝
-        canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(cx, cy),
-              width: size.width * 0.34,
-              height: size.height * 0.4),
-          Paint()..color = const Color(0xFFC9C2B2).withValues(alpha: 0.75),
-        );
-        _drawCrack(
-            canvas,
-            size,
-            Offset(cx - size.width * 0.08, cy),
-            Offset(cx + size.width * 0.12, cy + size.height * 0.12),
-            const Color(0xFF6B6355));
-        _drawCrack(
-            canvas,
-            size,
-            Offset(cx, cy),
-            Offset(cx + size.width * 0.05, cy + size.height * 0.22),
-            const Color(0xFF7A7163));
-        break;
-      case 'mid':
-        // 注浆补丁
-        canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(cx, cy),
-              width: size.width * 0.3,
-              height: size.height * 0.36),
-          Paint()..color = const Color(0xFF8E8578).withValues(alpha: 0.8),
-        );
-        canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(cx - size.width * 0.05, cy - size.height * 0.05),
-              width: size.width * 0.16,
-              height: size.height * 0.2),
-          Paint()..color = const Color(0xFF5E574C).withValues(alpha: 0.7),
-        );
-        _drawCrack(
-            canvas,
-            size,
-            Offset(cx, cy),
-            Offset(cx + size.width * 0.1, cy + size.height * 0.12),
-            const Color(0xFF3E3A33));
-        break;
-      default:
-        // 修复后：仅淡痕
-        canvas.drawOval(
-          Rect.fromCenter(
-              center: Offset(cx, cy),
-              width: size.width * 0.3,
-              height: size.height * 0.36),
-          Paint()..color = const Color(0xFFCFC8B8).withValues(alpha: 0.4),
-        );
-        _drawCrack(
-            canvas,
-            size,
-            Offset(cx, cy),
-            Offset(cx + size.width * 0.1, cy + size.height * 0.12),
-            const Color(0xFFB5AC9C).withValues(alpha: 0.5));
-    }
-
-    // 底部水印
-    final tsPaint = Paint()..color = Colors.black.withValues(alpha: 0.45);
-    canvas.drawRect(
-        Rect.fromLTWH(0, size.height - 18, size.width, 18), tsPaint);
-    final tb = TextPainter(
+    final icon = String.fromCharCode(MingCuteIcons.moveLine.codePoint);
+    final iconPainter = TextPainter(
       text: TextSpan(
-        text: '现场照片 $date  ·  验收留证',
-        style: const TextStyle(
-            fontSize: 10, color: Colors.white, letterSpacing: 0),
+        text: icon,
+        style: TextStyle(
+          fontSize: 20,
+          fontFamily: MingCuteIcons.moveLine.fontFamily,
+          package: MingCuteIcons.moveLine.fontPackage,
+          color: Colors.white,
+        ),
       ),
-      textDirection: TextDirection.ltr,
+      textDirection: textDirection,
     )..layout();
-    tb.paint(canvas, Offset(8, size.height - 15.5));
-  }
-
-  void _drawCrack(Canvas canvas, Size size, Offset a, Offset b, Color color) {
-    final path = Path()..moveTo(a.dx, a.dy);
-    final mid = Offset((a.dx + b.dx) / 2 + size.width * 0.015,
-        (a.dy + b.dy) / 2 - size.height * 0.01);
-    path.quadraticBezierTo(mid.dx, mid.dy, b.dx, b.dy);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round,
-    );
-    // 小分叉
-    canvas.drawLine(
-      Offset((a.dx + b.dx) / 2, (a.dy + b.dy) / 2),
-      Offset((a.dx + b.dx) / 2 - size.width * 0.03,
-          (a.dy + b.dy) / 2 + size.height * 0.06),
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..strokeCap = StrokeCap.round,
+    iconPainter.paint(
+      canvas,
+      Offset(
+        center.dx - (iconPainter.width / 2),
+        center.dy - (iconPainter.height / 2),
+      ),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant _MockPhotoPainter oldDelegate) =>
-      oldDelegate.state != state ||
-      oldDelegate.date != date ||
-      oldDelegate.seed != seed;
 }

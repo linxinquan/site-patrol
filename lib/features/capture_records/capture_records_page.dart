@@ -61,6 +61,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         title: const Text('验收记录',
             style: TextStyle(
@@ -93,7 +94,8 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                 slivers: [
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      // 统一正文首块内容与导航栏底部保持 12 的间距。
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                       child: AppCard(
                         padding: const EdgeInsets.all(12),
                         child: Row(

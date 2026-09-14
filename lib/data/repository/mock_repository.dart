@@ -47,8 +47,7 @@ class MockRepository implements Repository {
       await LocalStorage.instance.writeDoc(
         _addedKey,
         jsonEncode([
-          for (final (d, is7) in _added)
-            {'is7': is7, 'defect': d.toJson()},
+          for (final (d, is7) in _added) {'is7': is7, 'defect': d.toJson()},
         ]),
       );
     } catch (_) {
@@ -63,9 +62,8 @@ class MockRepository implements Repository {
   Future<List<Project>> getProjects() => _delay(allProjects);
 
   @override
-  Future<Project> getProject(String id) =>
-      _delay(allProjects.firstWhere((p) => p.id == id,
-          orElse: () => allProjects.first));
+  Future<Project> getProject(String id) => _delay(allProjects
+      .firstWhere((p) => p.id == id, orElse: () => allProjects.first));
 
   @override
   Future<List<Floor>> getFloors() => _delay(floors);
@@ -112,7 +110,8 @@ class MockRepository implements Repository {
   }
 
   @override
-  Future<MeasureSession?> getMeasurement(String projectKey, String drawingKey) =>
+  Future<MeasureSession?> getMeasurement(
+          String projectKey, String drawingKey) =>
       Future.value(_measurements['$projectKey|$drawingKey']);
 
   @override
@@ -134,8 +133,70 @@ class MockRepository implements Repository {
     await _persistAdded();
   }
 
+  /// 从同部位缺陷里抽出真实照片时间轴，优先用现场照片和整改回复照片。
+  List<TimelinePhoto> _timelineFromDefects(String anchor) {
+    final is7 = _currentIs7;
+    final base = is7 ? dy7Defects : defects;
+    final byId = <String, Defect>{for (final b in base) b.id: b};
+    for (final e in _added.where((e) => e.$2 == is7)) {
+      byId[e.$1.id] = e.$1;
+    }
+
+    final matched = byId.values.where((d) => d.anchor == anchor).toList()
+      ..sort((a, b) => a.ts.compareTo(b.ts));
+    final photos = <TimelinePhoto>[];
+
+    for (final defect in matched) {
+      // 首次现场留证图，作为问题初始时点。
+      if ((defect.photoPath ?? '').isNotEmpty) {
+        photos.add(
+          TimelinePhoto(
+            date: defect.ts.split(' ').first,
+            state: 'before',
+            caption:
+                defect.note.isNotEmpty ? defect.note : '${defect.type}现场记录',
+            verified: true,
+            imagePath: defect.photoPath,
+          ),
+        );
+      }
+      // 整改后的回复图，作为后续复查时点。
+      if ((defect.replyPhotoPath ?? '').isNotEmpty) {
+        photos.add(
+          TimelinePhoto(
+            date: (defect.replyTs ?? defect.ts).split(' ').first,
+            state: 'after',
+            caption:
+                (defect.reply ?? '').isNotEmpty ? defect.reply! : '整改后复查记录',
+            verified: defect.status == DefectStatus.done,
+            imagePath: defect.replyPhotoPath,
+          ),
+        );
+      }
+    }
+
+    photos.sort((a, b) => a.date.compareTo(b.date));
+    if (photos.length <= 1) return photos;
+
+    // 按时间顺序补齐前/中/后标签，保证 UI 标签语义稳定。
+    return [
+      for (var i = 0; i < photos.length; i++)
+        TimelinePhoto(
+          date: photos[i].date,
+          state: i == 0 ? 'before' : (i == photos.length - 1 ? 'after' : 'mid'),
+          caption: photos[i].caption,
+          verified: photos[i].verified,
+          imagePath: photos[i].imagePath,
+          isAsset: photos[i].isAsset,
+        ),
+    ];
+  }
+
   @override
-  Future<List<TimelinePhoto>> getTimeline(String anchor) {
+  Future<List<TimelinePhoto>> getTimeline(String anchor) async {
+    await _restored;
+    final fromDefects = _timelineFromDefects(anchor);
+    if (fromDefects.length >= 2) return _delay(fromDefects);
     // 兼容：从缺陷详情页跳过来时传入的可能是 defect.part（缺陷描述），
     // 而 timeline map 的 key 是 anchor（如"西楼1F-左病房翼"）。
     // 先精确查；查不到时回退到默认 anchor（保证 demo 数据可见）。

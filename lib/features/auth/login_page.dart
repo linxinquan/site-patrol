@@ -131,7 +131,8 @@ class _ValueGrid extends StatelessWidget {
   // 按稿配色：蓝 #0395FF / 红 #FF4444 / 绿 #00B84A / 橙 #FF9500
   static const _cells = [
     _CellData(
-      icon: MingCuteIcons.cameraLine,
+      // 和项目进度百分比弹窗保持一致，统一使用面性图标。
+      icon: MingCuteIcons.cameraFill,
       title: '现场拍照',
       desc: '随手记录',
       bgBegin: Alignment.topLeft,
@@ -142,7 +143,7 @@ class _ValueGrid extends StatelessWidget {
       iconColors: [Color(0x000395FF), Color(0xFF0395FF)],
     ),
     _CellData(
-      icon: MingCuteIcons.aiLine,
+      icon: MingCuteIcons.classify3AiFill,
       title: 'AI分类关联',
       desc: '图纸+规范',
       bgBegin: Alignment.topRight,
@@ -153,7 +154,7 @@ class _ValueGrid extends StatelessWidget {
       iconColors: [Color(0x00FF4444), Color(0xFFFF4444)],
     ),
     _CellData(
-      icon: MingCuteIcons.scaleLine,
+      icon: MingCuteIcons.balanceFill,
       title: '责任判定',
       desc: '设计/施工',
       bgBegin: Alignment.topRight,
@@ -164,7 +165,7 @@ class _ValueGrid extends StatelessWidget {
       iconColors: [Color(0xFF00B84A), Color(0x0000B84A)],
     ),
     _CellData(
-      icon: MingCuteIcons.storageLine,
+      icon: MingCuteIcons.book6AiFill,
       title: '知识库',
       desc: '反哺设计',
       bgBegin: Alignment.topLeft,

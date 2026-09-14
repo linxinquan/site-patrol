@@ -138,6 +138,7 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
     if (rec == null) {
       return Scaffold(
           appBar: AppBar(
+            toolbarHeight: 48,
             centerTitle: true,
             title: const Text(
               '图纸核尺',
@@ -149,6 +150,7 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
     final drawings = ref.watch(drawingsProvider).valueOrNull ?? {};
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 48,
         centerTitle: true,
         title: const Text(
           '图纸核尺对照',
@@ -162,7 +164,8 @@ class _RoomComparePageState extends ConsumerState<RoomComparePage> {
         children: [
           // 图纸选择
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            // 首块图纸选择区与导航栏底部统一保持 12 的间距。
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
             child: Row(children: [
               const Text('对照图纸：', style: TextStyle(fontSize: 12)),
               Expanded(

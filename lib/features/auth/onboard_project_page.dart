@@ -79,8 +79,8 @@ class _OnboardProjectPageState extends ConsumerState<OnboardProjectPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 导航栏下方继续保留引导页原有的呼吸感。
-            const SizedBox(height: 44),
+            // 引导页首块内容与导航栏底部统一保持 12 的间距。
+            const SizedBox(height: 12),
 
             // —— 主内容（标题组 + 项目卡，可滚动）——
             Expanded(

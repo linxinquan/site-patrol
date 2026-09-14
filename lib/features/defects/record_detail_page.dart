@@ -29,6 +29,7 @@ class RecordDetailPage extends ConsumerWidget {
         foregroundColor: const Color(0xFF000000),
         elevation: 0,
         scrolledUnderElevation: 0,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: Padding(
@@ -154,7 +155,7 @@ class _BodyState extends State<_Body> {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(
-                  AppTokens.space3, AppTokens.space2, AppTokens.space3, 96),
+                  AppTokens.space3, AppTokens.space3, AppTokens.space3, 96),
               children: [
                 // 水印照片（保留水印）+ 右上校验胶囊
                 _WatermarkPhoto(widget.d),
@@ -241,7 +242,8 @@ class _InfoCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                    // 红色问题信息按要求统一为 W500。
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFFFF4444)),
               ),
             ),
@@ -736,54 +738,39 @@ class _DesignerCard extends StatelessWidget {
                         height: 22 / 14,
                         color: AppTokens.fg)),
                 const SizedBox(height: 8),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final compact = constraints.maxWidth < 336;
-                    final buttons = [
-                      _ActBtn(
+                // 三个处置动作固定保持一行，通过按钮内部缩放来适配窄宽度。
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ActBtn(
                         label: '远程已解决',
                         icon: MingCuteIcons.checkCircleLine,
                         fg: const Color(0xFF00B84A),
                         bg: const Color(0x0D00B84A),
                         onTap: () => _act(context, 'remoteFix'),
                       ),
-                      _ActBtn(
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActBtn(
                         label: '远程已答复',
                         icon: MingCuteIcons.phoneSuccessLine,
                         fg: const Color(0xFFFF4444),
                         bg: const Color(0x0DFF4444),
                         onTap: () => _act(context, 'remoteConfirm'),
                       ),
-                      _ActBtn(
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _ActBtn(
                         label: '需要到现场',
                         icon: MingCuteIcons.location2Line,
                         fg: const Color(0xFFFF9500),
                         bg: const Color(0x0DFF9500),
                         onTap: () => _act(context, 'onsite'),
                       ),
-                    ];
-                    if (compact) {
-                      return Wrap(
-                        spacing: 13,
-                        runSpacing: 13,
-                        children: buttons
-                            .map((btn) => SizedBox(
-                                  width: (constraints.maxWidth - 13) / 2,
-                                  child: btn,
-                                ))
-                            .toList(),
-                      );
-                    }
-                    return Row(
-                      children: [
-                        Expanded(child: buttons[0]),
-                        const SizedBox(width: 13),
-                        Expanded(child: buttons[1]),
-                        const SizedBox(width: 13),
-                        Expanded(child: buttons[2]),
-                      ],
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -814,26 +801,30 @@ class _ActBtn extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: 38,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Icon(icon, size: 20, color: fg),
-              const SizedBox(width: 4),
-              Text(label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 22 / 14,
-                    color: fg,
-                  )),
-            ],
+          // 用 FittedBox 在窄屏下整体缩放按钮内容，保持三个选项始终单行显示。
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: fg),
+                const SizedBox(width: 4),
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      height: 22 / 14,
+                      color: fg,
+                    )),
+              ],
+            ),
           ),
         ),
       );
@@ -871,87 +862,60 @@ class _DesignerActionSheetState extends State<_DesignerActionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: bottomInset),
-      // 键盘弹出时允许内容整体上移并滚动，避免输入框被遮挡。
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: widget.accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(widget.icon, size: 20, color: widget.accent),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      widget.helper,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          AppBottomSheet.helperStyle(const Color(0xFF60656B)),
-                    ),
-                  ),
-                ],
-              ),
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.accent.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 12),
-            TextField(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(widget.icon, size: 20, color: widget.accent),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.helper,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppBottomSheet.inputBoxDecoration(),
+            child: TextField(
               controller: _ctl,
               autofocus: true,
               maxLines: 4,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 22 / 14,
-                color: AppTokens.fg,
-              ),
-              decoration: InputDecoration(
-                hintText: widget.hintText,
-                hintStyle: AppBottomSheet.helperStyle(),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.all(12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      BorderSide(color: widget.accent.withValues(alpha: 0.2)),
-                ),
-              ),
+              style: AppBottomSheet.inputTextStyle,
+              decoration:
+                  AppBottomSheet.inputDecoration(hintText: widget.hintText),
             ),
-            const SizedBox(height: 16),
-            AppSheetFooter.cancelSave(
-              onCancel: () => Navigator.of(context).pop(),
-              onSave: () {
-                final text = _ctl.text.trim();
-                if (widget.requiredNote && text.isEmpty) {
-                  AppSnack.show(context, '请先填写处置说明', kind: AppSnackKind.muted);
-                  return;
-                }
-                Navigator.of(context).pop(text);
-              },
-              saveLabel: '确认提交',
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          AppSheetFooter.cancelSave(
+            onCancel: () => Navigator.of(context).pop(),
+            onSave: () {
+              final text = _ctl.text.trim();
+              if (widget.requiredNote && text.isEmpty) {
+                AppSnack.show(context, '请先填写处置说明', kind: AppSnackKind.muted);
+                return;
+              }
+              Navigator.of(context).pop(text);
+            },
+            saveLabel: '确认提交',
+          ),
+        ],
       ),
     );
   }
@@ -1184,88 +1148,60 @@ class _ReplyActionSheetState extends State<_ReplyActionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding: EdgeInsets.only(bottom: bottomInset),
-      // 键盘弹出时允许内容整体上移并滚动，避免输入框被遮挡。
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: widget.accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Icon(widget.icon, size: 20, color: widget.accent),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      widget.helper,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style:
-                          AppBottomSheet.helperStyle(const Color(0xFF60656B)),
-                    ),
-                  ),
-                ],
-              ),
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.accent.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 12),
-            TextField(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(widget.icon, size: 20, color: widget.accent),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.helper,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: AppBottomSheet.inputBoxDecoration(),
+            child: TextField(
               controller: _ctl,
               autofocus: true,
               maxLines: 4,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 22 / 14,
-                color: AppTokens.fg,
-              ),
-              decoration: InputDecoration(
-                hintText: widget.hintText,
-                hintStyle: AppBottomSheet.helperStyle(),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.all(12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide:
-                      BorderSide(color: widget.accent.withValues(alpha: 0.2)),
-                ),
-              ),
+              style: AppBottomSheet.inputTextStyle,
+              decoration:
+                  AppBottomSheet.inputDecoration(hintText: widget.hintText),
             ),
-            const SizedBox(height: 16),
-            AppSheetFooter.cancelSave(
-              onCancel: () => Navigator.of(context).pop(),
-              onSave: () {
-                final text = _ctl.text.trim();
-                if (text.isEmpty) {
-                  AppSnack.show(context, '请先填写整改回复内容',
-                      kind: AppSnackKind.muted);
-                  return;
-                }
-                Navigator.of(context).pop(text);
-              },
-              saveLabel: '确认提交',
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          AppSheetFooter.cancelSave(
+            onCancel: () => Navigator.of(context).pop(),
+            onSave: () {
+              final text = _ctl.text.trim();
+              if (text.isEmpty) {
+                AppSnack.show(context, '请先填写整改回复内容', kind: AppSnackKind.muted);
+                return;
+              }
+              Navigator.of(context).pop(text);
+            },
+            saveLabel: '确认提交',
+          ),
+        ],
       ),
     );
   }

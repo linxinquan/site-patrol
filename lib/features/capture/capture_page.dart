@@ -1127,7 +1127,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(
-          AppTokens.space3, AppTokens.space2, AppTokens.space3, 0),
+          AppTokens.space3, AppTokens.space3, AppTokens.space3, 0),
       decoration: BoxDecoration(
         color: AppTokens.surface,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
@@ -1777,175 +1777,150 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final stepHint = _step == _CaptureStep.selectFloor
         ? '请先选择下方图纸，再进入图纸选点'
         : '点击图纸选点，将自动吸附最近锚点';
-    return _sectionCard(
-      icon: MingCuteIcons.mapLine,
-      title: '图纸工作区',
-      helper: '先选图纸，再在图纸上点击具体部位，随后进行现场拍照和识别。',
-      child: AspectRatio(
-        aspectRatio: 1 / _ratio,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final box = constraints.biggest;
-            return Stack(
-              children: [
-                InteractiveViewer(
-                  transformationController: _drawingTransform,
-                  minScale: 0.8,
-                  maxScale: 8.0,
-                  boundaryMargin: const EdgeInsets.all(40),
-                  child: SizedBox(
-                    width: box.width,
-                    height: box.height,
-                    child: GestureDetector(
-                      onTapUp: _step == _CaptureStep.selectFloor
-                          ? null
-                          : (d) => _onTapDrawing(d.localPosition, box),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if (_drawing != null && _drawing!.src.isNotEmpty)
-                            ClipRRect(
-                              borderRadius:
-                                  BorderRadius.circular(AppTokens.radiusLg),
-                              child: DrawingImage(
-                                _drawing!.src,
-                                fit: BoxFit.fill,
-                              ),
-                            )
-                          else if (_drawing != null &&
-                              _drawing!.src.isEmpty &&
-                              _remotePngUrl != null)
-                            ClipRRect(
-                              borderRadius:
-                                  BorderRadius.circular(AppTokens.radiusLg),
-                              child: Image.network(
-                                _remotePngUrl!,
-                                fit: BoxFit.fill,
-                                filterQuality: FilterQuality.medium,
-                                loadingBuilder: (context, child, progress) =>
-                                    progress == null
-                                        ? child
-                                        : Container(
-                                            alignment: Alignment.center,
-                                            child: CircularProgressIndicator(
-                                              value: progress
-                                                          .expectedTotalBytes !=
-                                                      null
-                                                  ? progress
-                                                          .cumulativeBytesLoaded /
-                                                      progress
-                                                          .expectedTotalBytes!
-                                                  : null,
-                                            ),
-                                          ),
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildMissingPngPlaceholder(
-                                        error.toString()),
-                              ),
-                            )
-                          else if (_drawing != null && _drawing!.src.isEmpty)
-                            _buildMissingPngPlaceholder(_remotePngError)
-                          else
-                            Container(
-                              decoration: BoxDecoration(
-                                color: AppTokens.surface,
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.radiusLg),
-                              ),
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(MingCuteIcons.mapLine,
-                                      size: 48, color: AppTokens.muted),
-                                  const SizedBox(height: AppTokens.space2),
-                                  Text('未选择图纸',
-                                      style: TextStyle(
-                                          color: AppTokens.muted,
-                                          fontWeight: FontWeight.w600)),
-                                ],
-                              ),
+    return AspectRatio(
+      aspectRatio: 1 / _ratio,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final box = constraints.biggest;
+          return Stack(
+            children: [
+              InteractiveViewer(
+                transformationController: _drawingTransform,
+                minScale: 0.8,
+                maxScale: 8.0,
+                boundaryMargin: const EdgeInsets.all(40),
+                child: SizedBox(
+                  width: box.width,
+                  height: box.height,
+                  child: GestureDetector(
+                    onTapUp: _step == _CaptureStep.selectFloor
+                        ? null
+                        : (d) => _onTapDrawing(d.localPosition, box),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (_drawing != null && _drawing!.src.isNotEmpty)
+                          DrawingImage(
+                            _drawing!.src,
+                            fit: BoxFit.fill,
+                          )
+                        else if (_drawing != null &&
+                            _drawing!.src.isEmpty &&
+                            _remotePngUrl != null)
+                          Image.network(
+                            _remotePngUrl!,
+                            fit: BoxFit.fill,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (context, child, progress) =>
+                                progress == null
+                                    ? child
+                                    : Container(
+                                        alignment: Alignment.center,
+                                        child: CircularProgressIndicator(
+                                          value: progress.expectedTotalBytes !=
+                                                  null
+                                              ? progress.cumulativeBytesLoaded /
+                                                  progress.expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildMissingPngPlaceholder(error.toString()),
+                          )
+                        else if (_drawing != null && _drawing!.src.isEmpty)
+                          _buildMissingPngPlaceholder(_remotePngError)
+                        else
+                          Container(
+                            color: AppTokens.surface,
+                            alignment: Alignment.center,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(MingCuteIcons.mapLine,
+                                    size: 48, color: AppTokens.muted),
+                                const SizedBox(height: AppTokens.space2),
+                                Text('未选择图纸',
+                                    style: TextStyle(
+                                        color: AppTokens.muted,
+                                        fontWeight: FontWeight.w600)),
+                              ],
                             ),
-                          // 半透明遮罩，突出蓝图观感
-                          if (_drawing != null &&
-                              (_drawing!.src.isNotEmpty ||
-                                  _remotePngUrl != null))
-                            Container(
-                              decoration: BoxDecoration(
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.radiusLg),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.black.withValues(alpha: 0.10),
-                                    Colors.black.withValues(alpha: 0.28),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          // 预置照片锚点图钉
-                          if (_drawing != null &&
-                              (_drawing!.src.isNotEmpty ||
-                                  _remotePngUrl != null))
-                            ..._anchors.map((a) => _buildPin(a)),
-                          // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）
-                          if (_drawing != null &&
-                              _step != _CaptureStep.selectFloor) ...[
-                            _buildCrosshair(),
-                            _buildPickPin(),
-                          ],
-                          // 顶部提示条：只承担当前操作提示，不再承载过多信息。
-                          Positioned(
-                            top: AppTokens.space3,
-                            left: AppTokens.space3,
-                            right: AppTokens.space3,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: AppTokens.space3, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.45),
-                                borderRadius:
-                                    BorderRadius.circular(AppTokens.radiusPill),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(MingCuteIcons.cursorLine,
-                                      size: 12, color: Colors.white),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(stepHint,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                            fontSize: 11, color: Colors.white)),
-                                  ),
+                          ),
+                        // 半透明遮罩，突出蓝图观感。
+                        if (_drawing != null &&
+                            (_drawing!.src.isNotEmpty || _remotePngUrl != null))
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.black.withValues(alpha: 0.10),
+                                  Colors.black.withValues(alpha: 0.28),
                                 ],
                               ),
                             ),
                           ),
-                          // 扫描动画
-                          if (_scanning) _buildScanOverlay(),
+                        // 预置照片锚点图钉。
+                        if (_drawing != null &&
+                            (_drawing!.src.isNotEmpty || _remotePngUrl != null))
+                          ..._anchors.map((a) => _buildPin(a)),
+                        // 准星选点（仅在已选图纸且处于选点/拍照步骤时显示）。
+                        if (_drawing != null &&
+                            _step != _CaptureStep.selectFloor) ...[
+                          _buildCrosshair(),
+                          _buildPickPin(),
                         ],
-                      ),
+                        // 顶部提示条：只承担当前操作提示，不再承载过多信息。
+                        Positioned(
+                          top: AppTokens.space3,
+                          left: AppTokens.space3,
+                          right: AppTokens.space3,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: AppTokens.space3, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius:
+                                  BorderRadius.circular(AppTokens.radiusPill),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(MingCuteIcons.cursorLine,
+                                    size: 12, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(stepHint,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 11, color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // 扫描动画。
+                        if (_scanning) _buildScanOverlay(),
+                      ],
                     ),
                   ),
                 ),
-                // 缩放控制按钮（浮在图纸之上，保持不随图纸缩放）
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _ZoomToolbar(
-                    onZoomIn: () => _zoomDrawing(1.2),
-                    onZoomOut: () => _zoomDrawing(1 / 1.2),
-                    onReset: _resetDrawingZoom,
-                  ),
+              ),
+              // 缩放控制按钮（浮在图纸之上，保持不随图纸缩放）。
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _ZoomToolbar(
+                  onZoomIn: () => _zoomDrawing(1.2),
+                  onZoomOut: () => _zoomDrawing(1 / 1.2),
+                  onReset: _resetDrawingZoom,
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -3574,15 +3549,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 打开拍照记录详情底部弹层。
   void _openStoredDetail(Map<String, dynamic> e) {
-    showModalBottomSheet(
+    AppBottomSheet.showCustom<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTokens.bg,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => StoredDetailSheet(
+      builder: (_, bottomSafeInset) => StoredDetailSheet(
         entry: e,
+        bottomSafeInset: bottomSafeInset,
         onDelete: () => _confirmDeleteStored(e),
       ),
     );
@@ -3902,6 +3874,7 @@ class _ResultTabDef {
 class StoredDetailSheet extends StatefulWidget {
   final Map<String, dynamic> entry;
   final VoidCallback onDelete;
+  final double bottomSafeInset;
 
   /// 接收待转的 defects 索引列表（弹层已按 pending 过滤）。
   /// 返回 `true` 表示成功，弹层会就地标记这些条目为 `converted`。
@@ -3911,6 +3884,7 @@ class StoredDetailSheet extends StatefulWidget {
     super.key,
     required this.entry,
     required this.onDelete,
+    this.bottomSafeInset = 0,
     this.onConvert,
   });
 
@@ -3962,231 +3936,226 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
     final photo = entry['photo'] as String?;
     final canConvert = widget.onConvert != null;
 
-    return SafeArea(
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.92,
-        minChildSize: 0.4,
-        expand: false,
-        builder: (_, scroll) => SingleChildScrollView(
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 拖拽条
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: AppTokens.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.92,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (_, scroll) => SingleChildScrollView(
+        controller: scroll,
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 28 + widget.bottomSafeInset),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 拖拽条
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppTokens.border,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // 头部：部位·楼层·时间 + 关闭
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${entry['anchor']} · ${entry['floor']}',
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: AppTokens.fg),
-                    ),
+            ),
+            // 头部：部位·楼层·时间 + 关闭
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${entry['anchor']} · ${entry['floor']}',
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppTokens.fg),
                   ),
-                  IconButton(
-                    icon: const Icon(MingCuteIcons.closeLine,
-                        color: AppTokens.muted, size: 18),
-                    onPressed: () => Navigator.of(context).pop(),
-                    splashRadius: 16,
-                  ),
-                ],
-              ),
-              Text('${entry['ts']}',
-                  style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
-              const SizedBox(height: 14),
-              // 照片大图
-              if (photo != null)
-                FutureBuilder<Uint8List?>(
-                  future: LocalStorage.instance.readFile(photo),
-                  builder: (ctx, snap) {
-                    final bytes = snap.data;
-                    if (bytes == null || bytes.isEmpty) {
-                      return Container(
-                        width: double.infinity,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: AppTokens.surface2,
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusMd),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text('照片不可用',
-                            style: TextStyle(
-                                fontSize: 12, color: AppTokens.muted)),
-                      );
-                    }
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                      child: Image.memory(bytes, fit: BoxFit.cover),
+                ),
+                IconButton(
+                  icon: const Icon(MingCuteIcons.closeLine,
+                      color: AppTokens.muted, size: 18),
+                  onPressed: () => Navigator.of(context).pop(),
+                  splashRadius: 16,
+                ),
+              ],
+            ),
+            Text('${entry['ts']}',
+                style: const TextStyle(fontSize: 11, color: AppTokens.muted)),
+            const SizedBox(height: 14),
+            // 照片大图
+            if (photo != null)
+              FutureBuilder<Uint8List?>(
+                future: LocalStorage.instance.readFile(photo),
+                builder: (ctx, snap) {
+                  final bytes = snap.data;
+                  if (bytes == null || bytes.isEmpty) {
+                    return Container(
+                      width: double.infinity,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: AppTokens.surface2,
+                        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('照片不可用',
+                          style:
+                              TextStyle(fontSize: 12, color: AppTokens.muted)),
                     );
-                  },
-                )
-              else
-                Container(
-                  width: double.infinity,
-                  height: 160,
+                  }
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                    child: Image.memory(bytes, fit: BoxFit.cover),
+                  );
+                },
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: AppTokens.surface2,
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                ),
+                alignment: Alignment.center,
+                child: const Text('无照片（Web 端不落盘）',
+                    style: TextStyle(fontSize: 12, color: AppTokens.muted)),
+              ),
+            const SizedBox(height: 16),
+            // AI 识别结果
+            const Text('AI 识别结果',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 8),
+            if (_defects.isEmpty)
+              const Text('未分析 / 未识别到缺陷',
+                  style: TextStyle(fontSize: 12, color: AppTokens.muted))
+            else
+              ...List.generate(_defects.length, (i) {
+                final d = _defects[i];
+                final isConverted =
+                    (d['status']?.toString() ?? '') == 'converted';
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(AppTokens.space2),
                   decoration: BoxDecoration(
                     color: AppTokens.surface2,
                     borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                    border: Border.all(color: AppTokens.border),
                   ),
-                  alignment: Alignment.center,
-                  child: const Text('无照片（Web 端不落盘）',
-                      style: TextStyle(fontSize: 12, color: AppTokens.muted)),
-                ),
-              const SizedBox(height: 16),
-              // AI 识别结果
-              const Text('AI 识别结果',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTokens.fg)),
-              const SizedBox(height: 8),
-              if (_defects.isEmpty)
-                const Text('未分析 / 未识别到缺陷',
-                    style: TextStyle(fontSize: 12, color: AppTokens.muted))
-              else
-                ...List.generate(_defects.length, (i) {
-                  final d = _defects[i];
-                  final isConverted =
-                      (d['status']?.toString() ?? '') == 'converted';
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(AppTokens.space2),
-                    decoration: BoxDecoration(
-                      color: AppTokens.surface2,
-                      borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                      border: Border.all(color: AppTokens.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(d['name']?.toString() ?? '',
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(d['name']?.toString() ?? '',
+                                style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTokens.fg)),
+                            if ((d['desc'] as String? ?? '').isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  d['desc'] as String,
                                   style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTokens.fg)),
-                              if ((d['desc'] as String? ?? '').isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    d['desc'] as String,
-                                    style: const TextStyle(
-                                        fontSize: 11, color: AppTokens.muted),
-                                  ),
+                                      fontSize: 11, color: AppTokens.muted),
                                 ),
-                            ],
-                          ),
+                              ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${((d['conf'] as num? ?? 0) * 100).toInt()}%',
+                        style: const TextStyle(
+                            fontSize: 11, color: AppTokens.muted),
+                      ),
+                      if (canConvert) ...[
                         const SizedBox(width: 8),
-                        Text(
-                          '${((d['conf'] as num? ?? 0) * 100).toInt()}%',
-                          style: const TextStyle(
-                              fontSize: 11, color: AppTokens.muted),
-                        ),
-                        if (canConvert) ...[
-                          const SizedBox(width: 8),
-                          if (isConverted)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTokens.surface2,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: AppTokens.border),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: const [
-                                  Icon(MingCuteIcons.checkLine,
-                                      size: 12, color: AppTokens.muted),
-                                  SizedBox(width: 2),
-                                  Text('已转入问题清单',
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTokens.muted)),
-                                ],
-                              ),
-                            )
-                          else
-                            AppButton(
-                              label: '转入问题清单',
-                              size: AppButtonSize.sm,
-                              onPressed: _busy ? null : () => _convert([i]),
+                        if (isConverted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTokens.surface2,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTokens.border),
                             ),
-                        ],
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(MingCuteIcons.checkLine,
+                                    size: 12, color: AppTokens.muted),
+                                SizedBox(width: 2),
+                                Text('已转入问题清单',
+                                    style: TextStyle(
+                                        fontSize: 11, color: AppTokens.muted)),
+                              ],
+                            ),
+                          )
+                        else
+                          AppButton(
+                            label: '转入问题清单',
+                            size: AppButtonSize.sm,
+                            onPressed: _busy ? null : () => _convert([i]),
+                          ),
                       ],
-                    ),
-                  );
-                }),
-              const SizedBox(height: 16),
-              // 问题描述
-              const Text('问题描述',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppTokens.fg)),
-              const SizedBox(height: 6),
-              Text(
-                note.isEmpty ? '无描述' : note,
+                    ],
+                  ),
+                );
+              }),
+            const SizedBox(height: 16),
+            // 问题描述
+            const Text('问题描述',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: note.isEmpty ? AppTokens.muted : AppTokens.fg2,
-                  height: 1.5,
-                ),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 6),
+            Text(
+              note.isEmpty ? '无描述' : note,
+              style: TextStyle(
+                fontSize: 13,
+                color: note.isEmpty ? AppTokens.muted : AppTokens.fg2,
+                height: 1.5,
               ),
-              const SizedBox(height: 20),
-              // 批量转入问题清单（仅当支持转入问题清单时显示）
-              if (canConvert && _pendingCount > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: AppButton(
-                      label: '批量转入问题清单（$_pendingCount）',
-                      onPressed: _busy
-                          ? null
-                          : () => _convert([
-                                for (var i = 0; i < _defects.length; i++)
-                                  if ((_defects[i]['status']?.toString() ??
-                                          '') !=
-                                      'converted')
-                                    i,
-                              ]),
-                    ),
+            ),
+            const SizedBox(height: 20),
+            // 批量转入问题清单（仅当支持转入问题清单时显示）
+            if (canConvert && _pendingCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    label: '批量转入问题清单（$_pendingCount）',
+                    onPressed: _busy
+                        ? null
+                        : () => _convert([
+                              for (var i = 0; i < _defects.length; i++)
+                                if ((_defects[i]['status']?.toString() ?? '') !=
+                                    'converted')
+                                  i,
+                            ]),
                   ),
                 ),
-              // 删除
-              SizedBox(
-                width: double.infinity,
-                child: AppButton(
-                  text: true,
-                  label: '删除该记录',
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    widget.onDelete();
-                  },
-                ),
               ),
-            ],
-          ),
+            // 删除
+            SizedBox(
+              width: double.infinity,
+              child: AppButton(
+                text: true,
+                label: '删除该记录',
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onDelete();
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

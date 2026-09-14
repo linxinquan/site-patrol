@@ -18,36 +18,37 @@ enum ReportExportFormat {
   //   网页链接 → webFill（地球+窗口图形，呼应"浏览器打开"）
   xlsx(
     'Excel',
-    '对齐设计师巡场报告单，可直接销项流转',
+    '可直接销项流转',
     0xFF7F83FF,
     MingCuteIcons.xlsFill,
   ),
   pdf(
     'PDF',
-    '标准打印版式，适合汇报存档',
+    '适合汇报存档',
     0xFFFF5959,
     MingCuteIcons.pdfFill,
   ),
   docx(
     'Word',
-    '可继续编辑、批注流转',
+    '可继续编辑批注',
     0xFF34A8FE,
     MingCuteIcons.docFill,
   ),
   html(
     '网页链接',
-    '浏览器打开，可另存为 PDF',
+    '浏览器直接打开',
     0xFF38D06F,
     MingCuteIcons.webFill,
   );
 
-  const ReportExportFormat(
-      this.label, this.subtitle, this.colorHex, this.icon);
+  const ReportExportFormat(this.label, this.subtitle, this.colorHex, this.icon);
 
   final String label;
   final String subtitle;
+
   /// 卡片左侧图标 chip 底色（设计稿 Frame 2147228009）。
   final int colorHex;
+
   /// 卡片左侧 24×24 图标（设计稿：每个格式对应专属图标，非统一 fileFill）。
   final IconData icon;
 }
@@ -82,8 +83,21 @@ const List<DefectStatus> _statusOrder = [
 ];
 
 const List<String> _cnNum = [
-  '一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
-  '十一', '十二', '十三', '十四', '十五',
+  '一',
+  '二',
+  '三',
+  '四',
+  '五',
+  '六',
+  '七',
+  '八',
+  '九',
+  '十',
+  '十一',
+  '十二',
+  '十三',
+  '十四',
+  '十五',
 ];
 
 String _cn(int i) => i < _cnNum.length ? _cnNum[i] : '${i + 1}';
@@ -166,7 +180,8 @@ String buildWeeklyReportHtml(
   buf.writeln('<html lang="zh-CN">');
   buf.writeln('<head>');
   buf.writeln('<meta charset="utf-8">');
-  buf.writeln('<meta name="viewport" content="width=device-width, initial-scale=1">');
+  buf.writeln(
+      '<meta name="viewport" content="width=device-width, initial-scale=1">');
   buf.writeln('<title>${_esc(report.title)} - ${_esc(report.project)}</title>');
   buf.writeln('<style>');
   buf.writeln(_css());
@@ -197,8 +212,7 @@ String buildWeeklyReportHtml(
       .where((d) =>
           d.status == DefectStatus.draft || d.status == DefectStatus.doing)
       .length;
-  final doneCount =
-      defects.where((d) => d.status == DefectStatus.done).length;
+  final doneCount = defects.where((d) => d.status == DefectStatus.done).length;
   // 巡场报告单「重要等级」维度：重要紧急条目数（最需优先处置）。
   final urgentCount = defects
       .where((d) => d.effectiveImportance == DefectImportance.urgentImportant)
@@ -207,9 +221,12 @@ String buildWeeklyReportHtml(
   final designerFixedCount =
       defects.where((d) => d.designerAction == 'remoteFix').length;
   buf.writeln('<section class="overview">');
-  buf.writeln(_statCard('现场照片', '${report.photos.length}', '#0284E8', '#E8F4FE'));
-  buf.writeln(_statCard('进度楼栋', '${report.progress.length}', '#0AA0C0', '#E2F5FA'));
-  buf.writeln(_statCard('待协调问题', '${report.filledIssues.length}', '#C77700', '#FFF4E2'));
+  buf.writeln(
+      _statCard('现场照片', '${report.photos.length}', '#0284E8', '#E8F4FE'));
+  buf.writeln(
+      _statCard('进度楼栋', '${report.progress.length}', '#0AA0C0', '#E2F5FA'));
+  buf.writeln(_statCard(
+      '待协调问题', '${report.filledIssues.length}', '#C77700', '#FFF4E2'));
   buf.writeln(_statCard('巡场问题', '${defects.length}', '#E0342B', '#FFE9E7'));
   buf.writeln(_statCard('重要紧急', '$urgentCount', '#D93025', '#FCE8E6'));
   buf.writeln(_statCard('未闭环', '$openDefects', '#D98A00', '#FFF2DC'));
@@ -233,7 +250,8 @@ String buildWeeklyReportHtml(
   // ===== 各章节 =====
   for (var i = 0; i < chapters.length; i++) {
     buf.writeln('<section class="chapter">');
-    buf.writeln('<h2><i>${_cn(i)}</i>${_esc(_cleanTitle(chapters[i].title))}</h2>');
+    buf.writeln(
+        '<h2><i>${_cn(i)}</i>${_esc(_cleanTitle(chapters[i].title))}</h2>');
     buf.writeln(chapters[i].body);
     buf.writeln('</section>');
   }
@@ -277,12 +295,11 @@ String _photoGroup(WeeklyPhotoGroup g, Map<String, String> photoBase64) {
         String title, List<WeeklyProgressRow> rows) =>
     (
       title: title,
-      body:
-          '<table class="report-table"><thead><tr><th class="col-b">楼栋</th>'
-              '<th>现场安装施工进度情况</th></tr></thead><tbody>'
-              '${rows.map((r) => '<tr><td class="col-b">${_esc(r.building)}</td>'
-                  '<td>${_progressDetail(r.detail)}</td></tr>').join('')}'
-              '</tbody></table>',
+      body: '<table class="report-table"><thead><tr><th class="col-b">楼栋</th>'
+          '<th>现场安装施工进度情况</th></tr></thead><tbody>'
+          '${rows.map((r) => '<tr><td class="col-b">${_esc(r.building)}</td>'
+              '<td>${_progressDetail(r.detail)}</td></tr>').join('')}'
+          '</tbody></table>',
     );
 
 /// 进度长文本 → 按分号分行；「防排烟：2层风管安装」拆成专业标签 + 内容两段式，
@@ -312,9 +329,8 @@ String _progressDetail(String detail) {
       .join('');
   return (
     title: l.title,
-    body:
-        '<table class="report-table"><thead><tr>$th</tr></thead>'
-            '<tbody>$body</tbody></table>',
+    body: '<table class="report-table"><thead><tr>$th</tr></thead>'
+        '<tbody>$body</tbody></table>',
   );
 }
 
@@ -333,9 +349,8 @@ String _progressDetail(String detail) {
         '<div class="room-block"><h3>${_esc(r.name)} · ${_esc(r.roomUse)}'
         ' · 来源 ${_esc(measureSourceLabel(r.source))}'
         '${r.netHeightMm != null ? ' · 净高 ${fmtMm(r.netHeightMm!)} mm' : ''}</h3>');
-    sb.writeln(
-        '<table class="report-table"><thead><tr><th>墙段</th>'
-            '<th>尺寸(mm)</th><th>墙厚(mm)</th><th>洞口</th></tr></thead><tbody>');
+    sb.writeln('<table class="report-table"><thead><tr><th>墙段</th>'
+        '<th>尺寸(mm)</th><th>墙厚(mm)</th><th>洞口</th></tr></thead><tbody>');
     for (var i = 0; i < r.walls.length; i++) {
       final w = r.walls[i];
       final op = w.openings.isEmpty
@@ -356,7 +371,8 @@ String _progressDetail(String detail) {
           '${kCheckTableHeaders.map((h) => '<th>${_esc(h)}</th>').join()}'
           '</tr></thead><tbody>');
       for (final c in r.checks) {
-        sb.writeln('<tr>${measureCheckRow(c).map((v) => '<td>${_esc(v)}</td>').join()}</tr>');
+        sb.writeln(
+            '<tr>${measureCheckRow(c).map((v) => '<td>${_esc(v)}</td>').join()}</tr>');
       }
       sb.writeln('</tbody></table>');
     }
@@ -389,12 +405,11 @@ String _progressDetail(String detail) {
         String title, List<WeeklyIssue> items) =>
     (
       title: title,
-      body:
-          '<table class="report-table"><thead><tr><th class="col-no">序号</th>'
-              '<th>事由</th><th class="rem">备注</th></tr></thead><tbody>'
-              '${items.map((e) => '<tr><td class="col-no">${_esc(e.no)}</td>'
-                  '<td>${_esc(e.subject)}</td><td class="rem">${_esc(e.remark)}</td></tr>').join('')}'
-              '</tbody></table>',
+      body: '<table class="report-table"><thead><tr><th class="col-no">序号</th>'
+          '<th>事由</th><th class="rem">备注</th></tr></thead><tbody>'
+          '${items.map((e) => '<tr><td class="col-no">${_esc(e.no)}</td>'
+              '<td>${_esc(e.subject)}</td><td class="rem">${_esc(e.remark)}</td></tr>').join('')}'
+          '</tbody></table>',
     );
 
 /// 巡场清单及闭环情况（版式对齐 LDI 设计院巡场报告单）：
@@ -402,8 +417,7 @@ String _progressDetail(String detail) {
 /// 「巡场意见 → 整改回复 → 闭合确认」三段呈现，末尾附销项汇总表。
 ({String title, String body}) _defectsSection(
     List<Defect> defects, Map<String, String> photoBase64) {
-  final list = [...defects]
-    ..sort((a, b) {
+  final list = [...defects]..sort((a, b) {
       final sa = _severityOrder.indexOf(a.severity);
       final sb = _severityOrder.indexOf(b.severity);
       return sa != sb ? sa - sb : a.ts.compareTo(b.ts);
@@ -446,7 +460,8 @@ String _progressDetail(String detail) {
   }
 
   // 销项汇总表（对齐巡场报告单列：序号 / 部位 / 重要等级 / 状态 / 责任人 / 时间）
-  buf.writeln('<table class="report-table sum-table"><thead><tr><th class="col-no">序号</th>'
+  buf.writeln(
+      '<table class="report-table sum-table"><thead><tr><th class="col-no">序号</th>'
       '<th>部位 / 缺陷</th><th>重要等级</th><th>严重程度</th><th>状态</th>'
       '<th>是否闭合</th><th>责任人</th><th>发现时间</th></tr></thead><tbody>');
   var i2 = 0;
@@ -505,7 +520,8 @@ String _photoBlock(
 
 /// 缺陷卡（巡场报告单三段式）：巡场意见 → 整改回复 → 闭合确认。
 String _defectCard(int idx, Defect d, Map<String, String> photoBase64) {
-  final tags = d.tags.map((t) => '<span class="tag">${_esc(t)}</span>').join('');
+  final tags =
+      d.tags.map((t) => '<span class="tag">${_esc(t)}</span>').join('');
   final coord = d.coordText;
   final imp = d.effectiveImportance;
 
@@ -529,7 +545,10 @@ String _defectCard(int idx, Defect d, Map<String, String> photoBase64) {
           '<div class="dsec-b">'
           '${(d.reply ?? '').trim().isNotEmpty ? '<div class="note-text">${_esc(d.reply!)}</div>' : ''}'
           '${_photoBlock(d.replyPhotoPath, photoBase64, '${d.part}整改后照片', '回复照片未加载')}'
-          '${((d.replyBy ?? '').trim().isNotEmpty || (d.replyTs ?? '').trim().isNotEmpty) ? '<div class="reply-meta">${_esc([if ((d.replyBy ?? '').trim().isNotEmpty) d.replyBy!, if ((d.replyTs ?? '').trim().isNotEmpty) d.replyTs!].join(' · '))}</div>' : ''}'
+          '${((d.replyBy ?? '').trim().isNotEmpty || (d.replyTs ?? '').trim().isNotEmpty) ? '<div class="reply-meta">${_esc([
+              if ((d.replyBy ?? '').trim().isNotEmpty) d.replyBy!,
+              if ((d.replyTs ?? '').trim().isNotEmpty) d.replyTs!
+            ].join(' · '))}</div>' : ''}'
           '</div></div>';
 
   // —— 三、闭合确认 ——

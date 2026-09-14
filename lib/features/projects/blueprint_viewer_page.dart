@@ -51,6 +51,7 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: true,
         leadingWidth: 36,
         leading: Padding(
@@ -70,7 +71,8 @@ class _BlueprintViewerPageState extends State<BlueprintViewerPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            // 统一正文首块内容与导航栏底部保持 12 的间距。
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),

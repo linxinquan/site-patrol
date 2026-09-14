@@ -24,15 +24,21 @@ class NavIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed ?? () => Navigator.of(context).maybePop(),
-      hoverColor: Colors.transparent,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
-      focusColor: Colors.transparent,
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      constraints: const BoxConstraints(minWidth: 24, minHeight: 44),
-      icon: Icon(icon, size: size, color: color),
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPressed ?? () => Navigator.of(context).maybePop(),
+        // 直接固定成 24 宽、44 高的点击区，避开不同平台对 IconButton 最小热区的差异，
+        // 让导航图标的实际视觉间距和代码里的数值保持一致。
+        child: SizedBox(
+          width: size,
+          height: 44,
+          child: Center(
+            child: Icon(icon, size: size, color: color),
+          ),
+        ),
+      ),
     );
   }
 }

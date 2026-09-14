@@ -603,6 +603,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         elevation: 0,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
+        toolbarHeight: 48,
         centerTitle: false,
         titleSpacing: 12,
         title: const Text('巡场',
@@ -615,24 +616,28 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
           if (_plan != null)
             Padding(
               padding: const EdgeInsets.only(right: 12),
-              child: NavIconButton(
-                icon: MingCuteIcons.liveLocationLine,
-                color: AppTokens.patrolFg,
-                size: 24,
-                onPressed: _resetView,
-              ),
-            ),
-          if (_plan != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: NavIconButton(
-                icon: MingCuteIcons.editLine,
-                color: AppTokens.patrolFg,
-                size: 24,
-                onPressed: () => context.push(
-                  '/patrol-editor',
-                  extra: PatrolArgs(planId: _plan!.id),
-                ),
+              // 把两枚图标收进同一个 Row 里，明确控制中间 gap=16、整组右边距=12，
+              // 避免独立 action 在不同平台上看起来间距偏大。
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  NavIconButton(
+                    icon: MingCuteIcons.liveLocationLine,
+                    color: AppTokens.patrolFg,
+                    size: 24,
+                    onPressed: _resetView,
+                  ),
+                  const SizedBox(width: 16),
+                  NavIconButton(
+                    icon: MingCuteIcons.editLine,
+                    color: AppTokens.patrolFg,
+                    size: 24,
+                    onPressed: () => context.push(
+                      '/patrol-editor',
+                      extra: PatrolArgs(planId: _plan!.id),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -678,6 +683,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     };
     return Column(
       children: [
+        // 页面首块内容与导航栏底部统一保持 12 的间距。
+        const SizedBox(height: 12),
         // 顶部：离线提示 + 状态（Frame 2147228032）
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -995,32 +1002,50 @@ class _CheckInBar extends StatelessWidget {
     final pct = total == 0 ? 0 : (done / total * 100).round();
     final allDone = total > 0 && done >= total;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTokens.patrolSurface2,
-          borderRadius: BorderRadius.circular(12),
-          border:
-              Border.all(color: AppTokens.patrolBorder.withValues(alpha: 0.5)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Icon(
-                allDone
-                    ? MingCuteIcons.checkCircleLine
-                    : MingCuteIcons.mapPinLine,
-                size: 18,
-                color: allDone ? const Color(0xFF16A34A) : AppTokens.patrolFg),
-            const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                '到达打卡 已到 $done/$total（$pct%）',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color:
-                        allDone ? const Color(0xFF16A34A) : AppTokens.patrolFg),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // 图标和标题统一锁在 22 高的中心线上，避免视觉上发飘。
+                  const SizedBox(
+                    width: 20,
+                    height: 22,
+                    child: Center(
+                      child: Icon(
+                        MingCuteIcons.clockLine,
+                        size: 20,
+                        color: AppTokens.brand,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      '到达打卡，已到 $done/$total（$pct%）',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 22 / 14,
+                        color: AppTokens.fg,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
@@ -1028,20 +1053,36 @@ class _CheckInBar extends StatelessWidget {
               onTap: allDone ? null : onCheckIn,
               borderRadius: BorderRadius.circular(999),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: allDone
-                      ? AppTokens.patrolMuted.withValues(alpha: 0.3)
+                      ? const Color(0xFF00B84A)
                       : const Color(0xFF0395FF),
                   borderRadius: BorderRadius.circular(999),
                 ),
-                child: Text(
-                  allDone ? '全部完成' : '到达打卡',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: allDone ? AppTokens.patrolMuted : Colors.white),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(
+                      allDone
+                          ? MingCuteIcons.checksLine
+                          : MingCuteIcons.checksLine,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      allDone ? '完成' : '打卡',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

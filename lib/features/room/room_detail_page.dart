@@ -93,6 +93,7 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     final r = _record;
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 48,
         centerTitle: true,
         title: const Text(
           '量房详情',

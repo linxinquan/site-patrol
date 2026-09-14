@@ -723,11 +723,19 @@ class TimelinePhoto {
   final String state; // before / mid / after
   final String caption;
   final bool verified;
+
+  /// 图片路径：本地存储相对路径，或 assets 资源路径。
+  final String? imagePath;
+
+  /// 是否为 assets 资源图。false 时按本地存储文件读取。
+  final bool isAsset;
   const TimelinePhoto({
     required this.date,
     required this.state,
     required this.caption,
     required this.verified,
+    this.imagePath,
+    this.isAsset = false,
   });
 }
 
