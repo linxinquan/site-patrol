@@ -153,10 +153,10 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         titleSpacing: 12,
         title: const Text('图纸',
             style: TextStyle(
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
                 color: AppTokens.fg,
-                height: 28 / 20)),
+                height: 32 / 24)),
         actions: const [
           Padding(
             padding: EdgeInsets.fromLTRB(0, 0, 12, 0),

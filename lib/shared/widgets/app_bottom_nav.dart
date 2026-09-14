@@ -56,7 +56,7 @@ class AppBottomNav extends StatelessWidget {
               onTap: () => context.go(_routes[2]),
             ),
             _TabItem(
-              label: '问题清单',
+              label: '问题',
               selected: currentIndex == 3,
               onTap: () => context.go(_routes[3]),
             ),
@@ -83,7 +83,7 @@ class _TabItem extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Center(
-            // 标签长度不一（如「问题清单」4 字 vs「项目」2 字）：
+            // 标签长度尽量收短（如「问题」2 字 vs「项目」2 字）：
             // 等宽 Tab 下用 scaleDown 兜底，窄屏也不会出现溢出条纹。
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),

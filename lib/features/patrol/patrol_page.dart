@@ -609,9 +609,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         title: const Text('巡场',
             style: TextStyle(
                 color: AppTokens.patrolFg,
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w600,
-                height: 28 / 20)),
+                height: 32 / 24)),
         actions: [
           if (_plan != null)
             Padding(

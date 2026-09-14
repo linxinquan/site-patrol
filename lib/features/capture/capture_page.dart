@@ -983,10 +983,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               )
             : const Text('验收',
                 style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: FontWeight.w600,
                     color: AppTokens.fg,
-                    height: 28 / 20)),
+                    height: 32 / 24)),
         actions: _isPatrolEntry
             ? const []
             : const [

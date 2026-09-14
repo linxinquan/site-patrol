@@ -52,10 +52,10 @@ class DefectsPage extends ConsumerWidget {
         titleSpacing: 12,
         title: const Text('问题清单',
             style: TextStyle(
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
                 color: AppTokens.fg,
-                height: 28 / 20)),
+                height: 32 / 24)),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -402,10 +402,11 @@ class DefectsPage extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 图标固定 20，和 22 高的时间文字走同一中心线。
+                  // 日历图标和时间文字统一锁在 22 高的中心线上，
+                  // 避免真机构建后因为图标字体留白导致视觉上不居中。
                   const SizedBox(
                     width: 20,
-                    height: 20,
+                    height: 22,
                     child: Center(
                       child: Icon(MingCuteIcons.calendar2Line,
                           size: 20, color: AppTokens.brand),
@@ -440,7 +441,7 @@ class DefectsPage extends ConsumerWidget {
                   const SizedBox(width: 4),
                   const SizedBox(
                     width: 16,
-                    height: 16,
+                    height: 22,
                     child: Center(
                       child: Icon(MingCuteIcons.rightLine,
                           size: 16, color: AppTokens.muted),
