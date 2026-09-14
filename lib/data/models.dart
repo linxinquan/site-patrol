@@ -450,11 +450,11 @@ class Defect {
   /// 水印凭证号（拍摄流水，唯一）。
   final String? watermarkSerial;
 
-  /// 关联照片相对路径列表（验收转工单时填入验收记录的拍照水印图）。
+  /// 关联照片相对路径列表（验收记录转入问题清单时填入拍照水印图）。
   final List<String> photos;
 
-  /// 来源拍照验收记录 id（验收转工单时填入 `${captureId}#${idx}`）；
-  /// 为空表示非验收转工单来源（图纸打点 / 手动录入等）。
+  /// 来源拍照验收记录 id（从验收记录转入问题时填入 `${captureId}#${idx}`）；
+  /// 为空表示非验收来源（图纸打点 / 手动录入等）。
   final String? sourceCaptureId;
 
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。

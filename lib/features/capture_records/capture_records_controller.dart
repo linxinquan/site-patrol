@@ -42,7 +42,7 @@ enum RecordTimeRange { all, today, week }
 /// 内存态约定：
 /// - `_all` 始终为「当前项目」过滤 + ts 倒序后的全量数据；
 /// - 切换项目（[is7DongProjectProvider]）通过 `ref.listen` 自动重过滤；
-/// - 删除/转工单只对 `_all` 操作，写回 LocalStorage 时按 id 精确删除（保留
+/// - 删除/转入问题清单只对 `_all` 操作，写回 LocalStorage 时按 id 精确删除（保留
 ///   其他项目/其他记录的 entry），避免误删；
 /// - 时间/楼层/AI 筛选为纯函数 [applyFilter]，由页面消费时即时计算。
 class CaptureRecordsNotifier
@@ -115,7 +115,7 @@ class CaptureRecordsNotifier
   }
 
   /// 就地回写指定记录的 `defects[idx].status` 为 `'converted'`
-  /// （验收转工单成功时调用）；同时持久化到 LocalStorage。
+  /// （验收记录转入问题清单成功时调用）；同时持久化到 LocalStorage。
   /// 返回是否成功（id 命中且原本 status 不是 converted）。
   Future<bool> markDefectConverted(String captureId, int idx) async {
     final raw = await _storage.readDoc(storageKey);
@@ -264,12 +264,14 @@ List<Map<String, dynamic>> applyRecordsFilter(
 /// 内部使用：Notifier 私有。
   int _tsOf(Map<String, dynamic> e) => recordTsMillis(e);
 
-/// 转工单 Defect 构造：从一条拍照验收 entry + 其 AI 缺陷条目，构造可写入缺陷库的 Defect。
+/// 转入问题清单的 Defect 构造：从一条拍照验收 entry + 其 AI 缺陷条目，构造可写入问题库的 Defect。
 ///
 /// - `id` = `${captureId}#$idx`（保证唯一 + 可追溯回验收记录）
 /// - `type` 取 `vlDefect.name`；`severity` 从字符串解析，解析失败回落到 orange
 /// - `status` = draft，`seed` = 'capture_convert'
 /// - `reporter` = '验收记录'；`tags` = ['验收转工单', '验收#${captureId}']
+///   ⚠️ tag 文本 `验收转工单` 是**历史数据标识**（已写入既有记录），
+///   改名会造成新旧数据对不上，故保留原样；界面文案已统一为「问题清单」。
 /// - `photos` = `[capture.photo]`（如非空），`sourceCaptureId` = capture.id
 /// - `note` 拼接 `${capture.note}｜${vlDefect.desc ?? ''}`
 /// - `drawingKey/worldX/worldY` 透传（用于图纸回溯）

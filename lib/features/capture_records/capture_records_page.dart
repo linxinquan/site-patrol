@@ -16,11 +16,11 @@ import 'widgets/filter_tabs.dart';
 import 'widgets/grouped_grid.dart';
 import 'widgets/stats_strip.dart';
 
-/// 验收记录事后工作台：当前项目全部拍照验收记录的浏览、筛选、追溯与转工单。
+/// 验收记录事后工作台：当前项目全部拍照验收记录的浏览、筛选、追溯与转入问题清单。
 ///
 /// 入口：首页 8 宫格「验收记录」卡片（`/capture-records`）。
 /// 数据：[captureRecordsProvider] 按当前项目图纸 key 过滤 + ts 倒序。
-/// 转工单：[onConvert] 回调调用 [Repository.addDefect] → [refreshDefects] →
+/// 转入问题清单：[onConvert] 回调调用 [Repository.addDefect] → [refreshDefects] →
 /// [CaptureRecordsNotifier.markDefectConverted] → [AppSnack]。
 class CaptureRecordsPage extends ConsumerStatefulWidget {
   const CaptureRecordsPage({super.key});
@@ -36,7 +36,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
   void initState() {
     super.initState();
     // 每次进入页面都重读 LocalStorage（拍照页保存的新记录、其他页面写回的
-    // 转工单状态等），避免 provider 缓存导致列表过时。
+    // 转入问题清单状态等），避免 provider 缓存导致列表过时。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(captureRecordsProvider.notifier).reload();
@@ -128,7 +128,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '按时间、楼层和 AI 识别结果快速筛选，点开单条记录可继续转为工单',
+                                    '按时间、楼层和 AI 识别结果快速筛选，点开单条记录可继续转入问题清单',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
@@ -229,7 +229,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
     );
   }
 
-  /// 转工单：构造 Defect → repo.addDefect → refreshDefects → 回写 status → Snack。
+  /// 转入问题清单：构造 Defect → repo.addDefect → refreshDefects → 回写 status → Snack。
   /// 全部成功返回 `true`，弹层会就地标记 converted。
   Future<bool> _onConvert(Map<String, dynamic> entry, List<int> idxs) async {
     if (idxs.isEmpty) return false;
@@ -258,8 +258,8 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
     if (mounted) {
       AppSnack.show(
         context,
-        '已生成 ${idxs.length} 条缺陷工单',
-        actionLabel: '去缺陷列表',
+        '已生成 ${idxs.length} 条问题记录',
+        actionLabel: '去问题清单',
         onAction: () => context.push('/defects'),
         kind: AppSnackKind.success,
       );

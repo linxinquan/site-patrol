@@ -3884,14 +3884,14 @@ class _FloorOptionTile extends StatelessWidget {
       );
 }
 
-/// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除 + （可选）转工单。
+/// 拍照记录详情底部弹层：照片 + AI 结果 + 描述 + 删除 + （可选）转入问题清单。
 ///
 /// 透传回调：
 /// - [onDelete]：用户点击「删除该记录」时触发（capture 与验收记录页共用）。
-/// - [onConvert]：可选；传入时显示每条 pending 缺陷的「转工单」按钮 + 底部
-///   「批量转工单（N）」。调用方负责：构造 [Defect] → `Repository.addDefect` →
+/// - [onConvert]：可选；传入时显示每条 pending 缺陷的「转入问题清单」按钮 + 底部
+///   「批量转入问题清单（N）」。调用方负责：构造 [Defect] → `Repository.addDefect` →
 ///   `refreshDefects(ref)` → 验收记录 status 回写。返回 `true` 表示至少有一条
-///   转换成功，弹层会就地刷新显示「已转工单 ✓」（不会关闭弹层）。
+///   转换成功，弹层会就地刷新显示「已转入问题清单 ✓」（不会关闭弹层）。
 /// 结果区分段项：标签 + 可选计数徽标。
 class _ResultTabDef {
   final String label;
@@ -3919,7 +3919,7 @@ class StoredDetailSheet extends StatefulWidget {
 }
 
 class _StoredDetailSheetState extends State<StoredDetailSheet> {
-  /// 内部 entry 副本；转工单成功后原地更新 defects[*].status。
+  /// 内部 entry 副本；转入问题清单成功后原地更新 defects[*].status。
   late List<Map<String, dynamic>> _defects;
   bool _busy = false;
 
@@ -4118,7 +4118,7 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                                   Icon(MingCuteIcons.checkLine,
                                       size: 12, color: AppTokens.muted),
                                   SizedBox(width: 2),
-                                  Text('已转工单',
+                                  Text('已转入问题清单',
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: AppTokens.muted)),
@@ -4127,7 +4127,7 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                             )
                           else
                             AppButton(
-                              label: '转工单',
+                              label: '转入问题清单',
                               size: AppButtonSize.sm,
                               onPressed: _busy ? null : () => _convert([i]),
                             ),
@@ -4153,14 +4153,14 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                 ),
               ),
               const SizedBox(height: 20),
-              // 批量转工单（仅当支持转工单时显示）
+              // 批量转入问题清单（仅当支持转入问题清单时显示）
               if (canConvert && _pendingCount > 0)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SizedBox(
                     width: double.infinity,
                     child: AppButton(
-                      label: '批量转工单（$_pendingCount）',
+                      label: '批量转入问题清单（$_pendingCount）',
                       onPressed: _busy
                           ? null
                           : () => _convert([

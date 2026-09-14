@@ -883,7 +883,7 @@ class _QuickActions extends ConsumerWidget {
               ),
               _QuickCard(
                 icon: MingCuteIcons.taskFill,
-                title: '缺陷工单',
+                title: '问题清单',
                 color: _qaYellow,
                 onTap: () => context.go('/defects'),
               ),
@@ -1221,7 +1221,7 @@ Widget _catTag(DefectCategory c) => Container(
     );
 
 /// 状态标签（12/W500 白字，高 22，圆角 6，padding 0·8）：实色底不套 5% 规则。
-/// 与工单页 StatusPill 四色一致：待整改 #FF4444 / 整改中 #FF9500 / 已销项 #34C759 / 已拒绝 #0395FF。
+/// 与问题清单页 StatusPill 四色一致：待整改 #FF4444 / 整改中 #FF9500 / 已销项 #34C759 / 已拒绝 #0395FF。
 Widget _statusTag(DefectStatus s) {
   final Color c;
   switch (s) {

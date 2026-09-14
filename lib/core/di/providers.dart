@@ -315,7 +315,7 @@ void refreshDefects(Ref ref) {
 final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);
 
 /// 验收记录（拍照验收历史）。来源：`stored_vision_results` LocalStorage 文档，
-/// 按当前项目图纸 key 集合过滤 + ts 倒序。删除/转工单时自动写回文档。
+/// 按当前项目图纸 key 集合过滤 + ts 倒序。删除/转入问题清单时自动写回文档。
 /// 二次筛选（时间窗口/楼层/AI 仅）由消费者调用 [applyRecordsFilter]。
 final captureRecordsProvider = StateNotifierProvider<
     CaptureRecordsNotifier, List<Map<String, dynamic>>>(

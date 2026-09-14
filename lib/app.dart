@@ -139,7 +139,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: const DefectsPage(),
             ),
           ),
-          // 二级页：处置与回复（设计稿 Frame 2147228094，独立页面，不是工单主页复用）。
+          // 二级页：处置与回复（设计稿 Frame 2147228094，独立页面，不是问题清单主页复用）。
           GoRoute(
             path: '/defects/disposal/:kind',
             pageBuilder: (_, state) => CustomTransitionPage(

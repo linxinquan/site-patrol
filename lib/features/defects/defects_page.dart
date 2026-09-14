@@ -32,7 +32,7 @@ import 'report_pdf.dart';
 import 'report_xlsx.dart';
 
 /// 巡场清单页（对齐 Figma 新 UI：巡场问题列表页）。
-/// 结构：标题栏(工单 + 导出/头像) → 状态分段(Frame 2131330677) → 操作卡(Frame 2147228092) → 缺陷卡列表。
+/// 结构：标题栏(问题清单 + 导出/头像) → 状态分段(Frame 2131330677) → 操作卡(Frame 2147228092) → 缺陷卡列表。
 /// "待设计师处置 / 待施工方回复"为独立二级页 DisposalReplyPage，由操作卡按钮跳转进入。
 class DefectsPage extends ConsumerWidget {
   const DefectsPage({super.key});
@@ -56,7 +56,7 @@ class DefectsPage extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             children: [
-              const Text('工单',
+              const Text('问题清单',
                   style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -824,7 +824,7 @@ class _DisposalReplyPageState extends ConsumerState<DisposalReplyPage> {
               if (list.isEmpty) {
                 if (i == 1) {
                   return _EmptyState(
-                    hint: _kind == 'designer' ? '暂无待设计师处置的工单' : '暂无待施工方回复的工单',
+                    hint: _kind == 'designer' ? '暂无待设计师处置的问题' : '暂无待施工方回复的问题',
                   );
                 }
                 return OfflineBar.defects;
@@ -998,7 +998,7 @@ class _EmptyState extends StatelessWidget {
   final String? hint;
   const _EmptyState({this.hint});
 
-  String get _text => hint ?? '暂无工单';
+  String get _text => hint ?? '暂无问题';
 
   @override
   Widget build(BuildContext context) => Container(
@@ -1028,13 +1028,13 @@ class _EmptyState extends StatelessWidget {
       );
 }
 
-/// 工单页顶部操作卡（设计稿 Frame 2147228092）：白卡列布局，padding 12，行间距 12。
+/// 问题清单页顶部操作卡（设计稿 Frame 2147228092）：白卡列布局，padding 12，行间距 12。
 /// 上：身份信息（头像 + 姓名 + 角色标签） + 右侧「切换身份」；
 /// 下：两个等分行动按钮（待设计师处置 / 待施工方回复），点击进入对应筛选二级页。
 class _ActionCard extends ConsumerWidget {
   const _ActionCard();
 
-  // 工单卡片的身份标签颜色与「选择身份」底部弹窗保持一致。
+  // 问题清单卡片的身份标签颜色与「选择身份」底部弹窗保持一致。
   static const Color _roleRed = Color(0xFFFF4444);
   static const Color _roleGreen = Color(0xFF00B84A);
   static const Color _roleBlue = Color(0xFF0395FF);
@@ -1297,7 +1297,7 @@ class _DefectCard extends StatelessWidget {
   final Defect d;
   const _DefectCard(this.d);
 
-  /// 设计师处置展示态的标签色，工单页按列表卡片样式单独处理。
+  /// 设计师处置展示态的标签色，问题清单页按列表卡片样式单独处理。
   static Color _designerActionColor(String? action) {
     switch (action) {
       case 'remoteFix':
