@@ -883,7 +883,10 @@ class _DesignerActionSheetState extends State<_DesignerActionSheet> {
                     widget.helper,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B))
+                        // 与 20 图标横排居中，锁行高
+                        // （helper 默认 22/14 的行框会把字形顶偏）
+                        .copyWith(height: 1),
                   ),
                 ),
               ],
@@ -1169,7 +1172,10 @@ class _ReplyActionSheetState extends State<_ReplyActionSheet> {
                     widget.helper,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B)),
+                    style: AppBottomSheet.helperStyle(const Color(0xFF60656B))
+                        // 与 20 图标横排居中，锁行高
+                        // （helper 默认 22/14 的行框会把字形顶偏）
+                        .copyWith(height: 1),
                   ),
                 ),
               ],

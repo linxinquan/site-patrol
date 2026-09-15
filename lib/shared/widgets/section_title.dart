@@ -51,6 +51,8 @@ class SectionTitle extends StatelessWidget {
                   subtitle!,
                   style: const TextStyle(
                     fontSize: 10,
+                    // 与 16 主标题横排居中，锁行高避免字形偏上
+                    height: 1,
                     fontWeight: FontWeight.w500,
                     color: AppTokens.muted,
                   ),
@@ -72,6 +74,9 @@ class SectionTitle extends StatelessWidget {
                         action!,
                         style: const TextStyle(
                           fontSize: 12,
+                          // 与右侧 16 箭头图标横排居中，必须锁行高
+                          // （默认 1.4 会让字形在行框内偏上，视觉高于图标）
+                          height: 1,
                           fontWeight: FontWeight.w400,
                           color: AppTokens.muted,
                           letterSpacing: 0,

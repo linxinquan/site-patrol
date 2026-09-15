@@ -1890,13 +1890,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                                 const Icon(MingCuteIcons.cursorLine,
                                     size: 12, color: Colors.white),
                                 const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(stepHint,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                          fontSize: 11, color: Colors.white)),
-                                ),
+                                                        Expanded(
+                                   child: Text(stepHint,
+                                       maxLines: 1,
+                                       overflow: TextOverflow.ellipsis,
+                                       style: const TextStyle(
+                                           fontSize: 11,
+                                           // 与 12 cursor 图标横排居中，锁行高
+                                           height: 1,
+                                           color: Colors.white)),
+                                 ),
                               ],
                             ),
                           ),
@@ -2840,13 +2843,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   const SizedBox(width: 4),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 150),
-                    child: Text(
-                      _location.name,
-                      style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white),
-                      maxLines: 1,
+                     child: Text(
+                       _location.name,
+                       style: const TextStyle(
+                           fontSize: 11,
+                           // 与 14 mapPin 图标横排居中，锁行高
+                           height: 1,
+                           fontWeight: FontWeight.w600,
+                           color: Colors.white),
+                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -3967,6 +3972,9 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                     '${entry['anchor']} · ${entry['floor']}',
                     style: const TextStyle(
                         fontSize: 15,
+                        // 与右侧 18 关闭图标横排居中，锁行高
+                        // （标题可能换行，取 1.1 兼顾行距）
+                        height: 1.1,
                         fontWeight: FontWeight.w700,
                         color: AppTokens.fg),
                   ),
@@ -4090,9 +4098,12 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                                 Icon(MingCuteIcons.checkLine,
                                     size: 12, color: AppTokens.muted),
                                 SizedBox(width: 2),
-                                Text('已转入问题清单',
-                                    style: TextStyle(
-                                        fontSize: 11, color: AppTokens.muted)),
+                                 Text('已转入问题清单',
+                                     style: TextStyle(
+                                         fontSize: 11,
+                                         // 与 12 check 图标横排居中，锁行高
+                                         height: 1,
+                                         color: AppTokens.muted)),
                               ],
                             ),
                           )

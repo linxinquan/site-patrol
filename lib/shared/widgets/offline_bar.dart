@@ -40,7 +40,12 @@ class OfflineBar extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 12, color: AppTokens.muted),
+              style: const TextStyle(
+                fontSize: 12,
+                // 与 14 图标横排居中，锁行高
+                height: 1,
+                color: AppTokens.muted,
+              ),
             ),
           ),
         ],

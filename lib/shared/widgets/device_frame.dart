@@ -131,6 +131,8 @@ class _StatusBar extends StatelessWidget {
             time,
             style: const TextStyle(
               fontSize: 15,
+              // 与右侧信号/wifi/电池图标行横排居中，锁行高
+              height: 1,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
               color: AppTokens.fg,
@@ -249,6 +251,8 @@ class _ToggleButton extends StatelessWidget {
                   phoneMode ? '手机' : '桌面',
                   style: const TextStyle(
                       fontSize: 12,
+                      // 与 16 设备图标横排居中，锁行高
+                      height: 1,
                       color: Colors.white,
                       fontWeight: FontWeight.w700),
                 ),

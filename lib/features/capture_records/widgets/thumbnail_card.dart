@@ -70,6 +70,8 @@ class CaptureThumbnailCard extends StatelessWidget {
                               Text('$defectCount',
                                   style: const TextStyle(
                                       fontSize: 10,
+                                      // 与 10 alert 图标横排居中，锁行高
+                                      height: 1,
                                       color: AppTokens.onAccent,
                                       fontWeight: FontWeight.w700)),
                             ],

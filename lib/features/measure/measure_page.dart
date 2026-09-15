@@ -1183,7 +1183,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             Expanded(
               child: Text(
                 '图纸已校准（mm/px ≈ ${(_mapper!.a.abs()).toStringAsFixed(3)}），可量取图纸真实尺寸',
-                style: const TextStyle(fontSize: 12, color: Colors.green),
+                style: const TextStyle(
+                    fontSize: 12,
+                    // 与 16 图标横排居中，锁行高（长文案取 1.1 兼顾换行行距）
+                    height: 1.1,
+                    color: Colors.green),
               ),
             ),
           ],
@@ -1202,7 +1206,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           SizedBox(width: AppTokens.space1),
           Expanded(
             child: Text('图纸未校准：请在图纸查看页完成坐标校准后再来量尺',
-                style: TextStyle(fontSize: 12, color: Colors.orange)),
+                style: TextStyle(
+                    fontSize: 12,
+                    // 与 16 图标横排居中，锁行高
+                    height: 1.1,
+                    color: Colors.orange)),
           ),
         ],
       ),

@@ -1723,6 +1723,8 @@ class _CalibHintBar extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                     fontSize: 12,
+                    // 与 14 定位图标横排居中，锁行高
+                    height: 1,
                     color: AppTokens.fg,
                     fontWeight: FontWeight.w500)),
           ),
@@ -1740,6 +1742,8 @@ class _CalibHintBar extends StatelessWidget {
                 child: const Text('完成',
                     style: TextStyle(
                         fontSize: 12,
+                        // 胶囊按钮内文字与同行图标居中，锁行高
+                        height: 1,
                         color: AppTokens.brand,
                         fontWeight: FontWeight.w600)),
               ),
@@ -1752,6 +1756,8 @@ class _CalibHintBar extends StatelessWidget {
               child: const Text('取消',
                   style: TextStyle(
                       fontSize: 12,
+                      // 胶囊按钮内文字与同行图标居中，锁行高
+                      height: 1,
                       color: AppTokens.danger,
                       fontWeight: FontWeight.w600)),
             ),

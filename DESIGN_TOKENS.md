@@ -251,9 +251,14 @@
 - **全项目统一 MingCute**（`flutter_mingcute` 包），写法 `MingCuteIcons.xxx`，风格优先取 `xxxLine`（描边风，与整体扁平一致）。
 - 已无 Material `Icons.xxx` 与 lucide 引用。统计残留时要用词边界 `\bIcons\.`，否则会被 `MingCuteIcons.` 的子串严重误报。
 - 仅保留 3 张自定义 PNG：`assets/icons/capture.png`、`drawings.png`、`patrol.png`。
-- **图标 + 文字对齐**（用户反复强调）：`Text` 默认行高 ~1.4 会让字形顶偏。
-  - 横排：`Row(crossAxisAlignment: center, children: [Icon, SizedBox(width: gap), Expanded(child: Text(t, style: TextStyle(**height: 1**, ...)))])` —— **文字 style 必须带 `height: 1`**（怕裁切可用 1.1）。
+- **图标 + 文字对齐**（用户反复强调，最容易漏）：`Text` 默认行高 ~1.4 会让字形顶偏。
+  - **根因**：`Row` 的 `crossAxisAlignment: center` 居中对齐的是「子组件占的盒子」，不是盒子里的墨迹。`Text` 的盒子 = 字号 × 行高，多出来的空间压在字形下方 → 文字视觉上比图标高半格，字号越大越明显。所以 **光写 `center` 救不了，必须锁行高**。
+  - 横排：`Row(crossAxisAlignment: center, children: [Icon, SizedBox(width: gap), Expanded(child: Text(t, style: TextStyle(**height: 1**, ...)))])` —— **文字 style 必须带 `height`**：
+    - 单行确定（`maxLines: 1` 或短文案）→ `height: 1`
+    - 长文案可能换行 → `height: 1.1`（兼顾行距，偏差 <1px 可接受）
   - 竖排：`Column(crossAxisAlignment: center, mainAxisSize: min, ...)`。
+  - **共享样式冲突**：`AppBottomSheet.helperStyle` 行高是 `22/14`，作为纯段落说明没问题，但**与图标横排时必须 `.copyWith(height: 1)` 局部覆盖**，不要去改共享样式本身（会影响其他 5 处引用）。
+  - **回归检查**：改完 UI 跑 `python3 tools/scan_icon_text_align.py`（加 `--strict` 有命中则退出码 1）。它会自动排除 `ElevatedButton.icon` / `Chip` / `ListTile` 等自管布局的组件，只报真正需要手动锁行高的位置。
 
 ---
 
@@ -272,8 +277,9 @@
 
 ```bash
 # 1. 同步改 design_tokens.dart / app_theme.dart 的常量
-# 2. 基线校验：flutter analyze 必须保持 <= 199 条且零新增
+# 2. 基线校验：flutter analyze 必须保持 <= 212 条且零新增
 flutter analyze
+python3 tools/scan_icon_text_align.py   # 图标+文字横排对齐回归检查
 
 # 3. 构建 Web 预览（长命令放后台）
 flutter build web --release --no-source-maps --pwa-strategy=none
@@ -297,6 +303,7 @@ python3 tools/serve_web.py          # http://127.0.0.1:8080
 
 ## 九、版本基线
 
-- `flutter analyze`：**199 条**（改动后须持平、零新增）。这 199 条是历史存量，非本次改动引入。
+- `flutter analyze`：**212 条**（改动后须持平、零新增）。这 212 条是历史存量，非本次改动引入；其中 `test/capture_records_test.dart` 有若干 error（ProviderContainer 相关），也是历史遗留。
 - `tools/gen_b05_walls.dart` 内含 1 条预存 info，属预期。
-- 新增代码若导致 199→200，先定位到具体文件（`flutter analyze | grep <file>`）修掉，不要整体放宽基线。
+- 新增代码若导致 212→213，先定位到具体文件（`flutter analyze | grep <file>`）修掉，不要整体放宽基线。
+- **比对基线要排除行号偏移**：加注释会让存量 lint 的行号整体后移，`comm` 对比时会显示一大批假「新增」。正确做法是比较 `file:line:col • rule` 且忽略行号，或用 `git stash` 前后各跑一次取差集后人工核对。
