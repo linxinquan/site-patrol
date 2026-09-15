@@ -4,11 +4,16 @@
 图标 + 文字横排对齐回归检查。
 
 背景：Row 的 crossAxisAlignment: center 居中的是「子组件占的盒子」，不是
-盒子里的墨迹。Text 的盒子 = 字号 × 行高，MiSans 默认行高约 1.4，多出来的
-空间压在字形下方，于是文字看起来比图标高半格。
+盒子里的墨迹。Text 的盒子 = 字号 × 行高，MiSans 的行高由字体度量决定
+（hhea ascent 1.044 / descent 0.282，严重不对称），字形的墨迹中心并不在
+盒子的几何中心上，而是偏上 —— 所以光写 center 不够，必须锁 height。
 
-规则：凡是 Row 内裸 Icon 与 Text 横排，Text 的 TextStyle 必须显式写 height
-（单行取 1，长文案可能换行取 1.1）。
+关键（易错）：TextStyle.height 是「对字体度量行高的等比缩放」，height 越小
+墨迹越偏上、越大越偏下。MiSans 墨迹真正居中对应的 height ≈ 1.34，
+而不是 1.0（height: 1 反而让字形偏上约 0.1 字号，14px 字约偏 1.4px）。
+
+规则：凡是 Row 内裸 Icon 与 Text 横排，Text 的 TextStyle 必须写
+height: AppTokens.heightCalibrated（= 1.34）。
 
 用法：
     python3 tools/scan_icon_text_align.py            # 只报告
@@ -24,6 +29,10 @@ import sys
 
 ROOT = os.path.expanduser("~/Desktop/site-patrol/lib")
 STRICT = "--strict" in sys.argv
+
+# MiSans 墨迹居中的校准行高（见 AppTokens.heightCalibrated），容差 ±0.01
+CALIBRATED = 1.34
+CALIBRATED_TOL = 0.01
 
 
 def blank_out(src: str) -> str:
@@ -154,30 +163,61 @@ def main():
                 # 排除位于自管布局组件内部的 Text
                 if any(a < topen and tend < b for a, b in managed):
                     continue
-                # Row 内必须有裸 Icon(...)
-                if not re.search(r'(?<![\w.])Icon\s*\(', row_body):
+                # Row 内必须有「直接子级」的裸 Icon(...)：
+                # 嵌套子 Row 里的图标与本级文字不同层，不构成横排对齐关系
+                nested = []
+                for nm in re.finditer(r'(?<![\w.])Row\s*\(', clean[s + 1:e]):
+                    oi = s + 1 + nm.end() - 1
+                    ne = match_block(clean, oi)
+                    if ne != -1:
+                        nested.append((oi, ne))
+                has_direct_icon = False
+                for im in re.finditer(r'(?<![\w.])Icon\s*\(', row_body):
+                    ipos = s + im.start()
+                    if not any(a < ipos < b for a, b in nested):
+                        has_direct_icon = True
+                        break
+                if not has_direct_icon:
                     continue
-                # 该 Text 是否锁了 height
+                # 该 Text 的 height 是否为校准值
                 tb = clean[topen:tend]
-                if re.search(r'\bheight\s*:', tb):
-                    continue
+                hm = re.search(r'\bheight\s*:\s*([^,\n)]+)', tb)
+                hval = hm.group(1).strip() if hm else None
+                if hval is not None:
+                    if 'heightCalibrated' in hval:
+                        continue
+                    try:
+                        v = float(hval)
+                        if abs(v - CALIBRATED) <= CALIBRATED_TOL:
+                            continue
+                    except ValueError:
+                        # 表达式（如 22 / 14）：算出数值再判
+                        try:
+                            v = float(eval(hval))
+                            if abs(v - CALIBRATED) <= CALIBRATED_TOL:
+                                continue
+                        except Exception:
+                            pass
                 line = clean[:topen].count('\n') + 1
                 # 原文片段
                 seg = src[clean.rfind('\n', 0, s) + 1:tend + 1]
                 preview = ' '.join(seg.split())
-                findings.setdefault(rel, []).append((line, preview[:110]))
+                findings.setdefault(rel, []).append(
+                    (line, f"[height={hval}] {preview[:96]}"))
 
     total = sum(len(v) for v in findings.values())
     if total == 0:
-        print("通过：未发现「Row 内图标 + 文字横排但 Text 未锁 height」的情况。")
+        print(f"通过：所有 Row 内横排文字均已使用校准行高 {CALIBRATED}。")
         return 0
-    print(f"=== Row 内裸 Icon + Text，但 Text 未锁 height：{total} 处 ===\n")
+    print(f"=== Row 内裸 Icon + Text，但 Text 的 height 未取校准值 "
+          f"{CALIBRATED}：{total} 处 ===\n")
     for f, hits in sorted(findings.items(), key=lambda x: -len(x[1])):
         print(f"### {f} ({len(hits)})")
         for ln, p in hits:
             print(f"  L{ln}: {p}")
         print()
-    print("修法：给该 Text 的 TextStyle 加 height（单行 1，可能换行用 1.1）。")
+    print(f"修法：把该 Text 的 TextStyle 的 height 改为 "
+          f"AppTokens.heightCalibrated（= {CALIBRATED}）。")
     return 1 if STRICT else 0
 
 

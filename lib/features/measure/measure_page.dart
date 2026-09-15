@@ -1186,7 +1186,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 style: const TextStyle(
                     fontSize: 12,
                     // 与 16 图标横排居中，锁行高（长文案取 1.1 兼顾换行行距）
-                    height: 1.1,
+                    height: AppTokens.heightCalibrated,
                     color: Colors.green),
               ),
             ),
@@ -1209,7 +1209,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
                 style: TextStyle(
                     fontSize: 12,
                     // 与 16 图标横排居中，锁行高
-                    height: 1.1,
+                    height: AppTokens.heightCalibrated,
                     color: Colors.orange)),
           ),
         ],

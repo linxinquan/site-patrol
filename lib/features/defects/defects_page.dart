@@ -417,7 +417,7 @@ class DefectsPage extends ConsumerWidget {
                     '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
                     style: const TextStyle(
                       fontSize: 14,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       fontWeight: FontWeight.w500,
                       color: AppTokens.fg,
                     ),
@@ -433,7 +433,7 @@ class DefectsPage extends ConsumerWidget {
                     '$count',
                     style: const TextStyle(
                       fontSize: 14,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       fontWeight: FontWeight.w500,
                       color: AppTokens.brand,
                     ),
@@ -482,7 +482,7 @@ class DefectsPage extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       color: AppTokens.fg,
                     ),
                   ),
@@ -1372,7 +1372,7 @@ class _ActionCard extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                height: 20 / 12,
+                height: AppTokens.heightCalibrated,
                 color: Color(0xFF60656B),
               ),
             ),
@@ -1413,7 +1413,7 @@ class _ActionBtn extends StatelessWidget {
                       fontSize: 14,
                       // 操作按钮文案按设计稿使用常规正文权重。
                       fontWeight: FontWeight.w400,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       color: Color(0xFF60656B))),
             ],
           ),

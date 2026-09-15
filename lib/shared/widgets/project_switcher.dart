@@ -67,14 +67,14 @@ class ProjectSwitcher extends ConsumerWidget {
                 overflow: TextOverflow.ellipsis,
                 strutStyle: const StrutStyle(
                   fontSize: 16,
-                  height: 24 / 16,
+                  height: AppTokens.heightCalibrated,
                   forceStrutHeight: true,
                 ),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppTokens.fg,
-                  height: 24 / 16,
+                  height: AppTokens.heightCalibrated,
                 ),
               ),
             ),

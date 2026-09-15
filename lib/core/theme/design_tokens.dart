@@ -95,6 +95,15 @@ class AppTokens {
   static const FontWeight buttonWeightMd = FontWeight.w600;
   static const FontWeight buttonWeightSm = FontWeight.w500;
 
+  // —— 行高校准（图标 + 文字横排对齐专用）——
+  // Flutter 的 height 是对字体度量行高的等比缩放（proportional 保持
+  // ascent:descent 比例）。MiSans hhea: ascent=1.044 / descent=0.282，
+  // 汉字墨迹中心 ≈0.385em，由此推出墨迹居中的 height：
+  //   偏移 = fontSize × [H×1.044/1.326 − 0.385]，H=1.34 时 <0.1px。
+  // 横排图标 + 文字的 Text 必须用此值；多行文案用 1.34 行距也接近自然行高
+  // （MiSans 自然行高 1.326），无副作用。
+  static const double heightCalibrated = 1.34;
+
   // —— 阴影（按设计规范：所有卡片取消投影、统一扁平化，令牌置空）——
   static List<BoxShadow> get elevationRaised => const [];
   static List<BoxShadow> get elevationOverlay => const [];

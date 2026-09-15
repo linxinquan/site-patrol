@@ -1724,7 +1724,7 @@ class _CalibHintBar extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 12,
                     // 与 14 定位图标横排居中，锁行高
-                    height: 1,
+                    height: AppTokens.heightCalibrated,
                     color: AppTokens.fg,
                     fontWeight: FontWeight.w500)),
           ),
@@ -1743,7 +1743,7 @@ class _CalibHintBar extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12,
                         // 胶囊按钮内文字与同行图标居中，锁行高
-                        height: 1,
+                        height: AppTokens.heightCalibrated,
                         color: AppTokens.brand,
                         fontWeight: FontWeight.w600)),
               ),
@@ -1757,7 +1757,7 @@ class _CalibHintBar extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 12,
                       // 胶囊按钮内文字与同行图标居中，锁行高
-                      height: 1,
+                      height: AppTokens.heightCalibrated,
                       color: AppTokens.danger,
                       fontWeight: FontWeight.w600)),
             ),
@@ -1974,7 +1974,7 @@ class _CalibActionRow extends StatelessWidget {
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
-                          height: 22 / 14,
+                          height: AppTokens.heightCalibrated,
                           color: AppTokens.fg2)),
                 ],
               ),

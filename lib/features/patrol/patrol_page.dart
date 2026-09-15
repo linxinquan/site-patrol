@@ -716,7 +716,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                           style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              height: 20 / 12,
+                              height: AppTokens.heightCalibrated,
                               leadingDistribution: TextLeadingDistribution.even,
                               color: Color(0xFFFF4444))),
                     ],
@@ -741,7 +741,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
                         style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            height: 20 / 12,
+                            height: AppTokens.heightCalibrated,
                             leadingDistribution: TextLeadingDistribution.even,
                             color: Colors.white)),
                   ],
@@ -1040,7 +1040,7 @@ class _CheckInBar extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        height: 22 / 14,
+                        height: AppTokens.heightCalibrated,
                         color: AppTokens.fg,
                       ),
                     ),
@@ -1078,7 +1078,7 @@ class _CheckInBar extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        height: 20 / 12,
+                        height: AppTokens.heightCalibrated,
                         color: Colors.white,
                       ),
                     ),

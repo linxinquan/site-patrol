@@ -1072,7 +1072,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                     style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        height: 22 / 14,
+                        height: AppTokens.heightCalibrated,
                         color: AppTokens.fg)),
               ),
               if (count != null) ...[
@@ -1088,7 +1088,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   child: Text(count,
                       style: TextStyle(
                           fontSize: 11,
-                          height: 1,
+                          height: AppTokens.heightCalibrated,
                           fontWeight: FontWeight.w600,
                           color: countColor ?? AppTokens.accent)),
                 ),
@@ -1323,7 +1323,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              height: 20 / 12,
+              height: AppTokens.heightCalibrated,
               color: fg,
             ),
           ),
@@ -1890,16 +1890,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                                 const Icon(MingCuteIcons.cursorLine,
                                     size: 12, color: Colors.white),
                                 const SizedBox(width: 6),
-                                                        Expanded(
-                                   child: Text(stepHint,
-                                       maxLines: 1,
-                                       overflow: TextOverflow.ellipsis,
-                                       style: const TextStyle(
-                                           fontSize: 11,
-                                           // 与 12 cursor 图标横排居中，锁行高
-                                           height: 1,
-                                           color: Colors.white)),
-                                 ),
+                                Expanded(
+                                  child: Text(stepHint,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          // 与 12 cursor 图标横排居中，锁行高
+                                          height: AppTokens.heightCalibrated,
+                                          color: Colors.white)),
+                                ),
                               ],
                             ),
                           ),
@@ -2367,7 +2367,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       '合格 $passCount/$total · ${rate.toStringAsFixed(0)}%',
                       style: TextStyle(
                           fontSize: 11,
-                          height: 1,
+                          height: AppTokens.heightCalibrated,
                           fontWeight: FontWeight.w600,
                           color:
                               allPass ? AppTokens.success : AppTokens.warning),
@@ -2787,7 +2787,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                               Text('整改建议 · ${sev.action}',
                                   style: const TextStyle(
                                       fontSize: 11,
-                                      height: 1,
+                                      height: AppTokens.heightCalibrated,
                                       fontWeight: FontWeight.w600,
                                       color: AppTokens.accent)),
                             ],
@@ -2843,15 +2843,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                   const SizedBox(width: 4),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 150),
-                     child: Text(
-                       _location.name,
-                       style: const TextStyle(
-                           fontSize: 11,
-                           // 与 14 mapPin 图标横排居中，锁行高
-                           height: 1,
-                           fontWeight: FontWeight.w600,
-                           color: Colors.white),
-                       maxLines: 1,
+                    child: Text(
+                      _location.name,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          // 与 14 mapPin 图标横排居中，锁行高
+                          height: AppTokens.heightCalibrated,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white),
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -3107,7 +3107,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 Expanded(
                   child: Text('尚未拍摄：按下快门或选择照片后，可点「AI 分析」',
                       style: TextStyle(
-                          fontSize: 13, height: 1.2, color: AppTokens.muted)),
+                          fontSize: 13,
+                          height: AppTokens.heightCalibrated,
+                          color: AppTokens.muted)),
                 ),
               ],
             )
@@ -3218,12 +3220,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
             Icon(MingCuteIcons.editLine, size: 13, color: AppTokens.muted),
             const SizedBox(width: 4),
             const Text('现场情况说明',
-                style:
-                    TextStyle(fontSize: 11, height: 1, color: AppTokens.muted)),
+                style: TextStyle(
+                    fontSize: 11,
+                    height: AppTokens.heightCalibrated,
+                    color: AppTokens.muted)),
             const Spacer(),
             Text('${_noteController.text.trim().length} 字',
                 style: const TextStyle(
-                    fontSize: 11, height: 1, color: AppTokens.note)),
+                    fontSize: 11,
+                    height: AppTokens.heightCalibrated,
+                    color: AppTokens.note)),
           ],
         ),
         const SizedBox(height: AppTokens.space2),
@@ -3404,11 +3410,15 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const SizedBox(width: 4),
               const Text('本图纸拍照记录',
                   style: TextStyle(
-                      fontSize: 11, height: 1, color: AppTokens.muted)),
+                      fontSize: 11,
+                      height: AppTokens.heightCalibrated,
+                      color: AppTokens.muted)),
               const Spacer(),
               Text('${items.length} 条',
                   style: const TextStyle(
-                      fontSize: 11, height: 1, color: AppTokens.note)),
+                      fontSize: 11,
+                      height: AppTokens.heightCalibrated,
+                      color: AppTokens.note)),
             ],
           ),
           const SizedBox(height: AppTokens.space2),
@@ -3616,7 +3626,9 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               const SizedBox(width: AppTokens.space2),
               const Text('拍照完成，请确认',
                   style: TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13, height: 1.2)),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      height: AppTokens.heightCalibrated)),
               const Spacer(),
               if (_committing)
                 const SizedBox(
@@ -3831,7 +3843,7 @@ class _FloorOptionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       color: selected ? AppTokens.accent : AppTokens.fg,
                     ),
                   ),
@@ -3974,7 +3986,7 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                         fontSize: 15,
                         // 与右侧 18 关闭图标横排居中，锁行高
                         // （标题可能换行，取 1.1 兼顾行距）
-                        height: 1.1,
+                        height: AppTokens.heightCalibrated,
                         fontWeight: FontWeight.w700,
                         color: AppTokens.fg),
                   ),
@@ -4098,12 +4110,12 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                                 Icon(MingCuteIcons.checkLine,
                                     size: 12, color: AppTokens.muted),
                                 SizedBox(width: 2),
-                                 Text('已转入问题清单',
-                                     style: TextStyle(
-                                         fontSize: 11,
-                                         // 与 12 check 图标横排居中，锁行高
-                                         height: 1,
-                                         color: AppTokens.muted)),
+                                Text('已转入问题清单',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        // 与 12 check 图标横排居中，锁行高
+                                        height: AppTokens.heightCalibrated,
+                                        color: AppTokens.muted)),
                               ],
                             ),
                           )

@@ -313,7 +313,7 @@ class _TimelineCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    height: 22 / 14,
+                    height: AppTokens.heightCalibrated,
                     leadingDistribution: TextLeadingDistribution.even,
                     color: AppTokens.brand,
                   )),
@@ -514,7 +514,7 @@ class _VerifiedBadge extends StatelessWidget {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: fg,
-                    height: 20 / 12,
+                    height: AppTokens.heightCalibrated,
                     leadingDistribution: TextLeadingDistribution.even)),
           ],
         ),
@@ -820,7 +820,7 @@ class _ActBtn extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      height: 22 / 14,
+                      height: AppTokens.heightCalibrated,
                       color: fg,
                     )),
               ],
@@ -886,7 +886,7 @@ class _DesignerActionSheetState extends State<_DesignerActionSheet> {
                     style: AppBottomSheet.helperStyle(const Color(0xFF60656B))
                         // 与 20 图标横排居中，锁行高
                         // （helper 默认 22/14 的行框会把字形顶偏）
-                        .copyWith(height: 1),
+                        .copyWith(height: AppTokens.heightCalibrated),
                   ),
                 ),
               ],
@@ -1023,7 +1023,7 @@ class _ReplyCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              height: 22 / 14,
+                              height: AppTokens.heightCalibrated,
                               color: AppTokens.brand,
                             ),
                           ),
@@ -1175,7 +1175,7 @@ class _ReplyActionSheetState extends State<_ReplyActionSheet> {
                     style: AppBottomSheet.helperStyle(const Color(0xFF60656B))
                         // 与 20 图标横排居中，锁行高
                         // （helper 默认 22/14 的行框会把字形顶偏）
-                        .copyWith(height: 1),
+                        .copyWith(height: AppTokens.heightCalibrated),
                   ),
                 ),
               ],

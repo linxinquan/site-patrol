@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../../core/theme/design_tokens.dart';
 import 'package:flutter_mingcute/flutter_mingcute.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -170,7 +172,7 @@ class _ProfileDrawer extends ConsumerWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  height: 24 / 16,
+                  height: AppTokens.heightCalibrated,
                   color: Color(0xFF202224),
                 ),
               ),
@@ -200,7 +202,7 @@ class _ProfileDrawer extends ConsumerWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        height: 20 / 12,
+                        height: AppTokens.heightCalibrated,
                         color: Color(0xFF0395FF),
                       ),
                     ),
@@ -437,7 +439,7 @@ class _ProfileDrawer extends ConsumerWidget {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  height: 22 / 14,
+                  height: AppTokens.heightCalibrated,
                   color: Color(0xFF60656B),
                 ),
               ),
@@ -473,7 +475,7 @@ class _ProfileDrawer extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                height: 24 / 16,
+                height: AppTokens.heightCalibrated,
                 color: Color(0xFFFF4444),
               ),
             ),

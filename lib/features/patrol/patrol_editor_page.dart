@@ -617,7 +617,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
                 const Text('操作说明',
                     style: TextStyle(
                         fontSize: 12,
-                        height: 1,
+                        height: AppTokens.heightCalibrated,
                         fontWeight: FontWeight.w500,
                         color: AppTokens.brand)),
               ],
@@ -666,11 +666,15 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
             children: [
               Text(label,
                   style: const TextStyle(
-                      fontSize: 14, height: 1, color: AppTokens.muted)),
+                      fontSize: 14,
+                      height: AppTokens.heightCalibrated,
+                      color: AppTokens.muted)),
               const Spacer(),
               Text(value,
                   style: const TextStyle(
-                      fontSize: 14, height: 1, color: AppTokens.fg)),
+                      fontSize: 14,
+                      height: AppTokens.heightCalibrated,
+                      color: AppTokens.fg)),
               if (onTap != null) ...[
                 const SizedBox(width: 8),
                 const Icon(MingCuteIcons.editLine,
@@ -733,7 +737,7 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
               Text(label,
                   style: TextStyle(
                       fontSize: 14,
-                      height: 1,
+                      height: AppTokens.heightCalibrated,
                       color: onTap == null
                           ? AppTokens.muted.withValues(alpha: 0.5)
                           : AppTokens.muted)),
@@ -962,7 +966,7 @@ class _WarningBanner extends StatelessWidget {
               child: Text(msg,
                   style: const TextStyle(
                     fontSize: 13,
-                    height: 1, // 关键：固定行高，图标与文字严格水平居中
+                    height: AppTokens.heightCalibrated, // 关键：固定行高，图标与文字严格水平居中
                     fontWeight: FontWeight.w400,
                     color: Color(0xFFE03131),
                   )),

@@ -30,12 +30,12 @@ class OfflineBar extends StatelessWidget {
           horizontal: AppTokens.space4, vertical: AppTokens.space3),
       decoration: const BoxDecoration(
         color: AppTokens.surface2,
-        border: Border(
-            top: BorderSide(color: AppTokens.border, width: 0.5)),
+        border: Border(top: BorderSide(color: AppTokens.border, width: 0.5)),
       ),
       child: Row(
         children: [
-          const Icon(MingCuteIcons.wifiOffLine, size: 14, color: AppTokens.muted),
+          const Icon(MingCuteIcons.wifiOffLine,
+              size: 14, color: AppTokens.muted),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -43,7 +43,7 @@ class OfflineBar extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 // 与 14 图标横排居中，锁行高
-                height: 1,
+                height: AppTokens.heightCalibrated,
                 color: AppTokens.muted,
               ),
             ),

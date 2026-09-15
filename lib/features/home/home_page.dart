@@ -398,7 +398,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
-                height: 20 / 12,
+                height: AppTokens.heightCalibrated,
                 color: labelColor)),
         const SizedBox(width: 4),
         Expanded(
@@ -408,7 +408,7 @@ class _ProjectTimelineCardState extends State<_ProjectTimelineCard> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  height: 20 / 12,
+                  height: AppTokens.heightCalibrated,
                   color: valueColor)),
         ),
       ],
@@ -1028,7 +1028,7 @@ class _TodoSection extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    height: 24 / 16,
+                    height: AppTokens.heightCalibrated,
                     color: Color(0xFF000000))),
             InkWell(
               onTap: () => context.go('/defects'),
@@ -1039,12 +1039,12 @@ class _TodoSection extends StatelessWidget {
                   Text('${_cnDate()} | 查看全部',
                       strutStyle: const StrutStyle(
                           fontSize: 12,
-                          height: 20 / 12,
+                          height: AppTokens.heightCalibrated,
                           forceStrutHeight: true),
                       style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          height: 20 / 12,
+                          height: AppTokens.heightCalibrated,
                           color: Color(0xFF999999))),
                   const SizedBox(width: 4),
                   const Icon(MingCuteIcons.rightLine,
@@ -1072,13 +1072,13 @@ class _TodoSection extends StatelessWidget {
                         color: AppTokens.success, size: 16),
                   ),
                   const SizedBox(width: AppTokens.space3),
-                   const Text('当前无待办，所有缺陷已处理',
-                       style: TextStyle(
-                           fontSize: 14,
-                           // 与左侧 28 图标容器横排居中，锁行高
-                           height: 1,
-                           color: AppTokens.muted,
-                           fontWeight: FontWeight.w400)),
+                  const Text('当前无待办，所有缺陷已处理',
+                      style: TextStyle(
+                          fontSize: 14,
+                          // 与左侧 28 图标容器横排居中，锁行高
+                          height: AppTokens.heightCalibrated,
+                          color: AppTokens.muted,
+                          fontWeight: FontWeight.w400)),
                 ],
               ),
             ),
@@ -1192,11 +1192,13 @@ Widget _person(String name) => Row(
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               strutStyle: const StrutStyle(
-                  fontSize: 12, height: 20 / 12, forceStrutHeight: true),
+                  fontSize: 12,
+                  height: AppTokens.heightCalibrated,
+                  forceStrutHeight: true),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  height: 20 / 12,
+                  height: AppTokens.heightCalibrated,
                   color: AppTokens.muted)),
         ),
       ],
@@ -1457,7 +1459,7 @@ class _EventCard extends StatelessWidget {
                             style: const TextStyle(
                                 fontSize: 12,
                                 // 与 16 user4Fill 图标横排居中，锁行高
-                                height: 1,
+                                height: AppTokens.heightCalibrated,
                                 fontWeight: FontWeight.w400,
                                 color: Color(0xFF919499))),
                       ),
@@ -1468,7 +1470,7 @@ class _EventCard extends StatelessWidget {
                     style: const TextStyle(
                         fontSize: 12,
                         // 与左侧责任人行横排居中，锁行高
-                        height: 1,
+                        height: AppTokens.heightCalibrated,
                         fontWeight: FontWeight.w400,
                         color: Color(0xFF919499))),
               ],

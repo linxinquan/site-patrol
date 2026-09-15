@@ -31,7 +31,7 @@ class SectionTitle extends StatelessWidget {
               title,
               style: const TextStyle(
                 fontSize: 16,
-                height: 24 / 16,
+                height: AppTokens.heightCalibrated,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0,
                 color: AppTokens.fg,
@@ -40,19 +40,17 @@ class SectionTitle extends StatelessWidget {
             if (subtitle != null) ...[
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppTokens.surface2,
-                  borderRadius:
-                      BorderRadius.circular(AppTokens.radiusPill),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusPill),
                 ),
                 child: Text(
                   subtitle!,
                   style: const TextStyle(
                     fontSize: 10,
                     // 与 16 主标题横排居中，锁行高避免字形偏上
-                    height: 1,
+                    height: AppTokens.heightCalibrated,
                     fontWeight: FontWeight.w500,
                     color: AppTokens.muted,
                   ),
@@ -65,8 +63,8 @@ class SectionTitle extends StatelessWidget {
                 onTap: onAction,
                 borderRadius: BorderRadius.circular(AppTokens.radiusPill),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -76,7 +74,7 @@ class SectionTitle extends StatelessWidget {
                           fontSize: 12,
                           // 与右侧 16 箭头图标横排居中，必须锁行高
                           // （默认 1.4 会让字形在行框内偏上，视觉高于图标）
-                          height: 1,
+                          height: AppTokens.heightCalibrated,
                           fontWeight: FontWeight.w400,
                           color: AppTokens.muted,
                           letterSpacing: 0,

@@ -251,14 +251,18 @@
 - **全项目统一 MingCute**（`flutter_mingcute` 包），写法 `MingCuteIcons.xxx`，风格优先取 `xxxLine`（描边风，与整体扁平一致）。
 - 已无 Material `Icons.xxx` 与 lucide 引用。统计残留时要用词边界 `\bIcons\.`，否则会被 `MingCuteIcons.` 的子串严重误报。
 - 仅保留 3 张自定义 PNG：`assets/icons/capture.png`、`drawings.png`、`patrol.png`。
-- **图标 + 文字对齐**（用户反复强调，最容易漏）：`Text` 默认行高 ~1.4 会让字形顶偏。
-  - **根因**：`Row` 的 `crossAxisAlignment: center` 居中对齐的是「子组件占的盒子」，不是盒子里的墨迹。`Text` 的盒子 = 字号 × 行高，多出来的空间压在字形下方 → 文字视觉上比图标高半格，字号越大越明显。所以 **光写 `center` 救不了，必须锁行高**。
-  - 横排：`Row(crossAxisAlignment: center, children: [Icon, SizedBox(width: gap), Expanded(child: Text(t, style: TextStyle(**height: 1**, ...)))])` —— **文字 style 必须带 `height`**：
-    - 单行确定（`maxLines: 1` 或短文案）→ `height: 1`
-    - 长文案可能换行 → `height: 1.1`（兼顾行距，偏差 <1px 可接受）
+- **图标 + 文字对齐**（用户反复强调，最容易漏，且**极易修反方向**）。
+  - **根因**：`Row` 的 `crossAxisAlignment: center` 居中对齐的是「子组件占的盒子」，不是盒子里的墨迹。`Text` 的盒子 = 字号 × 行高，而字形的墨迹中心并不在盒子几何中心上 → 光写 `center` 救不了，必须锁 `height`。
+  - **⚠️ 锁多少不是 1.0**（历史踩坑：曾把 `height: 1` / `1.1` 当正确答案批量写入 77 处，方向是反的）。`TextStyle.height` 是**对字体度量行高的等比缩放**，而 MiSans 的 `hhea` 度量严重不对称（ascent 1.044 / descent 0.282），于是：
+    - `height: 1.0` → 墨迹**偏上**约 0.10 字号（14px 字约偏 1.4px）
+    - `height: 22/14 ≈ 1.57` → 偏下约 0.07 字号
+    - **墨迹真正居中的校准值 ≈ 1.34**（四档字重实测 1.33~1.36，取 1.34 时偏差 < 0.1px）
+  - 写法：`style: TextStyle(..., height: AppTokens.heightCalibrated)`（常量 = 1.34，定义在 `design_tokens.dart`）。**不要再写 `height: 1` / `1.1`**。
+  - **`StrutStyle(forceStrutHeight: true)` 会覆盖 `TextStyle.height`**：带 strut 的文字，行框与墨迹位置由 **strut 的 `height`** 决定。这类位置必须把 **strut 的 height 也改成校准值**，只改 `TextStyle.height` 无效。（已修点：首页「日期 | 查看全部」、`_person`、导航栏项目名。）
   - 竖排：`Column(crossAxisAlignment: center, mainAxisSize: min, ...)`。
-  - **共享样式冲突**：`AppBottomSheet.helperStyle` 行高是 `22/14`，作为纯段落说明没问题，但**与图标横排时必须 `.copyWith(height: 1)` 局部覆盖**，不要去改共享样式本身（会影响其他 5 处引用）。
-  - **回归检查**：改完 UI 跑 `python3 tools/scan_icon_text_align.py`（加 `--strict` 有命中则退出码 1）。它会自动排除 `ElevatedButton.icon` / `Chip` / `ListTile` 等自管布局的组件，只报真正需要手动锁行高的位置。
+  - **共享样式冲突**：`AppBottomSheet.helperStyle` 行高是 `22/14`，作纯段落说明没问题，但**与图标横排时必须 `.copyWith(height: AppTokens.heightCalibrated)` 局部覆盖**，不要改共享样式本身（会影响其他引用）。
+  - **回归检查**：改完 UI 跑 `python3 tools/scan_icon_text_align.py`（`--strict` 有命中则退出码 1）。它自动排除 `ElevatedButton.icon` / `Chip` / `ListTile` 等自管布局组件，并要求图标是 Row 的**直接子级**（嵌套子 Row 里的图标与本级文字不同层，不算横排）。脚本**校验的是值是否为校准值**，不只是「有没有写 height」。
+  - **一次性迁移**：`python3 tools/migrate_icon_text_height.py`（默认 dry-run，确认后加 `--apply`）。
 
 ---
 

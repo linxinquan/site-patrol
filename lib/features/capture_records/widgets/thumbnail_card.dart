@@ -71,7 +71,7 @@ class CaptureThumbnailCard extends StatelessWidget {
                                   style: const TextStyle(
                                       fontSize: 10,
                                       // 与 10 alert 图标横排居中，锁行高
-                                      height: 1,
+                                      height: AppTokens.heightCalibrated,
                                       color: AppTokens.onAccent,
                                       fontWeight: FontWeight.w700)),
                             ],

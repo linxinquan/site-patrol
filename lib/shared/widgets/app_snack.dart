@@ -168,7 +168,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                           style: TextStyle(
                               color: widget.style.fg,
                               fontSize: 14,
-                              height: 22 / 14,
+                              height: AppTokens.heightCalibrated,
                               fontWeight: FontWeight.w400)),
                     ),
                     if (widget.actionLabel != null && widget.onAction != null)
@@ -191,7 +191,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                           child: Text(widget.actionLabel!,
                               style: const TextStyle(
                                   fontSize: 14,
-                                  height: 22 / 14,
+                                  height: AppTokens.heightCalibrated,
                                   fontWeight: FontWeight.w400,
                                   color: Colors.white)),
                         ),

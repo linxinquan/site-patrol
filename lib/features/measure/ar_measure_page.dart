@@ -935,7 +935,7 @@ class _MeasureActionButton extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    height: 22 / 14,
+                    height: AppTokens.heightCalibrated,
                     color: primary ? AppTokens.onAccent : AppTokens.fg2,
                   ),
                 ),

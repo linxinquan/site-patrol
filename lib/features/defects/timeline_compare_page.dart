@@ -261,7 +261,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                         '请从上方照片中至少选择两张进行对比',
                         style: TextStyle(
                           fontSize: 14,
-                          height: 22 / 14,
+                          height: AppTokens.heightCalibrated,
                           color: AppTokens.muted,
                         ),
                       ),
@@ -448,7 +448,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    height: 24 / 16,
+                    height: AppTokens.heightCalibrated,
                     color: AppTokens.fg)),
             const Spacer(),
             InkWell(
@@ -473,7 +473,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            height: 20 / 12,
+                            height: AppTokens.heightCalibrated,
                             color: AppTokens.brand)),
                   ],
                 ),

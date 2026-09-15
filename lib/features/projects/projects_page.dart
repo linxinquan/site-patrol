@@ -454,7 +454,9 @@ class _OwnerRow extends StatelessWidget {
         Expanded(
           child: Text(party.title,
               style: const TextStyle(
-                  fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
+                  fontSize: 12,
+                  color: AppTokens.fg2,
+                  height: AppTokens.heightCalibrated),
               maxLines: 1,
               overflow: TextOverflow.ellipsis),
         ),
@@ -463,7 +465,9 @@ class _OwnerRow extends StatelessWidget {
         // 姓名+眼睛整体顶到卡片右端（两端贴齐）。勿再用 Flexible 与职务平分 50%。
         Text(name,
             style: const TextStyle(
-                fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
+                fontSize: 12,
+                color: AppTokens.fg2,
+                height: AppTokens.heightCalibrated),
             maxLines: 1,
             overflow: TextOverflow.ellipsis),
         const SizedBox(width: 4),
@@ -561,7 +565,9 @@ class _PartyDetailCardState extends State<_PartyDetailCard> {
               Expanded(
                 child: Text(party.title,
                     style: const TextStyle(
-                        fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
+                        fontSize: 12,
+                        color: AppTokens.fg2,
+                        height: AppTokens.heightCalibrated),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ),
@@ -570,7 +576,9 @@ class _PartyDetailCardState extends State<_PartyDetailCard> {
               // 姓名+眼睛整体顶到卡片右端（两端贴齐）。勿再用 Flexible 与职务平分 50%。
               Text(name,
                   style: const TextStyle(
-                      fontSize: 12, color: AppTokens.fg2, height: 20 / 12),
+                      fontSize: 12,
+                      color: AppTokens.fg2,
+                      height: AppTokens.heightCalibrated),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(width: 4),

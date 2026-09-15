@@ -122,7 +122,7 @@ class _GroupHeader extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      height: 20 / 12,
+                      height: AppTokens.heightCalibrated,
                       color: AppTokens.fg2)),
               const Spacer(),
               Icon(

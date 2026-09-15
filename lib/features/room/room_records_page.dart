@@ -315,7 +315,7 @@ class _RoomCard extends ConsumerWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              height: 20 / 12,
+                              height: AppTokens.heightCalibrated,
                               color: deltaOk
                                   ? const Color(0xFF00B84A)
                                   : const Color(0xFFFF4444),

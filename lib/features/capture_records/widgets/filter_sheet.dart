@@ -163,7 +163,9 @@ class _SwitchRow extends StatelessWidget {
           Expanded(
               child: Text(label,
                   style: const TextStyle(
-                      fontSize: 13, color: AppTokens.fg, height: 1))),
+                      fontSize: 13,
+                      color: AppTokens.fg,
+                      height: AppTokens.heightCalibrated))),
           Switch(
             value: value,
             onChanged: onChanged,

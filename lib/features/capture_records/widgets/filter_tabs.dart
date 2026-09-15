@@ -121,7 +121,7 @@ class _FloorButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  height: 20 / 12,
+                  height: AppTokens.heightCalibrated,
                   color: selected ? AppTokens.onAccent : AppTokens.fg,
                 ),
               ),
