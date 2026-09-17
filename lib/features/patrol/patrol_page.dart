@@ -541,7 +541,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     }
     if (!mounted) return;
     context.push(
-      '/capture',
+      '/capture/photo',
       extra: CaptureArgs(
         projectId: plan.projectId,
         // 标记问题从巡场进入：显式标记来源，供验收页切换为快捷标记模式。

@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_mingcute/flutter_mingcute.dart';
+import 'package:go_router/go_router.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -32,7 +33,6 @@ import '../../data/vision_service.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
-import 'ar_measure_page.dart';
 
 /// 拍照量尺校对页（半自动标定测量，MEASURE_FEATURE_PLAN.md）。
 ///
@@ -1219,8 +1219,10 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 
   Widget _drawingPicker(Drawing? drawing) {
     final src = drawing?.src;
+    // 量尺工作区改为响应式大窗口，避免固定 260 高导致像“缩略预览”。
+    final workspaceHeight = _measureWorkspaceHeight(context);
     return Container(
-      height: 260,
+      height: workspaceHeight,
       decoration: BoxDecoration(
         border: Border.all(color: AppTokens.border),
         borderRadius: BorderRadius.circular(12),
@@ -1330,6 +1332,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   }
 
   Widget _photoPanel() {
+    // 现场照片量尺同样使用大工作区，视觉上接近正常相机取景窗口。
+    final workspaceHeight = _measureWorkspaceHeight(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1343,14 +1347,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
             const SizedBox(width: AppTokens.space3),
             if (kIsWeb || Platform.isIOS)
               OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ArMeasurePage(args: widget.args),
-                  ),
-                ),
+                onPressed: () =>
+                    GoRouter.of(context).push('/measure/ar', extra: widget.args),
                 icon: const Icon(MingCuteIcons.cubeLine),
-                // 网页版拿不到 ARKit/LiDAR：按钮文案直说，避免误以为机型不支持
-                label: Text(kIsWeb ? 'AR量尺（网页版不可用）' : 'AR量尺（iPhone Pro）'),
+                // Web 端提供界面预览；真实 AR 采点仍需在 App 内完成。
+                label: Text(kIsWeb ? 'AR量尺（Web预览）' : 'AR量尺（iPhone Pro）'),
               ),
             if (kIsWeb || Platform.isIOS)
               const SizedBox(width: AppTokens.space3),
@@ -1621,7 +1622,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         const SizedBox(height: AppTokens.space2),
         if (_photoBytes != null)
           Container(
-            height: 260,
+            height: workspaceHeight,
             decoration: BoxDecoration(
               border: Border.all(color: AppTokens.border),
               borderRadius: BorderRadius.circular(12),
@@ -1754,7 +1755,7 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           )
         else
           Container(
-            height: 120,
+            height: workspaceHeight,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               border:
@@ -1806,6 +1807,15 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
         ),
       ],
     );
+  }
+
+  /// 量尺页的主工作区高度：用接近整屏的大窗口替代固定小框，更符合相机取景体验。
+  double _measureWorkspaceHeight(BuildContext context) {
+    final screen = MediaQuery.of(context).size;
+    final horizontalPadding = AppTokens.space4 * 2;
+    final availableWidth = math.max(0.0, screen.width - horizontalPadding);
+    final maxHeightByScreen = screen.height * 0.52;
+    return math.max(availableWidth, maxHeightByScreen.clamp(320.0, 520.0));
   }
 
   void _onPhotoTap(Offset local, Size box) {

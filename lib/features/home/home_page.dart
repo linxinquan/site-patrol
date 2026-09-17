@@ -14,7 +14,6 @@ import '../../shared/widgets/user_switcher.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
-import '../measure/ar_measure_page.dart';
 
 const _mockDataFloors = floors;
 
@@ -870,15 +869,14 @@ class _QuickActions extends ConsumerWidget {
                         kind: AppSnackKind.danger);
                     return;
                   }
-                  Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => ArMeasurePage(
-                      args: MeasureArgs(
-                        projectKey: projectKey,
-                        drawingKey: floor.key,
-                        floor: floor.name,
-                      ),
+                  context.push(
+                    '/measure/ar',
+                    extra: MeasureArgs(
+                      projectKey: projectKey,
+                      drawingKey: floor.key,
+                      floor: floor.name,
                     ),
-                  ));
+                  );
                 },
               ),
               _QuickCard(

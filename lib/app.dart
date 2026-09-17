@@ -155,6 +155,35 @@ final routerProvider = Provider<GoRouter>((ref) {
               transitionDuration: Duration.zero,
               transitionsBuilder: (_, __, ___, child) => child,
               child: CapturePage(
+                stage: CapturePageStage.select,
+                args: state.extra is CaptureArgs
+                    ? state.extra as CaptureArgs
+                    : const CaptureArgs(),
+              ),
+            ),
+          ),
+          // 二级页：选择图纸和部位。
+          GoRoute(
+            path: '/capture/select',
+            pageBuilder: (_, state) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: CapturePage(
+                stage: CapturePageStage.select,
+                args: state.extra is CaptureArgs
+                    ? state.extra as CaptureArgs
+                    : const CaptureArgs(),
+              ),
+            ),
+          ),
+          // 二级页：现场拍照、识别与保存。
+          GoRoute(
+            path: '/capture/photo',
+            pageBuilder: (_, state) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: CapturePage(
+                stage: CapturePageStage.operate,
                 args: state.extra is CaptureArgs
                     ? state.extra as CaptureArgs
                     : const CaptureArgs(),

@@ -335,7 +335,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
 
   void _anchor() {
     context.push(
-      '/capture',
+      '/capture/photo',
       extra: CaptureArgs(
         floor: widget.d.crumb.replaceAll(' ', ''),
         anchorLabel: '${widget.d.title}·锚点',
@@ -1055,7 +1055,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
   /// 从图钉直接进入拍照：带图纸坐标写入 CaptureArgs。
   void _captureAtAnnotation(CadAnnotation a) {
     context.push(
-      '/capture',
+      '/capture/photo',
       extra: CaptureArgs(
         floor: widget.d.crumb.replaceAll(' ', ''),
         anchorLabel: '${widget.d.title}·标注',

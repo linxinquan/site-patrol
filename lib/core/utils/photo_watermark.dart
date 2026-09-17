@@ -71,18 +71,19 @@ Future<Uint8List?> applyPhotoWatermark(
   // 1. 原图
   canvas.drawImage(image, Offset.zero, Paint()..filterQuality = FilterQuality.high);
 
-  // 2. 全图斜向水印（防裁剪/防截取局部）
+  // 2. 全图斜向水印（极淡纹理，仅用于防裁剪取证，不遮挡照片主体）
   final linePaint = Paint()
-    ..color = const Color(0x66FFFFFF)
+    ..color = const Color(0x12FFFFFF)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 1.2;
+    ..strokeWidth = 0.8;
   final diagTextStyle = TextStyle(
-    color: const Color(0x33FFFFFF),
-    fontSize: _scaleFont(w, 30),
+    color: const Color(0x12FFFFFF),
+    fontSize: _scaleFont(w, 14),
     letterSpacing: 2,
   );
   final diag = _buildTextPainter('${meta.project} · 工程记录 · ${meta.serial}', diagTextStyle);
-  final step = diag.height + _scaleFont(w, 90);
+  // 行距拉大，让斜向水印稀疏、不糊住画面。
+  final step = diag.height + _scaleFont(w, 200);
   for (double y = -h.toDouble(); y < h * 2; y += step) {
     final x0 = 0.0;
     final len = w.toDouble();
@@ -99,8 +100,10 @@ Future<Uint8List?> applyPhotoWatermark(
     canvas.restore();
   }
 
-  // 3. 底部信息栏（黑色半透明条 + 白色文字）
-  final barH = meta.lines.length * _scaleFont(w, 30) + 36.0;
+  // 3. 底部信息栏（黑色半透明条 + 白色文字；字号克制，避免遮挡照片主体）
+  final fontSz = _scaleFont(w, 18);
+  final lineH = fontSz * 1.3;
+  final barH = meta.lines.length * lineH + 20.0;
   final barRect = Rect.fromLTWH(0, h - barH, w.toDouble(), barH);
   canvas.drawRect(
     barRect,
@@ -114,11 +117,11 @@ Future<Uint8List?> applyPhotoWatermark(
 
   final textStyle = TextStyle(
     color: const Color(0xFFF5F5F5),
-    fontSize: _scaleFont(w, 26),
-    fontWeight: FontWeight.w700,
-    height: 1.4,
+    fontSize: fontSz,
+    fontWeight: FontWeight.w500,
+    height: 1.3,
   );
-  var y = h - barH + 12.0;
+  var y = h - barH + 10.0;
   for (final line in meta.lines) {
     final tp = _buildTextPainter(line, textStyle);
     tp.paint(canvas, Offset(18, y));

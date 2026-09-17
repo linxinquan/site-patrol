@@ -74,10 +74,10 @@ class AppTokens {
   static const double space6 = 32;
   static const double space7 = 48;
 
-  // —— 圆角：外层卡片（AppCard 容器）12；内层卡/小标签 8；按钮 12；胶囊 999 不变 ——
+  // —— 圆角：卡片统一 8；内层小标签 8；按钮暂保留 12；胶囊 999 不变 ——
   static const double radiusSm = 8;
   static const double radiusMd = 8;
-  static const double radiusLg = 12; // 外层卡片统一 12
+  static const double radiusLg = 8; // 外层卡片统一 8
   static const double radiusXl = 8;
   static const double radiusPill = 999;
   static const double radiusButton = 12; // 主操作按钮统一 12（实色 / 描边 / 文字三形态）
