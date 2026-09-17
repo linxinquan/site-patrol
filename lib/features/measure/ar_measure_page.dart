@@ -17,7 +17,6 @@ import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
-import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 
@@ -45,10 +44,17 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
 
   /// 已采纳的读数组（每组 = 中位值 + 误差带半宽），逐组写为一条 MeasureItem。
   final List<({double mm, double errMm})> _readings = [];
+
+  /// Web 预览专用：点击窗口后记录 A/B 点与待采纳结果，方便浏览器里验收交互。
+  Offset? _previewPointA;
+  Offset? _previewPointB;
+  ({double mm, double errMm})? _previewPendingReading;
+  final List<({double mm, double errMm})> _previewReadings = [];
+  bool _previewPaused = false;
+
   bool _supported = false;
   bool _paused = false;
   String _hint = '对目标边采点：点一次=A，再点=B 出距离';
-  final _nameCtl = TextEditingController(text: 'AR实测');
   final _drawingCtl = TextEditingController();
   MeasureSession? _session;
 
@@ -218,7 +224,6 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   void dispose() {
     _svc.stopSession();
     _calibRefCtl.dispose();
-    _nameCtl.dispose();
     _drawingCtl.dispose();
     super.dispose();
   }
@@ -249,6 +254,61 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
       ));
       _samples.clear();
       _hint = '已采纳一组，可继续测下一条边；全部测完点「保存」';
+    });
+  }
+
+  /// Web 预览采纳：只写入预览列表，不落真实存储，便于继续调 UI。
+  void _adoptPreviewMeasurement() {
+    final pending = _previewPendingReading;
+    if (pending == null) return;
+    setState(() {
+      _previewReadings.insert(0, pending);
+      _previewPointA = null;
+      _previewPointB = null;
+      _previewPendingReading = null;
+    });
+    AppSnack.show(
+      context,
+      '已采纳并自动保存到预览结果',
+      kind: AppSnackKind.success,
+    );
+  }
+
+  /// Web 预览清空：重置当前点位和已采纳的演示结果。
+  void _clearPreviewSession() {
+    setState(() {
+      _previewPaused = false;
+      _previewPointA = null;
+      _previewPointB = null;
+      _previewPendingReading = null;
+      _previewReadings.clear();
+    });
+  }
+
+  /// Web 预览点击窗口：第一次落 A 点，第二次落 B 点并生成模拟距离，第三次开始新一组。
+  void _handlePreviewTap(TapUpDetails details, BoxConstraints constraints) {
+    if (_previewPaused) return;
+    final width = constraints.maxWidth;
+    final height = constraints.maxHeight;
+    if (width <= 0 || height <= 0) return;
+    final local = details.localPosition;
+    final point = Offset(
+      (local.dx / width).clamp(0.0, 1.0),
+      (local.dy / height).clamp(0.0, 1.0),
+    );
+    setState(() {
+      if (_previewPointA == null || _previewPointB != null) {
+        _previewPointA = point;
+        _previewPointB = null;
+        _previewPendingReading = null;
+        return;
+      }
+      _previewPointB = point;
+      final distance = (_previewPointA! - point).distance;
+      // 用窗口相对距离生成稳定的演示值，让 Web 预览可以完整跑通 UI。
+      final mm = (distance * 4200).clamp(180.0, 4200.0);
+      final errMm = (8 + distance * 18).clamp(6.0, 28.0);
+      _previewPendingReading = (mm: mm, errMm: errMm);
     });
   }
 
@@ -446,16 +506,15 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
               const Icon(MingCuteIcons.phoneLine,
                   size: 56, color: AppTokens.muted),
               const SizedBox(height: AppTokens.space3),
-              Text(
+              const Text(
                 isWeb
                     ? '网页版不支持 AR 量尺（需装 App）'
                     : 'AR量尺（LiDAR）仅支持 iPhone 12 Pro 及以上机型',
                 textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: AppTokens.space2),
-              Text(
+              const Text(
                 isWeb
                     ? 'AR 量尺依赖 iOS 原生 ARKit + LiDAR，浏览器无法调用——'
                         '这跟机型无关：iPhone 14 Pro Max 本身有 LiDAR，但网页里用不了。\n\n'
@@ -463,7 +522,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
                         '门窗洞口还能自动给出 M0921 这类编号。'
                     : '当前设备没有 LiDAR，请拍照后到照片量尺完成现场测量。',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppTokens.muted),
+                style: TextStyle(fontSize: 14, color: AppTokens.muted),
               ),
               const SizedBox(height: AppTokens.space4),
               FilledButton.icon(
@@ -484,6 +543,700 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     );
   }
 
+  /// Web 端不执行真实 AR，但保留完整工作台结构，方便预览界面和交互布局。
+  Widget _buildWebPreview() {
+    return _buildWorkbenchScaffold(isPreview: true);
+  }
+
+  /// 统一的 AR 量尺外层工作台：Web 预览与真机共用同一套排版，只替换中间取景层和交互数据。
+  Widget _buildWorkbenchScaffold({required bool isPreview}) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF000000),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF000000),
+        surfaceTintColor: const Color(0xFF000000),
+        shadowColor: Colors.transparent,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        automaticallyImplyLeading: false,
+        toolbarHeight: 48,
+        centerTitle: true,
+        leadingWidth: 36,
+        leading: const Padding(
+          padding: EdgeInsets.only(left: 12),
+          child: NavIconButton(
+            icon: MingCuteIcons.leftLine,
+            color: Colors.white,
+          ),
+        ),
+        title: Text(
+          isPreview ? 'AR量尺（Web预览）' : 'AR量尺（LiDAR）',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: NavIconButton(
+              icon: MingCuteIcons.settings3Line,
+              color: Colors.white,
+              onPressed: () => _openSettingsSheet(isPreview: isPreview),
+            ),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Stack(
+              children: [
+                _buildViewportStack(isPreview: isPreview),
+                Positioned(
+                  top: AppTokens.space3,
+                  left: AppTokens.space3,
+                  right: AppTokens.space3,
+                  child: _buildViewportOverlay(isPreview: isPreview),
+                ),
+              ],
+            ),
+            Expanded(
+              child: _buildBottomWorkspace(isPreview: isPreview),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 中间取景区：保留同一层级结构，Web 用预览画面替换原生相机层。
+  Widget _buildViewportStack({required bool isPreview}) {
+    return Container(
+      color: const Color(0xFF0A0A0A),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: AspectRatio(
+          // 相机常用 4:3 画幅；竖屏下按 3:4 呈现，避免取景区被拉成长条。
+          aspectRatio: 3 / 4,
+          child: isPreview ? _buildPreviewViewport() : _buildNativeViewport(),
+        ),
+      ),
+    );
+  }
+
+  /// Web 预览版取景层：用固定导视和暗色背景模拟真实 AR 取景窗，方便核对 UI。
+  Widget _buildPreviewViewport() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapUp: (details) => _handlePreviewTap(details, constraints),
+          child: Container(
+            color: const Color(0xFFD9D9D9),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _ArPreviewGuidePainter(
+                      pointA: _previewPointA,
+                      pointB: _previewPointB,
+                      pendingReading: _previewPendingReading,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 真机取景层：保留原生 LiDAR 视图和设备检测占位。
+  Widget _buildNativeViewport() {
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: ColoredBox(color: Color(0xFF0A0A0A)),
+        ),
+        UiKitView(
+          viewType: _viewType,
+          onPlatformViewCreated: _onViewCreated,
+          creationParams: null,
+          creationParamsCodec: const StandardMessageCodec(),
+        ),
+        if (!_supported) _buildLiDARPlaceholder(),
+      ],
+    );
+  }
+
+  /// 顶部浮层：提示条和测量摘要卡统一由这一处输出，保证两端位置与间距一致。
+  Widget _buildViewportOverlay({required bool isPreview}) {
+    if (isPreview) {
+      return const SizedBox.shrink();
+    }
+    final showSummary = _samples.isNotEmpty;
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            isPreview ? 'Web 预览模式：展示 AR量尺工作台布局' : _hint,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+        if (showSummary) ...[
+          const SizedBox(height: AppTokens.space2),
+          _buildViewportSummaryCard(isPreview: isPreview),
+        ],
+      ],
+    );
+  }
+
+  /// 测量摘要卡：保持同一位置和样式，Web 仅替换展示数据。
+  Widget _buildViewportSummaryCard({required bool isPreview}) {
+    final currentText =
+        isPreview ? '本次 2980 mm' : '本次 ${fmtMm(_corrected(_samples.last))} mm';
+    final groupText = isPreview
+        ? '本组中位 2980 mm（重复性 ±8 mm，n=3）'
+        : (_samples.length >= 2
+            ? '本组中位 ${fmtMm(_corrected(medianOf(_samples)))} mm'
+                '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)} mm，'
+                'n=${_samples.length}）'
+            : null);
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xCC111111),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              currentText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (groupText != null)
+              Text(
+                groupText,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            if (!isPreview && _scaleCalib != null)
+              Text(
+                '已做系统偏差校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
+                '（真值 ${fmtMm(_scaleCalib!.refMm)}mm / '
+                '实测 ${fmtMm(_scaleCalib!.measuredMm)}mm）',
+                style: const TextStyle(
+                  color: Colors.lightGreenAccent,
+                  fontSize: 11,
+                ),
+              ),
+            if (!isPreview && _depthHint != null)
+              Text(
+                _depthHint!,
+                style: const TextStyle(
+                  color: Colors.orangeAccent,
+                  fontSize: 11,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 底部工作区：直接承接窗口下方空白，不再做悬浮卡片。
+  Widget _buildBottomWorkspace({required bool isPreview}) {
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFF000000),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + safeBottom),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: _buildBottomPanel(isPreview: isPreview),
+      ),
+    );
+  }
+
+  /// 底部操作区：主按钮、状态说明、辅助按钮、列表和字段区统一复用。
+  Widget _buildBottomPanel({required bool isPreview}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: _buildPrimaryActionButton(isPreview: isPreview),
+        ),
+        const SizedBox(height: 8),
+        _buildActionButtonsRow(isPreview: isPreview),
+      ],
+    );
+  }
+
+  /// 主按钮文案统一走一处，避免 Web 和真机的按钮高度、字重、图标错位。
+  Widget _buildPrimaryActionButton({required bool isPreview}) {
+    final enabled = isPreview
+        ? _previewPendingReading != null
+        : (_calibMode
+            ? (_supported && _samples.length >= 2)
+            : (_supported && _samples.length >= 2));
+    final label = isPreview
+        ? (_previewPendingReading == null
+            ? '点击窗口选择 A 点和 B 点'
+            : '采纳本组 → ${fmtMm(_previewPendingReading!.mm)} mm'
+                '（重复性 ±${fmtMm(_previewPendingReading!.errMm)}）')
+        : (_calibMode
+            ? (_samples.length < 2
+                ? '完成校正（再测 ${2 - _samples.length} 次可启用）'
+                : '完成校正 → k=$_calibKPreview')
+            : (_samples.length < 2
+                ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
+                : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
+                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'));
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppTokens.accent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTokens.onAccent,
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: isPreview
+              ? (_previewPendingReading != null
+                  ? _adoptPreviewMeasurement
+                  : null)
+              : (_calibMode
+                  ? (_supported && _samples.length >= 2 ? _finishCalib : null)
+                  : (_supported && _samples.length >= 2
+                      ? _adoptSamples
+                      : null)),
+          icon: const Icon(
+            MingCuteIcons.checkCircleLine,
+            size: 18,
+            color: AppTokens.onAccent,
+          ),
+          label: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 22 / 14,
+              color: AppTokens.onAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 底部辅助按钮区：暂停、清除、查看数据共用同一行结构。
+  Widget _buildActionButtonsRow({required bool isPreview}) {
+    if (isPreview) {
+      return Row(
+        children: [
+          Expanded(
+            child: _MeasureActionButton(
+              label: _previewPaused ? '继续' : '暂停',
+              icon: _previewPaused
+                  ? MingCuteIcons.playLine
+                  : MingCuteIcons.pauseLine,
+              onTap: () {
+                setState(() => _previewPaused = !_previewPaused);
+              },
+            ),
+          ),
+          const SizedBox(width: AppTokens.space2),
+          Expanded(
+            child: _MeasureActionButton(
+              label: '清除',
+              icon: MingCuteIcons.deleteLine,
+              onTap: _clearPreviewSession,
+            ),
+          ),
+          const SizedBox(width: AppTokens.space2),
+          Expanded(
+            child: _MeasureActionButton(
+              label: '查看数据',
+              icon: MingCuteIcons.eyeLine,
+              onTap: () => _openDataSheet(isPreview: true),
+            ),
+          ),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: _MeasureActionButton(
+            label: _paused ? '继续' : '暂停',
+            icon: _paused ? MingCuteIcons.playLine : MingCuteIcons.pauseLine,
+            onTap: _supported
+                ? () async {
+                    _paused = !_paused;
+                    await _svc.setMode(_paused ? 0 : 1);
+                    setState(() {});
+                  }
+                : null,
+          ),
+        ),
+        const SizedBox(width: AppTokens.space2),
+        Expanded(
+          child: _MeasureActionButton(
+            label: '清除',
+            icon: MingCuteIcons.deleteLine,
+            onTap: _supported
+                ? () async {
+                    await _svc.clear();
+                    setState(() {
+                      _samples.clear();
+                      _readings.clear();
+                      _hint = '对目标边采点：点一次=A，再点=B 出距离';
+                    });
+                  }
+                : null,
+          ),
+        ),
+        const SizedBox(width: AppTokens.space2),
+        Expanded(
+          child: _MeasureActionButton(
+            label: '查看数据',
+            icon: MingCuteIcons.eyeLine,
+            onTap: () => _openDataSheet(isPreview: false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 测量列表容器统一复用，Web 用示例数据灌入，真机继续用实时读数。
+  Widget _buildReadingListPanel({required bool isPreview}) {
+    return Container(
+      height: 180,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151515),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: () {
+        final previewReadings = _previewReadings;
+        final realReadings = _readings;
+        final itemCount =
+            isPreview ? previewReadings.length : realReadings.length;
+        if (itemCount == 0) {
+          return Center(
+            child: Text(
+              isPreview ? '先在窗口里点 A 点和 B 点，再点“采纳本组”' : '采纳后的量尺结果会显示在这里',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 20 / 13,
+                color: Color(0xFF8F9399),
+              ),
+            ),
+          );
+        }
+        return ListView.builder(
+          itemCount: itemCount,
+          itemBuilder: (ctx, i) {
+            final mm = isPreview ? previewReadings[i].mm : realReadings[i].mm;
+            final errMm =
+                isPreview ? previewReadings[i].errMm : realReadings[i].errMm;
+            final titleText = '${fmtMm(mm)} mm（重复性 ±${fmtMm(errMm)}）';
+            final verdictText = isPreview ? null : _verdictOf(mm, errMm);
+            final verdictColor = verdictText == null
+                ? null
+                : verdictText.contains('合格')
+                    ? Colors.green
+                    : verdictText.contains('超差')
+                        ? AppTokens.danger
+                        : Colors.orange;
+            return ListTile(
+              dense: true,
+              tileColor: Colors.transparent,
+              contentPadding: EdgeInsets.zero,
+              leading: Text(
+                'AR-${i + 1}.',
+                style: const TextStyle(color: Color(0xFF8F9399)),
+              ),
+              title: Text(
+                titleText,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              subtitle: verdictText == null
+                  ? null
+                  : Text(
+                      verdictText,
+                      style: TextStyle(fontSize: 12, color: verdictColor),
+                    ),
+              trailing: IconButton(
+                icon: const Icon(
+                  MingCuteIcons.minusCircleLine,
+                  size: 20,
+                  color: AppTokens.danger,
+                ),
+                onPressed: () {
+                  setState(() {
+                    if (isPreview) {
+                      _previewReadings.removeAt(i);
+                    } else {
+                      _readings.removeAt(i);
+                    }
+                  });
+                },
+              ),
+            );
+          },
+        );
+      }(),
+    );
+  }
+
+  /// 偏差校正和图纸尺寸统一放进深色底部弹窗，主界面只保留核心量尺操作。
+  Future<void> _openSettingsSheet({required bool isPreview}) {
+    return _showDarkBottomSheet<void>(
+      title: '量尺设置',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isPreview
+                ? '这里集中放偏差校正和图纸尺寸，主界面不再展示这些设置项。'
+                : (_calibMode
+                    ? '当前正在做系统偏差校正，请对已知长度重复测量至少 2 次，再完成校正。'
+                    : (_scaleCalib == null
+                        ? '当前未做系统偏差校正，测量结果的 ± 只代表重复性。'
+                        : '当前已校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
+                            '（${_scaleCalib!.deltaPct >= 0 ? '+' : ''}'
+                            '${_scaleCalib!.deltaPct.toStringAsFixed(2)}%）')),
+            style: _darkSheetHelperStyle(),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '系统偏差校正',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isPreview
+                      ? 'Web 端只展示设置结构，不会触发真实校正。'
+                      : '用已知长度做重复测量，校正系统偏差后，后续读数会自动修正。',
+                  style: _darkSheetHelperStyle(const Color(0xFF9EA3AA)),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DarkSheetActionButton(
+                        label: _calibMode ? '完成校正' : '开始校正',
+                        onPressed: isPreview
+                            ? null
+                            : () {
+                                Navigator.of(context, rootNavigator: true)
+                                    .pop();
+                                if (_calibMode) {
+                                  _finishCalib();
+                                } else {
+                                  _startCalib();
+                                }
+                              },
+                      ),
+                    ),
+                    if (!isPreview && _scaleCalib != null && !_calibMode) ...[
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _DarkSheetActionButton(
+                          label: '清除校正',
+                          foregroundColor: const Color(0xFFFF7A7A),
+                          backgroundColor: const Color(0xFF262629),
+                          onPressed: () {
+                            Navigator.of(context, rootNavigator: true).pop();
+                            _clearCalib();
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '图纸尺寸',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '选填。填写后会在保存量尺记录时一并带上，方便后续对比。',
+                  style: _darkSheetHelperStyle(const Color(0xFF9EA3AA)),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  decoration: _darkSheetInputBoxDecoration(),
+                  child: TextField(
+                    controller: _drawingCtl,
+                    enabled: !isPreview,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: _darkSheetInputTextStyle,
+                    decoration:
+                        _darkSheetInputDecoration(hintText: '输入图纸尺寸(mm，可选)'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 量尺数据走独立深色底部弹窗，主界面只保留操作按钮。
+  Future<void> _openDataSheet({required bool isPreview}) {
+    final count = isPreview ? _previewReadings.length : _readings.length;
+    return _showDarkBottomSheet<void>(
+      title: '量尺数据',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isPreview
+                ? '当前共有 $count 组预览数据，采纳后会直接写入下面的列表。'
+                : (count == 0
+                    ? '当前还没有采纳的量尺数据。'
+                    : '当前共有 $count 组已采纳数据，可在这里查看后再保存。'),
+            style: _darkSheetHelperStyle(),
+          ),
+          const SizedBox(height: 12),
+          _buildReadingListPanel(isPreview: isPreview),
+          if (!isPreview) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: _DarkSheetActionButton(
+                label: '保存量尺数据',
+                onPressed: count > 0
+                    ? () {
+                        Navigator.of(context, rootNavigator: true).pop();
+                        _saveAll();
+                      }
+                    : null,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 深色底部弹窗：保持黑色工作台风格统一，避免白色弹窗跳出来。
+  Future<T?> _showDarkBottomSheet<T>({
+    required String title,
+    required Widget child,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x99000000),
+      builder: (sheetContext) {
+        final media = MediaQuery.of(sheetContext);
+        final bottomSafeInset = media.padding.bottom;
+        final keyboardInset = media.viewInsets.bottom;
+        final maxSheetHeight = media.size.height - media.padding.top - 24;
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardInset),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(12, 0, 12, 12 + bottomSafeInset),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxSheetHeight),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Color(0xFF121214),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DarkSheetHeader(title: title),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// 调用 camera_pick 拍照，成功后跳转到照片量尺（CapturePage）继续。
   Future<void> _captureForPhotoMeasure() async {
     final file = await pickPhotoRobust(
@@ -495,7 +1248,7 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     if (file == null || !mounted) return;
     // 跳转到照片量尺：复用拍照记录流程，选点后关联刚拍的照片。
     context.push(
-      '/capture',
+      '/capture/photo',
       extra: CaptureArgs(
         projectId: widget.args.projectKey,
         floor: widget.args.floor,
@@ -509,369 +1262,15 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (kIsWeb || !Platform.isIOS) {
-      // Web / 非 iOS：LiDAR 不可用，直接提示，不提供假估算。
+    if (kIsWeb) {
+      // Web 端提供界面预览，方便验收 UI；真实 AR 仍需在 App 内运行。
+      return _buildWebPreview();
+    }
+    if (!Platform.isIOS) {
+      // 非 iOS：LiDAR 不可用，直接提示，不提供假估算。
       return _buildUnsupported();
     }
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        toolbarHeight: 48,
-        centerTitle: true,
-        leadingWidth: 36,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12),
-          child: NavIconButton(icon: MingCuteIcons.leftLine),
-        ),
-        title: const Text(
-          'AR量尺（LiDAR）',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            // 顶部工作台卡与导航栏底部统一保持 12 的间距。
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-            child: AppCard(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppTokens.brandTint,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      MingCuteIcons.pencilRulerLine,
-                      size: 18,
-                      color: AppTokens.brand,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.args.floor.isNotEmpty
-                              ? '${widget.args.floor} · AR量尺'
-                              : 'AR实时量尺工作台',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            height: 22 / 14,
-                            color: AppTokens.fg,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          '先在现场完成采点，再采纳本组结果，最后统一保存到当前图纸量尺记录',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                            height: 20 / 12,
-                            color: AppTokens.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                // UiKitView 必须无条件渲染：只有 view 先创建，原生 ArMeasureView
-                // 才会注册 channel，随后 _onViewCreated 才能查到 LiDAR 支持。
-                UiKitView(
-                  viewType: _viewType,
-                  onPlatformViewCreated: _onViewCreated,
-                  creationParams: null,
-                  creationParamsCodec: const StandardMessageCodec(),
-                ),
-                if (!_supported) _buildLiDARPlaceholder(),
-                Positioned(
-                  top: AppTokens.space4,
-                  left: 0,
-                  right: 0,
-                  child: Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 32),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(_hint,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 13)),
-                      ),
-                      if (_samples.isNotEmpty)
-                        Card(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '本次 ${fmtMm(_corrected(_samples.last))} mm',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                                if (_samples.length >= 2)
-                                  Text(
-                                    '本组中位 ${fmtMm(_corrected(medianOf(_samples)))} mm'
-                                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)} mm，'
-                                    'n=${_samples.length}）',
-                                    style: const TextStyle(
-                                        color: Colors.white70, fontSize: 12),
-                                  ),
-                                if (_scaleCalib != null)
-                                  Text(
-                                    '已做系统偏差校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
-                                    '（真值 ${fmtMm(_scaleCalib!.refMm)}mm / '
-                                    '实测 ${fmtMm(_scaleCalib!.measuredMm)}mm）',
-                                    style: const TextStyle(
-                                        color: Colors.lightGreenAccent,
-                                        fontSize: 11),
-                                  ),
-                                if (_depthHint != null)
-                                  Text(
-                                    _depthHint!,
-                                    style: const TextStyle(
-                                        color: Colors.orangeAccent,
-                                        fontSize: 11),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Column(
-              children: [
-                // 主按钮：校正模式 → 完成校正；常态 → 采纳本组
-                SizedBox(
-                  width: double.infinity,
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppTokens.surface,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: _calibMode
-                          ? (_supported && _samples.length >= 2
-                              ? _finishCalib
-                              : null)
-                          : (_supported && _samples.length >= 2
-                              ? _adoptSamples
-                              : null),
-                      icon: const Icon(MingCuteIcons.checkCircleLine, size: 18),
-                      label: Text(
-                        _calibMode
-                            ? (_samples.length < 2
-                                ? '完成校正（再测 ${2 - _samples.length} 次可启用）'
-                                : '完成校正 → k=$_calibKPreview')
-                            : (_samples.length < 2
-                                ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
-                                : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
-                                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 22 / 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppTokens.space1),
-                // 系统偏差校正：把「重复性」与「准确度」分开（±误差带只代表前者）
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _calibMode
-                            ? '校正中：对 ${_calibRefCtl.text}mm 已知长度重复测 ≥2 次'
-                            : (_scaleCalib == null
-                                ? '未做系统偏差校正：± 仅为重复性，不代表准确度'
-                                : '已校正 k=${_scaleCalib!.k.toStringAsFixed(4)}'
-                                    '（${_scaleCalib!.deltaPct >= 0 ? '+' : ''}'
-                                    '${_scaleCalib!.deltaPct.toStringAsFixed(2)}%）'),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _calibMode
-                              ? Colors.blue
-                              : (_scaleCalib == null
-                                  ? AppTokens.muted
-                                  : Colors.green),
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: _supported
-                          ? (_calibMode ? _finishCalib : _startCalib)
-                          : null,
-                      child: Text(_calibMode ? '完成' : '系统偏差校正'),
-                    ),
-                    if (_scaleCalib != null && !_calibMode)
-                      TextButton(
-                        onPressed: _clearCalib,
-                        child: const Text('清除'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppTokens.space2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MeasureActionButton(
-                        primary: true,
-                        label: _paused ? '继续' : '暂停',
-                        icon: _paused
-                            ? MingCuteIcons.playLine
-                            : MingCuteIcons.pauseLine,
-                        onTap: _supported
-                            ? () async {
-                                _paused = !_paused;
-                                await _svc.setMode(_paused ? 0 : 1);
-                                setState(() {});
-                              }
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: AppTokens.space2),
-                    Expanded(
-                      child: _MeasureActionButton(
-                        label: '清除',
-                        icon: MingCuteIcons.deleteLine,
-                        onTap: _supported
-                            ? () async {
-                                await _svc.clear();
-                                setState(() {
-                                  _samples.clear();
-                                  _readings.clear();
-                                  _hint = '对目标边采点：点一次=A，再点=B 出距离';
-                                });
-                              }
-                            : null,
-                      ),
-                    ),
-                    const SizedBox(width: AppTokens.space2),
-                    Expanded(
-                      child: _MeasureActionButton(
-                        label: '保存',
-                        icon: MingCuteIcons.saveLine,
-                        onTap: _supported && _readings.isNotEmpty
-                            ? _saveAll
-                            : null,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppTokens.space2),
-                // 测量列表
-                Container(
-                  height: 180,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: AppTokens.surface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListView.builder(
-                    itemCount: _readings.length,
-                    itemBuilder: (ctx, i) {
-                      final r = _readings[i];
-                      final verdict = _verdictOf(r.mm, r.errMm);
-                      final Color? vColor = verdict == null
-                          ? null
-                          : verdict.contains('合格')
-                              ? Colors.green
-                              : verdict.contains('超差')
-                                  ? AppTokens.danger
-                                  : Colors.orange;
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Text('AR-${i + 1}.',
-                            style: const TextStyle(color: AppTokens.muted)),
-                        title: Text('${fmtMm(r.mm)} mm（重复性 ±${fmtMm(r.errMm)}）',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: verdict == null
-                            ? null
-                            : Text(verdict,
-                                style: TextStyle(fontSize: 12, color: vColor)),
-                        trailing: IconButton(
-                          icon: const Icon(MingCuteIcons.minusCircleLine,
-                              size: 20, color: AppTokens.danger),
-                          onPressed: () {
-                            setState(() => _readings.removeAt(i));
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: AppTokens.space2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _nameCtl,
-                        enabled: false,
-                        decoration: const InputDecoration(
-                            labelText: '量尺项名称（批量保存用 AR-N）',
-                            isDense: true,
-                            border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: AppTokens.space2),
-                    Expanded(
-                      child: TextField(
-                        controller: _drawingCtl,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true),
-                        decoration: const InputDecoration(
-                            labelText: '图纸尺寸(mm，可选)',
-                            isDense: true,
-                            border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildWorkbenchScaffold(isPreview: false);
   }
 
   Widget _buildLiDARPlaceholder() {
@@ -894,18 +1293,181 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
   }
 }
 
+/// Web 预览的取景辅助线：只用于展示 AR 量尺界面结构，不参与真实测距。
+class _ArPreviewGuidePainter extends CustomPainter {
+  final Offset? pointA;
+  final Offset? pointB;
+  final ({double mm, double errMm})? pendingReading;
+
+  _ArPreviewGuidePainter({
+    this.pointA,
+    this.pointB,
+    this.pendingReading,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Web 预览模式只保留对布局有帮助的辅助线，不再叠加多余说明内容。
+    final gridPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.18)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final guidePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.24)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final accentPaint = Paint()
+      ..color = AppTokens.brand.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final pointPaintA = Paint()
+      ..color = AppTokens.brand
+      ..style = PaintingStyle.fill;
+    final pointPaintB = Paint()
+      ..color = const Color(0xFFFF6B57)
+      ..style = PaintingStyle.fill;
+    final linePaint = Paint()
+      ..color = const Color(0xFF111111)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5;
+
+    // 相机常用井字格辅助线：横竖各两条，帮助用户判断取景与水平。
+    final thirdWidth = size.width / 3;
+    final thirdHeight = size.height / 3;
+    for (var i = 1; i <= 2; i++) {
+      final dx = thirdWidth * i;
+      final dy = thirdHeight * i;
+      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), gridPaint);
+      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), gridPaint);
+    }
+
+    final center = size.center(Offset.zero);
+    canvas.drawLine(
+      Offset(center.dx - 28, center.dy),
+      Offset(center.dx + 28, center.dy),
+      accentPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx, center.dy - 28),
+      Offset(center.dx, center.dy + 28),
+      accentPaint,
+    );
+    canvas.drawCircle(
+      center,
+      6,
+      Paint()
+        ..color = AppTokens.brand.withValues(alpha: 0.92)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(center, 20, guidePaint);
+
+    final a = pointA == null
+        ? null
+        : Offset(pointA!.dx * size.width, pointA!.dy * size.height);
+    final b = pointB == null
+        ? null
+        : Offset(pointB!.dx * size.width, pointB!.dy * size.height);
+    if (a != null) {
+      canvas.drawCircle(a, 8, pointPaintA);
+      _paintPointTag(canvas, a, 'A', pointPaintA.color);
+    }
+    if (a != null && b != null) {
+      canvas.drawLine(a, b, linePaint);
+      canvas.drawCircle(b, 8, pointPaintB);
+      _paintPointTag(canvas, b, 'B', pointPaintB.color);
+      if (pendingReading != null) {
+        _paintDistanceTag(
+          canvas,
+          (a + b) / 2,
+          '${fmtMm(pendingReading!.mm)} mm',
+        );
+      }
+    }
+  }
+
+  void _paintPointTag(Canvas canvas, Offset center, String label, Color color) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final tagRect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(center.dx, center.dy - 20),
+        width: 22,
+        height: 18,
+      ),
+      const Radius.circular(6),
+    );
+    canvas.drawRRect(
+      tagRect,
+      Paint()
+        ..color = color.withValues(alpha: 0.9)
+        ..style = PaintingStyle.fill,
+    );
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - 20 - tp.height / 2),
+    );
+  }
+
+  void _paintDistanceTag(Canvas canvas, Offset center, String label) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    const paddingX = 10.0;
+    const paddingY = 6.0;
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(
+        center: Offset(center.dx, center.dy - 18),
+        width: tp.width + paddingX * 2,
+        height: tp.height + paddingY * 2,
+      ),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = const Color(0xCC111111)
+        ..style = PaintingStyle.fill,
+    );
+    tp.paint(
+      canvas,
+      Offset(center.dx - tp.width / 2, center.dy - 18 - tp.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArPreviewGuidePainter oldDelegate) =>
+      oldDelegate.pointA != pointA ||
+      oldDelegate.pointB != pointB ||
+      oldDelegate.pendingReading != pendingReading;
+}
+
 /// AR量尺页底部操作按钮：统一为 48 高度，一主两次，和当前 App 操作风格保持一致。
 class _MeasureActionButton extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback? onTap;
-  final bool primary;
 
   const _MeasureActionButton({
     required this.label,
     required this.icon,
     required this.onTap,
-    this.primary = false,
   });
 
   @override
@@ -915,9 +1477,9 @@ class _MeasureActionButton extends StatelessWidget {
         child: Opacity(
           opacity: onTap == null ? 0.5 : 1,
           child: Container(
-            height: 48,
+            height: 44,
             decoration: BoxDecoration(
-              color: primary ? AppTokens.accent : AppTokens.surface,
+              color: const Color(0xFF151515),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -927,19 +1489,131 @@ class _MeasureActionButton extends StatelessWidget {
                 Icon(
                   icon,
                   size: 18,
-                  color: primary ? AppTokens.onAccent : AppTokens.fg2,
+                  color: Colors.white,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   label,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     height: AppTokens.heightCalibrated,
-                    color: primary ? AppTokens.onAccent : AppTokens.fg2,
+                    color: Colors.white,
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// 深色底部弹窗的辅助说明文字样式。
+TextStyle _darkSheetHelperStyle([Color color = const Color(0xFFB8BBC0)]) =>
+    TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w400,
+      height: 22 / 14,
+      color: color,
+    );
+
+/// 深色底部弹窗输入框正文样式。
+const TextStyle _darkSheetInputTextStyle = TextStyle(
+  fontSize: 14,
+  fontWeight: FontWeight.w400,
+  height: 22 / 14,
+  color: Colors.white,
+);
+
+/// 深色底部弹窗输入框外层：只保留输入框描边，符合当前页面规范。
+BoxDecoration _darkSheetInputBoxDecoration() => BoxDecoration(
+      color: const Color(0xFF1C1C1E),
+      border: Border.all(color: const Color(0xFF3A3A3C)),
+      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+    );
+
+/// 深色底部弹窗输入框内部占位样式。
+InputDecoration _darkSheetInputDecoration({required String hintText}) =>
+    InputDecoration(
+      isCollapsed: true,
+      border: InputBorder.none,
+      hintText: hintText,
+      hintStyle: _darkSheetHelperStyle(const Color(0xFF6E737A)),
+    );
+
+/// 深色底部弹窗头部：标题居中，关闭按钮放在右侧。
+class _DarkSheetHeader extends StatelessWidget {
+  final String title;
+
+  const _DarkSheetHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 24 / 16,
+                color: Colors.white,
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: NavIconButton(
+                icon: MingCuteIcons.closeMediumLine,
+                color: Colors.white70,
+                onPressed: () =>
+                    Navigator.of(context, rootNavigator: true).pop(),
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+/// 深色底部弹窗按钮：统一用 8 圆角，避免弹窗里出现浅色按钮样式。
+class _DarkSheetActionButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final Color backgroundColor;
+  final Color foregroundColor;
+
+  const _DarkSheetActionButton({
+    required this.label,
+    required this.onPressed,
+    this.backgroundColor = AppTokens.accent,
+    this.foregroundColor = AppTokens.onAccent,
+  });
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+        opacity: onPressed == null ? 0.5 : 1,
+        child: SizedBox(
+          height: 44,
+          child: FilledButton(
+            onPressed: onPressed,
+            style: FilledButton.styleFrom(
+              backgroundColor: backgroundColor,
+              foregroundColor: foregroundColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 22 / 14,
+              ),
             ),
           ),
         ),
