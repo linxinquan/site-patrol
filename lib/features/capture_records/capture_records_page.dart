@@ -5,6 +5,8 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 
 import '../../core/di/providers.dart';
 import '../../core/theme/design_tokens.dart';
+import '../../data/models.dart';
+import '../../data/repository/mock_repository.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_snack.dart';
@@ -227,6 +229,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
           }
         },
         onConvert: (idxs) => _onConvert(entry, idxs),
+        onConvertNote: () => _onConvertNote(entry),
       ),
     );
   }
@@ -236,6 +239,12 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
   Future<bool> _onConvert(Map<String, dynamic> entry, List<int> idxs) async {
     if (idxs.isEmpty) return false;
     final repo = ref.read(repositoryProvider);
+    // 归入当前项目，避免新增记录串到另一个项目。
+    // 原在 CapturePage 保存时设置；2026-09-18 保存不再自动建缺陷后，改在转入这里设置
+    // —— 必须早于 addDefect，否则 MockRepository 会按上一次的 is7 标记归档。
+    if (repo is MockRepository) {
+      repo.currentIs7 = ref.read(is7DongProjectProvider);
+    }
     final defectsRaw = (entry['defects'] as List? ?? const [])
         .whereType<Map>()
         .map((m) => m.cast<String, dynamic>())
@@ -271,6 +280,71 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
       AppSnack.show(
         context,
         '已生成 ${idxs.length} 条问题记录',
+        actionLabel: '去问题清单',
+        onAction: () => context.push('/defects'),
+        kind: AppSnackKind.success,
+      );
+    }
+    return true;
+  }
+
+  /// 按描述转入（DV-16）：AI 未识别到缺陷时，用手写的问题描述生成 1 条问题记录。
+  /// 以 `sourceCaptureIdx = -1` 标记，与逐条转入（0..n）区分；id 稳定 → 重复点击幂等。
+  Future<bool> _onConvertNote(Map<String, dynamic> entry) async {
+    final note = (entry['note'] as String? ?? '').trim();
+    if (note.isEmpty) {
+      if (mounted) {
+        AppSnack.show(context, '请先在验收记录里填写问题描述',
+            kind: AppSnackKind.muted);
+      }
+      return false;
+    }
+    final repo = ref.read(repositoryProvider);
+    if (repo is MockRepository) {
+      repo.currentIs7 = ref.read(is7DongProjectProvider);
+    }
+    final captureId = entry['id']?.toString() ?? '';
+    final anchor = entry['anchor']?.toString() ?? '';
+    final photo = entry['photo']?.toString();
+    final reporter = entry['reporter']?.toString() ?? '';
+    final firstLine = note.split('\n').first.trim();
+    try {
+      await repo.addDefect(Defect(
+        id: '$captureId#note',
+        part: anchor.isEmpty ? '验收点' : anchor,
+        type: firstLine.length > 20 ? firstLine.substring(0, 20) : firstLine,
+        category: DefectCategory.other,
+        severity: DefectSeverity.orange,
+        status: DefectStatus.draft,
+        anchor: anchor,
+        floor: entry['floor']?.toString() ?? '',
+        ts: entry['ts']?.toString() ?? '',
+        gps: entry['gps']?.toString() ?? '',
+        alt: entry['alt']?.toString() ?? '',
+        resp: '',
+        reporter: reporter.isEmpty ? '验收记录' : reporter,
+        tags: ['验收转工单', '验收#$captureId'],
+        note: note,
+        seed: 'capture_convert',
+        drawingKey: entry['drawingKey']?.toString(),
+        worldX: (entry['worldX'] as num?)?.toDouble(),
+        worldY: (entry['worldY'] as num?)?.toDouble(),
+        photos: photo == null || photo.isEmpty ? const [] : [photo],
+        photoPath: photo == null || photo.isEmpty ? null : photo,
+        sourceCaptureId: captureId,
+        sourceCaptureIdx: -1,
+      ));
+      ref.invalidate(defectsProvider);
+    } catch (e) {
+      if (mounted) {
+        AppSnack.show(context, '转入问题清单失败：$e', kind: AppSnackKind.danger);
+      }
+      return false;
+    }
+    if (mounted) {
+      AppSnack.show(
+        context,
+        '已按描述生成 1 条问题记录',
         actionLabel: '去问题清单',
         onAction: () => context.push('/defects'),
         kind: AppSnackKind.success,

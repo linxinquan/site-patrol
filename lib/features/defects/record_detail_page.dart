@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:flutter_mingcute/flutter_mingcute.dart';
 import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
+import '../../core/storage/local_storage.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
@@ -149,6 +152,113 @@ class _BodyState extends State<_Body> {
     if (mounted) setState(() => _busy = false);
   }
 
+  // ==================== 人工修订（2026-09-18 新增） ====================
+
+  /// 专业分类（DV-20）：AI 不返回分类，改由人工选择。
+  Future<void> _editCategory() async {
+    final picked = await AppBottomSheet.show<String>(
+      context: context,
+      title: '专业分类',
+      body: (ctx) => _OptionSheet(
+        icon: MingCuteIcons.layersLine,
+        accent: AppTokens.brand,
+        helper: '选择该问题所属专业分类（用于报告的分类统计）',
+        options: [
+          for (final c in DefectCategory.values)
+            (
+              value: c.name,
+              label: c.label,
+              dot: null,
+              selected: c == widget.d.category,
+            ),
+        ],
+      ),
+    );
+    if (!mounted || picked == null) return;
+    final c = DefectCategory.values
+        .firstWhere((e) => e.name == picked, orElse: () => widget.d.category);
+    if (c == widget.d.category) return;
+    setState(() => _busy = true);
+    await widget.onUpdate(widget.d.copyWith(category: c));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// 严重程度（DV-27）：允许人工修订（AI 目前统一返回 orange）。
+  Future<void> _editSeverity() async {
+    final picked = await AppBottomSheet.show<String>(
+      context: context,
+      title: '严重程度',
+      body: (ctx) => _OptionSheet(
+        icon: MingCuteIcons.warningLine,
+        accent: AppTokens.warning,
+        helper: '修订后会影响报告的重要等级与统计口径',
+        options: [
+          for (final s in DefectSeverity.values)
+            (
+              value: s.name,
+              label: s.label,
+              dot: s.color,
+              selected: s == widget.d.severity,
+            ),
+        ],
+      ),
+    );
+    if (!mounted || picked == null) return;
+    final s = DefectSeverity.values
+        .firstWhere((e) => e.name == picked, orElse: () => widget.d.severity);
+    if (s == widget.d.severity) return;
+    setState(() => _busy = true);
+    await widget.onUpdate(widget.d.copyWith(severity: s));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// 问题描述（DV-27）。
+  Future<void> _editNote() async {
+    final text = await AppBottomSheet.show<String>(
+      context: context,
+      title: '问题描述',
+      isScrollControlled: true,
+      body: (ctx) => _DesignerActionSheet(
+        actionLabel: '问题描述',
+        helper: '填写问题描述后确认保存',
+        hintText: '填写问题描述',
+        requiredNote: false,
+        accent: AppTokens.brand,
+        icon: MingCuteIcons.documentLine,
+        initialText: widget.d.note,
+        saveLabel: '确认',
+      ),
+    );
+    if (!mounted || text == null) return;
+    setState(() => _busy = true);
+    await widget.onUpdate(widget.d.copyWith(note: text));
+    if (mounted) setState(() => _busy = false);
+  }
+
+  /// 未闭合说明（DV-21⑤）：对应巡场报告单「如未，填写意见」。
+  Future<void> _editCloseNote() async {
+    final text = await AppBottomSheet.show<String>(
+      context: context,
+      title: '未闭合说明',
+      isScrollControlled: true,
+      body: (ctx) => _DesignerActionSheet(
+        actionLabel: '未闭合说明',
+        helper: '未销项时说明原因（会写入报告的「闭合确认」）',
+        hintText: '例如：待总包排期整改，计划下周进场',
+        requiredNote: false,
+        accent: AppTokens.warning,
+        icon: MingCuteIcons.questionLine,
+        initialText: widget.d.closeNote ?? '',
+        saveLabel: '确认',
+      ),
+    );
+    if (!mounted || text == null) return;
+    setState(() => _busy = true);
+    // 传空串即清空（报告端按 trim().isNotEmpty 判定，空串等同未填）。
+    await widget.onUpdate(widget.d.copyWith(closeNote: text));
+    if (mounted) setState(() => _busy = false);
+  }
+
   @override
   Widget build(BuildContext context) => Column(
         children: [
@@ -157,7 +267,7 @@ class _BodyState extends State<_Body> {
               padding: const EdgeInsets.fromLTRB(
                   AppTokens.space3, AppTokens.space3, AppTokens.space3, 96),
               children: [
-                // 水印照片（保留水印）+ 右上校验胶囊
+                // 水印照片 + 右上状态胶囊（已提交 / 待复核）
                 _WatermarkPhoto(widget.d),
                 const SizedBox(height: AppTokens.space3),
                 // 缺陷信息卡：标题 + 状态胶囊 / 红色说明框 / 责任人
@@ -168,6 +278,15 @@ class _BodyState extends State<_Body> {
                 const SizedBox(height: AppTokens.space3),
                 // 参数卡：拍摄时间 / 海拔 / GPS 坐标 / 楼层部位
                 _ParamsCard(widget.d),
+                const SizedBox(height: AppTokens.space3),
+                // 人工修订卡：专业分类 / 严重程度 / 问题描述 / 未闭合说明（2026-09-18 新增）
+                _ReviseCard(
+                  d: widget.d,
+                  onEditCategory: _busy ? null : _editCategory,
+                  onEditSeverity: _busy ? null : _editSeverity,
+                  onEditNote: _busy ? null : _editNote,
+                  onEditCloseNote: _busy ? null : _editCloseNote,
+                ),
                 const SizedBox(height: AppTokens.space3),
                 // 任务4：设计师远程处置卡
                 _DesignerCard(
@@ -385,6 +504,26 @@ class _WatermarkPhoto extends StatelessWidget {
   final Defect d;
   const _WatermarkPhoto(this.d);
 
+  /// 现场照片相对路径（为空 = 无照片，走占位）。
+  String get _photoRel => (d.photoPath ?? '').trim();
+
+  /// 占位背景：由 `seed` 派生色相的渐变（无照片 / 读不到时兜底）。
+  Widget _placeholderBg() => DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              HSLColor.fromAHSL(1.0, d.seed.codeUnitAt(0) * 7 % 360, 0.35, 0.6)
+                  .toColor(),
+              HSLColor.fromAHSL(
+                      1.0, (d.seed.codeUnitAt(0) * 7 + 40) % 360, 0.45, 0.45)
+                  .toColor(),
+            ],
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final verified = d.status != DefectStatus.draft;
@@ -395,53 +534,57 @@ class _WatermarkPhoto extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 渐变背景（占位真实照片）
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    HSLColor.fromAHSL(
-                            1.0, d.seed.codeUnitAt(0) * 7 % 360, 0.35, 0.6)
-                        .toColor(),
-                    HSLColor.fromAHSL(1.0,
-                            (d.seed.codeUnitAt(0) * 7 + 40) % 360, 0.45, 0.45)
-                        .toColor(),
+            // 现场照片：读 `photoPath` 对应的本地文件真实渲染（DV-21①，2026-09-18）。
+            // 无照片 / 读不到（如 Web 刷新后内存文件丢失）时退化渐变占位，区域不留白。
+            FutureBuilder<Uint8List?>(
+              future: _photoRel.isEmpty
+                  ? null
+                  : LocalStorage.instance.readFile(_photoRel),
+              builder: (context, snap) {
+                final bytes = snap.data;
+                final hasPhoto = bytes != null && bytes.isNotEmpty;
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasPhoto)
+                      Image.memory(bytes, fit: BoxFit.cover)
+                    else
+                      _placeholderBg(),
+                    // 占位态才画中央斜向大水印；真实照片的水印已烧录在图内。
+                    if (!hasPhoto)
+                      Center(
+                        child: Transform.rotate(
+                          angle: -0.3,
+                          child: Text(
+                            '${d.part}\n${d.ts.substring(0, 10)}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
-                ),
-              ),
+                );
+              },
             ),
-            // 中央斜向大水印
-            Center(
-              child: Transform.rotate(
-                angle: -0.3,
-                child: Text(
-                  '${d.part}\n${d.ts.substring(0, 10)}',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.35),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-              ),
-            ),
-            // 右上角校验胶囊（对齐大按钮：白透底 + 深色文字）
+            // 右上角状态胶囊（对齐大按钮：白透底 + 深色文字）
             Positioned(
               top: 12,
               right: 12,
               child: verified
                   ? const _VerifiedBadge(
                       icon: MingCuteIcons.checkCircleLine,
-                      label: '已效验',
+                      label: '已提交',
                       bg: Color(0xB300B84A),
                       fg: AppTokens.onAccent,
                     )
                   : const _VerifiedBadge(
                       icon: MingCuteIcons.wifiOffLine,
-                      label: '待回网校验',
+                      label: '待复核',
                       bg: Color(0x80FFFFFF),
                       fg: Color(0xFF202224),
                     ),
@@ -483,7 +626,8 @@ class _WatermarkPhoto extends StatelessWidget {
       );
 }
 
-/// 右上角校验胶囊（对齐大按钮 / 待回网校验）。
+/// 右上角状态胶囊（对齐大按钮）：已提交 / 待复核。
+/// 2026-09-18 起不再宣称「已效验」——系统并未做任何哈希比对（见 DEVIATION_REGISTER DV-01 选 B）。
 class _VerifiedBadge extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -561,7 +705,7 @@ class _DesignerCard extends StatelessWidget {
           '填写远程答复内容后提交给施工方查看',
           false,
         );
-      default:
+      case 'onsite':
         return (
           const Color(0xFFFF9500),
           const Color(0x0DFF9500),
@@ -570,12 +714,39 @@ class _DesignerCard extends StatelessWidget {
           '补充到场说明或准备事项后再提交',
           false,
         );
+      // 2026-09-18 新增（DV-18）：让「整改中 / 已拒绝」两个状态有写入路径。
+      case 'startFix':
+        return (
+          const Color(0xFF0395FF),
+          const Color(0x0D0395FF),
+          MingCuteIcons.playLine,
+          '开始整改',
+          '填写整改安排后提交，记录状态变为「整改中」',
+          false,
+        );
+      default: // reject
+        return (
+          const Color(0xFFFF3B30),
+          const Color(0x0DFF3B30),
+          MingCuteIcons.forbidCircleLine,
+          '拒绝整改',
+          '说明拒绝理由后提交，记录状态变为「已拒绝」',
+          true,
+        );
     }
   }
 
   Future<void> _act(BuildContext context, String action) async {
-    final isFix = action == 'remoteFix';
     final meta = _actionMeta(action);
+    // 动作 → 目标状态（2026-09-18 起 doing / reject 有了写入路径，见 DV-18）：
+    // remoteFix=销项 done；startFix=整改中 doing；reject=已拒绝 reject；其余只记录处置、不改状态。
+    final newStatus = switch (action) {
+      'remoteFix' => DefectStatus.done,
+      'startFix' => DefectStatus.doing,
+      'reject' => DefectStatus.reject,
+      _ => null,
+    };
+    final isFix = action == 'remoteFix';
     final note = await AppBottomSheet.show<String>(
       context: context,
       title: meta.$4,
@@ -586,13 +757,13 @@ class _DesignerCard extends StatelessWidget {
         requiredNote: meta.$6,
         accent: meta.$1,
         icon: meta.$3,
-        hintText: isFix ? '填写处置说明（必填）' : '填写处置说明（选填）',
+        hintText: meta.$6 ? '填写说明（必填）' : '填写说明（选填）',
       ),
     );
     if (!context.mounted) return;
     if (note == null) return; // 取消
     await onUpdate(d.copyWith(
-      status: isFix ? DefectStatus.done : null,
+      status: newStatus,
       completion: isFix ? '已完成（设计师远程销项）' : null,
       designerAction: action,
       designerNote: note,
@@ -738,39 +909,68 @@ class _DesignerCard extends StatelessWidget {
                         height: 22 / 14,
                         color: AppTokens.fg)),
                 const SizedBox(height: 8),
-                // 三个处置动作固定保持一行，通过按钮内部缩放来适配窄宽度。
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ActBtn(
-                        label: '远程已解决',
-                        icon: MingCuteIcons.checkCircleLine,
-                        fg: const Color(0xFF00B84A),
-                        bg: const Color(0x0D00B84A),
-                        onTap: () => _act(context, 'remoteFix'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _ActBtn(
-                        label: '远程已答复',
-                        icon: MingCuteIcons.phoneSuccessLine,
-                        fg: const Color(0xFFFF4444),
-                        bg: const Color(0x0DFF4444),
-                        onTap: () => _act(context, 'remoteConfirm'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _ActBtn(
-                        label: '需要到现场',
-                        icon: MingCuteIcons.location2Line,
-                        fg: const Color(0xFFFF9500),
-                        bg: const Color(0x0DFF9500),
-                        onTap: () => _act(context, 'onsite'),
-                      ),
-                    ),
-                  ],
+                // 五个处置动作（2026-09-18 新增「开始整改 / 拒绝整改」）：
+                // 每行 3 个、窄屏自动换行，避免挤在一起。
+                LayoutBuilder(
+                  builder: (context, c) {
+                    final w = (c.maxWidth - 16) / 3;
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        SizedBox(
+                          width: w,
+                          child: _ActBtn(
+                            label: '远程已解决',
+                            icon: MingCuteIcons.checkCircleLine,
+                            fg: const Color(0xFF00B84A),
+                            bg: const Color(0x0D00B84A),
+                            onTap: () => _act(context, 'remoteFix'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: w,
+                          child: _ActBtn(
+                            label: '远程已答复',
+                            icon: MingCuteIcons.phoneSuccessLine,
+                            fg: const Color(0xFFFF4444),
+                            bg: const Color(0x0DFF4444),
+                            onTap: () => _act(context, 'remoteConfirm'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: w,
+                          child: _ActBtn(
+                            label: '需要到现场',
+                            icon: MingCuteIcons.location2Line,
+                            fg: const Color(0xFFFF9500),
+                            bg: const Color(0x0DFF9500),
+                            onTap: () => _act(context, 'onsite'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: w,
+                          child: _ActBtn(
+                            label: '开始整改',
+                            icon: MingCuteIcons.playLine,
+                            fg: AppTokens.brand,
+                            bg: const Color(0x0D0395FF),
+                            onTap: () => _act(context, 'startFix'),
+                          ),
+                        ),
+                        SizedBox(
+                          width: w,
+                          child: _ActBtn(
+                            label: '拒绝整改',
+                            icon: MingCuteIcons.forbidCircleLine,
+                            fg: AppTokens.danger,
+                            bg: const Color(0x0DFF3B30),
+                            onTap: () => _act(context, 'reject'),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -838,6 +1038,12 @@ class _DesignerActionSheet extends StatefulWidget {
   final IconData icon;
   final String hintText;
 
+  /// 输入框初值（人工修订场景回填；默认空）。
+  final String initialText;
+
+  /// 确认按钮文案（默认「确认提交」）。
+  final String saveLabel;
+
   const _DesignerActionSheet({
     required this.actionLabel,
     required this.helper,
@@ -845,6 +1051,8 @@ class _DesignerActionSheet extends StatefulWidget {
     required this.accent,
     required this.icon,
     required this.hintText,
+    this.initialText = '',
+    this.saveLabel = '确认提交',
   });
 
   @override
@@ -852,7 +1060,8 @@ class _DesignerActionSheet extends StatefulWidget {
 }
 
 class _DesignerActionSheetState extends State<_DesignerActionSheet> {
-  late final TextEditingController _ctl = TextEditingController();
+  late final TextEditingController _ctl =
+      TextEditingController(text: widget.initialText);
 
   @override
   void dispose() {
@@ -916,7 +1125,7 @@ class _DesignerActionSheetState extends State<_DesignerActionSheet> {
               }
               Navigator.of(context).pop(text);
             },
-            saveLabel: '确认提交',
+            saveLabel: widget.saveLabel,
           ),
         ],
       ),
@@ -1259,4 +1468,224 @@ class _RecordActionBar extends StatelessWidget {
 
 extension _IterableFirstOrNull<E> on Iterable<E> {
   E? get firstOrNull => isEmpty ? null : first;
+}
+
+// ==================== 人工修订卡与通用单选弹层（2026-09-18 新增） ====================
+
+/// 人工修订卡（DV-20 / DV-27 / DV-21⑤）：专业分类 / 严重程度 / 问题描述 / 未闭合说明。
+/// 缺陷信息卡保持只读展示，可修订项集中在此，避免同一字段两处可点。
+class _ReviseCard extends StatelessWidget {
+  final Defect d;
+  final VoidCallback? onEditCategory;
+  final VoidCallback? onEditSeverity;
+  final VoidCallback? onEditNote;
+  final VoidCallback? onEditCloseNote;
+
+  const _ReviseCard({
+    required this.d,
+    this.onEditCategory,
+    this.onEditSeverity,
+    this.onEditNote,
+    this.onEditCloseNote,
+  });
+
+  @override
+  Widget build(BuildContext context) => AppCard(
+        padding: const EdgeInsets.all(AppTokens.space3),
+        radius: AppTokens.radiusSm,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('人工修订',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: AppTokens.fg)),
+            const SizedBox(height: 8),
+            _row('专业分类', d.category.label, onEditCategory),
+            _row('严重程度', d.severity.label, onEditSeverity,
+                valueColor: d.severity.color),
+            _row('问题描述',
+                d.note.trim().isEmpty ? '点击填写问题描述' : d.note.trim(),
+                onEditNote),
+            _row(
+                '未闭合说明',
+                (d.closeNote ?? '').trim().isEmpty
+                    ? '点击填写意见'
+                    : d.closeNote!.trim(),
+                onEditCloseNote),
+          ],
+        ),
+      );
+
+  Widget _row(String label, String value, VoidCallback? onTap,
+          {Color? valueColor}) =>
+      InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(label,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 22 / 14,
+                        color: AppTokens.muted)),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 22 / 14,
+                      color: valueColor ?? AppTokens.fg2),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(MingCuteIcons.rightLine,
+                  size: 16, color: AppTokens.muted),
+            ],
+          ),
+        ),
+      );
+}
+
+/// 通用单选弹层：确认后 `pop(所选 value)`。用于「专业分类 / 严重程度」等枚举选择。
+class _OptionSheet extends StatefulWidget {
+  final IconData icon;
+  final Color accent;
+  final String helper;
+  final List<({String value, String label, Color? dot, bool selected})> options;
+
+  const _OptionSheet({
+    required this.icon,
+    required this.accent,
+    required this.helper,
+    required this.options,
+  });
+
+  @override
+  State<_OptionSheet> createState() => _OptionSheetState();
+}
+
+class _OptionSheetState extends State<_OptionSheet> {
+  String? _selected;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: widget.accent.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(widget.icon, size: 20, color: widget.accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      widget.helper,
+                      style: AppBottomSheet.helperStyle(const Color(0xFF60656B))
+                          .copyWith(height: AppTokens.heightCalibrated),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            for (final o in widget.options) ...[
+              _OptionTile(
+                label: o.label,
+                dot: o.dot,
+                selected:
+                    _selected == null ? o.selected : _selected == o.value,
+                onTap: () => setState(() => _selected = o.value),
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 8),
+            AppSheetFooter.cancelSave(
+              onCancel: () => Navigator.of(context).pop(),
+              onSave: () {
+                final fallback = widget.options
+                    .firstWhere((o) => o.selected,
+                        orElse: () => widget.options.first)
+                    .value;
+                Navigator.of(context).pop(_selected ?? fallback);
+              },
+              saveLabel: '确认',
+            ),
+          ],
+        ),
+      );
+}
+
+/// 单选行：可选色点 + 文案 + 选中勾。
+class _OptionTile extends StatelessWidget {
+  final String label;
+  final Color? dot;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _OptionTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.dot,
+  });
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? AppTokens.brandTint : AppTokens.surface2,
+            borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+          ),
+          child: Row(
+            children: [
+              if (dot != null) ...[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: dot,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(label,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: AppTokens.heightCalibrated,
+                        color: selected ? AppTokens.accent : AppTokens.fg)),
+              ),
+              if (selected)
+                const Icon(MingCuteIcons.checkLine,
+                    size: 16, color: AppTokens.accent),
+            ],
+          ),
+        ),
+      );
 }

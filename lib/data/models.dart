@@ -21,31 +21,8 @@ extension DefectStatusX on DefectStatus {
     }
   }
 
-  Color get color {
-    switch (this) {
-      case DefectStatus.draft:
-        return const Color(0xFFFF9500); // 待整改 = warning 橙
-      case DefectStatus.doing:
-        return const Color(0xFF0395FF); // 整改中 = brand 蓝
-      case DefectStatus.done:
-        return const Color(0xFF34C759); // 已销项 = success 绿
-      case DefectStatus.reject:
-        return const Color(0xFFFF3B30); // 已拒绝 = danger 红
-    }
-  }
-
-  Color get soft {
-    switch (this) {
-      case DefectStatus.draft:
-        return const Color(0xFFFFF3E0); // warningSoft
-      case DefectStatus.doing:
-        return const Color(0xFFE6F5FF); // brandSoft
-      case DefectStatus.done:
-        return const Color(0xFFE6F8ED); // successSoft
-      case DefectStatus.reject:
-        return const Color(0xFFFFEBEA); // dangerSoft
-    }
-  }
+  // 状态色**不放模型层**：唯一渲染方是问题清单的 `StatusPill._bg`（按设计稿取色）。
+  // 原先此处另有一套 color/soft，无人使用且与 StatusPill 不一致，2026-09-18 删除。
 }
 
 /// 缺陷专业分类（7 类）。
@@ -141,31 +118,19 @@ extension DefectSeverityX on DefectSeverity {
     }
   }
 
-  /// 严重程度文本色（规范分区色）：严重红 / 较重橙 / 一般黄 #FADC19 / 轻微绿。
+  /// 严重程度文本色（规范分区色）：严重 #FF4444 / 较重 #FF9500 /
+  /// 一般 #FF9500（与较重同橙，依设计稿 Frame 2147228012）/ 轻微 #34C759。
+  /// **唯一事实源**：问题清单与记录详情页均取此处（2026-09-18 统一，原先两处各有一套色值）。
   Color get color {
     switch (this) {
       case DefectSeverity.red:
-        return const Color(0xFFFF3B30); // 严重
+        return const Color(0xFFFF4444); // 严重
       case DefectSeverity.orange:
         return const Color(0xFFFF9500); // 较重
       case DefectSeverity.yellow:
-        return const Color(0xFFFADC19); // 一般
+        return const Color(0xFFFF9500); // 一般（与较重同橙）
       case DefectSeverity.green:
         return const Color(0xFF34C759); // 轻微
-    }
-  }
-
-  /// 软底色 = 原色 5% 透明度（与全局标签浅底通则一致）。
-  Color get soft {
-    switch (this) {
-      case DefectSeverity.red:
-        return const Color(0x0DFF3B30);
-      case DefectSeverity.orange:
-        return const Color(0x0DFF9500);
-      case DefectSeverity.yellow:
-        return const Color(0x0DFADC19);
-      case DefectSeverity.green:
-        return const Color(0x0D34C759);
     }
   }
 }
@@ -444,19 +409,18 @@ class Defect {
   /// 图纸坐标 Y（mm，CAD 打点换算，用于图纸上回溯定位）。
   final double? worldY;
 
-  /// 照片 SHA-256 指纹（防篡改留痕：水印照片字节哈希，与原始记录比对）。
-  final String? photoHash;
-
-  /// 水印凭证号（拍摄流水，唯一）。
-  final String? watermarkSerial;
-
-  /// 关联照片相对路径列表（验收记录转入问题清单时填入拍照水印图）。
+  /// 关联照片相对路径列表（预留：多图场景；当前报告只读 [photoPath]，暂无消费方）。
   final List<String> photos;
 
   /// 来源拍照验收记录 id（从验收记录转入问题时填入该验收记录的 `entry.id`）；
   /// 为空表示非验收来源（图纸打点 / 手动录入等）。
-  /// 注意：目前**只写入、尚无读取方**（反向查询待做，见 DEVIATION_REGISTER DV-19）。
+  /// 与 [sourceCaptureIdx] 成对使用，可反查「该验收记录里第 i 条 AI 缺陷」的当前状态（DV-19 回流）。
   final String? sourceCaptureId;
+
+  /// 来源验收记录中 AI 缺陷条目的下标（与 [sourceCaptureId] 成对）。
+  /// 后端重建时对应 `defects.source_capture_id` + `defects.source_capture_index` 两列，
+  /// 便于按 `source_capture_id` 建索引后 join 出回流状态。
+  final int? sourceCaptureIdx;
 
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。
   /// 报告导出时按此路径读取照片字节内嵌到 PDF / Word / HTML。
@@ -521,10 +485,9 @@ class Defect {
     this.drawingKey,
     this.worldX,
     this.worldY,
-    this.photoHash,
-    this.watermarkSerial,
     this.photos = const [],
     this.sourceCaptureId,
+    this.sourceCaptureIdx,
     this.photoPath,
     this.importance,
     this.building,
@@ -563,9 +526,10 @@ class Defect {
         'drawingKey': drawingKey,
         'worldX': worldX,
         'worldY': worldY,
-        'photoHash': photoHash,
-        'watermarkSerial': watermarkSerial,
         'photoPath': photoPath,
+        'photos': photos,
+        'sourceCaptureId': sourceCaptureId,
+        'sourceCaptureIdx': sourceCaptureIdx,
         'importance': importance?.name,
         'building': building,
         'reply': reply,
@@ -575,6 +539,12 @@ class Defect {
         'closeNote': closeNote,
         'completion': completion,
         'suggestion': suggestion,
+        // 设计师处置四件套：fromJson 一直在读，但原先 toJson 漏写 →
+        // 本地持久化（added_defects_v1）再读回时处置结果会丢失（2026-09-18 修复）。
+        'designerAction': designerAction,
+        'designerNote': designerNote,
+        'designerBy': designerBy,
+        'designerTs': designerTs,
       };
 
   /// 反序列化：缺字段给安全默认值（兼容旧数据），不抛错。
@@ -604,9 +574,10 @@ class Defect {
         drawingKey: m['drawingKey']?.toString(),
         worldX: (m['worldX'] as num?)?.toDouble(),
         worldY: (m['worldY'] as num?)?.toDouble(),
-        photoHash: m['photoHash']?.toString(),
-        watermarkSerial: m['watermarkSerial']?.toString(),
         photoPath: m['photoPath']?.toString(),
+        photos: (m['photos'] as List?)?.whereType<String>().toList() ?? const [],
+        sourceCaptureId: m['sourceCaptureId']?.toString(),
+        sourceCaptureIdx: (m['sourceCaptureIdx'] as num?)?.toInt(),
         importance: DefectImportance.values
             .where((e) => e.name == m['importance'])
             .cast<DefectImportance?>()
@@ -650,11 +621,23 @@ class Defect {
         _ => '',
       };
 
-  /// 复制并覆盖字段（处置/回复等局部更新用；仅传需改的字段，null 保持原值）。
+  /// 复制并覆盖字段（处置 / 回复 / 人工修订等局部更新用；仅传需改的字段，null 保持原值）。
+  ///
+  /// 2026-09-18 扩展：补齐人工可编辑字段（`part`/`category`/`severity`/`note`/`respUnit`/
+  /// `importance`/`photoPath`/`photos`/`sourceCaptureIdx`），供「详情页人工改分类 / 严重程度 / 描述」使用。
   Defect copyWith({
     DefectStatus? status,
+    String? part,
+    DefectCategory? category,
+    DefectSeverity? severity,
+    String? note,
     String? resp,
+    String? respUnit,
     String? building,
+    DefectImportance? importance,
+    String? photoPath,
+    List<String>? photos,
+    int? sourceCaptureIdx,
     String? reply,
     String? replyBy,
     String? replyTs,
@@ -669,10 +652,10 @@ class Defect {
   }) =>
       Defect(
         id: id,
-        part: part,
+        part: part ?? this.part,
         type: type,
-        category: category,
-        severity: severity,
+        category: category ?? this.category,
+        severity: severity ?? this.severity,
         status: status ?? this.status,
         anchor: anchor,
         floor: floor,
@@ -680,18 +663,19 @@ class Defect {
         gps: gps,
         alt: alt,
         resp: resp ?? this.resp,
-        respUnit: respUnit,
+        respUnit: respUnit ?? this.respUnit,
         reporter: reporter,
         tags: tags,
-        note: note,
+        note: note ?? this.note,
         seed: seed,
         drawingKey: drawingKey,
         worldX: worldX,
         worldY: worldY,
-        photoHash: photoHash,
-        watermarkSerial: watermarkSerial,
-        photoPath: photoPath,
-        importance: importance,
+        photoPath: photoPath ?? this.photoPath,
+        photos: photos ?? this.photos,
+        sourceCaptureId: sourceCaptureId,
+        sourceCaptureIdx: sourceCaptureIdx ?? this.sourceCaptureIdx,
+        importance: importance ?? this.importance,
         building: building ?? this.building,
         reply: reply ?? this.reply,
         replyBy: replyBy ?? this.replyBy,

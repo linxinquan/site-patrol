@@ -325,6 +325,8 @@ Defect buildDefectFromCaptureDefect({
     photos: photo == null || photo.isEmpty ? const [] : [photo],
     photoPath: photo == null || photo.isEmpty ? null : photo,
     sourceCaptureId: captureId,
+    // 与 sourceCaptureId 成对：反查「该验收记录第 idx 条 AI 缺陷」的整改/销项状态（DV-19 回流）。
+    sourceCaptureIdx: idx,
   );
 }
 

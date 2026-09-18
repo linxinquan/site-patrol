@@ -22,7 +22,6 @@ import '../../data/cad_service.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/drawing_image.dart';
-import '../../data/repository/mock_repository.dart';
 import '../../data/vision_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
@@ -763,21 +762,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return u.name;
   }
 
-  /// 严重程度严重性排序：red 最严重（rank 0），green 最轻（rank 3）。
-  /// 用于一次拍照多条识别项聚合时取最严重等级。
-  static int _severityRank(DefectSeverity s) {
-    switch (s) {
-      case DefectSeverity.red:
-        return 0;
-      case DefectSeverity.orange:
-        return 1;
-      case DefectSeverity.yellow:
-        return 2;
-      case DefectSeverity.green:
-        return 3;
-    }
-  }
-
   Future<void> _runScan() async {
     if (_scanning) return;
     setState(() {
@@ -887,81 +871,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         photoRel = null;
       }
     }
-    // 打通「拍照记录 → 巡场问题记录」：保存带照片的记录时生成一条问题记录
-    // （报告「巡场清单及闭环情况」章节据此渲染现场照片，交付说明增强项 3）。
-    //
-    // **一次拍照聚合为一条记录**：VL 识别常对同一张现场照返回多条观察（多个问
-    // 题），但现场一次观察即一次整改，拆成多条会在报告/列表里重复出现（同时间
-    // 同位置同照片）。这里合并为单条 Defect：描述叠加、严重程度取最高、识别项
-    // 名称作为标签，照片只挂一次。
-    //
-    // **没有识别结果也要入列表**：保证拍照留痕可追溯（避免"拍了看不到"）。
-    // **照片落盘失败也要入列表**：照片缺失只影响报告配图，记录本身必须同步
-    // （photoPath 为空时报告端**不渲染照片区**，见 report_builder._photoBlock）。
-    {
-      final repo = ref.read(repositoryProvider);
-      // 归入当前项目，避免新增记录串到另一个项目。
-      if (repo is MockRepository) {
-        repo.currentIs7 = ref.read(is7DongProjectProvider);
-      }
-      final gpsText = _location.gpsText;
-      final altText = '海拔 ${_location.altitude.toStringAsFixed(1)}m';
-      // anchor 口径统一：与验收记录 entry.anchor、以及「转入」路径生成的
-      // Defect.anchor 保持一致（都只放部位）。时间轴按 `d.anchor` 精确匹配，
-      // 只有聚合条带「· 楼层」会导致同一张照片的两条记录互相匹配不到。
-      final anchorLabel = _anchorLabel;
-      final anchor = '$anchorLabel · $_floor';
-      final names =
-          _defects.map((v) => v.name).where((n) => n.isNotEmpty).toList();
-      final descs =
-          _defects.map((v) => v.desc ?? '').where((d) => d.isNotEmpty).toList();
-      // 严重程度取最高（rank 越小越严重）；无识别结果时降级为「暂未发现问题」
-      final sev = _defects.isEmpty
-          ? DefectSeverity.green
-          : _defects
-              .map((v) => v.severity)
-              .reduce((a, b) => _severityRank(a) <= _severityRank(b) ? a : b);
-      final primary = names.isNotEmpty ? names.first : '现场拍照记录';
-      final mergedNote = [
-        if (_defects.isEmpty) '本次拍照未识别出缺陷（仅现场留痕）',
-        if (photoRel == null) '照片未落盘，仅保留现场记录信息',
-        descs.join('；'),
-        note,
-      ].where((s) => s.isNotEmpty).join('\n');
-      // AI 整改建议聚合（给施工单位）：多条建议按「缺陷名：建议」合并。
-      final mergedSuggestion = [
-        for (final v in _defects)
-          if ((v.suggestion ?? '').trim().isNotEmpty)
-            names.length > 1 ? '${v.name}：${v.suggestion!}' : v.suggestion!,
-      ].join('\n');
-      await repo.addDefect(Defect(
-        id: 'cap_${now.microsecondsSinceEpoch}',
-        part: names.length > 1
-            ? '$anchor·$primary等${names.length}项'
-            : '$anchor·$primary',
-        type: primary,
-        category: DefectCategory.other,
-        severity: sev,
-        status: DefectStatus.draft,
-        anchor: anchorLabel,
-        floor: _floor,
-        ts: ts,
-        gps: gpsText,
-        alt: altText,
-        resp: '待指派',
-        reporter: _currentUser,
-        tags: ['拍照记录', ...names],
-        note: mergedNote,
-        seed: 'capture',
-        drawingKey: _drawingKey,
-        worldX: _drawPointWorldX,
-        worldY: _drawPointWorldY,
-        photoPath: photoRel,
-        suggestion: mergedSuggestion.isEmpty ? null : mergedSuggestion,
-      ));
-      // 刷新缺陷列表，使「巡场清单」tab 立即出现新记录。
-      ref.invalidate(defectsProvider);
-    }
+    // 保存**只写验收记录**，不再自动生成问题记录（2026-09-18 起改为一事一录）：
+    // 原设计「一次拍照聚合为一条 Defect」会让同一张照片在问题清单里留下 1 条聚合条，
+    // 用户在验收记录里「转入」时又生成 N 条逐条记录 → 报告统计虚高、清单重复。
+    // 现改为**唯一出口：用户在验收记录里逐条（或按描述）转入**，
+    // 转入时把照片（photoPath）、GPS、记录人、AI 建议一并带到该条缺陷上。
     setState(() {
       _storedResults = [entry, ..._storedResults];
     });
@@ -3502,7 +3416,7 @@ class _ResultTabDef {
   const _ResultTabDef(this.label, this.badge);
 }
 
-class StoredDetailSheet extends StatefulWidget {
+class StoredDetailSheet extends ConsumerStatefulWidget {
   final Map<String, dynamic> entry;
   final VoidCallback onDelete;
   final double bottomSafeInset;
@@ -3511,19 +3425,24 @@ class StoredDetailSheet extends StatefulWidget {
   /// 返回 `true` 表示成功，弹层会就地标记这些条目为 `converted`。
   final Future<bool> Function(List<int> pendingIdxs)? onConvert;
 
+  /// 无 AI 识别结果时，把本次拍照的「问题描述」转入问题清单（DV-16，2026-09-18 新增）。
+  /// 返回 `true` 表示成功。不传则不显示该入口。
+  final Future<bool> Function()? onConvertNote;
+
   const StoredDetailSheet({
     super.key,
     required this.entry,
     required this.onDelete,
     this.bottomSafeInset = 0,
     this.onConvert,
+    this.onConvertNote,
   });
 
   @override
-  State<StoredDetailSheet> createState() => _StoredDetailSheetState();
+  ConsumerState<StoredDetailSheet> createState() => _StoredDetailSheetState();
 }
 
-class _StoredDetailSheetState extends State<StoredDetailSheet> {
+class _StoredDetailSheetState extends ConsumerState<StoredDetailSheet> {
   /// 内部 entry 副本；转入问题清单成功后原地更新 defects[*].status。
   late List<Map<String, dynamic>> _defects;
   bool _busy = false;
@@ -3560,12 +3479,42 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
     }
   }
 
+  /// 「按描述转入问题清单」：无 AI 识别结果时的唯一入口（DV-16）。
+  Future<void> _convertNote() async {
+    if (_busy || widget.onConvertNote == null) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onConvertNote!();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  /// 回流：本验收记录已转入的缺陷，按 AI 下标取当前状态（DV-19）。
+  /// 下标 `-1` 表示「按描述转入」的那一条。
+  Map<int, Defect> _convertedByIdx() {
+    final id = widget.entry['id']?.toString() ?? '';
+    final out = <int, Defect>{};
+    if (id.isEmpty) return out;
+    final list = ref.watch(defectsProvider).valueOrNull ?? const <Defect>[];
+    for (final d in list) {
+      if (d.sourceCaptureId == id && d.sourceCaptureIdx != null) {
+        out[d.sourceCaptureIdx!] = d;
+      }
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final note = (entry['note'] as String? ?? '').trim();
     final photo = entry['photo'] as String?;
     final canConvert = widget.onConvert != null;
+    final canConvertNote = widget.onConvertNote != null;
+    // 已转入条目 → 缺陷当前状态（回流显示；仅在有转入能力时查，避免多余依赖）
+    final convertedByIdx = canConvert ? _convertedByIdx() : const <int, Defect>{};
+    final noteConverted = convertedByIdx.containsKey(-1);
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -3663,8 +3612,28 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                     color: AppTokens.fg)),
             const SizedBox(height: 8),
             if (_defects.isEmpty)
-              const Text('未分析 / 未识别到缺陷',
-                  style: TextStyle(fontSize: 12, color: AppTokens.muted))
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    note.isEmpty ? '未分析 / 未识别到缺陷' : '未识别到缺陷，但已填写问题描述',
+                    style: const TextStyle(fontSize: 12, color: AppTokens.muted),
+                  ),
+                  // AI 没识别到时，给「按描述转入」入口 —— 否则纯手写描述的拍照
+                  // 永远进不了问题清单与报告（DV-16，2026-09-18）。
+                  if (canConvertNote && note.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    AppButton(
+                      label: noteConverted
+                          ? '已按描述转入 · ${convertedByIdx[-1]?.status.label ?? ''}'
+                          : '按描述转入问题清单',
+                      size: AppButtonSize.sm,
+                      radius: AppTokens.radiusMd,
+                      onPressed: (_busy || noteConverted) ? null : _convertNote,
+                    ),
+                  ],
+                ],
+              )
             else
               ...List.generate(_defects.length, (i) {
                 final d = _defects[i];
@@ -3720,16 +3689,21 @@ class _StoredDetailSheetState extends State<StoredDetailSheet> {
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(MingCuteIcons.checkLine,
+                              children: [
+                                const Icon(MingCuteIcons.checkLine,
                                     size: 12, color: AppTokens.muted),
-                                SizedBox(width: 2),
-                                Text('已转入问题清单',
-                                    style: TextStyle(
-                                        fontSize: 11,
-                                        // 与 12 check 图标横排居中，锁行高
-                                        height: AppTokens.heightCalibrated,
-                                        color: AppTokens.muted)),
+                                const SizedBox(width: 2),
+                                // 已转入则顺带显示该问题当前状态（回流，DV-19）
+                                Text(
+                                  convertedByIdx[i] == null
+                                      ? '已转入问题清单'
+                                      : '已转入 · ${convertedByIdx[i]!.status.label}',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      // 与 12 check 图标横排居中，锁行高
+                                      height: AppTokens.heightCalibrated,
+                                      color: AppTokens.muted),
+                                ),
                               ],
                             ),
                           )

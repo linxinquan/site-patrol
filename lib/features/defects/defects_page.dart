@@ -262,7 +262,8 @@ class DefectsPage extends ConsumerWidget {
                 // 描述段统一按底部弹窗辅助说明样式展示。
                 const Text(
                   '报告自动整合现场照片、机电进度、台账与巡场清单，按周报版式排版，'
-                  '可选 Excel / PDF / Word / 网页链接，并支持下载 HTML 报告。',
+                  '可选 Excel / PDF / Word / 网页链接，并支持下载 HTML 报告。'
+                  '\n\n按所选周期导出该周期内的全部问题（含已销项），不受列表上方状态筛选影响。',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w400,
@@ -1556,20 +1557,9 @@ class _DefectCard extends StatelessWidget {
     }
   }
 
-  /// 严重程度文本色（规范分区色）：严重 #FF4444 / 较重 #FF9500 / 一般 #FF9500 / 轻微 #34C759。
-  /// 注：设计稿 Frame 2147228012 中「一般」档取值为 #FF9500（与较重同橙），故 yellow 档对齐使用 warning。
-  static Color _severityColor(DefectSeverity s) {
-    switch (s) {
-      case DefectSeverity.red:
-        return const Color(0xFFFF4444);
-      case DefectSeverity.orange:
-        return AppTokens.warning;
-      case DefectSeverity.yellow:
-        return AppTokens.warning;
-      case DefectSeverity.green:
-        return AppTokens.success;
-    }
-  }
+  /// 严重程度文本色：统一取模型层 `DefectSeverityX.color`（唯一事实源）。
+  /// 2026-09-18 统一：原此处自有一套色值，与 `models.dart` 不一致（黄档、红档都不同）。
+  static Color _severityColor(DefectSeverity s) => s.color;
 
   /// 字段行：名称固定 56 宽（辅助灰 #919499）+ 与值间隔 16 + 值（次级文字 #60656B / 严重度带色），行高 22。
   Widget _field(String name, String value, {Color? valueColor}) {

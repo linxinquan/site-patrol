@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/design_tokens.dart';
 
-/// 验收记录页顶部状态条：累计 / 今日 / 待整改 三组数值。
+/// 验收记录页顶部状态条：累计 / 今日 / 待转入 三组数值。
 ///
 /// 纯展示组件，数值与标签由父级传入；块间用细分割线划分。
 class StatsStrip extends StatelessWidget {
@@ -45,7 +45,7 @@ class StatsStrip extends StatelessWidget {
           const _Divider(),
           Expanded(
             child: _Stat(
-              label: '待整改',
+              label: '待转入',
               value: pending,
               accent: true,
               icon: Icons.error_outline,
