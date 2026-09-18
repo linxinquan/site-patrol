@@ -34,7 +34,7 @@ import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 
-/// 拍照量尺校对页（半自动标定测量，MEASURE_FEATURE_PLAN.md）。
+/// 拍照量尺校对页（半自动标定测量，docs/archive/MEASURE_FEATURE_PLAN.md）。
 ///
 /// 流程：
 ///  ① 图纸侧量距：在 CAD 校准后的图纸上点两点 → 世界坐标(mm) 距离 = 图纸尺寸。

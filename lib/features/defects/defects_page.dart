@@ -10,6 +10,7 @@ import '../../core/di/providers.dart';
 import '../../core/storage/local_storage.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/storage/measure_threshold_store.dart';
+import '../../core/storage/report_record_store.dart';
 import '../../core/utils/report_export.dart';
 import '../../core/utils/report_share.dart';
 import '../../shared/widgets/app_card.dart';
@@ -23,8 +24,10 @@ import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../shared/widgets/user_switch_sheet.dart';
 import '../../data/models.dart';
+import '../../data/report_record.dart';
 import '../../data/weekly_report.dart';
 import 'report_builder.dart';
+import 'report_content.dart';
 import 'report_docx.dart';
 import 'report_pdf.dart';
 import 'report_xlsx.dart';
@@ -767,10 +770,21 @@ class DefectsPage extends ConsumerWidget {
         baseName: baseName,
       );
       final saved = await exportReportFile(filename, mimeType, bytes);
+      // 导出成功后归档留痕（首页「巡场报告」页可见）。
+      await _archiveReport(
+        ref,
+        report: report,
+        projectName: projectName,
+        period: '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
+        reporter: reporter,
+        formatLabel: format.label,
+      );
       if (!context.mounted) return;
       AppSnack.show(
         context,
-        saved == null ? '报告已导出：$filename' : '报告已保存：$saved',
+        saved == null
+            ? '报告已导出：$filename（已收录到巡场报告）'
+            : '报告已保存：$saved（已收录到巡场报告）',
         kind: AppSnackKind.success,
       );
     } catch (e) {
@@ -779,6 +793,53 @@ class DefectsPage extends ConsumerWidget {
       }
     } finally {
       if (context.mounted) _dismissBusy(context);
+    }
+  }
+
+  /// 归档一份**刚生成**的报告（首页「巡场报告」页回看用）。
+  ///
+  /// 只存元数据（标题 / 周期 / 格式 / 统计），报告正文字节不入本地归档；
+  /// 同一「标题 + 周期」再次导出只合并格式标签，不重复建卡。
+  /// 失败不阻断导出：报告已经交到用户手里，归档只是留痕。
+  Future<void> _archiveReport(
+    WidgetRef ref, {
+    required WeeklyReport report,
+    required String projectName,
+    required String period,
+    required String reporter,
+    required String formatLabel,
+  }) async {
+    try {
+      var projectId = ref.read(currentProjectIdProvider) ?? '';
+      if (projectId.isEmpty) {
+        projectId = ref
+            .read(projectProvider)
+            .maybeWhen(data: (p) => p.id, orElse: () => '');
+      }
+      if (projectId.isEmpty) return;
+      final stats = buildReportStats(report);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await ReportRecordStore.upsert(
+        projectId,
+        ReportRecord(
+          id: 'rep_$now',
+          projectId: projectId,
+          projectName: projectName,
+          title: report.title,
+          period: period,
+          reporter: reporter,
+          createdAt: now,
+          formats: [formatLabel],
+          defectCount: stats.defects,
+          openCount: stats.open,
+          doneCount: stats.done,
+          urgentCount: stats.urgent,
+          note: report.patrolSummary,
+        ),
+      );
+      refreshReportRecords(ref);
+    } catch (_) {
+      // 本地存储不可用等异常不影响导出结果。
     }
   }
 
@@ -870,6 +931,15 @@ class DefectsPage extends ConsumerWidget {
     final baseName =
         '现场工作汇报_${_sanitize(projectName)}_${_fmtCompact(range.start)}-${_fmtCompact(range.end)}';
     downloadTextFile('$baseName.html', 'text/html;charset=utf-8', html);
+    // 下载 HTML 报告同样归档留痕（格式标签与导出弹层里的「网页链接」一致）。
+    await _archiveReport(
+      ref,
+      report: report,
+      projectName: projectName,
+      period: '${_fmtDate(range.start)} ~ ${_fmtDate(range.end)}',
+      reporter: reporter,
+      formatLabel: ReportExportFormat.html.label,
+    );
   }
 
   /// 生成中蒙层：不可关闭，防重复点击。

@@ -20,7 +20,7 @@ import '../../utils/path_metrics.dart';
 
 /// 巡场路线编辑器：在图纸底图上自由规划巡场路线。
 ///
-/// 交互规格（照 PATROL_OPTIMIZE.md 阶段二「④ 路线编辑模式」）：
+/// 交互规格（照 docs/archive/PATROL_OPTIMIZE.md 阶段二「④ 路线编辑模式」）：
 ///  - 单击图纸空白处 → 追加一个路点（显示 0~100 相对坐标）
 ///  - 拖动已有点 → 移动（onPanUpdate，拖后保存新坐标）
 ///  - 长按点 → 删除该点

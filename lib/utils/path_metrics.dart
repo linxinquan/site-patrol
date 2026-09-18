@@ -8,7 +8,7 @@ import '../data/models.dart';
 /// 坐标体系：相对坐标 0~100（0-100% 底图），与 SVG viewBox="0 0 100 100" 一致。
 ///
 /// 注意：`patrolPathPoints` / `patrolCheckpoints` 业务常量已迁移至
-/// `lib/data/mock/mock_data.dart` 的 `seedPatrolPlans`（见 PATROL_OPTIMIZE.md），
+/// `lib/data/mock/mock_data.dart` 的 `seedPatrolPlans`（见 docs/archive/PATROL_OPTIMIZE.md），
 /// 本文件仅保留纯算法：roundPolyline / catmullRomSpline / pointAtProgress / realRouteKm / PatrolOverlayPainter。
 
 /// 把折线转为带圆角的导航式路径（HTML roundPolyline 的 Dart 移植）。

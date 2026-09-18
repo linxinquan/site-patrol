@@ -48,8 +48,6 @@ except ImportError:
         POLL_INTERVAL = float(os.environ.get("GCAD_POLL_INTERVAL", "2"))
         POLL_TIMEOUT = float(os.environ.get("GCAD_POLL_TIMEOUT", "180"))
         PORT = int(os.environ.get("CAD_SERVER_PORT", "8800"))
-        QWEATHER_KEY = os.environ.get("QWEATHER_KEY", "")
-        QWEATHER_HOST = os.environ.get("QWEATHER_HOST", "")
 
 # 华为云 APIG APP 认证签名 SDK（AK/SK 签名）
 from apig_sdk import signer
@@ -292,142 +290,6 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    # ------------------------------------------------------------------
-    # 和风天气（QWeather）免费 API 代理
-    # ------------------------------------------------------------------
-    def _handle_weather(self):
-        """GET /api/weather?lon=&lat=&name=
-
-        调和风天气（开发订阅，免费 1000 次/天）：
-          - 当前天气 + 逐小时 2 天 + AQI 空气质量
-        未配置 QWEATHER_KEY 时返回 mock（保证前端可渲染）。
-        """
-        import urllib.parse as _up
-        qs = _up.parse_qs(_up.urlparse(self.path).query)
-        lon = (qs.get("lon") or [""])[0].strip()
-        lat = (qs.get("lat") or [""])[0].strip()
-        name = (qs.get("name") or [""])[0].strip()
-
-        if not lon or not lat:
-            # 默认深圳大铲湾（7栋）坐标
-            lon, lat = "113.9799", "22.5936"
-
-        key = C.QWEATHER_KEY.strip()
-        if not key:
-            # 未配置 key -> mock 数据
-            self._send_json(200, {
-                "source": "mock",
-                "name": name or "深圳",
-                "temp": "32",
-                "text": "多云",
-                "humidity": "58",
-                "windDir": "东南风",
-                "windScale": "3级",
-                "aqi": 52,
-                "category": "良",
-                "updateTime": time.strftime("%Y-%m-%d %H:%M"),
-                "hint": "未配置 QWEATHER_KEY，返回 mock 天气",
-            })
-            return
-
-        try:
-            data = self._fetch_qweather(lon, lat)
-            self._send_json(200, data)
-        except Exception as e:
-            self._send_json(502, {"source": "error", "msg": str(e)})
-
-    def _fetch_qweather(self, lon, lat):
-        """真实调和风天气 V7 + AirQuality V1 API，返回前端友好的扁平结构。
-
-        使用开发者专属 API Host（QWEATHER_HOST，如 xxx.qweatherapi.com）；
-        未配置时回退公共域名 devapi.qweather.com。
-        """
-        key = C.QWEATHER_KEY.strip()
-        host = C.QWEATHER_HOST.strip() or "devapi.qweather.com"
-        if not host.startswith("http"):
-            host = f"https://{host}"
-
-        def _get(url):
-            req = urllib.request.Request(url, headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                              "AppleWebKit/537.36 Chrome/120 Safari/537.36",
-                "Accept-Encoding": "gzip, deflate",
-                "Accept": "application/json",
-            })
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                raw = resp.read()
-                if resp.headers.get("Content-Encoding") == "gzip":
-                    import gzip
-                    raw = gzip.decompress(raw)
-                return json.loads(raw.decode("utf-8"))
-
-        # 1) 实时天气 v7
-        now_url = f"{host}/v7/weather/now?location={lon},{lat}&key={key}"
-        now = _get(now_url)
-        if now.get("code") != "200":
-            raise RuntimeError(f"和风天气 now 接口错误: {now.get('code')}")
-        n = now.get("now", {})
-        fx = now.get("fxLink", "")
-
-        # 2) 空气质量 v1（path 参数：lat/lon 各 2 位小数）
-        try:
-            lat2 = f"{float(lat):.2f}"
-            lon2 = f"{float(lon):.2f}"
-            aqi_url = f"{host}/airquality/v1/current/{lat2}/{lon2}?key={key}"
-            aq = _get(aqi_url)
-            aqi_val = aqi_val_disp = aqi_cat = None
-            for idx in aq.get("indexes", []):
-                if idx.get("code") == "cn-mee":  # 中国国标 AQI
-                    aqi_val = idx.get("aqi")
-                    aqi_val_disp = idx.get("aqiDisplay")
-                    aqi_cat = idx.get("category")
-                    break
-            if aqi_cat is None and aq.get("indexes"):
-                aqi_val = aq["indexes"][0].get("aqi")
-                aqi_val_disp = aq["indexes"][0].get("aqiDisplay")
-                aqi_cat = aq["indexes"][0].get("category")
-        except Exception:
-            aqi_val = aqi_val_disp = aqi_cat = None
-
-        # 3) 天气预警 v1（简易取所有 active 预警标题）
-        try:
-            warn_url = f"{host}/v1/warning/now?location={lon},{lat}&key={key}"
-            wr = _get(warn_url)
-            warnings = []
-            for w in wr.get("warning", []) or []:
-                warnings.append({
-                    "type": w.get("typeName"),
-                    "level": w.get("level"),
-                    "title": w.get("title"),
-                    "text": w.get("text"),
-                })
-        except Exception:
-            warnings = []
-
-        return {
-            "source": "qweather",
-            "name": "",
-            "temp": n.get("temp"),
-            "text": n.get("text"),
-            "feelsLike": n.get("feelsLike"),
-            "humidity": n.get("humidity"),
-            "windDir": n.get("windDir"),
-            "windScale": n.get("windScale"),
-            "windSpeed": n.get("windSpeed"),
-            "precip": n.get("precip"),
-            "pressure": n.get("pressure"),
-            "vis": n.get("vis"),
-            "aqi": aqi_val_disp or aqi_val,
-            "category": aqi_cat,
-            "warnings": warnings,
-            "fxLink": fx,
-            "updateTime": n.get("obsTime", ""),
-        }
-        n = int(self.headers.get("Content-Length", 0))
-        if not n:
-            return {}
-        return json.loads(self.rfile.read(n).decode("utf-8"))
-
     def do_OPTIONS(self):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -513,9 +375,6 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, t)
             except Exception as e:
                 self._send_json(500, {"rtnCode": "9999999", "msg": str(e)})
-            return
-        if path == "/api/weather":
-            self._handle_weather()
             return
         self._send_json(404, {"error": "NOT_FOUND"})
 

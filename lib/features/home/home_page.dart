@@ -144,7 +144,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 alignment: Alignment.centerLeft,
                 child: ProjectSwitcher(),
               ),
-              // 第 2 行：施工状态（设计稿 Frame 2131330609，仅 status，已去掉天气/AQI）
+              // 第 2 行：施工状态（设计稿 Frame 2131330609，仅 status）
               // 与第 1 行无间距：容器高 44 = 24 + 20
               Text(
                 p.status,
@@ -180,9 +180,6 @@ class _HomePageState extends ConsumerState<HomePage>
         padding: const EdgeInsets.fromLTRB(AppTokens.space3, AppTokens.space3,
             AppTokens.space3, AppTokens.space5),
         children: [
-          // —— 0. 天气预警（有预警时置顶显示，自带间距）——
-          const _WeatherAlertBanner(),
-
           // —— 项目指标（白卡 4 等分，无标题直贴导航栏下方）——
           AsyncState(
             value: floors,
@@ -193,7 +190,7 @@ class _HomePageState extends ConsumerState<HomePage>
           ),
           const SizedBox(height: AppTokens.space3), // 项目指标 → 快捷操作 间距 12
 
-          // —— 快捷操作（Frame 2147227957：5+4 网格，白卡包裹 padding 12）——
+          // —— 快捷操作（Frame 2147227957：网格，白卡包裹 padding 12）——
           // 白卡宽 = 屏宽 - ListView 两侧各 12；卡内 padding 12 → 网格可用宽 = 卡宽 - 24。
           // 5 列、列间距 12、行间距 16；格子只定宽、高度由内容自适应
           //（常态 64 = 图标块 40×40 圆角 8 + gap 4 + 文字 20，窄屏文字换行自动增高）。
@@ -809,15 +806,12 @@ DateTime _prevNodeStart(List<Milestone> ms, int currentIdx) {
   return prev ?? DateTime(2020, 1, 1);
 }
 
-// ==================== 快捷操作（Frame 2147227957：5+4 网格） ====================
+// ==================== 快捷操作（Frame 2147227957：网格） ====================
 /// 快捷操作图标底色（Frame 2147227957）：纯色块 + 白色面性图标，圆角 8。
-/// 9 个背景色按稿，每色最多出现在 2 个图标上（蓝×2 / 红×2 / 绿·黄·青·紫·粉 各 1）。
+/// 每色最多出现在 2 个图标上（蓝×2 / 绿·青·粉 各 1）。
 const _qaBlue = Color(0xFF34A8FE);
-const _qaRed = Color(0xFFFF5959);
 const _qaGreen = Color(0xFF38D06F);
-const _qaYellow = Color(0xFFFEBD07);
 const _qaCyan = Color(0xFF00D6B9);
-const _qaPurple = Color(0xFF7F83FF);
 const _qaPink = Color(0xFFFF528D);
 
 class _QuickActions extends ConsumerWidget {
@@ -844,12 +838,6 @@ class _QuickActions extends ConsumerWidget {
                 title: '工地巡场',
                 color: _qaBlue,
                 onTap: () => context.go('/patrol'),
-              ),
-              _QuickCard(
-                icon: MingCuteIcons.folderOpenFill,
-                title: '图纸管理',
-                color: _qaRed,
-                onTap: () => context.go('/projects'),
               ),
               _QuickCard(
                 icon: MingCuteIcons.cameraFill,
@@ -880,43 +868,17 @@ class _QuickActions extends ConsumerWidget {
                 },
               ),
               _QuickCard(
-                icon: MingCuteIcons.taskFill,
-                title: '问题清单',
-                color: _qaYellow,
-                onTap: () => context.go('/defects'),
-              ),
-              _QuickCard(
-                icon: MingCuteIcons.micFill,
-                title: '语音记录',
-                color: _qaCyan,
-                // 语音记录改为独立页面，避免临时弹层承载过多操作。
-                onTap: () => context.push('/voice-records'),
-              ),
-              _QuickCard(
-                icon: MingCuteIcons.layerFill,
-                title: '图层索引',
-                color: _qaPurple,
-                onTap: () => context.go('/projects'),
-              ),
-              _QuickCard(
                 icon: MingCuteIcons.package2Fill,
                 title: '验收记录',
                 color: _qaPink,
                 onTap: () => context.push('/capture-records'),
               ),
               _QuickCard(
-                icon: MingCuteIcons.pdfFill,
-                title: 'PDF原稿',
-                color: _qaRed,
-                onTap: () => context.push('/blueprint'),
-              ),
-              // 量房入口（ROOM_MEASURE_IMPL §6）：并入远端的响应式 Wrap 布局
-              // （原 GridView.count 固定 5 列，窄屏会溢出；Wrap 自适应不溢出）
-              _QuickCard(
-                icon: MingCuteIcons.cubeLine,
-                title: '量房',
-                color: _qaGreen,
-                onTap: () => context.push('/room-records'),
+                icon: MingCuteIcons.clipboardLine,
+                title: '巡场报告',
+                color: _qaCyan,
+                // 已生成报告的归档页：导出记录集中在此回看。
+                onTap: () => context.push('/patrol-reports'),
               ),
             ];
             return Wrap(
@@ -1566,80 +1528,6 @@ class _MetricItem extends StatelessWidget {
           ),
         ],
       );
-}
-
-/// 天气预警 banner：有预警时置顶显示（橙色警示条），可关闭。
-class _WeatherAlertBanner extends ConsumerStatefulWidget {
-  const _WeatherAlertBanner();
-
-  @override
-  ConsumerState<_WeatherAlertBanner> createState() =>
-      _WeatherAlertBannerState();
-}
-
-class _WeatherAlertBannerState extends ConsumerState<_WeatherAlertBanner> {
-  bool _dismissed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final w = ref.watch(weatherProvider);
-    final warnings = w.maybeWhen(
-      data: (info) => info.warnings,
-      orElse: () => const <WeatherWarning>[],
-    );
-    // 无预警或已关闭 → 不渲染
-    if (warnings.isEmpty || _dismissed) return const SizedBox.shrink();
-
-    final first = warnings.first;
-    final color = first.color;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppTokens.space3),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(
-            AppTokens.space3, 10, AppTokens.space2, 10),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Row(
-          children: [
-            Icon(MingCuteIcons.warningLine, size: 18, color: color),
-            const SizedBox(width: AppTokens.space2),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${first.type}预警 · ${first.level}',
-                      style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: color)),
-                  if (first.title.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(first.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTokens.muted,
-                            fontWeight: FontWeight.w400)),
-                  ],
-                ],
-              ),
-            ),
-            IconButton(
-              onPressed: () => setState(() => _dismissed = true),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              icon: Icon(MingCuteIcons.closeLine,
-                  size: 16, color: AppTokens.muted),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 /// 允许鼠标左键拖拽滚动（Flutter web 默认只支持触摸拖动，鼠标需显式启用）。

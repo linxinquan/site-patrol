@@ -6,7 +6,7 @@ import '../../data/models.dart';
 /// 拍照量尺校对会话持久化（localStorage / Hive，平台无感）。
 ///
 /// 存储键范式：`measure:<projectKey>:<drawingKey>` → JSON（目前按图纸唯一会话）。
-/// 设计见 MEASURE_FEATURE_PLAN.md §3「数据持久化」。
+/// 设计见 docs/archive/MEASURE_FEATURE_PLAN.md §3「数据持久化」。
 class MeasureStore {
   const MeasureStore._();
 

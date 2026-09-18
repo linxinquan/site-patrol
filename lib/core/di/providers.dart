@@ -1,10 +1,10 @@
-import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import '../../data/models.dart';
 import '../../data/mock/mock_data.dart';
 import '../../data/mock/weekly_report_mock.dart';
+import '../../data/mock/patrol_report_mock.dart';
 import '../../data/weekly_report.dart';
+import '../../data/report_record.dart';
 import '../../data/repository/repository.dart';
 import '../../data/repository/mock_repository.dart';
 import '../../data/repository/remote_repository.dart';
@@ -18,6 +18,7 @@ import '../../core/storage/session_store.dart';
 import '../../core/storage/patrol_plan_store.dart';
 import '../../core/storage/patrol_record_store.dart';
 import '../../core/storage/room_scan_store.dart';
+import '../../core/storage/report_record_store.dart';
 import '../../core/storage/uploaded_drawing_store.dart';
 import '../../features/capture_records/capture_records_controller.dart';
 
@@ -378,58 +379,6 @@ final currentUserProvider = Provider<User>((ref) {
   return users.firstWhere((u) => u.id == id, orElse: () => users.first);
 });
 
-// ==================== 天气 ====================
-
-/// 工地实时天气。走本地 /api/weather 代理（后端调和风天气，Key 不外泄）。
-/// 未配置 Key 时后端返回 mock，前端照常渲染。
-final weatherProvider = FutureProvider<WeatherInfo>((ref) async {
-  const host = CadService.host;
-  final proj = ref.watch(projectProvider).maybeWhen(
-        data: (p) => p,
-        orElse: () => null,
-      );
-  // 按项目位置查询天气（7栋大铲湾 / 南科大西丽，默认深圳）
-  final lon = proj?.id == 'tencent-dy04-7' ? '113.9799' : '113.9699';
-  final lat = proj?.id == 'tencent-dy04-7' ? '22.5936' : '22.5906';
-  final name = proj?.location ?? '深圳';
-  final url = Uri.parse(
-      '$host/api/weather?lon=$lon&lat=$lat&name=${Uri.encodeQueryComponent(name)}');
-  try {
-    final resp = await http.get(url).timeout(const Duration(seconds: 8));
-    if (resp.statusCode == 200) {
-      final j = jsonDecode(utf8.decode(resp.bodyBytes));
-      if (j is Map<String, dynamic>) {
-        final w = WeatherInfo.fromJson(j);
-        return WeatherInfo(
-          source: w.source,
-          name: name,
-          temp: w.temp,
-          text: w.text,
-          humidity: w.humidity,
-          windDir: w.windDir,
-          windScale: w.windScale,
-          aqi: w.aqi,
-          category: w.category,
-          warnings: w.warnings,
-          updateTime: w.updateTime,
-        );
-      }
-    }
-  } catch (_) {}
-  // 兜底：后端不可达时本地 mock
-  return const WeatherInfo(
-    source: 'mock',
-    name: '深圳',
-    temp: '32',
-    text: '多云',
-    humidity: '58',
-    windDir: '东南风',
-    windScale: '3级',
-    aqi: '52',
-    category: '良',
-  );
-});
-
 // ==================== 巡场 ====================
 
 /// 当前项目的巡场路线列表（持久化优先，首次为空回退项目种子）。
@@ -448,6 +397,25 @@ final patrolRecordsProvider =
     return seedPatrolRecords.where((r) => r.projectId == projectId).toList();
   },
 );
+
+/// 当前项目**已生成**的巡场报告归档（「巡场报告」页数据源）。
+///
+/// 写入：问题清单页「导出报告」成功后由 `ReportRecordStore.upsert` 收录；
+/// 为空时回退演示种子（与 patrolRecordsProvider 同策略）。
+final reportRecordsProvider = FutureProvider<List<ReportRecord>>((ref) async {
+  var projectId = ref.watch(currentProjectIdProvider) ?? '';
+  if (projectId.isEmpty) {
+    // 用户未手动切换过项目：以项目列表第一个为准（与 projectProvider 口径一致）。
+    projectId = (await ref.watch(projectProvider.future)).id;
+  }
+  final stored = await ReportRecordStore.list(projectId);
+  if (stored.isNotEmpty) return stored;
+  return seedReportRecords.where((r) => r.projectId == projectId).toList();
+});
+
+/// 归档写入/删除后刷新「巡场报告」列表。
+void refreshReportRecords(WidgetRef ref) =>
+    ref.invalidate(reportRecordsProvider);
 
 /// 用户上传的 DWG 图纸登记（任务3）。真实转换需 CAD 服务(8800) + 浩辰配额。
 final uploadedDrawingsProvider =

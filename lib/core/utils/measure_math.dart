@@ -6,7 +6,7 @@ import '../utils/homography.dart';
 import '../../data/models.dart';
 
 /// 半自动标定测量的纯函数集合（无 UI、无状态、便于单测）。
-/// 设计见 MEASURE_FEATURE_PLAN.md。
+/// 设计见 docs/archive/MEASURE_FEATURE_PLAN.md。
 
 /// 图纸侧：两点（整图像素坐标）经 CAD 校准后的距离（mm）。
 ///

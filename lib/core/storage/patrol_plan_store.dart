@@ -7,7 +7,7 @@ import '../../data/mock/mock_data.dart' show seedPatrolPlans;
 /// 巡场路线持久化（localStorage / Hive，平台无感）。
 ///
 /// 存储键范式：`patrol_plans_v1_<projectId>` → JSON List<PatrolPlan>。
-/// 设计见 PATROL_OPTIMIZE.md 阶段一「② PatrolPlan 模型化」。
+/// 设计见 docs/archive/PATROL_OPTIMIZE.md 阶段一「② PatrolPlan 模型化」。
 class PatrolPlanStore {
   const PatrolPlanStore._();
 

@@ -6,12 +6,12 @@ import 'core/di/providers.dart';
 import 'data/models.dart';
 import 'shared/widgets/device_frame.dart';
 import 'features/home/home_page.dart';
-import 'features/home/voice_records_page.dart';
 import 'core/navigation/route_observer.dart';
 import 'features/projects/projects_page.dart';
 import 'features/projects/drawing_viewer_page.dart';
 import 'features/patrol/patrol_page.dart';
 import 'features/patrol/patrol_editor_page.dart';
+import 'features/patrol/patrol_reports_page.dart';
 import 'features/defects/defects_page.dart';
 import 'features/defects/record_detail_page.dart';
 import 'features/defects/timeline_compare_page.dart';
@@ -199,6 +199,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               child: const CaptureRecordsPage(),
             ),
           ),
+          // 巡场报告归档：一级工作台页，保留底部导航（命中 /patrol 前缀 → 巡场 tab 高亮）。
+          GoRoute(
+            path: '/patrol-reports',
+            pageBuilder: (_, __) => CustomTransitionPage(
+              transitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+              child: const PatrolReportsPage(),
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -220,10 +229,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/blueprint',
         builder: (_, __) => const BlueprintViewerPage(),
-      ),
-      GoRoute(
-        path: '/voice-records',
-        builder: (_, __) => const VoiceRecordsPage(),
       ),
       GoRoute(
         path: '/measure',

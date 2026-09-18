@@ -278,7 +278,7 @@ class SiteLocation {
     this.projectId,
   });
 
-  /// 水印显示用的 GPS 文本（与 CAD/天气模块纬度在前一致）。
+  /// 水印显示用的 GPS 文本（与 CAD 模块纬度在前一致）。
   String get gpsText =>
       '${lat.toStringAsFixed(4)}°N ${lng.toStringAsFixed(4)}°E';
 
@@ -847,7 +847,7 @@ class ScaleCheck {
 }
 
 // ==================== 半自动标定测量（拍照量尺校对 V2）====================
-// 设计见 MEASURE_FEATURE_PLAN.md：图纸侧量距（CAD 校准）+ 照片侧量距（参考物标定）
+// 设计见 docs/archive/MEASURE_FEATURE_PLAN.md：图纸侧量距（CAD 校准）+ 照片侧量距（参考物标定）
 // + 逐项校对（图纸 mm vs 实测 mm，双容差判定）。
 
 /// 照片侧量距的一次标定：以已知尺寸参考物（卷尺/标准块）标定照片上的像素比例。
@@ -1352,97 +1352,6 @@ class CadTaskStatus {
   }
 }
 
-// ==================== 天气模型 ====================
-
-/// 天气预警（来自和风天气 /v1/warning/now）。
-class WeatherWarning {
-  final String type; // 预警类型，如 "台风"、"暴雨"、"高温"
-  final String level; // 等级，如 "蓝色"、"黄色"
-  final String title; // 标题
-  final String text; // 详情
-  const WeatherWarning({
-    required this.type,
-    required this.level,
-    required this.title,
-    this.text = '',
-  });
-
-  factory WeatherWarning.fromJson(Map<String, dynamic> j) => WeatherWarning(
-        type: j['type']?.toString() ?? '',
-        level: j['level']?.toString() ?? '',
-        title: j['title']?.toString() ?? '',
-        text: j['text']?.toString() ?? '',
-      );
-
-  /// 预警等级颜色（蓝/黄/橙/红）。
-  Color get color {
-    final l = level;
-    if (l.contains('红')) return const Color(0xFFDC2626);
-    if (l.contains('橙')) return const Color(0xFFEA580C);
-    if (l.contains('黄')) return const Color(0xFFCA8A04);
-    return const Color(0xFF2563EB); // 蓝色
-  }
-}
-
-/// 工地实时天气（来自本地 /api/weather 代理，底层走和风天气）。
-class WeatherInfo {
-  final String source; // mock / qweather / error
-  final String name;
-  final String temp;
-  final String text;
-  final String humidity;
-  final String windDir;
-  final String windScale;
-  final String? aqi;
-  final String? category; // 空气质量等级：优/良/轻度污染...
-  final List<WeatherWarning> warnings;
-  final String updateTime;
-  const WeatherInfo({
-    required this.source,
-    required this.name,
-    required this.temp,
-    required this.text,
-    required this.humidity,
-    required this.windDir,
-    required this.windScale,
-    this.aqi,
-    this.category,
-    this.warnings = const [],
-    this.updateTime = '',
-  });
-
-  factory WeatherInfo.fromJson(Map<String, dynamic> j) => WeatherInfo(
-        source: j['source']?.toString() ?? 'mock',
-        name: j['name']?.toString() ?? '深圳',
-        temp: j['temp']?.toString() ?? '--',
-        text: j['text']?.toString() ?? '--',
-        humidity: j['humidity']?.toString() ?? '',
-        windDir: j['windDir']?.toString() ?? '',
-        windScale: j['windScale']?.toString() ?? '',
-        aqi: j['aqi']?.toString(),
-        category: j['category']?.toString(),
-        warnings: (j['warnings'] as List<dynamic>? ?? [])
-            .whereType<Map<String, dynamic>>()
-            .map(WeatherWarning.fromJson)
-            .toList(),
-        updateTime: j['updateTime']?.toString() ?? '',
-      );
-
-  bool get isMock => source == 'mock';
-
-  /// 天气图标名（映射到 MingCuteIcons）。
-  String get iconName {
-    final t = text;
-    if (t.contains('雷')) return 'cloudLightning';
-    if (t.contains('雨')) return 'cloudRain';
-    if (t.contains('雪')) return 'cloudSnow';
-    if (t.contains('雾') || t.contains('霾')) return 'cloudFog';
-    if (t.contains('阴')) return 'cloud';
-    if (t.contains('云')) return 'cloudSun';
-    return 'sun';
-  }
-}
-
 // ==================== 巡场 ====================
 
 /// 巡场路线点（相对坐标 0~100，绑定图纸）。isCheckpoint=true 为检查点。
@@ -1702,7 +1611,7 @@ class UploadedDrawing {
       );
 }
 
-// ==================== 量房记录（MEASURE_ROOM_PLAN.md / ROOM_MEASURE_IMPL.md P0）====================
+// ==================== 量房记录（docs/archive/MEASURE_ROOM_PLAN.md / ROOM_MEASURE_IMPL.md P0）====================
 
 /// 墙段洞口（门/窗）：[offsetFromMm] 为距墙段起点偏移（mm）。
 class WallOpening {
