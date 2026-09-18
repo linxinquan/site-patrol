@@ -132,7 +132,7 @@ class DefectsPage extends ConsumerWidget {
     final now = DateTime.now();
     final generatedAt = '${now.year}-${_pad(now.month)}-${_pad(now.day)} '
         '${_pad(now.hour)}:${_pad(now.minute)}';
-    final projectName = project?.name ?? '建筑验收项目';
+    final projectName = project?.name ?? '未命名项目';
 
     _showExportSheet(
       context,
@@ -194,8 +194,8 @@ class DefectsPage extends ConsumerWidget {
     return DateTimeRange(start: start, end: today);
   }
 
-  /// 按汇报周期过滤缺陷：取 `Defect.ts` 前 10 位（yyyy-MM-dd）落在 [range] 内的记录；
-  /// 时间戳无法解析的记录视为纳入，避免误丢。
+  /// 按汇报周期过滤缺陷：取 `Defect.ts` 前 10 位（yyyy-MM-dd）落在 [range] 内的记录。
+  /// 时间戳**无法解析的记录排除**——否则脏数据会进入每一份周期报告（2026-09-18 修正）。
   List<Defect> _filterByPeriod(List<Defect> all, DateTimeRange range) {
     final start =
         DateTime(range.start.year, range.start.month, range.start.day);
@@ -204,10 +204,23 @@ class DefectsPage extends ConsumerWidget {
       final ts = d.ts.trim();
       final date =
           ts.length >= 10 ? DateTime.tryParse(ts.substring(0, 10)) : null;
-      if (date == null) return true;
+      if (date == null) return false;
       final day = DateTime(date.year, date.month, date.day);
       return !day.isBefore(start) && !day.isAfter(end);
     }).toList();
+  }
+
+  /// 缺陷集合中最小的日期（取 `ts` 前 10 位）；无有效日期返回 null。
+  /// 用作日期选择器下界，替代原先写死的 `2024-01-01`。
+  DateTime? _earliestDefectDate(List<Defect> all) {
+    DateTime? min;
+    for (final d in all) {
+      final ts = d.ts.trim();
+      final dt = ts.length >= 10 ? DateTime.tryParse(ts.substring(0, 10)) : null;
+      if (dt == null) continue;
+      if (min == null || dt.isBefore(min)) min = dt;
+    }
+    return min;
   }
 
   String _fmtDate(DateTime d) => '${d.year}-${_pad(d.month)}-${_pad(d.day)}';
@@ -264,9 +277,16 @@ class DefectsPage extends ConsumerWidget {
                   range: selectedRange,
                   count: list.length,
                   onTap: () async {
+                    // 下界 = 最早缺陷日期，且不晚于当前周期起点
+                    //（否则 DateRangePicker 会因 firstDate > initialRange.start 触发断言）。
+                    final earliest = _earliestDefectDate(allDefects);
+                    final lowerBound = earliest != null &&
+                            earliest.isBefore(selectedRange.start)
+                        ? earliest
+                        : selectedRange.start;
                     final picked = await AppDateRangePicker.show(
                       ctx,
-                      firstDate: DateTime(2024, 1, 1),
+                      firstDate: lowerBound,
                       lastDate: DateTime(today.year, today.month, today.day),
                       initialRange: selectedRange,
                     );
@@ -1141,7 +1161,7 @@ class _DisposalSegBtn extends StatelessWidget {
 }
 
 /// 状态分段控件（设计稿 Frame 2131330677）：灰色轨道 + 五个等宽分段。
-/// 选中 = 白底 + 品牌蓝字 #0395FF；未选 = 透明底 + 辅助灰字 #B5B9BF；均 14/W500。
+/// 选中 = 白底 + 深灰字 #202224；未选 = 透明底 + 辅助灰字 #919499；均 14/W500。
 class _StatusSegmented extends ConsumerWidget {
   const _StatusSegmented();
 
@@ -1279,7 +1299,7 @@ class _ActionCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final role = user.role.isNotEmpty ? user.role : '设计管理';
+    final role = user.role.isNotEmpty ? user.role : '未设置角色';
     return LayoutBuilder(
       builder: (context, constraints) {
         // 窄宽度时把顶部和底部操作切成纵向，避免姓名、角色和按钮互相挤压。
@@ -1541,7 +1561,7 @@ class _DefectCard extends StatelessWidget {
   static Color _severityColor(DefectSeverity s) {
     switch (s) {
       case DefectSeverity.red:
-        return const Color(0xFF4444);
+        return const Color(0xFFFF4444);
       case DefectSeverity.orange:
         return AppTokens.warning;
       case DefectSeverity.yellow:
@@ -1882,7 +1902,7 @@ class StatusPill extends StatelessWidget {
   Color get _bg {
     switch (status) {
       case DefectStatus.draft:
-        return const Color(0xFF4444);
+        return const Color(0xFFFF4444);
       case DefectStatus.doing:
         return AppTokens.warning;
       case DefectStatus.done:

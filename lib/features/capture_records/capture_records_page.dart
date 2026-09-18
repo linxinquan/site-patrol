@@ -51,7 +51,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
     // 二次筛选（时间 / 楼层 / AI 仅）。
     final filtered = applyRecordsFilter(records, filter);
 
-    final stats = _calcStats(records, filtered);
+    final stats = _calcStats(records);
     final floors = _availableFloors(records);
 
     return Scaffold(
@@ -242,20 +242,30 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         .toList();
     final captureId = entry['id']?.toString() ?? '';
 
-    for (final idx in idxs) {
-      if (idx < 0 || idx >= defectsRaw.length) continue;
-      final defect = buildDefectFromCaptureDefect(
-        capture: entry,
-        vlDefect: defectsRaw[idx],
-        idx: idx,
-      );
-      await repo.addDefect(defect);
-    }
-    ref.invalidate(defectsProvider);
-    for (final idx in idxs) {
-      await ref
-          .read(captureRecordsProvider.notifier)
-          .markDefectConverted(captureId, idx);
+    try {
+      for (final idx in idxs) {
+        if (idx < 0 || idx >= defectsRaw.length) continue;
+        final defect = buildDefectFromCaptureDefect(
+          capture: entry,
+          vlDefect: defectsRaw[idx],
+          idx: idx,
+        );
+        await repo.addDefect(defect);
+      }
+      ref.invalidate(defectsProvider);
+      for (final idx in idxs) {
+        await ref
+            .read(captureRecordsProvider.notifier)
+            .markDefectConverted(captureId, idx);
+      }
+    } catch (e) {
+      // 写入中断（本地存储不可用等）：明确提示失败，让用户可重试。
+      // 未写成功的「已转入」标记会让记录继续显示 pending，重复点击不会产生重复缺陷
+      //（Defect id 为 `<captureId>#<idx>`，问题清单按 id 去重）。
+      if (mounted) {
+        AppSnack.show(context, '转入问题清单失败：$e', kind: AppSnackKind.danger);
+      }
+      return false;
     }
     if (mounted) {
       AppSnack.show(
@@ -271,10 +281,9 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
 
   // -------- 统计与筛选 --------
 
-  _Stats _calcStats(
-    List<Map<String, dynamic>> all,
-    List<Map<String, dynamic>> filtered,
-  ) {
+  /// 统计口径：三项均为「当前项目全量」，与页面上的时间 / 楼层 / AI 筛选无关。
+  /// （原第二参数 `filtered` 从未被使用，2026-09-18 清理死参数。）
+  _Stats _calcStats(List<Map<String, dynamic>> all) {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     var today = 0;

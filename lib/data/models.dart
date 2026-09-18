@@ -453,8 +453,9 @@ class Defect {
   /// 关联照片相对路径列表（验收记录转入问题清单时填入拍照水印图）。
   final List<String> photos;
 
-  /// 来源拍照验收记录 id（从验收记录转入问题时填入 `${captureId}#${idx}`）；
+  /// 来源拍照验收记录 id（从验收记录转入问题时填入该验收记录的 `entry.id`）；
   /// 为空表示非验收来源（图纸打点 / 手动录入等）。
+  /// 注意：目前**只写入、尚无读取方**（反向查询待做，见 DEVIATION_REGISTER DV-19）。
   final String? sourceCaptureId;
 
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。

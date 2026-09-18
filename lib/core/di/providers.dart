@@ -327,8 +327,6 @@ final captureRecordsProvider = StateNotifierProvider<
 final captureRecordsFilterProvider =
     StateProvider<CaptureRecordsFilter>((ref) => const CaptureRecordsFilter());
 
-/// 缺陷特殊筛选（任务4/5）：null=无 / designer=待设计师处置 / reply=待施工方回复。
-final defectSpecialFilterProvider = StateProvider<String?>((ref) => null);
 /// 当前项目的周报素材（「导出报告」数据源）。
 /// - 腾讯大铲湾 7栋：设计院周报真实素材（现场照片 / 机电进度 / 台账 / 待协调问题）；
 /// - 南科大项目：用本地现场照片（photoAnchors）构造照片墙，缺陷清单照常注入。

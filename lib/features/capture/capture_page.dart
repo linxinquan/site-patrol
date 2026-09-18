@@ -43,9 +43,9 @@ const double _defaultTolPct = 5;
 /// 沙箱构建常部分失败，此前曾把旧缓存 bundle 当最新交付过（用户三次反馈间距未生效）。
 const String kCaptureBuildStamp = 'capture-web-build-20260917-1800';
 
-/// 拍照记录页（P3）：图纸 + 图钉选点 → 模拟快门（对齐原型 mockPhotoSVG 选历史照片）
-/// → 1.5s 扫描 → VL 识别 → 保存记录。
-/// 注：真实相机（image_picker）代码已注释，改走"关联历史照片"的模拟拍照。
+/// 拍照验收页：图纸 + 图钉选点 → 现场拍照（移动端 `image_picker` 真实相机 / Web 相册选图）
+/// → 用户手动触发 AI 识别 → 保存记录。
+/// 注意：AI 不再自动触发；水印烧录在 UI isolate 上执行，会阻塞主线程 300~800ms（见 `_commitPhoto`）。
 class CapturePage extends ConsumerStatefulWidget {
   final CaptureArgs args;
   final CapturePageStage stage;
@@ -64,8 +64,9 @@ class CapturePage extends ConsumerStatefulWidget {
 /// - `operate`：只负责拍照、识别和保存
 enum CapturePageStage { select, operate }
 
-/// 拍照流程步骤：先选平面 → 图纸上选坐标/部位 → 拍照。
-enum _CaptureStep { selectFloor, selectPoint, capture }
+/// 拍照流程步骤：图纸上选坐标/部位 → 拍照。
+/// （原 `selectFloor` 步骤从未被赋值，2026-09-18 清理死代码时移除。）
+enum _CaptureStep { selectPoint, capture }
 
 class _CapturePageState extends ConsumerState<CapturePage> {
   /// 是否从巡场“标记问题”快捷进入：用于区分顶部提示、按钮文案和保存后动作。
@@ -87,7 +88,8 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 当前流程步骤。
   late _CaptureStep _step;
 
-  /// 底部「验收结果」区分段索引：0 缺陷识别 / 1 量尺校对 / 2 问题描述 / 3 拍照记录。
+  /// 底部「验收结果」区分段索引：0 AI 识别 / 1 量尺校对 / 2 问题描述。
+  /// 注意：「拍照记录」不在分段内，入口在 AppBar 相册图标 → `_showStoredSheet` 弹窗。
   ///
   /// 用分段切换而非 TabBarView：本页整体是 SingleChildScrollView，
   /// TabBarView 需要固定高度或外层 Expanded，嵌套滚动会冲突且图纸区需常驻；
@@ -124,7 +126,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   /// 识别失败的原因（null = 未失败或进行中）。UI 据此展示错误提示。
   String? _scanError;
-  Timer? _scanTimer;
   bool _saved = false;
   bool _didAutoOpenCamera = false;
 
@@ -319,7 +320,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
 
   @override
   void dispose() {
-    _scanTimer?.cancel();
     _drawingTransform.dispose();
     _noteController.dispose();
     super.dispose();
@@ -784,7 +784,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       _scanning = true;
       _scanError = null;
     });
-    _scanTimer?.cancel();
 
     // 先展示至少 800ms 扫描动画，避免一闪而过。
     await Future.delayed(const Duration(milliseconds: 800));
@@ -987,7 +986,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 重拍：仅重新调用相机拍照并自动烧录水印，图纸/部位保持不变。
   /// 不回到选图纸/选点流程；取消拍摄则保留当前照片不动。
   Future<void> _retake() async {
-    _scanTimer?.cancel();
     await _doCapture();
   }
 
@@ -1029,7 +1027,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       );
       return;
     }
-    _scanTimer?.cancel();
     _noteController.clear();
     setState(() {
       _pendingShot = null;
@@ -1695,9 +1692,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 图纸 + 图钉 + 准星交互区（支持双指/滚轮缩放）。
   Widget _buildDrawingStage() {
     final isSelectStage = widget.stage == CapturePageStage.select;
-    final stepHint = _step == _CaptureStep.selectFloor
-        ? '请先选择下方图纸，再进入图纸选点'
-        : '点击图纸选点，将自动吸附最近锚点';
+    const stepHint = '点击图纸选点，将自动吸附最近锚点';
     final drawingBox = LayoutBuilder(
       builder: (context, rootConstraints) {
         return SizedBox(
@@ -1728,12 +1723,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           width: contentWidth,
                           height: contentHeight,
                           child: GestureDetector(
-                            onTapUp: _step == _CaptureStep.selectFloor
-                                ? null
-                                : (d) => _onTapDrawing(
-                                      d.localPosition,
-                                      Size(contentWidth, contentHeight),
-                                    ),
+                            onTapUp: (d) => _onTapDrawing(
+                              d.localPosition,
+                              Size(contentWidth, contentHeight),
+                            ),
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
@@ -1814,7 +1807,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                                         _remotePngUrl != null))
                                   ..._anchors.map((a) => _buildPin(a)),
                                 if (_drawing != null &&
-                                    _step != _CaptureStep.selectFloor &&
                                     _anchorLabel != '待选点') ...[
                                   _buildPointMarker(),
                                 ],
@@ -1885,38 +1877,14 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           );
   }
 
-  /// 步骤面板：选平面 / 选坐标 / 拍照。
+  /// 步骤面板：选坐标 / 拍照。
   Widget _buildStepPanel() {
     switch (_step) {
-      case _CaptureStep.selectFloor:
-        return _buildFloorSelector();
       case _CaptureStep.selectPoint:
         return _buildPointConfirm();
       case _CaptureStep.capture:
         return _buildCaptureInfo();
     }
-  }
-
-  /// 步骤 ①：选择平面（楼层）。
-  Widget _buildFloorSelector() {
-    return _sectionCard(
-      icon: MingCuteIcons.layersLine,
-      title: '选择图纸',
-      helper: '图纸名称会完整显示，当前选中的图纸会固定高亮。',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (int i = 0; i < _floorOptions.length; i++) ...[
-            if (i > 0) const SizedBox(height: AppTokens.space2),
-            _FloorOptionTile(
-              label: _floorLabel(_floorOptions[i]),
-              selected: _selectedFloorKey == _floorOptions[i].key,
-              onTap: () => _selectFloor(_floorOptions[i]),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   /// 步骤 ②：确认图纸上选中的部位。
@@ -3513,68 +3481,6 @@ class _FloorPickRow extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       height: 22 / 14,
                       color: selected ? AppTokens.brand : AppTokens.fg2)),
-            ),
-          ),
-        ),
-      );
-}
-
-/// 验收页步骤里的图纸选项行：比底部弹窗项更高一些，方便在主页面直接选择。
-class _FloorOptionTile extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FloorOptionTile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: selected ? AppTokens.brandTint : AppTokens.surface2,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-          onTap: onTap,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: AppTokens.heightCalibrated,
-                      color: selected ? AppTokens.accent : AppTokens.fg,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    color: selected ? AppTokens.accent : Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                    border:
-                        selected ? null : Border.all(color: AppTokens.border),
-                  ),
-                  child: selected
-                      ? const Icon(
-                          MingCuteIcons.checkLine,
-                          size: 12,
-                          color: Colors.white,
-                        )
-                      : null,
-                ),
-              ],
             ),
           ),
         ),

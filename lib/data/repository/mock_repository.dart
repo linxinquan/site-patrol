@@ -197,11 +197,11 @@ class MockRepository implements Repository {
     await _restored;
     final fromDefects = _timelineFromDefects(anchor);
     if (fromDefects.length >= 2) return _delay(fromDefects);
-    // 兼容：从缺陷详情页跳过来时传入的可能是 defect.part（缺陷描述），
-    // 而 timeline map 的 key 是 anchor（如"西楼1F-左病房翼"）。
-    // 先精确查；查不到时回退到默认 anchor（保证 demo 数据可见）。
+    // 先按 anchor 精确查 mock timeline map。
+    // 2026-09-18：不再回退到写死的「西楼1F-左病房翼」——否则没匹配到数据时会展示
+    // 与该部位无关的演示照片；改为返回空列表，由页面展示空态。
     final exact = timeline[anchor];
     if (exact != null) return _delay(exact);
-    return _delay(timeline['西楼1F-左病房翼'] ?? const []);
+    return _delay(const []);
   }
 }

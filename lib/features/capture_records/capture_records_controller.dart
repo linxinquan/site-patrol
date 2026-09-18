@@ -261,8 +261,8 @@ List<Map<String, dynamic>> applyRecordsFilter(
   }).toList();
 }
 
-/// 内部使用：Notifier 私有。
-  int _tsOf(Map<String, dynamic> e) => recordTsMillis(e);
+/// 取 entry 的时间戳（毫秒）；解析失败返回 0。本文件内排序 / 统计用。
+int _tsOf(Map<String, dynamic> e) => recordTsMillis(e);
 
 /// 转入问题清单的 Defect 构造：从一条拍照验收 entry + 其 AI 缺陷条目，构造可写入问题库的 Defect。
 ///

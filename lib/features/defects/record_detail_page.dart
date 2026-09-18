@@ -260,10 +260,10 @@ class _InfoCard extends StatelessWidget {
                             color: AppTokens.muted))),
                 const SizedBox(width: AppTokens.space4),
                 Text(d.severity.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
-                        color: AppTokens.warning)),
+                        color: d.severity.color)),
               ],
             ),
             const SizedBox(height: 8),

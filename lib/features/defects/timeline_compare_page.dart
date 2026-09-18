@@ -11,8 +11,9 @@ import '../../data/models.dart';
 import '../../shared/widgets/app_card.dart';
 
 /// 时间轴对比页（F8）：同一部位多时点照片选两张，滑块裁剪前后对比。
-/// 数据：timeline mock（anchor → 3 张 before/mid/after 照片）。
-/// 照片：CustomPainter 模拟（对齐 HTML mockPhotoSVG，避免 SVG 依赖）。
+/// 数据：优先由同 `anchor` 的缺陷现场照片 / 整改回复照片派生（`MockRepository.getTimeline`），
+/// 不足 2 张时回退 mock `timeline` map。
+/// 照片：**真实图片**（asset 或读本地文件 `Image.memory`），非 CustomPainter 占位。
 class TimelineComparePage extends ConsumerStatefulWidget {
   final String? anchor;
   const TimelineComparePage({super.key, this.anchor});
@@ -23,7 +24,8 @@ class TimelineComparePage extends ConsumerStatefulWidget {
 }
 
 class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
-  String _anchor = '西楼1F-左病房翼';
+  /// 当前部位（与 `Defect.anchor` 同口径），由路由 `extra` 注入；为空则展示空态。
+  String _anchor = '';
   List<TimelinePhoto> _photos = const [];
   int? _leftIdx;
   int? _rightIdx;
@@ -34,7 +36,7 @@ class _TimelineComparePageState extends ConsumerState<TimelineComparePage> {
   @override
   void initState() {
     super.initState();
-    _anchor = widget.anchor ?? _anchor;
+    _anchor = widget.anchor ?? '';
     _load();
   }
 
