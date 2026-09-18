@@ -269,13 +269,17 @@ List<Map<String, dynamic>> applyRecordsFilter(
 /// - `id` = `${captureId}#$idx`（保证唯一 + 可追溯回验收记录）
 /// - `type` 取 `vlDefect.name`；`severity` 从字符串解析，解析失败回落到 orange
 /// - `status` = draft，`seed` = 'capture_convert'
-/// - `reporter` = '验收记录'；`tags` = ['验收转工单', '验收#${captureId}']
+/// - `reporter` = `capture.reporter`（旧数据缺失时回落 '验收记录'）
+/// - `tags` = ['验收转工单', '验收#${captureId}']
 ///   ⚠️ tag 文本 `验收转工单` 是**历史数据标识**（已写入既有记录），
 ///   改名会造成新旧数据对不上，故保留原样；界面文案已统一为「问题清单」。
-/// - `photos` = `[capture.photo]`（如非空），`sourceCaptureId` = capture.id
+/// - `photoPath` = `capture.photo`（**报告现场照片的唯一来源**）
+/// - `photos` = `[capture.photo]`（如非空；当前无消费方，保留兼容）
+/// - `suggestion` = `vlDefect.suggestion`（AI 整改建议，空则 null）
 /// - `note` 拼接 `${capture.note}｜${vlDefect.desc ?? ''}`
 /// - `drawingKey/worldX/worldY` 透传（用于图纸回溯）
-/// - `gps/alt/resp` 置空串（验收记录无 GPS / 责任信息，由 /defects 后续录入）
+/// - `gps/alt` 从 capture 透传（2026-09-18 起 entry 已记录；旧数据为空串）
+/// - `resp` 置空串（责任信息由 /defects 后续录入）
 Defect buildDefectFromCaptureDefect({
   required Map<String, dynamic> capture,
   required Map<String, dynamic> vlDefect,
@@ -289,6 +293,10 @@ Defect buildDefectFromCaptureDefect({
   final note = capture['note']?.toString() ?? '';
   final photo = capture['photo']?.toString();
   final desc = vlDefect['desc']?.toString();
+  final suggestion = (vlDefect['suggestion']?.toString() ?? '').trim();
+  final gps = capture['gps']?.toString() ?? '';
+  final alt = capture['alt']?.toString() ?? '';
+  final reporter = capture['reporter']?.toString() ?? '';
   final drawingKey = capture['drawingKey']?.toString();
   final worldX = (capture['worldX'] as num?)?.toDouble();
   final worldY = (capture['worldY'] as num?)?.toDouble();
@@ -303,17 +311,19 @@ Defect buildDefectFromCaptureDefect({
     anchor: anchor,
     floor: floor,
     ts: ts,
-    gps: '',
-    alt: '',
+    gps: gps,
+    alt: alt,
     resp: '',
-    reporter: '验收记录',
+    reporter: reporter.isEmpty ? '验收记录' : reporter,
     tags: ['验收转工单', '验收#$captureId'],
     note: desc == null || desc.isEmpty ? note : '$note｜$desc',
     seed: 'capture_convert',
+    suggestion: suggestion.isEmpty ? null : suggestion,
     drawingKey: drawingKey,
     worldX: worldX,
     worldY: worldY,
     photos: photo == null || photo.isEmpty ? const [] : [photo],
+    photoPath: photo == null || photo.isEmpty ? null : photo,
     sourceCaptureId: captureId,
   );
 }

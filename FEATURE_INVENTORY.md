@@ -4,6 +4,8 @@
 > 梳理方式：**逐文件读源码**，不采信过期文档与注释。核实日期 2026-09-18。
 > 代码基线：commit `5361996`（重构验收流程…）+ 未提交工作区改动（含巡场报告归档、天气/语音记录下线）。
 > 维护规则：功能增删/状态变化后**只改本文件对应行**，不要另开新文档。
+> 历史文档：45 份开发日志 / 已完成任务文档 / 汇报稿已归档至 `docs/archive/`（2026-09-18）；根目录只留现行规范与决策文档。
+> 功能规格：重点功能的流程/契约/偏离写成 `docs/specs/<FEATURE>_FLOW.md`，由本文件对应模块链接过去；跨模块字段流转见 `docs/specs/*_MAPPING.md`。
 
 ---
 
@@ -19,7 +21,7 @@
    巡场(路线/打卡/GPS)          照片量尺 · AR量尺 · 量房成图(实测校核)
 ```
 
-**当前定性**：客户端闭环已跑通（可演示）；数据以**本地存储 + mock 种子**为主；线上后端**只有 1 个接口** `/api/vision`；CAD 链路已判废案待剥离；团队正在做**减法**（但未文档化）。
+**当前定性**：客户端闭环已跑通（可演示）；数据以**本地存储 + mock 种子**为主；线上后端**只有 1 个接口** `/api/vision`；CAD 链路已判废案待剥离；团队正在做**减法**（本轮删减已留痕，见 §4 第 10 条）。
 
 ---
 
@@ -62,7 +64,7 @@
 | 2.4 | 热点跳转 + 长按锚定 | ✅ | 同上 | `drawing_viewer_page.dart:1174-1238` |
 | 2.5 | 坐标校准（内置种子 / 轴网交点自动套图 / 图上多点最小二乘 / 粘贴 JSON / 清除） | ✅ | 校准弹窗 | `drawing_viewer_page.dart:190-283, 496-720` |
 | 2.6 | 图上打点 → 直接创建缺陷 + 图钉标记 | ✅ | 图纸长按/点选 | `drawing_viewer_page.dart:785-965` |
-| 2.7 | 上传 DWG（Web 自实现选择器；**移动端选择器已冻结返回 null**） | ⛔/🟡 | `/projects` | `_dwg_picker_io.dart:3-7`、`_dwg_picker_web.dart`、`cad_service.dart:190-207` |
+| 2.7 | 上传 DWG（Web 自实现选择器；**移动端选择器已冻结返回 null**） | ⛔ 迁移 TODO | `/projects` | `_dwg_picker_io.dart:3-7`、`cad_service.dart:190-207`；**后续随 CAD 剥离迁往独立 Web 项目，本仓库不再投入** |
 | 2.8 | 导入图纸（PDF / JPG / PNG） | 🔴 | `/projects` | `projects_page.dart:189-191`（仅弹提示，未解析） |
 | 2.9 | 矢量看图（浩辰 OCF，仅 Web 外链新窗口） | ⛔ | 工具条 | `drawing_viewer_page.dart:353-406`；随 CAD 剥离 |
 | 2.10 | 蓝图原稿页（3 张预置 PNG，非真实 PDF 渲染） | 🟡 | `/blueprint` | `blueprint_viewer_page.dart` |
@@ -73,6 +75,8 @@
 ---
 
 ### M3 拍照验收（核心主链）
+
+> 详细流程、数据契约与偏离清单见 **`docs/specs/CAPTURE_FLOW.md`**（2026-09-18，含 18 条偏离 + 8 条有意设计）。
 
 | # | 功能点 | 状态 | 关键证据 |
 |---|---|---|---|
@@ -94,16 +98,18 @@
 
 ### M4 问题清单与闭环（核心主链）
 
+> 详细流程、状态机、数据契约与偏离清单见 **`docs/specs/DEFECTS_FLOW.md`**（2026-09-18，含 23 条偏离 + 8 条有意设计）。
+
 | # | 功能点 | 状态 | 关键证据 |
 |---|---|---|---|
-| 4.1 | 状态分段：全部 / 待整改 / 整改中 / 已销项 / 已拒绝 | ✅ | `defects_page.dart:1148` |
+| 4.1 | 状态分段：全部 / 待整改 / 整改中 / 已销项 / 已拒绝 | 🟡 | `defects_page.dart:1148`；**「整改中」「已拒绝」无任何写入路径**，只有 mock 种子能产生（规格 §3） |
 | 4.2 | 缺陷卡（部位/类型/严重度/责任人/责任单位/备注/处置/回复） | ✅ | `defects_page.dart:1523` |
 | 4.3 | 记录详情页 | 🟡 | `record_detail_page.dart:14-16`（静态 mock 版；水印照片为占位绘制） |
 | 4.4 | 设计师远程处置：远程已解决 / 远程已答复 / 需到现场 | ✅ | `record_detail_page.dart:532-602`、`Defect.designerAction` |
 | 4.5 | 施工方整改回复 + 提交销项 / 仅保存待复核 | ✅ | `record_detail_page.dart:1217-135` |
 | 4.6 | 二级页：待设计师处置 `/defects/disposal/designer`、待施工方回复 `/defects/disposal/reply` | ✅ | `app.dart:143-150` |
-| 4.7 | 时间轴对比（同部位多时点照片滑块前后对比） | 🟡 | `timeline_compare_page.dart`（数据 mock + 照片 CustomPainter 模拟） |
-| 4.8 | 严重程度（红/橙/黄/绿）+ 重要性 + 完成状态 + 未闭合说明 | ✅ | `models.dart:8-130, 628-645` |
+| 4.7 | 时间轴对比（同部位多时点照片滑块前后对比） | 🟡 | `timeline_compare_page.dart`；**照片实为真图**（`Image.asset` / 读本地文件 `Image.memory`，`:566-609`，原描述"CustomPainter 模拟"已订正）；数据走 mock 时间轴（种子只覆盖 1 个部位），默认 anchor 写死 |
+| 4.8 | 严重程度（红/橙/黄/绿）+ 重要性（四象限）+ 完成状态 + 未闭合说明 | 🟡 | `models.dart:8-135, 628-650`；`importance` / `closeNote` **均无写入路径**（重要性靠 `effectiveImportance` 推导） |
 | 4.9 | AI 整改建议（模型优先，本地 35 条建议库兜底） | ✅ | `core/utils/defect_suggestions.dart` |
 
 ---
@@ -116,7 +122,7 @@
 | 5.2 | 四端渲染：HTML / PDF / DOCX / XLSX（共享 `ReportContent` 中间层） | ✅ | `report_builder.dart`、`report_pdf.dart`、`report_docx.dart`、`report_xlsx.dart` |
 | 5.3 | 章节：照片墙 / 施工进度 / 台账 / 待协调问题 / 巡场清单闭环 / 量房记录 / 尺寸校对 / 巡场小结 | ✅ | `report_content.dart:214`（空板块自动剔除） |
 | 5.4 | 概览统计（含尺寸校对合格/超差/需复核计数） | ✅ | `report_content.dart:259-298` |
-| 5.5 | 报告归档（**只存元数据**，正文需重新导出） | ✅ | `report_record.dart`、`report_record_store.dart` |
+| 5.5 | 报告归档（**只存元数据**，正文需重新导出） | 🟡 **存储与管理未设计** | `report_record.dart`、`report_record_store.dart`；无正文文件、无「这份报告包含哪些问题」的明细引用、无分享对象与签收状态 |
 | 5.6 | 巡场报告归档页（新建，未提交） | ✅ | `patrol/patrol_reports_page.dart`、`/patrol-reports` |
 | 5.7 | 平台门控（Web 下载；移动端分享；桌面落盘） | ✅ | `report_export.dart`、`report_share.dart` |
 
@@ -164,7 +170,7 @@
 
 | # | 功能点 | 状态 | 关键证据 |
 |---|---|---|---|
-| 8.1 | iOS LiDAR 原生（ARKit + 场景深度，MethodChannel `ar_measure_channel`） | 🟡 | `ios/Runner/ArMeasureView.swift`；**待真机** |
+| 8.1 | iOS LiDAR 原生（ARKit + 场景深度，MethodChannel `ar_measure_channel`） | ✅ | `ios/Runner/ArMeasureView.swift`；**2026-09-18 已在 iOS 真机实测通过 → 可继续开发** |
 | 8.2 | 采点 A/B + 连线 + 自动距离；长按清除；暂停/连续模式 | 🟡 | 同上 |
 | 8.3 | 同边重复采样 → 中位数 ± 半极差误差带 → 逐组判定 | ✅ | `ar_measure_page.dart:245-330`（Dart 侧） |
 | 8.4 | 距离门控（>5m 丢弃；0.3~3m 最佳区间提示） | ✅ | `ar_measure_page.dart:76-100` |
@@ -190,6 +196,8 @@
 | 9.8 | 报告四端 `RoomBlock` | ✅ | `report_content.dart` |
 | 9.9 | RoomPlan 自动扫描（iOS16+/LiDAR） | ⛔ | 模型预留 `source:'roomplan'`，**无原生实现，`/room-scan` 未注册** |
 | 9.10 | 照片成图 / 拖动改点 | 🔴 | `room_draw_page.dart:20-21` 明确留待后续 |
+
+> **模块定位（2026-09-18 确认）**：量房是**暂时寄居**在本仓库的功能，后续迁移为**独立 APP**，因此首页入口已删除。当前 `/room-records`、`/room-draw`、`/room-detail`、`/room-compare` 四条路由仍在，但**已无任何 UI 入口（孤儿路由）**。本模块**不再投入**，仅保留迁移所需的代码与规格。
 
 ---
 
@@ -266,7 +274,21 @@
    - 矢量看图 / DWG 上传：仅 Web
    - Web 文件存储：刷新即丢
    - 报告导出：Web 下载 / 移动分享 / 桌面落盘
-9. **非产品产物混入功能文档体系**：`VIDEO_PLAN_0908.md`（建筑漫游 AI 视频制作手册）、`PPT_OUTLINE_0902.md`、`REPLY_TO_LEADER_0902.md`、`email_drafts/` 属**对外汇报素材**，不是 App 功能，建议与功能文档分域存放。
+9. **非产品产物混入功能文档体系**：`VIDEO_PLAN_0908.md`（建筑漫游 AI 视频制作手册）、`PPT_OUTLINE_0902.md`、`REPLY_TO_LEADER_0902.md`、`email_drafts/` 属**对外汇报素材**，不是 App 功能。（2026-09-18：前三份已随本轮归档至 `docs/archive/`）
+
+10. **本轮已下线的功能（未提交改动，必须留痕）**——此前"想到就加"的入口正在被剪除，但没有记录"砍了什么、为什么砍"，极易被下一轮重复加回：
+
+| 被下线项 | 原入口 | 处置 | 影响 / 说明 |
+|---|---|---|---|
+| 天气（`WeatherInfo`/`WeatherWarning` 模型 + `weatherProvider` + 首页预警 banner） | 首页置顶 | **整块删除** | 无残留引用；但 `CAD_MIGRATION_BACKUP.md` §4 仍写"天气已拆为独立服务且保留"，**与代码不符，执行迁移前必须先修正** |
+| 语音记录独立页 | 首页快捷操作 → `/voice-records` | **页面 + 路由双双删除**（`voice_records_page.dart` 已删） | 语音**输入**能力保留（验收页问题描述仍用 `VoiceInputButton`） |
+| 首页快捷操作 9 个 → 5 个 | 首页 | 删除：图纸管理、问题清单、语音记录、图层索引、PDF 原稿、量房 | 图纸 / 问题清单仍有底部导航 tab，**属去重**；**量房为唯一入口，删除后成孤儿**（见 M9 模块定位） |
+| CAD 服务端 `server/ocf_server.py` | — | 本轮删除 141 行 | CAD 剥离已启动，但客户端 `cad_service.dart` / `uploaded_drawing_store.dart` 仍在（见 §4 第 3 条） |
+
+11. **三套「记录 → 清单 → 归档」数据互不连通**（结论见 §6 第 3 条）：
+   - 验收记录 `stored_vision_results`、问题清单 `added_defects_v1` + 种子、报告归档 `report_records_v1_<project>` 三套独立存储；
+   - 仅「验收 → 缺陷」有**弱关联**（`Defect.sourceCaptureId` + 验收侧 `converted` 标记，`capture_records_controller.dart:279`）；
+   - 报告归档**只存统计数字**，既无法回答"这份报告包含哪些问题"，也无法复现同一份报告。
 
 ---
 
@@ -276,10 +298,10 @@
 - 拍照验收 → 问题清单闭环 → 报告四端
 - 巡场（路线 / 打卡 / 报告归档）
 - 照片量尺校对（含 CAD 坐标系能力）
+- AR 量尺（真机已通过，继续开发）
 
 ### 建议降级为"演示可用、不做真机投入"
 - 量房成图（手动打点保留；RoomPlan 待 iPhone Pro 真机到位再评估）
-- AR 量尺（代码已在，等真机联调，**不再新增投入**）
 
 ### 建议剥离 / 移出本仓库
 - CAD 渲染 / 转换 / 看图（浩辰 OCF、GStarSDK、ODA/ezdxf、DWG 上传预览）→ 新网页版 CAD 项目
@@ -294,10 +316,15 @@
 
 ---
 
-## 6. 下一步（待确认后执行）
+## 6. 下一步
 
-1. **确认本文件的模块划分与状态标记**（是否与团队认知一致）。
-2. 确认第 5 节的功能取舍边界 → 产出版本级「做什么 / 不做什么」清单。
-3. 补充 **角色与权限矩阵**（甲方 / 设计院 / 监理 / 施工方 × 业务动作），当前仅 `Party` 展示档案，无真实账号体系。
-4. 产出**功能优先级与迭代计划**（结合后端重建里程碑）。
-5. 清理文档：把 50+ 份开发日志归档到 `docs/archive/`，只留 `FEATURE_INVENTORY.md` 作为功能事实源。
+1. ~~确认模块划分与状态标记~~ ✅ **已完成**（2026-09-18 按团队反馈订正：AR 已真机通过可继续开发 / 量房寄居待迁独立 APP / DWG 上传待迁新 Web 项目 / 报告归档存储与管理未设计）。
+2. ~~归档历史文档~~ ✅ **已完成**（45 份 → `docs/archive/`）。
+3. **数据连通 —— 结论：不是二选一，必须拆两层**（2026-09-18 判定）：
+   - **前端现在就要做（与后端无关，且后端接上不返工）**：统一 ID 与引用字段（`client_uuid` / `projectId` / `updatedAt` / `deletedAt`，对齐 `BACKEND_ARCHITECTURE.md` §7.2 公共列）；报告归档从"只存统计"改为"**报告快照 + 明细 ID 列表**"；三套存储收敛为项目级数据根。
+     **理由**：`BACKEND_ARCHITECTURE.md` §1.4 的前提是"没有存量数据、不需要兼容层"，该前提**只在客户端尚未产生用户数据时成立**；若先上线再接后端，三条链都要重写并补数据迁移。**数据模型对齐必须现在做。**
+   - **留给后端（前端原理上做不到）**：跨设备 / 多角色可见性、变更冲突解决、报告分享与签收、按项目全量索引与增量拉取。
+   - **可立即缓解（小成本，先改善体验）**：报告归档落一份正文快照（JSON / 文件），让「巡场报告」页真正能回看，而非只显示几个数字。
+4. 补充 **角色与权限矩阵**（甲方 / 设计院 / 监理 / 施工方 × 业务动作）；当前仅 `Party` 展示档案，无真实账号体系。
+5. 产出**功能优先级与迭代计划**（结合后端重建里程碑）。
+6. 补写**产品红线口径**（AI 辅助人工复核 / 判定精度诚实 / 不伪造验证结果）——原 `SESSION_CONTEXT.md` §9 内容，已随该文件归档。

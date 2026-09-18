@@ -466,7 +466,14 @@ List<(String, String)> defectFields(Defect d) => [
       ('责任人', d.resp),
       ('记录人', d.reporter),
       ('发现时间', d.ts),
-      ('GPS / 海拔', '${d.gps} · ${d.alt}'),
+      if (d.gps.trim().isNotEmpty || d.alt.trim().isNotEmpty)
+        (
+          'GPS / 海拔',
+          [
+            if (d.gps.trim().isNotEmpty) d.gps,
+            if (d.alt.trim().isNotEmpty) d.alt,
+          ].join(' · ')
+        ),
       if (d.coordText != null) ('图纸坐标', d.coordText!),
       if (d.tags.isNotEmpty) ('标签', d.tags.join(' / ')),
       ('是否闭合', d.closed ? '是' : '否'),

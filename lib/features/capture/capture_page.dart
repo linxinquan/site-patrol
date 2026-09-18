@@ -866,6 +866,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       'defects':
           _defects.map((d) => {...d.toJson(), 'status': 'pending'}).toList(),
       'note': note,
+      // 转入问题清单时会被透传到 Defect（见 buildDefectFromCaptureDefect）：
+      // 缺了它们，转入的记录就没有 GPS / 海拔 / 真实记录人。
+      'gps': _location.gpsText,
+      'alt': '海拔 ${_location.altitude.toStringAsFixed(1)}m',
+      'reporter': _currentUser,
     };
     // 跨端统一把压缩照片落盘（JSON 不支持二进制，故 entry 只记相对路径）：
     // - 移动端/桌面：写入应用目录的真实文件，可长期保存；
@@ -893,7 +898,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     //
     // **没有识别结果也要入列表**：保证拍照留痕可追溯（避免"拍了看不到"）。
     // **照片落盘失败也要入列表**：照片缺失只影响报告配图，记录本身必须同步
-    // （photoPath 为空时报告端显示占位）。
+    // （photoPath 为空时报告端**不渲染照片区**，见 report_builder._photoBlock）。
     {
       final repo = ref.read(repositoryProvider);
       // 归入当前项目，避免新增记录串到另一个项目。
@@ -902,7 +907,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       }
       final gpsText = _location.gpsText;
       final altText = '海拔 ${_location.altitude.toStringAsFixed(1)}m';
-      final anchor = '$_anchorLabel · $_floor';
+      // anchor 口径统一：与验收记录 entry.anchor、以及「转入」路径生成的
+      // Defect.anchor 保持一致（都只放部位）。时间轴按 `d.anchor` 精确匹配，
+      // 只有聚合条带「· 楼层」会导致同一张照片的两条记录互相匹配不到。
+      final anchorLabel = _anchorLabel;
+      final anchor = '$anchorLabel · $_floor';
       final names =
           _defects.map((v) => v.name).where((n) => n.isNotEmpty).toList();
       final descs =
@@ -935,7 +944,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         category: DefectCategory.other,
         severity: sev,
         status: DefectStatus.draft,
-        anchor: anchor,
+        anchor: anchorLabel,
         floor: _floor,
         ts: ts,
         gps: gpsText,
