@@ -218,14 +218,33 @@
 
 | 档 | 高度 | 横向 padding 下限 | 字号 | 圆角 | 字重 | 行高 |
 |---|---|---|---|---|---|---|
-| `AppButtonSize.lg` | 48 | 24 | 16 | 12 | w700 | 24 |
-| `AppButtonSize.md`（默认） | 36 | 12 | 14 | 12 | w700 | 22 |
-| `AppButtonSize.sm` | 32 | 12 | 12 | 12 | w700 | 20 |
+| `AppButtonSize.lg` | 48 | 24 | 16 | 12 | w600 | 24 |
+| `AppButtonSize.md`（默认） | 36 | 12 | 14 | 12 | w600 | 22 |
+| `AppButtonSize.sm` | 32 | 12 | 12 | 12 | w500 | 20 |
 
 - 形态：`filled`（实色 `accent` 底 + 白字）/ `outlined`（透明底 + `accent` 描边 + 蓝字）/ `text`（纯文字蓝）。
+- ⚠️ **密度必须锁 standard**：`ThemeData.visualDensity` 默认 `adaptivePlatformDensity`，在 **web/桌面端会被判为 compact(-2,-2)**，把所有 Material 按钮的 min/max 约束各缩 8px（lg 48→40、md 36→28）——即「设计稿 48、预览只剩 40」的根因。已在 `app_theme.dart` 全局 `visualDensity: VisualDensity.standard`，`AppButton` 内亦显式兜底。**以后遇到按钮高度差 8px，先查这里，不要去改按钮尺寸代码。**
 - **纯文字、不带图标**；`AppButton` 已移除 icon 参数，大按钮禁止「图标 + 文字」组合。
 - 宽度自适应；满宽传 `width: double.infinity`。
 - 直接用 `OutlinedButton` / `FilledButton` 时，`AppTheme` 已把圆角设为 `radiusButton` 12 ——**不要再显式覆盖成 `radiusMd`(8)**（历史上 capture 页「添加量尺项」踩过）。
+
+### 5. 蓝色主按钮（`AppPrimaryButton`）——主操作**只准用它**
+
+`AppButton` 是通用可配按钮，照设计稿写主按钮时要手工覆写 `size/radius/fontWeight`，历史上反复写错（高度被密度缩到 40、圆角用成 12、字重在 W500/W600 间来回改）。故主操作按钮抽出**规范锁死**的 `AppPrimaryButton`（Figma Frame 2147228056），调用方只给文案 + 回调：
+
+| 项 | 值 |
+|---|---|
+| 底色 | `#0395FF`（`accent`）实色 + 白字 |
+| 高度 | **48**（`buttonH_lg`，四重兜底：SizedBox + min==max + shrinkWrap + `visualDensity.standard`） |
+| 圆角 | **8**（`radiusMd`） |
+| 左右 padding | 24 |
+| 文字 | 16 / **W600** / 行高 24 / 字距 0 / 显式 MiSans（**W600 为最终规范**，用户 2026-09-18 裁定，勿再改回 W500） |
+| 宽度 | 默认满宽；并排布局传 `width: null` |
+
+- 用法：`AppPrimaryButton(label: '拍照', onPressed: ...)`；禁用态 `onPressed: null`。
+- 次要动作（描边 `outlined`、纯文字 `text`、小尺寸 `sm`）仍用 `AppButton`。
+- ⚠️ 新增/修改任何「蓝色大按钮」时**不要**再用 `AppButton(size: lg, radius: radiusMd, fontWeight: w600)` 手工拼，直接用 `AppPrimaryButton`（组件已锁死全部规范，包括 W600）。
+- ⚠️ 字重不要再按 Figma `Frame 2147228056` 的 W500 落地：主操作按钮一律 **W600**（用户裁定，2026-09-18）。
 
 ### 5. 底部弹窗（`AppBottomSheet`）
 

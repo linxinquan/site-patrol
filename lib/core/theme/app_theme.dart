@@ -6,6 +6,12 @@ import 'design_tokens.dart';
 /// Web 通过 HTML 渲染器使用系统字体：Windows 微软雅黑 / Mac 苹方）。不打包自定义字体。
 ThemeData get lightTheme => ThemeData(
       useMaterial3: true,
+      // ⚠️ 关键：Material 默认 visualDensity = adaptivePlatformDensity，在 **web/桌面端
+      // 会被判为 compact(-2,-2)**，使所有 Material 按钮/控件的 min/max 约束各缩 8px
+      // —— 规范里 48 高的按钮在 Web 预览里实际只有 40，是长期「按钮高度对不上设计稿」
+      // 的真正根因（真机 iOS 上是 48，所以只在预览里露馅）。
+      // 本项目设计稿按移动端 390 宽出图，故全局锁定 standard，跨端与设计稿一致。
+      visualDensity: VisualDensity.standard,
       // iOS 操作习惯：去除 Material 水波纹与悬停高亮，图标/按钮不做浏览器式 hover
       splashFactory: NoSplash.splashFactory,
       hoverColor: Colors.transparent,
