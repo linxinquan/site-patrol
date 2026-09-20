@@ -24,7 +24,6 @@ import '../../shared/widgets/offline_bar.dart';
 import '../../shared/widgets/user_switcher.dart';
 import '../../shared/widgets/user_switch_sheet.dart';
 import '../../data/models.dart';
-import '../../data/report_record.dart';
 import '../../data/weekly_report.dart';
 import 'report_builder.dart';
 import 'report_content.dart';

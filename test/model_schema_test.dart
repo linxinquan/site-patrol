@@ -99,6 +99,34 @@ void main() {
       expect(back.org, '腾讯科技（深圳）有限公司');
       expect(Party.fromJson(const {}).contactUserId, '');
     });
+
+    test('Discipline 往返：code + 展示名 + 排序 + 系统预置标记', () {
+      const d = Discipline(
+        code: Discipline.hvac,
+        name: '暖通',
+        sort: 4,
+        isSystem: true,
+      );
+      final back = Discipline.fromJson(d.toJson());
+      expect(back.code, 'hvac');
+      expect(back.name, '暖通');
+      expect(back.sort, 4);
+      expect(back.isSystem, isTrue);
+      // 容错：缺字段不抛错，isSystem 默认 false。
+      final empty = Discipline.fromJson(const {});
+      expect(empty.code, '');
+      expect(empty.isSystem, isFalse);
+      expect(empty.sort, 0);
+    });
+
+    test('DefectCategory.fromCode：未知专业回落 other（不抛错）', () {
+      expect(DefectCategory.fromCode('hvac'), DefectCategory.hvac);
+      expect(DefectCategory.fromCode('architecture'), DefectCategory.architecture);
+      // 后台新增但客户端未发版的专业 → 回落 other（功能不崩，过滤会失真）
+      expect(DefectCategory.fromCode('landscape'), DefectCategory.other);
+      expect(DefectCategory.fromCode(null), DefectCategory.other);
+      expect(DefectCategory.fromCode(''), DefectCategory.other);
+    });
   });
 
   group('B4 Milestone', () {
@@ -290,7 +318,7 @@ void main() {
   });
 
   group('B6 Membership（成员 + 权限点）', () {
-    test('往返：按权限点判定，不按角色', () {
+    test('往返：权限点是数据，判定走 PermissionScope 不认角色', () {
       const m = Membership(
         id: 'mb1',
         userId: 'u1',
@@ -301,10 +329,16 @@ void main() {
       );
       final back = Membership.fromJson(m.toJson());
       expect(back.roleCode, Membership.roleSiteEngineer);
-      expect(back.can(Membership.permDefectCreate), isTrue);
-      expect(back.can(Membership.permMemberManage), isFalse);
+      expect(back.permissions, contains(Membership.permDefectCreate));
+      expect(back.permissions, isNot(contains(Membership.permMemberManage)));
       expect(back.status, Membership.statusActive);
       expect(back.sync.isNew, isTrue); // 未指定则为未纳管
+      // 判定入口唯一：Membership 不提供 can()，统一由 PermissionScope 给。
+      expect(
+        PermissionScope.forProject(memberships: [back], projectId: 'p1')
+            .can(Membership.permDefectCreate),
+        isTrue,
+      );
     });
   });
 

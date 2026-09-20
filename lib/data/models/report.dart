@@ -1,4 +1,15 @@
-import 'sync_meta.dart';
+/// 报告归档域模型。
+///
+/// 从 `lib/data/report_record.dart` 迁入 `models/`（原先是唯一不在 barrel 里的
+/// 入库实体，违反「`models.dart` 是唯一契约入口」的约定，v2.2 补齐）。
+///
+/// 后端对应表：`reports`。客户端可写实体，故带 [SyncMeta]。
+///
+/// 注意：**正文不入库** —— 报告正文（HTML / PDF / Word / Excel）一律客户端按需重导，
+/// 归档只存元数据（标题 / 周期 / 格式 / 统计 / 小结），见 `BACKEND_ARCHITECTURE.md` §11。
+library;
+
+import '../sync_meta.dart';
 
 /// 一份**已生成**的巡场报告归档记录（「巡场报告」页的列表项）。
 ///
@@ -37,7 +48,7 @@ class ReportRecord {
   /// 导出时填写的巡场小结（可空）。
   final String note;
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（`clientId` / version / 时间戳 / 软删）。
   final SyncMeta sync;
 
   const ReportRecord({

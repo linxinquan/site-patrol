@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/di/providers.dart';
 import '../../core/storage/report_record_store.dart';
 import '../../core/theme/design_tokens.dart';
-import '../../data/report_record.dart';
+import '../../data/models.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';

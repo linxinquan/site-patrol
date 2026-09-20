@@ -142,6 +142,7 @@ const List<User> users = [
   User(
     id: 'ouyang',
     name: '欧阳嘉',
+    username: 'ouyang',
     org: 'Arcadis（凯迪思）',
     role: '全过程咨询 / PMO',
     avatar: 'assets/avatars/ouyang-zong.jpg',
@@ -149,6 +150,7 @@ const List<User> users = [
   User(
     id: 'lin',
     name: '林心荃',
+    username: 'lin',
     org: '腾讯科技（深圳）有限公司',
     role: '业主代表',
     avatar: 'assets/avatars/lin-zong.jpg',
@@ -156,6 +158,7 @@ const List<User> users = [
   User(
     id: 'zhu',
     name: '朱伟',
+    username: 'zhu',
     org: '深圳市建筑设计研究总院（深总院）',
     role: '设计管理',
     avatar: 'assets/avatars/zhu-gong.jpg',
@@ -163,6 +166,7 @@ const List<User> users = [
   User(
     id: 'yang',
     name: '杨玉婷',
+    username: 'yang',
     org: '深圳华西建设工程管理有限公司',
     role: '施工监理',
     avatar: 'assets/avatars/yang-gong.jpg',

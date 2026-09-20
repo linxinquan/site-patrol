@@ -2,7 +2,7 @@
 
 > 项目：「蓝图落地」工地验收 App（深圳市建筑设计研究总院 · 环境院 AI 中心）
 > 客户端：Flutter（iOS / Android / Web）
-> 版本：**v2.0 · 2026-09-18** · 状态：**内容定稿（语言/ORM 与部署方式待确认）**
+> 版本：**v2.2 · 2026-09-20** · 状态：**内容定稿（语言/ORM 与部署方式待确认）**
 >
 > 相关文档：`CAD_MIGRATION_BACKUP.md`（CAD 剥离交接）、`SESSION_CONTEXT.md`（项目上下文）、
 > `AUTH_STORAGE_DESIGN.md`（客户端登录与存储，S1/S2 已实施）、
@@ -36,8 +36,10 @@
 | 仓库接口 | `lib/data/repository/repository.dart` | UI 只依赖接口 |
 | 本地仓库实现 | `lib/data/repository/mock_repository.dart` | **已做本地持久化**（`LocalStorage.readDoc/writeDoc`），实际角色是「本地仓库」，名字叫 Mock 属历史遗留 |
 | 存储抽象 | `lib/core/storage/local_storage.dart` | 条件导入：Hive + secure_storage + 文件 / localStorage |
-| 模型序列化 | `lib/data/models.dart` | `Defect` / `PatrolPlan` / `MeasureSession` / `RoomScanRecord` 等全部 `toJson/fromJson`，且向后兼容 |
-| 会话模型 | `lib/core/storage/session_store.dart` | `UserSession{token, refreshToken, expiresAt}` 已按 JWT 建模 |
+| 模型序列化 | `lib/data/models/`（入口仍是 `lib/data/models.dart`） | 已按域拆 **11 个文件**：`account` / `auth` / `project` / `defect` / `drawing` / `capture` / `measure` / `patrol` / `room` / `report` / `cad_archive`（CAD 待剥离）。全部 `toJson/fromJson` 且向后兼容，`fromJson` **一律容错**（缺字段回落默认值，不抛异常）。**按域索引见 §7.3 开头** |
+| 同步元数据 | `lib/data/sync_meta.dart` | `SyncMeta{clientId, version, createdAtMs, updatedAtMs, serverUpdatedAtMs, deletedAtMs, createdBy}`，平铺进实体顶层 JSON；**只给客户端可写实体挂**（见 §7.2） |
+| 会话 / 登录模型 | `lib/data/models/auth.dart` | `UserSession`（JWT 形状，持久化实现在 `core/storage/session_store.dart`）+ `AuthTokens` / `LoginResult` / `AuthProfile` / `PermissionScope` |
+| 客户端 ID 生成 | `lib/core/utils/ids.dart` | `newId()` → **ULID**（26 位 Crockford Base32）：时间有序、多端不撞、同毫秒自增、时钟回拨不倒退 |
 | 环境开关 | `lib/core/env/env.dart` | `ENV` 目前**不控制数据源**（已明确），保留供后续环境差异 |
 
 ### 1.2 现有后端
@@ -75,7 +77,7 @@
 | 3 | **一个入口** | 客户端只配一个 `BASE_URL`，所有能力收敛到一个网关（现有 3 个硬编码 host 是主要技术债） |
 | 4 | **模块化单体优先** | 1–3 人团队，不上微服务/K8s；用包结构做模块边界，真到瓶颈再拆 worker |
 | 5 | **权限点而非角色** | 角色是数据不是代码，加角色不发版（角色名单尚未确定） |
-| 6 | **从零建，不带包袱** | 不做兼容层；同步所需字段（`client_uuid` / `version` / `deleted_at`）建表即带上 |
+| 6 | **从零建，不带包袱** | 不做兼容层；同步所需字段（`client_id` / `version` / `deleted_at`）建表即带上 |
 | 7 | **成本可见** | AI 调用与对象存储流量必须可记账、可看板 |
 
 ---
@@ -172,7 +174,9 @@ iOS ATS 会直接拒绝、Android 7+ 拒绝用户证书、浏览器红锁。**�
 
 ```
 roles(code PK, name, description, permissions jsonb, sort, is_system)
-memberships(id, user_id, project_id, role_code, created_at)      -- 项目级
+disciplines(code PK, name, sort, is_system)                        -- 专业字典
+memberships(id, user_id, project_id, org_id, role_code,
+            disciplines text[], permissions jsonb, created_at)      -- 项目级；三维度
 ```
 
 代码里只硬编码**权限点**（稳定的业务动作）：
@@ -182,9 +186,37 @@ defect.create / defect.reply / defect.close / defect.assign
 patrol.run / measure.write / report.export / drawing.manage / member.manage
 ```
 
+#### 成员是「职责 × 专业 × 单位」三个正交维度
+
+| 维度 | 列 | 回答的问题 |
+|---|---|---|
+| 职责 | `role_code`（+ `permissions`） | 这个人**能做什么动作** |
+| 专业 | `disciplines`（`text[]`） | 这个人**能看 / 管哪一类数据** |
+| 单位 | `org_id` | 这个人**代表哪一方** |
+
+例：`中建四局 × 暖通 × 专业负责人` = 一条成员关系 → 可回复暖通类整改，且只看暖通类。
+
+- **不要把专业拼进 `role_code`**（`discipline_lead_hvac` 之类会让角色按「职责 × 专业」组合爆炸，
+  也违背「角色是数据不是代码」）。
+- **`disciplines` 空数组 = 不限专业**（项目负责人 / 监理 / 管理类天然全专业），**不要**造 `'all'`
+  伪值。驻场、施工方、监理的成员**同样带专业**（他们也是按专业分包的）。
+- **第一版范围（明确约定）**：只做**「结构专业」或「不分专业」**——
+  不分专业 → 留空数组（默认）；只分结构 → 下发单条 `structure`。
+  因此**第一版不需要任何按专业过滤的业务逻辑**（空数组天然放行全部），
+  这一维度只是**先把结构与取值定下来**，让后续加专业（暖通 / 给排水 / 幕墙…）不改表、不发版。
+- 专业与权限点是**「与」关系**：`can('defect.reply')` **且** 缺陷专业被覆盖 —— 客户端**唯一判定入口**是
+  `PermissionScope.canOn(permission, categoryCode)`（`AuthProfile.scopeOf(projectId)` 取得）。
+  `Membership` 只承载数据，**不再提供 `can` / `canOn`**（v2.2 收敛，避免记录级与合并级两套语义）。
+- **专业 code 与 `defects.category` 复用同一套取值**，否则「暖通负责人看暖通缺陷」要维护映射表。
+  ⚠️ 客户端 `DefectCategory` 目前是 Dart enum（未知 code 回落 `other`）→
+  **扩展专业清单必须与客户端发版同步**；`memberships.disciplines` 是 String code，不受此限。
+
+#### 角色 → 权限的映射
+
 - 角色 → 权限的映射**放数据**（`roles.permissions`）；新增角色不改代码、不发版。
-- 建库时 seed 3 个系统角色兜底：`admin` / `editor` / `viewer`；甲方 / 设计院 / 监理 / 施工方等
-  **待业务角色确定后往表里加**（见 §15）。
+- 建议的角色 code 最小集（**职责**维度，不含专业）：`project_manager` / `discipline_lead` /
+  `designer` / `site_engineer` / `contractor` / `viewer`；
+  建库时仍先 seed `admin` / `editor` / `viewer` 兜底，业务角色待名单确定后往表里加（见 §15）。
 - 校验规则：`(user, project) → role.permissions → 是否含所需权限点`，**role 不放 JWT**
   （避免权限变更后旧 token 继续生效）。
 
@@ -212,6 +244,8 @@ GET  /api/v1/auth/me         → 当前用户 + 项目列表 + 各项目权限
 - 「点头像切换用户」的**扮演式开关降级为管理员功能**
 - 概念澄清：`Party`（项目参与方档案，展示用）**≠** `User`（系统账号）。
   责任单位/责任人应关联 `memberships`，否则「施工方只看自己的」无法成立
+- 成员表新增**专业维度**（`Membership.disciplines`）：既是「专业负责人只读视图」的数据基础，
+  也是把责任单位/责任人从**自由文本**改为关联成员（`org_id` + 专业）的前提
 
 ---
 
@@ -233,82 +267,222 @@ GET  /api/v1/auth/me         → 当前用户 + 项目列表 + 各项目权限
 
 ### 7.2 公共列约定（**建表即带，事后补极难**）
 
+> **本节已按客户端 `SyncMeta` 对齐**（`lib/data/sync_meta.dart`）。
+> 客户端把这 7 个字段**平铺**在实体 JSON 顶层，键名为
+> `clientId` / `version` / `createdAtMs` / `updatedAtMs` / `serverUpdatedAtMs` /
+> `deletedAtMs` / `createdBy`；**时间一律以 epoch 毫秒传输**，服务端在边界转 `timestamptz`。
+
 ```
-id                 uuid PK            gen_random_uuid()
-client_uuid        uuid               客户端生成，唯一索引 → 幂等
+id                 text PK            客户端 ULID（26 位）或服务端 uuid
+client_id          text               客户端生成（ULID），唯一索引 → 幂等
 version            int   default 1    每次写入 +1
-created_at         timestamptz
+created_at         timestamptz        客户端创建时间
 updated_at         timestamptz        客户端修改时间（不可信，仅展示）
 server_updated_at  timestamptz        服务端写入时间（权威）
 deleted_at         timestamptz        软删；NULL = 未删
-created_by         uuid → users.id
+created_by         text → users.id
 ```
 
-> `client_uuid` / `server_updated_at` / `deleted_at` 是同步机制的命脉，理由见 §9。
+> **`client_id` 是 ULID 文本，不是 UUID**：48bit 时间戳 + 80bit 随机，字典序即时间序、
+> 多端并发生成不撞号，且字符集排除了易混淆的 `I/L/O/U`。客户端 `newId()` 生成，
+> 同毫秒内自增保证单调（见 `lib/core/utils/ids.dart`）。
+>
+> **哪些表带这组列**（= 客户端**可写**实体）：
+> `memberships` · `defects` · `captures` · `measure_sessions` · `room_scans` ·
+> `patrol_plans` · `patrol_records` · `progress_entries` · `reports`。
+>
+> **不带**（= 服务端维护、客户端只读的档案类）：`orgs` / `users` / `projects` /
+> `floors` / `site_locations` / `drawings` / `drawing_versions` —— 这些走**全量拉取覆盖**，
+> 数据量极小，不做增量同步，因此不需要 `client_id` 与软删列。
 
-### 7.3 表结构（18 张，按模块）
+### 7.3 表结构（24 张 = 客户端建模 17 + 服务端 7）
 
-**账号与项目**
+> **本节以客户端模型为准**（`lib/data/models/`；下表即为权威索引，`models.dart` 顶部是同源简表）。
+> 阅读约定：
+> - 标 **jsonb** 的列：**原样存客户端 `toJson()` 结构**，服务端不解析；
+> - 标 `*` 的列：客户端模型里有这个**展示字段**，服务端可由 FK/join 回填，不必单独维护；
+> - 客户端未建模的表：服务端自有，客户端只消费其投影。
+> - 所有业务表都**必须带 `project_id`**（客户端模型已全部对齐，见 §4「一条必须先改的结构问题」）。
 
-| 表 | 关键字段 |
-|---|---|
-| `users` | username(uniq), display_name, password_hash, phone, email, avatar_key, status, last_login_at |
-| `roles` | code PK, name, description, **permissions jsonb**, sort, is_system |
-| `memberships` | user_id, project_id, role_code, uniq(user_id, project_id) |
-| `projects` | name, client, location, status, site_area, floor_area, beds, concept, **parties jsonb**, **milestones jsonb** |
+#### 客户端契约入口索引（**先看这里**）
 
-**图纸与文件**
+读契约**不要翻整个 `lib/data/`**：模型已按**域**拆成 11 个文件，`lib/data/models.dart`
+只做 re-export（**唯一契约入口**，barrel，**已完整覆盖，无例外**）。
+下表的「入口文件」= 后端打开那一个文件即可。
 
-| 表 | 关键字段 |
-|---|---|
-| `drawings` | project_id, key(uniq per project), title, crumb, floor, building, variant, source(`asset`/`upload`), width, height, **hotspots jsonb**, base_file_id, thumb_file_id, sort |
-| `files` | project_id, owner_id, kind(`photo`/`drawing`/`report`/`reply_photo`/`thumb`), object_key, mime, size, **sha256**, width, height, **exif jsonb** |
+| 域 | 入口文件 | 实体 | 去向 |
+|---|---|---|---|
+| 账号与组织（A） | `models/account.dart` | `Org` `Discipline` `User` `Membership` | `orgs` `disciplines` `users` `memberships`（`roles` 服务端自有） |
+| 认证授权 | `models/auth.dart` | `UserSession` `AuthTokens` `LoginResult` `AuthProfile` `PermissionScope` | **不建表**：`/auth/*` 响应载体 + 本机会话；`PermissionScope` 是 `Membership` 的派生视图 |
+| 项目档案（B） | `models/project.dart` | `Project` `Party` `Milestone` `Floor` `SiteLocation` `ProgressEntry` | `projects` `floors` `site_locations` `progress_entries` |
+| 缺陷 | `models/defect.dart` | `Defect` + 4 个分级枚举 | `defects` `defect_events` |
+| 图纸与版本（C1/C2） | `models/drawing.dart` | `Drawing` `DrawingVersion` `Hotspot` `Calibration` | `drawings` `drawing_versions`（`files` 服务端自有） |
+| 拍照验收 | `models/capture.dart` | `CaptureRecord` `CaptureDefectItem` `VlDefect` | `captures` |
+| 量尺 | `models/measure.dart` | `MeasureSession` `MeasureItem` `PhotoCalib` | `measure_sessions` |
+| 巡场 | `models/patrol.dart` | `PatrolPlan` `PatrolRecord` `PatrolPoint` `CheckIn` | `patrol_plans` `patrol_records` |
+| 量房 | `models/room.dart` | `RoomScanRecord` `RoomWall` `WallOpening` | `room_scans` |
+| 报告归档 | `models/report.dart` | `ReportRecord` | `reports` |
+| AI 视觉（调用侧） | `lib/data/vision_service.dart` | `VisionResult` `DefectItem` `AnchorDetection` `GridDetection` `MeasureTarget` | **不建表**：落 `ai_calls.response`（§10） |
+| 周报导出（客户端） | `lib/data/weekly_report.dart` | `WeeklyReport` `WeeklyPhoto` `WeeklyProgressRow` `WeeklyLedger` `WeeklyIssue` `WeeklyNote` `MeasureCheck` | **不建表**：正文客户端生成（§11） |
+| CAD（已判废案） | `models/cad_archive.dart` | `DwgInfo` `CadLayer` `CadLayout` `CadAnnotation` `CadTaskStatus` `UploadedDrawing` | **不建表**（§1.3） |
+| 同步元数据 | `lib/data/sync_meta.dart` | `SyncMeta` | 各表公共列（§7.2） |
 
-**缺陷（主链）**
+> **全部入库模型都从 `models.dart` 取**（barrel 已完整覆盖，无例外）。
+> 后三行（AI 视觉 / 周报导出 / CAD）**不需要建表**，列在此处只为让后端知道「这些结构会出现」。
 
-| 表 | 关键字段 |
-|---|---|
-| `defects` | project_id, drawing_id, part, type, category, severity, importance, status, anchor, floor, building, gps, lat, lng, world_x, world_y, reporter_id, resp_unit, resp_user_id, note, seed, suggestion, source_capture_id, photo_file_id, photo_hash, watermark_serial, reply, reply_by_id, reply_ts, reply_photo_file_id, close_note, completion, designer_action, designer_note, designer_by_id, designer_ts |
-| `defect_events` | defect_id, actor_id, **action**, payload jsonb, created_at |
+**账号与组织（A 类）**
+
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `orgs` | id, name, short_name, type, sort | `Org` |
+| `disciplines` | code PK, name, sort, is_system | `Discipline` |
+| `users` | id, name, username(uniq), org_id, role\*, avatar, phone, email, status, password_hash, last_login_at | `User` |
+| `memberships` | id, user_id, project_id, org_id, role_code, role_name\*, **disciplines text[]**, **permissions jsonb**, status, uniq(user_id, project_id) + 公共列 | `Membership` |
+| `roles` | code PK, name, description, **permissions jsonb**, sort, is_system | —（客户端只消费 `Membership.roleCode`） |
+
+> `users.name` 是**姓名**，`username` 是**登录名**（两者都有，客户端模型已分开）。
+> `memberships.permissions` 直接落权限点数组，客户端按 `PermissionScope.can('defect.close')`
+> 判定——**代码只认权限点、不认角色名**（§6.1）。
+>
+> **`memberships` 是「职责 × 专业 × 单位」三个正交维度**，不要把专业拼进 `role_code`：
+> | 维度 | 列 | 回答 |
+> |---|---|---|
+> | 职责 | `role_code` + `permissions` | 能做什么动作 |
+> | 专业 | `disciplines`（`text[]`） | 能看 / 管哪一类数据 |
+> | 单位 | `org_id` | 代表哪一方 |
+>
+> - **`disciplines` 空数组 = 不限专业**（项目负责人 / 监理 / 管理类），不要造 `'all'` 伪值；
+>   驻场、施工方、监理的成员**同样带专业**。
+>   **第一版只用 `structure`（或全部留空 = 不分专业）**，不实现按专业过滤的逻辑（见 §6.1）。
+> - 专业与权限点是**「与」关系**：客户端 `PermissionScope.canOn(permission, code)` 一次判定两轴
+>   （判定入口唯一 —— `Membership` 只承载数据，不做判定，见 v2.2 变更记录）。
+> - **`disciplines` 的 code 与 `defects.category` 复用同一套取值**，避免维护映射表。
+>   ⚠️ 客户端 `DefectCategory` 是 Dart enum（未知 code 回落 `other`）→
+>   **扩展专业清单必须与客户端发版同步**；`disciplines` 用 String code，不受此限。
+> - `disciplines` 表按可扩展设计（总图 / 景观 / 幕墙 / 智能化 / 室内…），
+>   第一批可只 seed 与 `DefectCategory` 对齐的 7 项。
+
+**项目档案（B 类）**
+
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `projects` | id, name, client, location, status, site_area, floor_area, beds, concept, lat, lng, **parties jsonb**, **milestones jsonb**, **measure_thresholds jsonb** | `Project` / `Party` / `Milestone` / `MeasureThresholds` |
+| `floors` | project_id, key, name, index, building, floor, uniq(project_id, key) | `Floor` |
+| `site_locations` | id, project_id(可空), name, address, lat, lng, altitude | `SiteLocation` |
+
+> `floors` **不存** `cached` / `progress`：那是客户端本地缓存态（图纸是否已下载），
+> 由客户端 `floorCacheProvider` 管理。
+> `milestones[]` 里 `done` 缺省时由 `actualDate` 推导，服务端只需存 `date`（计划）+ `actualDate`（实际）。
+> `measure_thresholds` 就是 B7「项目级量尺门槛」（`tolMm` / `tolPct` / `judgeMaxErrorMm`）。
+
+**图纸与版本（C1 / C2）**
+
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `drawings` | project_id, key(uniq per project), title, crumb, variant, discipline, sort, published_version_id → `drawing_versions.id`, w\*, h\*, **hotspots jsonb**\* | `Drawing` |
+| `drawing_versions` | id, drawing_id, version, version_date, state(`draft`/`published`/`archived`), base_image_path, width, height, bounds, **hotspots jsonb**, **calibration jsonb**, calibration_updated_at, published_at, published_by | `DrawingVersion` / `Hotspot` / `Calibration` |
+| `files` | project_id, owner_id, kind(`photo`/`drawing`/`report`/`reply_photo`/`thumb`), object_key, mime, size, **sha256**, width, height, **exif jsonb** | —（客户端不建模） |
+
+> `drawings` 上的 `w` / `h` / `hotspots` 是「**当前发布版本**」的冗余快照（渲染端直接用，不必 join）；
+> 权威数据在 `drawing_versions`。
+> **校准与热点都绑版本**：`calibration` 落在 `drawing_versions` 行上。图纸改版 → 新版本行没有
+> `calibration` → 客户端按「当前发布版本」取校准，**旧版本的校准不会被套用**（表现为该版本未校准，
+> 走正常校准流程），**不做自动坐标迁移**（§5 第 2、3 条）。
+> 客户端已实现的部分：存储键按版本分档 `cad_calib_v4_<key>__<versionId>`，旧键读到即迁移；
+> 启动时套用校准库会按当前版本校验，版本不匹配的条目跳过。
+> **尚未实现**的是「主动提示驻场重锚」的 UI（数据层已保证不会静默错位）。
+> `state='published'` 同一 `drawing_id` 只允许一行，旧版置 `archived` 锁只读。
+
+**缺陷主链**
+
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `defects` | id, project_id, drawing_id, drawing_version_id, part, type, category, severity, importance, status, anchor, floor, building, gps, lat, lng, alt, world_x, world_y, found_at, reporter_id, reporter\*, resp_unit, resp_user_id, **tags jsonb**, note, seed, suggestion, source_capture_id, source_capture_index, photo_file_id, photo_path\*, photo_hash, watermark_serial, **photos jsonb**, reply, reply_by_id, reply_at, reply_photo_file_id, close_note, completion, designer_action, designer_note, designer_by_id, designer_at + 公共列 | `Defect` |
+| `defect_events` | defect_id, actor_id, **action**, payload jsonb, created_at | —（服务端事件流） |
 
 > `defects` 上的 `reply*` / `designer*` 是**当前态**（便于列表查询与报告渲染）；
 > `defect_events` 是**事件流**（审计 + 冲突解决）。两者由同一写路径同时更新。
 > `action` ∈ `create/update/assign/reply/designer_fix/designer_confirm/onsite/reject/close/reopen`
+>
+> **时间字段**：客户端 `ts` / `replyTs` / `designerTs` 是展示文本（`yyyy-MM-dd HH:mm[:ss]`），
+> 模型另提供 `tsMs` / `replyTsMs` / `designerTsMs` 取 epoch 毫秒 → 入库为
+> `found_at` / `reply_at` / `designer_at`。
+> `photo_path` 是**本地相对路径**（移动端文件），只作溯源；正式照片走 `files`。
+> `photo_hash` + `watermark_serial` 是**取证四要素**中的两个（另两个是 GPS 与拍摄时间），
+> 必须落库 —— 只烧在图片像素里等于数据库查不到（§1 三处问题之一）。
 
-**巡场 / 量测 / 量房 / 验收**
+**现场采集（C4 + D 类）**
 
-| 表 | 关键字段 |
-|---|---|
-| `patrol_plans` | project_id, drawing_id, name, floor, **points jsonb**, total_km |
-| `patrol_records` | plan_id, project_id, drawing_id, operator_id, name, started_at, finished_at, dist_km, point_count, issue_count, **track jsonb**, **checkins jsonb**, checkpoint_total |
-| `measure_sessions` | project_id, drawing_id, floor, tol_mm, tol_pct, **calib jsonb**, **items jsonb**, uniq(project_id, drawing_id) |
-| `room_scans` | project_id, name, room_use, source, scanned_at_ms, **walls jsonb**, closure_delta_mm, net_height_mm, drawing_id, **checks jsonb**, note |
-| `captures` | project_id, drawing_id, floor, anchor, photo_file_id, ai_call_id, **ai_result jsonb**, **confirmed_result jsonb**, reporter_id |
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `captures` | id, project_id, drawing_id, drawing_version_id, floor, anchor, world_x, world_y, captured_at, gps, alt, reporter_id, reporter\*, photo_file_id, photo_path\*, note, **ai_result jsonb**, **confirmed_result jsonb**, ai_call_id + 公共列 | `CaptureRecord` |
+| `measure_sessions` | id, project_id, drawing_id, drawing_version_id, floor, tol_mm, tol_pct, **calib jsonb**, **items jsonb**, updated_at + 公共列 | `MeasureSession` |
+| `room_scans` | id, project_id, name, room_use, source, scanned_at, **walls jsonb**, closure_delta_mm, net_height_mm, drawing_id, drawing_version_id, **checks jsonb**, note + 公共列 | `RoomScanRecord` |
+| `patrol_plans` | id, project_id, drawing_id, drawing_version_id, name, floor, **points jsonb**, total_km, updated_at + 公共列 | `PatrolPlan` |
+| `patrol_records` | id, plan_id, project_id, drawing_id, drawing_version_id, operator_id, name, started_at, finished_at, dist_km, point_count, issue_count, **track jsonb**, **checkins jsonb**, checkpoint_total + 公共列 | `PatrolRecord` |
+| `progress_entries` | id, project_id, milestone_id, status, date, note, **photos jsonb**, declared_by, source + 公共列 | `ProgressEntry` |
 
-> `measure_sessions` / `room_scans` / `patrol_records` 的 `JSONB` 字段**直接存客户端 `toJson()` 结构**，
-> 服务端不解析几何，只做检索与统计——**这是最低成本、零阻抗的落地方式**。
-> `captures` 的 `ai_result` + `confirmed_result` 是「缺陷知识库反哺设计」的原始数据来源。
+> `measure_sessions` / `room_scans` / `patrol_records` / `patrol_plans` 的 JSONB 字段
+> **直接存客户端 `toJson()`**，服务端不解析几何，只做检索与统计 —— 最低成本、零阻抗。
+> `captures.ai_result` = `CaptureRecord.defects`（AI 原始识别）；
+> `confirmed_result` = 同一数组加上人工确认/转入状态（`CaptureDefectItem.status`）。
+> 二者是「缺陷知识库反哺设计」的原始数据来源。
+> `progress_entries.source` 固定为 `contractor`（施工方免登录自报）——
+> 报告与界面**必须**标注自报身份，不得表述成设计院核实结论（§C4）。
+>
+> **量尺会话的唯一键口径（已定）**：客户端本地按「项目 + 图纸」**一个格子**存
+> （存储键 `measure:<projectKey>:<drawingKey>`），换图纸版本会**覆盖**同一格子，
+> 这与 §9.5「会话型数据整份覆盖、后写胜」一致。
+> 因此服务端用 `uniq(project_id, drawing_id)`，**不要**把 `drawing_version_id` 放进唯一键。
+> `drawing_version_id` 仍照常落库（每条会话记录自己带版本，便于说明"这次量的是哪版图"）。
+>
+> 若将来确需保留**逐版本**的量测历史，客户端需把存储键改为
+> `measure:<projectKey>:<drawingKey>:<versionId>` 并做旧键迁移，届时再定。
+> 对照：真正需要按版本回溯的 `defects` / `captures` 是**逐条记录**（不是单格子），
+> 已带 `drawing_version_id` 且不会被覆盖。
 
 **平台**
 
-| 表 | 关键字段 |
+| 表 | 列 | 客户端模型 |
+|---|---|---|
+| `reports` | id, project_id, title, period, reporter\*, **formats jsonb**, defect_count, open_count, done_count, urgent_count, note, created_at, file_id, share_token, share_expires_at, status + 公共列 | `ReportRecord` |
+| `ai_calls` | project_id, user_id, task_type, model, prompt_version, **image_sha256**, request jsonb, response jsonb, input_tokens, output_tokens, latency_ms, cost, cache_hit, status, error | —（客户端只消费返回结构） |
+| `notifications` | user_id, project_id, type, title, body, ref_type, ref_id, read_at | — |
+| `audit_logs` | actor_id, project_id, action, entity, entity_id, before jsonb, after jsonb, ip, ua | — |
+| **`changes`** | **seq bigserial PK**, project_id, entity, entity_id, op(`upsert`/`delete`), changed_at —— 同步变更流，见 §9 | — |
+
+> `reports.formats` 是**数组**：同一份报告（标题 + 周期相同）导出 PDF / Word / Excel / 网页链接时
+> **合并为一条**，不做重复建卡。客户端归档仍**只存元数据**，正文按需重导（§11）。
+> `ai_calls.response` 装视觉模型返回；客户端侧的返回结构见
+> `VisionResult` / `DefectItem` / `AnchorDetection` / `GridDetection` / `MeasureTarget`。
+
+**客户端明确不入库的模型（不要建表）**
+
+| 模型 | 原因 |
 |---|---|
-| `reports` | project_id, period, title, format, file_id, **share_token**, share_expires_at, generated_by, status |
-| `ai_calls` | project_id, user_id, task_type, model, prompt_version, **image_sha256**, request jsonb, response jsonb, input_tokens, output_tokens, latency_ms, cost, cache_hit, status, error |
-| `notifications` | user_id, project_id, type, title, body, ref_type, ref_id, read_at |
-| `audit_logs` | actor_id, project_id, action, entity, entity_id, before jsonb, after jsonb, ip, ua |
-| **`changes`** | **seq bigserial PK**, project_id, entity, entity_id, op(`upsert`/`delete`), changed_at —— 同步变更流，见 §9 |
+| `MeasureThresholds` | 已并入 `projects.measure_thresholds jsonb`（B7 项目级门槛） |
+| `ArScaleCalibration` | 本机尺度校正，**不跨设备共享**（机型/系统版本相关） |
+| `TimelinePhoto` | 派生数据：由缺陷 + 照片按部位实时生成（§2⑤） |
+| `PhotoAnchor` / `AnchorPhoto` | 应改为派生（按「图纸版本 + 坐标」对缺陷聚类），当前仍是预置常量 |
+| `Floor.cached` / `Floor.progress` | 客户端本地缓存态 |
+| `CaptureArgs` / `MeasureArgs` / `RoomScanArgs` / `PatrolArgs` | 路由参数（非持久化） |
+| `CadLayer` / `CadLayout` / `DwgInfo` / `CadAnnotation` / `CadTaskStatus` / `UploadedDrawing` | CAD 链路已判废案（§1.3），随迁移删除 |
 
 ### 7.4 索引要点
 
 ```sql
 defects(project_id, status)
 defects(project_id, server_updated_at)
-defects(client_uuid)              -- 幂等
-changes(project_id, seq)          -- 增量拉取（核心）
-files(sha256)                     -- 去重 / 证据链
-ai_calls(image_sha256, prompt_version)   -- 结果复用
+defects(client_id)                         -- 幂等（ULID 文本）
+defects(project_id, drawing_version_id)    -- 按图纸版本回溯坐标
+defects(source_capture_id)                 -- 验收记录 ↔ 缺陷 回流（DV-19）
+changes(project_id, seq)                   -- 增量拉取（核心）
+files(sha256)                              -- 去重 / 证据链
+ai_calls(image_sha256, prompt_version)     -- 结果复用
 roles(code) / memberships(user_id, project_id)
+memberships GIN(disciplines)               -- 按专业过滤（「专业负责人只看本专业」）
+drawing_versions(drawing_id, state)        -- 取当前发布版本
+floors(project_id) / drawings(project_id)  -- 档案类按项目全量拉取
 ```
 
 ---
@@ -405,8 +579,8 @@ roles(code) / memberships(user_id, project_id)
 
 ### 9.4 幂等
 
-所有写接口带 `client_uuid`（客户端生成的 UUID）+ 可选 `Idempotency-Key`。
-服务端对 `client_uuid` 建唯一索引：**重发不会产生重复记录**。
+所有写接口带 `client_id`（客户端生成的 **ULID 文本**，见 §7.2）+ 可选 `Idempotency-Key`。
+服务端对 `client_id` 建唯一索引：**重发不会产生重复记录**。
 （不做的后果：网络超时重试必然造重复数据。）
 
 ### 9.5 冲突策略
@@ -490,15 +664,19 @@ CRDT、实时协同编辑、图片走增量同步（图片单独走对象存储�
 
 | 模块 | 接口 |
 |---|---|
-| 认证 | `POST /auth/login` · `/auth/refresh` · `/auth/logout` · `GET /auth/me` |
-| 项目 | `GET /projects` · `/projects/{id}` · `GET/POST/DELETE /projects/{id}/members` |
+| 认证 | `POST /auth/login` · `/auth/refresh` · `/auth/logout` · `GET /auth/me`（返回结构见 §7.3 的 `LoginResult` / `AuthProfile`） |
+| 组织与用户 | `GET/POST /orgs` · `GET/POST /disciplines` · `GET/POST /users` · `POST /users/{id}/invite`（A1 / A2 + 专业字典） |
+| 项目 | `GET /projects` · `/projects/{id}` · `GET/POST/DELETE /projects/{id}/members`（B1~B4 / B6） |
+| 项目档案 | `GET /projects/{id}/floors` · `GET /projects/{id}/site-locations` · `GET/PUT /projects/{id}/measure-thresholds`（B5 / B2 / B7） |
 | 图纸 | `GET /projects/{id}/drawings` · `/drawings/{id}` |
+| 图纸版本 | `GET/POST /drawings/{id}/versions` · `POST /drawings/{id}/versions/{vid}/publish` · `PUT /drawings/{id}/versions/{vid}/calibration`（C1 / C2：**上传与校准必须同一流程**） |
 | 文件 | `POST /files/presign` · `POST /files/complete` · `GET /files/{id}`（签名 URL） |
 | 缺陷 | `GET/POST /defects` · `PATCH /defects/{id}` · `POST /defects/{id}/events` · `GET /defects/{id}/events` |
 | 巡场 | `GET/POST /patrol/plans` · `GET/POST /patrol/records` |
 | 量测 | `GET/POST /measure-sessions` |
 | 量房 | `GET/POST /room-scans` |
 | 拍照验收 | `GET/POST /captures` |
+| 施工进度 | `GET/POST /progress-entries?projectId=&milestoneId=`（C4；`source` 固定 `contractor`，**免登录填报**走 `/share/{token}` 通道） |
 | 报告 | `POST /reports` · `GET /reports/{id}` · `POST /reports/{id}/share` |
 | **同步** | `POST /sync/push` · `GET /sync/pull?sinceSeq=&projectId=&limit=` |
 | AI | `POST /ai/vision`（缺陷/锚物/网格/目标，按 `task` 区分）· `POST /ai/suggest` |
@@ -581,7 +759,7 @@ CRDT、实时协同编辑、图片走增量同步（图片单独走对象存储�
 | 风险 | 对策 |
 |---|---|
 | 离线优先 + 多人协作的冲突复杂度 | 只对「缺陷」主链做事件溯源，其余实体 LWW；不引入 CRDT |
-| 「同步」是最容易出错的部分（丢数据/重复数据） | 幂等键（`client_uuid` 唯一索引）+ seq 游标 + **`pg_advisory_xact_lock` 串行化序号分配（§9.3，否则静默丢数据）** + 游标过期全量重同步；P1 先只做缺陷一条链打通 |
+| 「同步」是最容易出错的部分（丢数据/重复数据） | 幂等键（`client_id` 唯一索引）+ seq 游标 + **`pg_advisory_xact_lock` 串行化序号分配（§9.3，否则静默丢数据）** + 游标过期全量重同步；P1 先只做缺陷一条链打通 |
 | 团队 1–3 人，运维税是最大敌人 | 模块化单体 + 单机部署，不上 K8s / 微服务 |
 | 现有 3 个硬编码 host、自签证书 | P0 一次性收敛，**换正式 CA 证书** |
 | **OSS 外网下行（唯一大额成本）** | 上传前压缩到长边 2048px + 列表走 400px `x-oss-process` 缩略图 + **AI 识别走内网 endpoint 读图（流量归零）**；下行 > 300 GB/月且连续 2 个月才评估 CDN |
@@ -616,3 +794,53 @@ CRDT、实时协同编辑、图片走增量同步（图片单独走对象存储�
 
 > 语言与 ORM 的完整论证（含被否决选项、翻盘条件、MySQL 的具体缺陷）见
 > **`../蓝图落地_后端技术选型重新分析.md`**。
+
+### v2.1 · 2026-09-20
+
+**定位**：客户端模型体系已定稿，本版**以客户端模型为准**重写数据契约（§7.2 / §7.3 / §7.4）。
+
+| # | 项 | v2.0 | **v2.1** | 依据 |
+|---|---|---|---|---|
+| 1 | 表数量 | 18 张 | **24 张**（客户端建模 17 + 服务端 7） | 新增 `orgs` / `floors` / `site_locations` / `drawing_versions` / `progress_entries`；`roles` / `files` / `defect_events` / `ai_calls` / `notifications` / `audit_logs` / `changes` 归服务端自有 |
+| 2 | 幂等键 | `client_uuid uuid` | **`client_id text`（ULID）** | 客户端 `SyncMeta` + `ids.dart`（ULID 时间有序、多端不撞、免易混淆字符） |
+| 3 | 主键 | `uuid PK gen_random_uuid()` | **`text PK`（客户端 ULID）** | 客户端离线先建记录，服务端不能另发主键 |
+| 4 | 公共列范围 | 所有业务表 | **仅客户端可写实体**（9 张）；档案类走全量拉取覆盖 | 档案量级极小，增量同步得不偿失 |
+| 5 | 坐标绑定 | 无 | **`drawing_version_id` 全链贯通**（`defects` / `captures` / `measure_sessions` / `room_scans` / `patrol_plans` / `patrol_records`）+ 校准与热点落在 `drawing_versions` | 客户端模型已对齐；改版即失效重校，不做自动坐标迁移 |
+| 6 | 取证字段 | `photo_hash` / `watermark_serial` | 同 v2.0，但**明确客户端模型已具备写入位**（`Defect.photoHash` / `watermarkSerial`），剩余为接线工作 | §1「取证链是断的」 |
+| 7 | 项目地理位置 | 无 | `projects.lat / lng`（B2，水印 GPS 兜底来源）+ `site_locations` 表 | 客户端 `Project.lat/lng` / `SiteLocation` |
+| 8 | 项目级量尺门槛 | `measure_sessions.tol_mm/tol_pct`（仅会话级） | 增 `projects.measure_thresholds jsonb`（B7 项目级门槛） | 客户端 `MeasureThresholds` 按项目唯一 |
+| 9 | 报告格式 | `reports.format`（单值） | **`reports.formats jsonb`（数组）** | 客户端同一份报告多格式**合并为一条** |
+| 10 | 施工进度 | 无表 | 新增 **`progress_entries`**（C4，`source` 固定 `contractor`） | 客户端 `ProgressEntry` |
+| 11 | **成员维度** | `memberships` 只有 `role_code`（无法表达专业） | 增 **`org_id` + `disciplines text[]`**：成员 = **职责 × 专业 × 单位** 三个正交维度；**空数组 = 不限专业**；专业与权限点「与」判定 | 解决「专业负责人（暖通 / 给排水 / 结构…）」如何落库；是「专业负责人只读视图」与责任指派的数据基础 |
+| 12 | **专业字典** | 无 | 新增 **`disciplines` 表**（code / name / sort / is_system） | 专业清单可后台扩展（总图 / 景观 / 幕墙 / 智能化 / 室内…），code 与 `defects.category` 复用同一套 |
+| 13 | 角色最小集 | 仅 seed `admin`/`editor`/`viewer` | 建议业务角色（**职责**维度）：`project_manager` / `discipline_lead` / `designer` / `site_engineer` / `contractor` / `viewer` | 客户端 `Membership.role*` 常量；真实名单仍由后台 `roles` 表定义 |
+
+**唯一键口径**：`measure_sessions` 按 `uniq(project_id, drawing_id)`，与客户端单格子存储及
+§9.5 会话型 LWW 一致；`drawing_version_id` 照常落库但不进唯一键（详见 §7.3）。
+如需逐版本历史，客户端改存储键即可，属增量演进、不阻塞首版建表。
+
+### v2.2 · 2026-09-20
+
+**定位**：客户端模型按**域**整理完毕（数据契约对齐落地），本版补齐**契约入口索引**（§7.3 开头）
+与若干口径修正，并把「已就位 / 待接线」分开写清，便于后端判断哪些列已有写入方。
+
+| # | 项 | v2.1 | **v2.2** | 依据 |
+|---|---|---|---|---|
+| 1 | **契约入口** | 只说「已按域拆 8 个文件」 | 新增 **「客户端契约入口索引」**（§7.3 开头，14 行）：域 → 入口文件 → 实体 → 表，含**不建表**的结构 | 后端不必翻 `lib/data/`；同时明确「哪些结构不必建表」 |
+| 2 | 账号与组织 | 与项目档案混在 `models/project.dart` | **拆出 `models/account.dart`**：`Org` / `Discipline` / `User` / `Membership`；`project.dart` 只留 `Project` / `Party` / `Milestone` / `Floor` / `SiteLocation` / `ProgressEntry` | `Membership` 归「项目档案」还是「账号」本来有歧义 |
+| 3 | 判定入口 | `Membership` 与 `PermissionScope` 都有 `can` / `coversDiscipline` / `canOn` | **收敛为唯一入口 `PermissionScope`**（`AuthProfile.scopeOf(projectId)`）；`Membership` 只留数据（仅 `isAllDisciplines`） | 同一判断两套语义（记录级 vs 合并级）会误用；本版把 §7.3 里 `canOn` 的表述同步改为 `PermissionScope.canOn` |
+| 4 | 同步公共列 | 契约已定，客户端未落 | **`SyncMeta` 已挂到全部可写实体**：`Defect` / `CaptureRecord` / `MeasureSession` / `RoomScanRecord` / `PatrolPlan` / `PatrolRecord` / `ReportRecord`（+ 档案侧的 `Membership` / `ProgressEntry`） | §7.2 的公共列已有写入位，后端建表即带不会再被动 |
+| 5 | `defects` 列 | 部分列「客户端尚无写入位」 | `Defect` 补齐 **`projectId`（required，编译期强制）** / `lat` / `lng` / `photoHash` / `watermarkSerial` / `respUserId` / `reporterId` / `replyById` / `designerById` | 取证四要素与「责任人关联 `memberships`」具备数据基础 |
+| 6 | `captures` | 客户端存**裸 Map**（`stored_vision_results`） | 新增 **`CaptureRecord` / `CaptureDefectItem`**，写入方与读取方共用同一 `toJson/fromJson`；`count` 改为由 `defects` 派生 | 后端不必再猜 Map 结构；历史数据可直接读回，**无需迁移** |
+| 7 | 专业维度 | 只定义了结构 | **明确第一版范围**：只做「结构专业」或「不分专业」（空数组 = 不限），**不实现按专业过滤的逻辑** | 避免过度设计；后续加专业不改表不发版（§6.1 / §7.3） |
+| 8 | 时间字段 | 未定 | `Defect.ts` / `replyTs` / `designerTs` **保留展示文本**（不改类型：mock 是 `const`、10+ 渲染点直接展示），另提供 `tsMs` / `replyTsMs` / `designerTsMs` 取 epoch 毫秒入 `found_at` / `reply_at` / `designer_at` | 项目现状优先；入库用派生 getter，零渲染改动 |
+| 9 | 文档路径 | `lib/data/models/sync_meta.dart` | **`lib/data/sync_meta.dart`** | 该文件本就在 `lib/data/` 下，§1.1 与 §7.2 一并修正 |
+| 10 | **barrel 完整性** | `ReportRecord` 留在 `lib/data/report_record.dart`，**未纳入 `models/` 也未导出**（全项目 5 处按路径直接 import） | **迁入 `models/report.dart` 并在 barrel 导出**，5 处直接 import 一并改为从 barrel 取 | 入库实体全部经 `models.dart`，契约入口唯一；后端只需认一个文件 |
+
+**v2.2 之后仍待接线（有列、但写入方还没填值 —— 不阻塞建表）**：
+
+| 列 | 现状 | 缺什么 |
+|---|---|---|
+| `defects.lat` / `lng` | 字段已就位 | 拍照/图纸打点目前只透传 `gpsText` 文本（`SiteLocation` 有数值经纬度），**未写入数值** |
+| `defects.photo_hash` / `watermark_serial` | 字段已就位 | 哈希与水印凭证号的计算/回传未接（`WatermarkMeta` 已有 serial） |
+| `defects.reporter_id` / `resp_user_id` / `reply_by_id` / `designer_by_id` | 字段已就位 | 目前只写人名字符串；需在登录态接入后填用户 id |

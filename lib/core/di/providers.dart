@@ -4,7 +4,6 @@ import '../../data/mock/mock_data.dart';
 import '../../data/mock/weekly_report_mock.dart';
 import '../../data/mock/patrol_report_mock.dart';
 import '../../data/weekly_report.dart';
-import '../../data/report_record.dart';
 import '../../data/repository/repository.dart';
 import '../../data/repository/mock_repository.dart';
 import '../../data/repository/remote_repository.dart';

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import '../storage/local_storage.dart';
-import '../../data/report_record.dart';
+import '../../data/models.dart';
 
 /// 巡场报告归档持久化（localStorage / Hive，平台无感）。
 ///

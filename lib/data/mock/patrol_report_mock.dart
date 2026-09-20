@@ -1,4 +1,4 @@
-import '../report_record.dart';
+import '../models.dart';
 
 /// 已生成巡场报告的演示种子（本地归档为空时由 [reportRecordsProvider] 兜底）。
 ///

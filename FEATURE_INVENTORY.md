@@ -122,7 +122,7 @@
 | 5.2 | 四端渲染：HTML / PDF / DOCX / XLSX（共享 `ReportContent` 中间层） | ✅ | `report_builder.dart`、`report_pdf.dart`、`report_docx.dart`、`report_xlsx.dart` |
 | 5.3 | 章节：照片墙 / 施工进度 / 台账 / 待协调问题 / 巡场清单闭环 / 量房记录 / 尺寸校对 / 巡场小结 | ✅ | `report_content.dart:214`（空板块自动剔除） |
 | 5.4 | 概览统计（含尺寸校对合格/超差/需复核计数） | ✅ | `report_content.dart:259-298` |
-| 5.5 | 报告归档（**只存元数据**，正文需重新导出） | 🟡 **存储与管理未设计** | `report_record.dart`、`report_record_store.dart`；无正文文件、无「这份报告包含哪些问题」的明细引用、无分享对象与签收状态 |
+| 5.5 | 报告归档（**只存元数据**，正文需重新导出） | 🟡 **存储与管理未设计** | `models/report.dart`、`report_record_store.dart`；无正文文件、无「这份报告包含哪些问题」的明细引用、无分享对象与签收状态 |
 | 5.6 | 巡场报告归档页（新建，未提交） | ✅ | `patrol/patrol_reports_page.dart`、`/patrol-reports` |
 | 5.7 | 平台门控（Web 下载；移动端分享；桌面落盘） | ✅ | `report_export.dart`、`report_share.dart` |
 
