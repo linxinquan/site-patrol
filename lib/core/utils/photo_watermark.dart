@@ -120,6 +120,8 @@ Future<Uint8List?> applyPhotoWatermark(
     fontSize: fontSz,
     fontWeight: FontWeight.w500,
     height: 1.3,
+    // 同上：显式 MiSans，避免 Web 端字体回退缺字出豆腐块。
+    fontFamily: 'MiSans',
   );
   var y = h - barH + 10.0;
   for (final line in meta.lines) {

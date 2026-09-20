@@ -77,7 +77,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) {
           int index = 0;
-          final loc = state.matchedLocation;
+          // ⚠️ 必须用 state.uri.path，不能用 state.matchedLocation。
+          // go_router 的 ShellRoute 在「imperative push」（context.push）时，
+          // shell 自己的 matchedLocation 仍是父级路径（如 /capture），
+          // 只有 state.uri 会更新为被 push 的路径（/capture/photo）。
+          // 用 matchedLocation 会导致「页内点拍照进二级页」时判不出二级页，
+          // 底栏 tabbar 不隐藏（深链直接进则正常）——这就是本页反复出现 tabbar 的根因。
+          final loc = state.uri.path;
           if (loc.startsWith('/projects')) {
             index = 1;
           } else if (loc.startsWith('/patrol')) {
@@ -92,12 +98,18 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           final cameraActive =
               loc.startsWith('/capture') || loc.startsWith('/capture-records');
+          // 仅「拍照识别」二级页（/capture/photo，operate 阶段）隐藏底部 tabbar，
+          // 保持专注拍照；验收页（/capture、/capture/select）与验收记录保留底部导航，
+          // 以便快速切换其它 tab。（深链进入与页内 push 进入都要生效，见上方 loc 说明）
+          final hideBottomNav = loc.startsWith('/capture/photo');
           return Scaffold(
             body: child,
-            bottomNavigationBar: AppBottomNav(
-              currentIndex: index,
-              cameraActive: cameraActive,
-            ),
+            bottomNavigationBar: hideBottomNav
+                ? null
+                : AppBottomNav(
+                    currentIndex: index,
+                    cameraActive: cameraActive,
+                  ),
           );
         },
         routes: [

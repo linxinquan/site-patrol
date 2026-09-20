@@ -27,6 +27,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/providers.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_primary_button.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../shared/widgets/nav_icon_button.dart';
@@ -40,11 +41,45 @@ const double _defaultTolPct = 5;
 /// Web 产物构建戳：挂在结果区 Semantics 上（无 UI 影响）。
 /// 构建后用它在 main.dart.js 里验证产物确实是本次编译——
 /// 沙箱构建常部分失败，此前曾把旧缓存 bundle 当最新交付过（用户三次反馈间距未生效）。
-const String kCaptureBuildStamp = 'capture-web-build-20260917-1800';
+const String kCaptureBuildStamp = 'capture-web-build-20260918-1722';
 
 /// 拍照验收页：图纸 + 图钉选点 → 现场拍照（移动端 `image_picker` 真实相机 / Web 相册选图）
 /// → 用户手动触发 AI 识别 → 保存记录。
 /// 注意：AI 不再自动触发；水印烧录在 UI isolate 上执行，会阻塞主线程 300~800ms（见 `_commitPhoto`）。
+/// 透明通道棋盘格画笔：在给定尺寸内绘制灰白相间的方格，
+/// 用于模拟设计软件中「透明背景」的展示效果。
+class _CheckerboardPainter extends CustomPainter {
+  final Color light;
+  final Color dark;
+  final double tile;
+
+  const _CheckerboardPainter({
+    required this.light,
+    required this.dark,
+    this.tile = 16,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    final cols = (size.width / tile).ceil();
+    final rows = (size.height / tile).ceil();
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        paint.color = ((r + c) % 2 == 0) ? light : dark;
+        canvas.drawRect(
+          Rect.fromLTWH(c * tile, r * tile, tile, tile),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CheckerboardPainter old) =>
+      old.light != light || old.dark != dark || old.tile != tile;
+}
+
 class CapturePage extends ConsumerStatefulWidget {
   final CaptureArgs args;
   final CapturePageStage stage;
@@ -1007,48 +1042,32 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         toolbarHeight: 48,
         scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        leadingWidth: isSelectStage ? null : 0,
+        // 拍照识别页：真实 leading（返回键，宽度 12+24=36）+ actions（同 36 宽），
+        // 左右等宽配合 centerTitle 才能让标题真正居中（此前用 Stack 叠返回键，
+        // 标题被夹在 0 宽 leading 与 36 宽 actions 之间，整体偏左约 18）。
+        leading: isSelectStage
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: NavIconButton(
+                  icon: MingCuteIcons.leftLine,
+                  color: const Color(0xFF09244B),
+                  onPressed: () => context.pop(),
+                ),
+              ),
+        leadingWidth: isSelectStage ? null : 36,
         titleSpacing: isSelectStage ? 12 : 0,
         centerTitle: !isSelectStage,
-        title: isSelectStage
-            ? Text(
-                pageTitle,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  height: 32 / 24,
-                  color: AppTokens.fg,
-                ),
-              )
-            : Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 12),
-                      child: NavIconButton(
-                        icon: MingCuteIcons.leftLine,
-                        color: const Color(0xFF09244B),
-                        onPressed: () => context.pop(),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 48),
-                    child: Text(
-                      pageTitle,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 24 / 16,
-                        color: AppTokens.fg,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        title: Text(
+          pageTitle,
+          textAlign: isSelectStage ? TextAlign.start : TextAlign.center,
+          style: TextStyle(
+            fontSize: isSelectStage ? 24 : 16,
+            fontWeight: FontWeight.w600,
+            height: isSelectStage ? 32 / 24 : 24 / 16,
+            color: AppTokens.fg,
+          ),
+        ),
         actions: isSelectStage
             ? const [
                 Padding(
@@ -1060,7 +1079,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
                   child: NavIconButton(
-                    icon: MingCuteIcons.photoAlbumLine,
+                    icon: MingCuteIcons.photoAlbum2Line,
                     color: const Color(0xFF09244B),
                     onPressed: _showStoredSheet,
                   ),
@@ -1120,21 +1139,16 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                           ),
                         ),
                       ],
-                      // 验收概览：「重拍 | AI 识别」按钮行下方。
-                      if (_defects.isNotEmpty ||
-                          _scaleChecks.isNotEmpty ||
-                          _storedResults.isNotEmpty) ...[
+                      // 拍照后概览卡（Figma 同款）：统计三栏 + 重拍/AI 识别 按钮，拍完即显示。
+                      if (_shotPhoto != null) ...[
                         const SizedBox(height: AppTokens.space3),
-                        _buildSummaryCard(),
+                        _buildResultOverviewCard(),
                       ],
                       const SizedBox(height: AppTokens.space3),
                       // ⑥ 结果区：分段（问题清单同款，卡外）+ 白卡内容。
                       _buildResultTabs(),
                       const SizedBox(height: AppTokens.space2),
                       _buildResultBody(),
-                      const SizedBox(height: AppTokens.space3),
-                      // ⑦ 保存记录按钮随内容滚动（不吸附底部）。
-                      _buildControls(),
                     ],
                   ],
                   const SizedBox(height: AppTokens.space6),
@@ -1142,22 +1156,22 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
             ),
           ),
+          // 拍照识别页：「保存记录」按钮吸附底部（不随内容滚动，始终可见）。
+          if (!isSelectStage) _buildStickyControls(),
         ],
       ),
     );
   }
 
   /// 验收页主按钮：放在图纸下方，只负责进入拍照页，不在这里做识别和保存。
+  /// 规范（Frame 2147228056）：品牌蓝 #0395FF 实色底、高 48、圆角 8、
+  /// 左右 padding 24、白字 16/W500、满宽。
   Widget _buildSelectControls() {
-    return SizedBox(
-      width: double.infinity,
-      child: AppButton(
-        size: AppButtonSize.lg,
-        width: double.infinity,
-        radius: AppTokens.radiusMd,
-        label: '拍照',
-        onPressed: _openPhotoStage,
-      ),
+    // 主按钮统一走 AppPrimaryButton（内部已锁死 48 / 圆角 8 / 16 / W500 / 品牌蓝），
+    // 不再手工覆写 AppButton 的档位参数，避免尺寸被主题密度或默认值带偏。
+    return AppPrimaryButton(
+      label: '拍照',
+      onPressed: _openPhotoStage,
     );
   }
 
@@ -1333,12 +1347,12 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
             ),
             Text(
-              hasPoint ? '已选点' : '未选点',
-              style: const TextStyle(
+              hasPoint ? '已选点' : '请在图纸上选点击确定部位',
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 height: 22 / 14,
-                color: AppTokens.fg,
+                color: hasPoint ? AppTokens.fg : AppTokens.fg2,
               ),
             ),
           ],
@@ -1385,65 +1399,122 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
-  /// 本次验收概览：识别缺陷 / 量尺合格 / 留痕照片。
-  /// 样式对齐首页项目统计条（_MetricItem）：彩色数值 20/W600 + 标签 12/W400，无图标无分隔线。
-  Widget _buildSummaryCard() {
+  /// 拍照后概览卡（Figma 同款）：白卡（12 内边距 / 圆角 8）+ 统计三栏
+  /// （量尺合格 / 留痕照片 / 识别缺陷，数值 14/W600、标签 12/W400 #60656B）
+  /// + 重拍 / AI 识别 按钮行。识别缺陷数恒定红色强调。
+  Widget _buildResultOverviewCard() {
     final defectTotal = _defects.length;
-    final severe = _defects
-        .where((d) =>
-            d.severity == DefectSeverity.red ||
-            d.severity == DefectSeverity.orange)
-        .length;
     final scaleTotal = _scaleChecks.length;
     final scalePass = _scaleChecks.where((c) => c.pass(_tolMm, _tolPct)).length;
     final photoTotal = _storedResults.length;
+    final retakeEnabled = !_committing;
+    final scanEnabled = _shotPhoto != null && !_scanning && !_committing;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: AppTokens.space3),
+      padding: const EdgeInsets.all(AppTokens.space3),
       decoration: BoxDecoration(
         color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _statItem(
-              '$defectTotal',
-              '识别缺陷',
-              severe > 0
-                  ? AppTokens.danger
-                  : (defectTotal > 0 ? AppTokens.fg : AppTokens.fg2)),
-          _statItem(
-              '$scalePass/$scaleTotal',
-              '量尺合格',
-              scaleTotal > 0 && scalePass == scaleTotal
-                  ? AppTokens.success
-                  : (scaleTotal > 0 ? AppTokens.warning : AppTokens.fg2)),
-          _statItem('$photoTotal', '留痕照片',
-              photoTotal > 0 ? AppTokens.fg : AppTokens.fg2),
+          Row(
+            children: [
+              _overviewStat('$defectTotal', '识别缺陷',
+                  valueColor: const Color(0xFFFF4444)),
+              _overviewStat('$scalePass/$scaleTotal', '量尺合格'),
+              _overviewStat('$photoTotal', '留痕照片'),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space3),
+          Row(
+            children: [
+              Expanded(
+                child: _overviewActionButton(
+                  icon: MingCuteIcons.cameraRotateLine,
+                  label: '重新拍照',
+                  primary: false,
+                  enabled: retakeEnabled,
+                  onPressed: retakeEnabled ? _retake : null,
+                ),
+              ),
+              const SizedBox(width: AppTokens.space3),
+              Expanded(
+                child: _overviewActionButton(
+                  icon: MingCuteIcons.aiLine,
+                  label: _scanning ? '分析中…' : 'AI 识别',
+                  primary: true,
+                  enabled: scanEnabled,
+                  onPressed: scanEnabled ? _runScan : null,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  /// 统计项（首页同款）：彩色数值 20/W600 + 标签 12/W400。
-  Widget _statItem(String value, String label, Color valueColor) {
+  /// 概览统计项：数值 14/W600 + 标签 12/W400 #60656B；识别缺陷恒红。
+  Widget _overviewStat(String value, String label, {Color valueColor = AppTokens.fg}) {
     return Expanded(
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(value,
               style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: valueColor,
-                  height: 28 / 20)),
+                  height: 22 / 14)),
           Text(label,
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w400,
-                  color: AppTokens.fg,
+                  color: AppTokens.fg2,
                   height: 20 / 12)),
         ],
+      ),
+    );
+  }
+
+  /// 概览卡内动作按钮（无 hover，App 风格）：次要=灰底 #F4F6F7 + 品牌色文字图标；
+  /// 主要=品牌蓝填充 + 白字图标。高度 42、圆角 8、图标 20、文字 14/W500。
+  Widget _overviewActionButton({
+    required IconData icon,
+    required String label,
+    required bool primary,
+    required bool enabled,
+    required VoidCallback? onPressed,
+  }) {
+    final fg = primary
+        ? (enabled ? Colors.white : Colors.white.withValues(alpha: 0.6))
+        : (enabled ? AppTokens.accent : AppTokens.muted);
+    return GestureDetector(
+      onTap: enabled ? onPressed : null,
+      child: Container(
+        height: 42,
+        decoration: BoxDecoration(
+          color: primary
+              ? (enabled ? AppTokens.accent : AppTokens.accent.withValues(alpha: 0.4))
+              : AppTokens.bg,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20, color: fg),
+            SizedBox(width: primary ? 4 : 8),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 22 / 14,
+                    color: fg)),
+          ],
+        ),
       ),
     );
   }
@@ -1506,20 +1577,24 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     return Semantics(
       label: kCaptureBuildStamp, // 构建戳：仅用于产物校验，无 UI 影响。
       excludeSemantics: true,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(AppTokens.space3),
-        decoration: BoxDecoration(
-          color: AppTokens.surface,
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        ),
-        // 直接切换内容，不加淡入淡出动画（与问题清单分段一致，避免切换闪烁）。
-        child: switch (_resultTab) {
-          0 => _resultDefects(),
-          1 => _resultScale(),
-          _ => _resultNote(),
-        },
-      ),
+      // 「AI 识别」分段：缺陷卡片本身就是白卡（稿 Frame 2147228169），
+      // 直接铺在页面灰底上，不再套一层白卡，避免白压白看不出层级。
+      // 其余分段（量尺 / 留痕）仍用白卡包裹。
+      child: _resultTab == 0
+          ? _resultDefects()
+          : Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppTokens.space3),
+              decoration: BoxDecoration(
+                color: AppTokens.surface,
+                borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+              ),
+              // 直接切换内容，不加淡入淡出动画（与问题清单分段一致，避免切换闪烁）。
+              child: switch (_resultTab) {
+                1 => _resultScale(),
+                _ => _resultNote(),
+              },
+            ),
     );
   }
 
@@ -2081,56 +2156,17 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         text: '尚未识别到缺陷\n在下方拍照区拍摄后，点「AI 分析」自动识别',
       );
     }
-    final counts = <DefectSeverity, int>{};
-    for (final d in _defects) {
-      counts[d.severity] = (counts[d.severity] ?? 0) + 1;
-    }
+    // 严重度分布胶囊已移除：设计稿 Frame 2147228169 只含卡片（统计在上方的概览卡里）。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 严重度分布（Wrap 自动换行，防窄屏溢出）
-        Wrap(
-          spacing: AppTokens.space1 + 2,
-          runSpacing: AppTokens.space1 + 2,
-          children: DefectSeverity.values
-              .where(counts.containsKey)
-              .map((s) => _severityChip(s, counts[s]!))
-              .toList(),
-        ),
-        const SizedBox(height: AppTokens.space2 + 2),
-        ..._defects.map(_buildDefectCard),
-      ],
-    );
-  }
-
-  /// 严重度分布胶囊：色点 + 标签 + 数量（浅底取自身 5% 透明）。
-  Widget _severityChip(DefectSeverity s, int n) {
-    final c = s.color;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(AppTokens.radiusPill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Text('${s.label} $n',
-              style: TextStyle(
-                  fontSize: 11,
-                  height: 1,
-                  fontWeight: FontWeight.w500,
-                  color: c)),
+        for (int i = 0; i < _defects.length; i++) ...[
+          _buildDefectCard(_defects[i]),
+          // 卡片间距 12（稿 gap: 12），末张后不再补间距。
+          if (i != _defects.length - 1) const SizedBox(height: AppTokens.space3),
         ],
-      ),
+      ],
     );
   }
 
@@ -2479,124 +2515,189 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
+  /// 卡片内严重度配色：设计稿「严重」用 #FF4444（与 App 语义色 danger #FF3B30 不同），
+  /// 其余分级沿用模型语义色。
+  static Color _cardSeverityColor(DefectSeverity s) =>
+      s == DefectSeverity.red ? const Color(0xFFFF4444) : s.color;
+
+  /// AI 识别缺陷卡片（Figma Frame 2147228169 / 2131330688）。
+  /// 白卡：圆角 8、内距 12；内部两段，段内 gap 8、段间 gap 12。
+  /// ① 标题行（名称 16/W600/#202224 + 严重度**实心底白字**胶囊 12/W500）
+  ///    → 描述（14/W400 行高 22 / #60656B）
+  ///    → 置信度条（自身色 5% 浅底、圆角 8、内距 8：4 高胶囊进度条 + 百分比 14/W500）
+  /// ② 整改建议：「整改建议：」(#60656B) + 处置动作(#0395FF W500) → 灰底(#F4F6F7) 圆角 8 正文
+  /// 自适应：不写死 366 宽，随父级铺满；进度条用 Expanded 吃掉剩余宽度，窄屏不溢出。
   Widget _buildDefectCard(VlDefect d) {
     final sev = d.severity;
-    final sevColor = sev.color;
+    final sevColor = _cardSeverityColor(sev);
     final conf = (d.conf * 100).clamp(0.0, 100.0);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Container(
-        padding: const EdgeInsets.all(AppTokens.space2 + 2),
-        decoration: BoxDecoration(
-          color: AppTokens.surface2,
-          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                // 标签浅底规范：取自身文字色 5% 透明
-                color: sevColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-              ),
-              child: Icon(MingCuteIcons.alertLine, size: 17, color: sevColor),
-            ),
-            const SizedBox(width: AppTokens.space2 + 2),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final desc = d.desc?.trim() ?? '';
+    final suggestion = d.suggestion?.trim() ?? '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTokens.space3),
+      decoration: BoxDecoration(
+        color: AppTokens.surface,
+        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ① 上半段：标题 / 描述 / 置信度
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Text(d.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                height: 1.3,
-                                color: AppTokens.fg)),
+                  Expanded(
+                    child: Text(
+                      d.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 24 / 16,
+                        color: AppTokens.fg,
                       ),
-                      const SizedBox(width: AppTokens.space2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: sevColor.withValues(alpha: 0.05),
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusPill),
-                        ),
-                        child: Text(sev.label,
-                            style: TextStyle(
-                                fontSize: 11,
-                                height: 1,
-                                fontWeight: FontWeight.w500,
-                                color: sevColor)),
-                      ),
-                    ],
-                  ),
-                  if (d.desc != null && d.desc!.isNotEmpty) ...[
-                    const SizedBox(height: AppTokens.space1 + 2),
-                    Text(d.desc!,
-                        style: const TextStyle(
-                            fontSize: 12, height: 1.5, color: AppTokens.muted)),
-                  ],
-                  const SizedBox(height: AppTokens.space2),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(AppTokens.radiusPill),
-                          child: LinearProgressIndicator(
-                            value: conf / 100,
-                            minHeight: 4,
-                            backgroundColor: AppTokens.border,
-                            valueColor: AlwaysStoppedAnimation(sevColor),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppTokens.space2),
-                      Text('置信度 ${conf.toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                              fontSize: 11, height: 1, color: AppTokens.muted)),
-                    ],
-                  ),
-                  if (d.suggestion != null && d.suggestion!.isNotEmpty) ...[
-                    const SizedBox(height: AppTokens.space2 + 2),
-                    // 整改建议：平铺在灰卡内（图标行 + 正文），不再嵌套色块，
-                    // 层级保持「页面 → 灰卡」两层。
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Icon(MingCuteIcons.flashLine,
-                            size: 12, color: AppTokens.accent),
-                        const SizedBox(width: 4),
-                        Text('整改建议 · ${sev.action}',
-                            style: const TextStyle(
-                                fontSize: 11,
-                                height: AppTokens.heightCalibrated,
-                                fontWeight: FontWeight.w600,
-                                color: AppTokens.accent)),
-                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(d.suggestion!,
-                        style: const TextStyle(
-                            fontSize: 12, height: 1.5, color: AppTokens.fg)),
-                  ],
+                  ),
+                  const SizedBox(width: AppTokens.space2),
+                  // 严重度胶囊：实心底 + 白字（稿：内距 1×8、高 22、圆角 6、12/W500）
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: sevColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      sev.label,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                 ],
               ),
+              if (desc.isNotEmpty) ...[
+                const SizedBox(height: AppTokens.space2),
+                Text(
+                  desc,
+                  strutStyle: const StrutStyle(
+                    fontSize: 14,
+                    height: 22 / 14,
+                    forceStrutHeight: true,
+                  ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 14,
+                    color: AppTokens.fg2,
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppTokens.space2),
+              // 置信度条：稿为「进度条 + 百分比」两端对齐，浅底内距 8、圆角 8。
+              Container(
+                padding: const EdgeInsets.all(AppTokens.space2),
+                decoration: BoxDecoration(
+                  // 标签浅底规范：取自身文字色 5% 透明
+                  color: sevColor.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius:
+                            BorderRadius.circular(AppTokens.radiusPill),
+                        child: LinearProgressIndicator(
+                          value: conf / 100,
+                          minHeight: 4,
+                          backgroundColor: AppTokens.border,
+                          valueColor: AlwaysStoppedAnimation(sevColor),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '置信度 ${conf.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 22 / 14,
+                        color: sevColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // ② 下半段：整改建议
+          if (suggestion.isNotEmpty) ...[
+            const SizedBox(height: AppTokens.space3),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 稿：行内两个文本紧邻（无 gap），动作词用品牌蓝强调。
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text(
+                      '整改建议：',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 22 / 14,
+                        color: AppTokens.fg2,
+                      ),
+                    ),
+                    Text(
+                      sev.action,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 22 / 14,
+                        color: AppTokens.accent,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppTokens.space1),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppTokens.space2),
+                  decoration: BoxDecoration(
+                    color: AppTokens.surface2,
+                    borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+                  ),
+                  child: Text(
+                    suggestion,
+                    strutStyle: const StrutStyle(
+                      fontSize: 14,
+                      height: 22 / 14,
+                      forceStrutHeight: true,
+                    ),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 22 / 14,
+                      color: AppTokens.fg2,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -2606,6 +2707,31 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   /// 拍照区：居中正方形照片（contain 显示，留白灰白方块）。
   /// - 未拍照：方块内居中显示「拍照」入口（点击调相机，替代原蓝色圆形快门）。
   /// - 已拍照：显示照片，下方一行 [重拍 | AI 识别]（左重拍、右 AI 识别）。
+  /// 透明通道棋盘格（模拟设计软件里表示「透明背景」的灰白相间网格）。
+  /// 用于拍照预览方块的底色：照片以 [BoxFit.contain] 居中时，四周露出的区域
+  /// 即显示此棋盘格，而非纯灰底。
+  static const Color _checkerLight = Color(0xFFFFFFFF);
+  static const Color _checkerDark = Color(0xFFD9DCE0);
+  static const double _checkerTile = 16;
+
+  Widget _buildCheckerBackground({required Widget child}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _CheckerboardPainter(
+              light: _checkerLight,
+              dark: _checkerDark,
+              tile: _checkerTile,
+            ),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+
   Widget _buildPhotoPreviewBlock() {
     final committedPhoto = _shotPhoto;
     final pendingShot = _pendingShot;
@@ -2615,33 +2741,33 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       return InkWell(
         onTap: _doCapture,
         borderRadius: BorderRadius.circular(AppTokens.radiusLg),
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: Container(
-            color: AppTokens.surface3,
-            alignment: Alignment.center,
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  MingCuteIcons.cameraLine,
-                  size: 36,
-                  color: AppTokens.muted,
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: _buildCheckerBackground(
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      MingCuteIcons.cameraLine,
+                      size: 36,
+                      color: AppTokens.muted,
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      '拍照',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 14,
+                        color: AppTokens.muted,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 8),
-                Text(
-                  '拍照',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 20 / 14,
-                    color: AppTokens.muted,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
       );
     }
 
@@ -2652,8 +2778,7 @@ class _CapturePageState extends ConsumerState<CapturePage> {
           borderRadius: BorderRadius.circular(AppTokens.radiusLg),
           child: AspectRatio(
             aspectRatio: 1,
-            child: Container(
-              color: AppTokens.surface3,
+            child: _buildCheckerBackground(
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -2719,31 +2844,6 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               ),
             ),
           ),
-        ),
-        const SizedBox(height: AppTokens.space2),
-        Row(
-          children: [
-            Expanded(
-              child: AppButton(
-                size: AppButtonSize.lg,
-                outlined: true,
-                radius: AppTokens.radiusMd,
-                label: '重拍',
-                onPressed: _committing ? null : () => _retake(),
-              ),
-            ),
-            const SizedBox(width: AppTokens.space3),
-            Expanded(
-              child: AppButton(
-                size: AppButtonSize.lg,
-                radius: AppTokens.radiusMd,
-                label: _scanning ? '分析中…' : 'AI 识别',
-                onPressed: (_shotPhoto == null || _scanning || _committing)
-                    ? null
-                    : _runScan,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -3055,15 +3155,10 @@ class _CapturePageState extends ConsumerState<CapturePage> {
                       : () => context.push('/capture-records'),
                 ),
               );
-              final primaryAction = SizedBox(
+              final primaryAction = AppPrimaryButton(
                 width: compact ? double.infinity : null,
-                child: AppButton(
-                  size: AppButtonSize.lg,
-                  width: compact ? double.infinity : null,
-                  radius: AppTokens.radiusMd,
-                  label: primaryLabel,
-                  onPressed: _startNextCaptureCycle,
-                ),
+                label: primaryLabel,
+                onPressed: _startNextCaptureCycle,
               );
               if (compact) {
                 // 窄屏时把两个底部动作改成上下堆叠，避免文案过长挤压。
@@ -3086,16 +3181,31 @@ class _CapturePageState extends ConsumerState<CapturePage> {
               );
             },
           )
-        : SizedBox(
-            width: double.infinity,
-            child: AppButton(
-              size: AppButtonSize.lg,
-              width: double.infinity,
-              radius: AppTokens.radiusMd,
-              label: label,
-              onPressed: canSave ? _saveRecord : null,
-            ),
+        : AppPrimaryButton(
+            label: label,
+            onPressed: canSave ? _saveRecord : null,
           );
+  }
+
+  /// 「保存记录」底部吸附操作条：仅拍照识别页、且处于拍照步骤（_step==capture）时显示。
+  /// 背景同页面、顶部细分割线，底部预留安全区，使主操作始终可见、不随内容滚动。
+  /// 按钮沿用 [_buildControls]（AppPrimaryButton：高 48 / 圆角 8 / 字 16 / W500），与规范一致。
+  Widget _buildStickyControls() {
+    if (_step != _CaptureStep.capture) return const SizedBox.shrink();
+    final bottom = MediaQuery.of(context).viewPadding.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        AppTokens.space3,
+        AppTokens.space2,
+        AppTokens.space3,
+        bottom + AppTokens.space3,
+      ),
+      decoration: const BoxDecoration(
+        color: AppTokens.bg,
+        border: const Border(top: BorderSide(color: AppTokens.border, width: 1)),
+      ),
+      child: _buildControls(),
+    );
   }
 
   /// 当前图纸的拍照记录列表（按 drawingKey 过滤）。
@@ -3103,41 +3213,133 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       .where((e) => (e['drawingKey'] as String? ?? '') == _drawingKey)
       .toList();
 
-  /// 「拍照记录」图标入口：底部弹窗展示当前图纸的历史留痕列表
-  /// （内容复用分段 [_resultStored]，按 drawingKey 过滤）。
+  /// 「拍照记录」图标入口：底部弹窗展示当前图纸的历史留痕列表（按 drawingKey 过滤）。
+  /// 设计规范（Figma 2147228009）：弹窗底 #F4F6F7、顶部圆角 24、内容水平内缩 12、底部 24。
+  /// 自适应：窄屏（<540）贴底满宽；宽屏按 Figma 浮窗规范 390 宽、底部留 34、水平居中。
   void _showStoredSheet() {
-    AppBottomSheet.show<void>(
-      context: context,
-      title: '拍照记录',
-      body: (ctx) => _resultStored(),
-    );
-  }
-
-  /// 「拍照记录」底部弹窗内容：当前图纸的历史留痕列表（按 drawingKey 过滤）。
-  /// 设计规范：弹窗底 #F4F6F7，列表项为白卡（surface，radiusLg，padding 12），无描边。
-  Widget _resultStored() {
+    final drawingTitle =
+        ref.read(drawingsProvider).valueOrNull?[_drawingKey]?.title ?? '未选择图纸';
     final items = _filteredStoredResults;
-    if (items.isEmpty) {
-      return _resultEmpty(
-        icon: MingCuteIcons.historyLine,
-        text: '本图纸暂无拍照记录\n保存后会自动归档到此处，可随时回看',
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('本图纸拍照记录 · ${items.length} 条',
-            style: const TextStyle(
-                fontSize: 11,
-                height: AppTokens.heightCalibrated,
-                color: AppTokens.muted)),
-        const SizedBox(height: AppTokens.space2),
-        ...items.map(_buildStoredResultTile),
-      ],
+    showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x80000000),
+      builder: (ctx) {
+        final mq = MediaQuery.of(ctx);
+        final bottomSafe = mq.padding.bottom;
+        final wide = mq.size.width >= 540;
+        final sheet = _buildStoredSheetPanel(
+            ctx, items, drawingTitle, bottomSafe, wide);
+        if (!wide) return sheet;
+        // 桌面端浮窗：390 宽、底部留 34、水平居中。
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 34),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 390),
+              child: sheet,
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildStoredResultTile(Map<String, dynamic> e) {
+  /// 拍照记录底部弹窗面板：灰底圆角容器 + 头部 + 可滚动列表，按可用高度内部滚动。
+  Widget _buildStoredSheetPanel(
+    BuildContext ctx,
+    List<Map<String, dynamic>> items,
+    String drawingTitle,
+    double bottomSafe,
+    bool wide,
+  ) {
+    final maxH = (wide
+            ? MediaQuery.of(ctx).size.height - 24 - 34
+            : MediaQuery.of(ctx).size.height - 24) -
+        bottomSafe;
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTokens.bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(12, 0, 12, 24 + bottomSafe),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStoredSheetHeader(() => Navigator.pop(ctx)),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: SingleChildScrollView(
+              child: items.isEmpty
+                  ? _resultEmpty(
+                      icon: MingCuteIcons.historyLine,
+                      text: '本图纸暂无拍照记录\n保存后会自动归档到此处，可随时回看',
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text('本图纸拍照记录：${items.length}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              height: 24 / 14,
+                              color: AppTokens.fg2,
+                            )),
+                        const SizedBox(height: 12),
+                        ...items.map(
+                            (e) => _buildStoredResultTile(e, drawingTitle)),
+                      ],
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 弹窗头部：高 48，标题「拍照记录」水平居中（W600/16/#202224），右上 24×24 关闭按钮。
+  Widget _buildStoredSheetHeader(VoidCallback onClose) => SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Text(
+              '拍照记录',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 24 / 16,
+                color: AppTokens.fg,
+              ),
+            ),
+            Positioned(
+              top: 12,
+              right: 0,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onClose,
+                child: const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Icon(MingCuteIcons.closeMediumLine,
+                      size: 24, color: Color(0xFF09244B)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  /// 单条拍照记录卡片（Figma 2147228110）：白卡 #FFFFFF、圆角 8、内距 12。
+  /// 布局：① 72 缩略图 +（标题 14/W500 + 「已选点」标签、缺陷摘要 12）；② 时间 + 删除。
+  Widget _buildStoredResultTile(Map<String, dynamic> e, String drawingTitle) {
     final defects = (e['defects'] as List? ?? const [])
         .map((d) => d is Map<String, dynamic> ? d : const <String, dynamic>{})
         .toList();
@@ -3147,63 +3349,84 @@ class _CapturePageState extends ConsumerState<CapturePage> {
         .where((n) => n.isNotEmpty)
         .join('、');
     final note = (e['note'] as String? ?? '').trim();
+    final defectSummary = '识别 $count 处缺陷'
+        '${names.isNotEmpty ? '·$names' : ''}'
+        '${note.isNotEmpty ? '·$note' : ''}';
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppTokens.space2),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: AppTokens.surface,
-        borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
         child: InkWell(
           onTap: () => _openStoredDetail(e),
-          borderRadius: BorderRadius.circular(AppTokens.radiusLg),
+          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
           child: Padding(
-            padding: const EdgeInsets.all(AppTokens.space3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildStoredPhoto(e),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildStoredPhoto(e),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text('${e['anchor']} · ${e['floor']}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    height: AppTokens.heightCalibrated,
-                                    color: AppTokens.fg)),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  drawingTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    height: 22 / 14,
+                                    color: AppTokens.fg,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildSelectedBadge(),
+                            ],
                           ),
-                          const SizedBox(width: AppTokens.space2),
-                          Text('${e['ts']}',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  height: AppTokens.heightCalibrated,
-                                  color: AppTokens.muted)),
+                          const SizedBox(height: 4),
+                          Text(
+                            defectSummary,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              height: 20 / 12,
+                              color: AppTokens.muted,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                          '识别 $count 处缺陷 · $names'
-                          '${note.isNotEmpty ? ' · 含描述' : ''}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11,
-                              height: AppTokens.heightCalibrated,
-                              color: AppTokens.muted)),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(MingCuteIcons.deleteLine, size: 18),
-                  color: AppTokens.muted,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _confirmDeleteStored(e),
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${e['ts'] ?? ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 20 / 12,
+                        color: AppTokens.muted,
+                      ),
+                    ),
+                    _buildDeleteButton(e),
+                  ],
                 ),
               ],
             ),
@@ -3212,6 +3435,51 @@ class _CapturePageState extends ConsumerState<CapturePage> {
       ),
     );
   }
+
+  /// 「已选点」标签：#F4F6F7 底、圆角 6、12 字 #919499（Figma 2131330661）。
+  Widget _buildSelectedBadge() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: AppTokens.surface2,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          '已选点',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            height: 20 / 12,
+            color: AppTokens.muted,
+          ),
+        ),
+      );
+
+  /// 删除入口：delete_2_line 16 红图标 + 「删除」12 红字（Figma：#FF4444）。
+  Widget _buildDeleteButton(Map<String, dynamic> e) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _confirmDeleteStored(e),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: const [
+              Icon(MingCuteIcons.delete2Line,
+                  size: 16, color: Color(0xFFFF4444)),
+              SizedBox(width: 4),
+              Text(
+                '删除',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w400,
+                  height: 20 / 12,
+                  color: Color(0xFFFF4444),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 
   /// 删除暂存条目前二次确认（避免误删照片文件）。
   Future<void> _confirmDeleteStored(Map<String, dynamic> e) async {
@@ -3258,26 +3526,28 @@ class _CapturePageState extends ConsumerState<CapturePage> {
   }
 
   /// 暂存条目的照片缩略图：移动端从 LocalStorage 读文件，Web 无图则不显示。
+  /// 暂存条目的照片缩略图：72×72、圆角 6、#D9D9D9 占位（Figma Rectangle 1000003219）。
+  /// 移动端从 LocalStorage 读文件，Web 无图则显示灰色占位。
   Widget _buildStoredPhoto(Map<String, dynamic> e) {
     final rel = e['photo'] as String?;
-    if (rel == null) return const SizedBox.shrink();
-    return FutureBuilder<Uint8List?>(
-      future: LocalStorage.instance.readFile(rel),
-      builder: (ctx, snap) {
-        final bytes = snap.data;
-        if (bytes == null || bytes.isEmpty) return const SizedBox.shrink();
-        return Container(
-          width: 56,
-          height: 56,
-          margin: const EdgeInsets.only(right: AppTokens.space2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-            border: Border.all(color: AppTokens.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Image.memory(bytes, fit: BoxFit.cover),
-        );
-      },
+    return SizedBox(
+      width: 72,
+      height: 72,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: rel == null
+            ? Container(color: const Color(0xFFD9D9D9))
+            : FutureBuilder<Uint8List?>(
+                future: LocalStorage.instance.readFile(rel),
+                builder: (ctx, snap) {
+                  final bytes = snap.data;
+                  if (bytes == null || bytes.isEmpty) {
+                    return Container(color: const Color(0xFFD9D9D9));
+                  }
+                  return Image.memory(bytes, fit: BoxFit.cover);
+                },
+              ),
+      ),
     );
   }
 

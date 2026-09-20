@@ -24,6 +24,7 @@ class AppButton extends StatelessWidget {
   final double? width;
   final Color? disabledBgColor;
   final double? radius;
+  final FontWeight? fontWeight; // 可选：覆盖档位默认字重（如按设计稿指定 500）
 
   const AppButton({
     super.key,
@@ -35,6 +36,7 @@ class AppButton extends StatelessWidget {
     this.width,
     this.disabledBgColor,
     this.radius,
+    this.fontWeight,
   });
 
   (double h, double px, double fs, FontWeight fw) _metrics() {
@@ -82,6 +84,9 @@ class AppButton extends StatelessWidget {
       minimumSize: Size(width ?? 0, h),
       maximumSize: Size(width ?? double.infinity, h),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      // 兜底：不依赖主题，显式锁定 standard 密度。否则 web/桌面端会把
+      // minimumSize/maximumSize 各缩 8px（lg 48 → 40），与设计稿差一档。
+      visualDensity: VisualDensity.standard,
       padding: EdgeInsets.symmetric(horizontal: px),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(buttonRadius),
@@ -89,7 +94,8 @@ class AppButton extends StatelessWidget {
       textStyle: TextStyle(
         fontSize: fs,
         // 字重按档位：lg/md = W600（主力强调档），sm = W500（最小档再降一级）
-        fontWeight: fw,
+        // 若构造时传入 fontWeight 则以其为准（按设计稿精确指定，如 500）。
+        fontWeight: fontWeight ?? fw,
         letterSpacing: 0,
         height: (fs + 8) / fs,
         leadingDistribution: TextLeadingDistribution.even,
