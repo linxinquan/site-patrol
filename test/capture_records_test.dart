@@ -58,11 +58,13 @@ Map<String, dynamic> _entry({
   String anchor = '西楼1F',
   String note = '',
   String? photo,
+  String projectId = 'nkf',
   List<Map<String, dynamic>>? defects,
 }) {
   final tsNow = ts ?? DateTime.now().toIso8601String();
   return {
     'id': id,
+    'projectId': projectId,
     'drawingKey': drawingKey,
     'worldX': 100.0,
     'worldY': 200.0,
@@ -91,8 +93,14 @@ ProviderContainer _makeContainer({
 }) {
   return ProviderContainer(
     overrides: [
-      // drawingsProvider 是 FutureProvider，overrideWithValue 让同步读取即可拿到值
-      drawingsProvider.overrideWith((ref) async => drawings),
+      // 返回非 Future 值：Riverpod 会同步置为 AsyncData，
+      // 保证 _applyProjectFilter 读取时已是 hasValue。
+      drawingsProvider.overrideWith((ref) => drawings),
+      // 注入内存存储，替代 LocalStorage.instance。
+      captureRecordsStorageProvider.overrideWithValue(storage),
+      // 切断 is7DongProjectProvider → projectProvider → repositoryProvider
+      // 的依赖链，避免测试环境去初始化 Hive。
+      is7DongProjectProvider.overrideWithValue(true),
     ],
   );
 }
@@ -219,6 +227,22 @@ void main() {
       expect(d.worldY, 200.0);
       expect(d.category, DefectCategory.other);
       expect(d.note, '现场观察｜空鼓约 0.4㎡');
+      // 项目归属：从 capture.projectId 透传（旧数据缺失时由 override 兜底，见下）。
+      expect(d.projectId, 'nkf');
+      // 同步元数据：转入的问题清单条目应带 clientUuid 以便后端幂等。
+      expect(d.sync.clientUuid, isNotEmpty);
+      expect(d.sync.isNew, isFalse);
+    });
+
+    test('projectId 缺失时用 projectIdOverride 兜底', () {
+      final legacy = {...capture}..remove('projectId');
+      final d = buildDefectFromCaptureDefect(
+        capture: legacy,
+        vlDefect: vl,
+        idx: 0,
+        projectIdOverride: 'tencent-dy04-7',
+      );
+      expect(d.projectId, 'tencent-dy04-7');
     });
 
     test('severity 解析失败时回落 orange', () {
@@ -245,6 +269,89 @@ void main() {
         idx: 0,
       );
       expect(d.photos, isEmpty);
+    });
+  });
+
+  group('CaptureRecord / CaptureDefectItem 序列化', () {
+    test('toJson 保留历史裸 Map 的字段形态（count 由 defects 派生）', () {
+      final record = CaptureRecord(
+        id: 'cap_1',
+        projectId: 'nkf',
+        drawingKey: 'dy04_7_B05',
+        worldX: 1,
+        worldY: 2,
+        ts: '2026-08-08 14:32:11',
+        anchor: '西楼1F',
+        floor: '西楼1F',
+        defects: const [
+          CaptureDefectItem(
+              name: '墙面空鼓', severity: DefectSeverity.red, conf: 0.9),
+        ],
+        note: '现场观察',
+        photo: 'photos/a.jpg',
+        gps: '22.5°N 113.9°E',
+        alt: '海拔 18.2m',
+        reporter: '陈工',
+      );
+      final j = record.toJson();
+      expect(j['count'], 1);
+      expect((j['defects'] as List).first['status'], 'pending');
+      expect(j['photo'], 'photos/a.jpg');
+      expect(j['projectId'], 'nkf');
+      // ts 是展示文本，规范时间戳由 tsMs 派生（给同步层/后端）。
+      expect(record.tsMs, isNot(0));
+    });
+
+    test('fromJson 容错：缺字段给默认值，不抛异常', () {
+      final record = CaptureRecord.fromJson(const {'id': 'legacy'});
+      expect(record.id, 'legacy');
+      expect(record.projectId, '');
+      expect(record.defects, isEmpty);
+      expect(record.photo, isNull);
+      expect(record.count, 0);
+      expect(record.sync.isNew, isTrue);
+    });
+
+    test('photo 为空串按「无照片」处理', () {
+      final record = CaptureRecord.fromJson(const {'id': 'x', 'photo': ''});
+      expect(record.photo, isNull);
+    });
+
+    test('withDefectStatus 只改指定条目', () {
+      final record = CaptureRecord(id: 'x', ts: 't', defects: const [
+        CaptureDefectItem(name: 'a', severity: DefectSeverity.red, conf: 1),
+        CaptureDefectItem(name: 'b', severity: DefectSeverity.green, conf: 1),
+      ]);
+      final next = record.withDefectStatus(1, CaptureDefectItem.statusConverted);
+      expect(next.defects[0].status, CaptureDefectItem.statusPending);
+      expect(next.defects[1].status, CaptureDefectItem.statusConverted);
+      expect(next.pendingCount, 1);
+      // 越界不改动（不抛异常）。
+      expect(record.withDefectStatus(9, 'converted').defects[0].status,
+          CaptureDefectItem.statusPending);
+    });
+
+    test('SyncMeta 平铺进顶层，且 clientUuid 为 UUID v4', () {
+      final meta = SyncMeta.create(createdBy: 'u1', nowMs: 1700000000000);
+      final j = meta.toJson();
+      expect(j['version'], 1);
+      expect(j['createdAtMs'], 1700000000000);
+      expect(j['createdBy'], 'u1');
+      expect(
+        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-'
+                r'[0-9a-f]{12}$')
+            .hasMatch(meta.clientUuid),
+        isTrue,
+        reason: 'clientUuid 必须是 UUID v4：${meta.clientUuid}',
+      );
+      // 二次读取等价（默认值补齐）。
+      final back = SyncMeta.fromJson(j);
+      expect(back.clientUuid, meta.clientUuid);
+      expect(back.version, 1);
+      // touch：版本 +1 且刷新 updatedAt。
+      final touched = meta.touch(nowMs: 1700000001000);
+      expect(touched.version, 2);
+      expect(touched.updatedAtMs, 1700000001000);
     });
   });
 
@@ -285,12 +392,11 @@ void main() {
       );
       addTearDown(container.dispose);
 
-      // 通过容器直接构造 Notifier，注入 storage，绕开 provider override（不暴露 captureRecordsStorageProvider）。
-      final notifier =
-          CaptureRecordsNotifier(container, storage: storage);
+      // 通过容器创建 Notifier（storage 已由 override 注入）。
+      final notifier = container.read(captureRecordsProvider.notifier);
       await Future<void>.delayed(Duration.zero); // 等 _load 完成
 
-      final state = notifier.value;
+      final state = notifier.state;
       // ts 倒序：newer 在前
       expect(state.map((e) => e['id']), ['r2', 'r1']);
       // 跨项目记录被过滤
@@ -310,14 +416,13 @@ void main() {
         drawings: dy7Drawings,
       );
       addTearDown(container.dispose);
-      final notifier =
-          CaptureRecordsNotifier(container, storage: storage);
+      final notifier = container.read(captureRecordsProvider.notifier);
       await Future<void>.delayed(Duration.zero);
 
       await notifier.deleteById('r1');
 
       // state 中已无 r1
-      expect(notifier.value.any((e) => e['id'] == 'r1'), isFalse);
+      expect(notifier.state.any((e) => e['id'] == 'r1'), isFalse);
       // 文档已重写：只剩 r2
       final raw = await storage.readDoc(CaptureRecordsNotifier.storageKey);
       final list = jsonDecode(raw!) as List;
@@ -336,15 +441,14 @@ void main() {
         drawings: dy7Drawings,
       );
       addTearDown(container.dispose);
-      final notifier =
-          CaptureRecordsNotifier(container, storage: storage);
+      final notifier = container.read(captureRecordsProvider.notifier);
       await Future<void>.delayed(Duration.zero);
 
       final ok1 = await notifier.markDefectConverted('cap_x', 0);
       expect(ok1, isTrue);
 
       // state 中缺陷 status 已变成 converted
-      final defects = notifier.value.first['defects'] as List;
+      final defects = notifier.state.first['defects'] as List;
       expect(defects.first['status'], 'converted');
 
       // 第二次调用：已为 converted，返回 false
@@ -360,8 +464,7 @@ void main() {
         drawings: dy7Drawings,
       );
       addTearDown(container.dispose);
-      final notifier =
-          CaptureRecordsNotifier(container, storage: storage);
+      final notifier = container.read(captureRecordsProvider.notifier);
       await Future<void>.delayed(Duration.zero);
 
       final ok = await notifier.markDefectConverted('no_such', 0);
@@ -376,8 +479,7 @@ void main() {
         drawings: dy7Drawings,
       );
       addTearDown(container.dispose);
-      final notifier =
-          CaptureRecordsNotifier(container, storage: storage);
+      final notifier = container.read(captureRecordsProvider.notifier);
       await Future<void>.delayed(Duration.zero);
 
       final ok = await notifier.markDefectConverted('cap_x', 99);

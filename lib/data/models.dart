@@ -3,7 +3,22 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import 'sync_meta.dart';
+
+export 'sync_meta.dart';
+
 /// 数据模型（mock 阶段用纯 Dart 类；接真实 API 时再补 freezed / json_serializable）。
+
+/// 文本时间 → epoch 毫秒（0 = 解析失败 / 空）。
+///
+/// 兼容本项目历史格式（`yyyy-MM-dd HH:mm`、`yyyy-MM-dd HH:mm:ss`）与 ISO 8601。
+/// 用于给同步层 / 后端把展示用文本时间换算成规范时间戳（不抛异常）。
+int msFromTsText(String? text) {
+  final t = (text ?? '').trim();
+  if (t.isEmpty) return 0;
+  final iso = t.contains('T') ? t : t.replaceFirst(' ', 'T');
+  return DateTime.tryParse(iso)?.millisecondsSinceEpoch ?? 0;
+}
 
 enum DefectStatus { draft, doing, done, reject }
 
@@ -371,6 +386,12 @@ class PhotoAnchor {
 
 class Defect {
   final String id;
+
+  /// 所属项目 id（对应后端 `defects.project_id`）。
+  ///
+  /// 缺陷按项目隔离，缺失会导致跨项目串数据；旧数据（无该字段）解析为空串。
+  final String projectId;
+
   final String part;
   final String type;
 
@@ -386,14 +407,26 @@ class Defect {
   final String gps;
   final String alt;
 
+  /// 纬度（°N，数值）。`null` = 未采集（历史数据只有 [gps] 文本）。
+  final double? lat;
+
+  /// 经度（°E，数值）。`null` = 未采集。
+  final double? lng;
+
   /// 责任人（责任单位 + 人），如 "深圳市建工集团 王工"。
   final String resp;
 
   /// 责任单位（拆分字段，便于单独展示）。
   final String respUnit;
 
+  /// 责任用户 id（关联后端 `users`；[resp] 是展示用的冗余文本）。
+  final String? respUserId;
+
   /// 记录人（谁发现/记录的）。
   final String reporter;
+
+  /// 记录人用户 id（关联后端 `users`；[reporter] 是展示用的冗余文本）。
+  final String? reporterId;
 
   /// 附加标签（自由标签，如 "二次结构"、"防火重点"、"总包责任"）。
   final List<String> tags;
@@ -424,7 +457,15 @@ class Defect {
 
   /// 现场照片相对路径（如 `photos/xxx.jpg`，由拍照记录流程写入本地存储）。
   /// 报告导出时按此路径读取照片字节内嵌到 PDF / Word / HTML。
+  ///
+  /// 本地路径；上传对象存储后后端只保留 `photo_file_id`。
   final String? photoPath;
+
+  /// 现场照片内容哈希（SHA-256，十六进制）。取证链 + 对象存储去重的依据。
+  final String? photoHash;
+
+  /// 水印凭证号（烧录进照片流水，用于「照片不可篡改取证」回溯）。
+  final String? watermarkSerial;
 
   /// 重要等级（巡场报告单「重要等级」列）。为空时按 [severity] 推导。
   final DefectImportance? importance;
@@ -437,6 +478,9 @@ class Defect {
 
   /// 回复人（整改回复的责任方 / 回复单位）。
   final String? replyBy;
+
+  /// 回复人用户 id（关联后端 `users`；[replyBy] 是展示用的冗余文本）。
+  final String? replyById;
 
   /// 回复时间（格式同 [ts]）。
   final String? replyTs;
@@ -462,10 +506,18 @@ class Defect {
   /// 处置设计师（默认当前用户）。
   final String? designerBy;
 
+  /// 处置设计师用户 id（关联后端 `users`；[designerBy] 是展示用的冗余文本）。
+  final String? designerById;
+
   /// 设计师处置时间（格式同 [ts]）。
   final String? designerTs;
+
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
+
   const Defect({
     required this.id,
+    required this.projectId,
     required this.part,
     required this.type,
     required this.category,
@@ -476,9 +528,13 @@ class Defect {
     required this.ts,
     required this.gps,
     required this.alt,
+    this.lat,
+    this.lng,
     required this.resp,
     this.respUnit = '',
+    this.respUserId,
     this.reporter = '现场记录',
+    this.reporterId,
     this.tags = const [],
     required this.note,
     required this.seed,
@@ -489,10 +545,13 @@ class Defect {
     this.sourceCaptureId,
     this.sourceCaptureIdx,
     this.photoPath,
+    this.photoHash,
+    this.watermarkSerial,
     this.importance,
     this.building,
     this.reply,
     this.replyBy,
+    this.replyById,
     this.replyTs,
     this.replyPhotoPath,
     this.closeNote,
@@ -501,12 +560,15 @@ class Defect {
     this.designerAction,
     this.designerNote,
     this.designerBy,
+    this.designerById,
     this.designerTs,
+    this.sync = const SyncMeta(),
   });
 
   /// 序列化（拍照/图纸打点新增记录的本地持久化用）。
   Map<String, dynamic> toJson() => {
         'id': id,
+        'projectId': projectId,
         'part': part,
         'type': type,
         'category': category.name,
@@ -517,9 +579,13 @@ class Defect {
         'ts': ts,
         'gps': gps,
         'alt': alt,
+        'lat': lat,
+        'lng': lng,
         'resp': resp,
         'respUnit': respUnit,
+        'respUserId': respUserId,
         'reporter': reporter,
+        'reporterId': reporterId,
         'tags': tags,
         'note': note,
         'seed': seed,
@@ -527,6 +593,8 @@ class Defect {
         'worldX': worldX,
         'worldY': worldY,
         'photoPath': photoPath,
+        'photoHash': photoHash,
+        'watermarkSerial': watermarkSerial,
         'photos': photos,
         'sourceCaptureId': sourceCaptureId,
         'sourceCaptureIdx': sourceCaptureIdx,
@@ -534,6 +602,7 @@ class Defect {
         'building': building,
         'reply': reply,
         'replyBy': replyBy,
+        'replyById': replyById,
         'replyTs': replyTs,
         'replyPhotoPath': replyPhotoPath,
         'closeNote': closeNote,
@@ -544,12 +613,16 @@ class Defect {
         'designerAction': designerAction,
         'designerNote': designerNote,
         'designerBy': designerBy,
+        'designerById': designerById,
         'designerTs': designerTs,
+        // 同步元数据平铺到顶层（clientUuid / version / 各时间戳 / 软删）。
+        ...sync.toJson(),
       };
 
   /// 反序列化：缺字段给安全默认值（兼容旧数据），不抛错。
   factory Defect.fromJson(Map<String, dynamic> m) => Defect(
         id: m['id']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
         part: m['part']?.toString() ?? '',
         type: m['type']?.toString() ?? '',
         category: DefectCategory.values.firstWhere(
@@ -565,9 +638,13 @@ class Defect {
         ts: m['ts']?.toString() ?? '',
         gps: m['gps']?.toString() ?? '',
         alt: m['alt']?.toString() ?? '',
+        lat: (m['lat'] as num?)?.toDouble(),
+        lng: (m['lng'] as num?)?.toDouble(),
         resp: m['resp']?.toString() ?? '待指派',
         respUnit: m['respUnit']?.toString() ?? '',
+        respUserId: m['respUserId']?.toString(),
         reporter: m['reporter']?.toString() ?? '现场记录',
+        reporterId: m['reporterId']?.toString(),
         tags: (m['tags'] as List?)?.whereType<String>().toList() ?? const [],
         note: m['note']?.toString() ?? '',
         seed: m['seed']?.toString() ?? 'capture',
@@ -575,6 +652,8 @@ class Defect {
         worldX: (m['worldX'] as num?)?.toDouble(),
         worldY: (m['worldY'] as num?)?.toDouble(),
         photoPath: m['photoPath']?.toString(),
+        photoHash: m['photoHash']?.toString(),
+        watermarkSerial: m['watermarkSerial']?.toString(),
         photos: (m['photos'] as List?)?.whereType<String>().toList() ?? const [],
         sourceCaptureId: m['sourceCaptureId']?.toString(),
         sourceCaptureIdx: (m['sourceCaptureIdx'] as num?)?.toInt(),
@@ -585,6 +664,7 @@ class Defect {
         building: m['building']?.toString(),
         reply: m['reply']?.toString(),
         replyBy: m['replyBy']?.toString(),
+        replyById: m['replyById']?.toString(),
         replyTs: m['replyTs']?.toString(),
         replyPhotoPath: m['replyPhotoPath']?.toString(),
         closeNote: m['closeNote']?.toString(),
@@ -593,7 +673,9 @@ class Defect {
         designerAction: m['designerAction']?.toString(),
         designerNote: m['designerNote']?.toString(),
         designerBy: m['designerBy']?.toString(),
+        designerById: m['designerById']?.toString(),
         designerTs: m['designerTs']?.toString(),
+        sync: SyncMeta.fromJson(m),
       );
 
   /// 未显式指定重要等级时按严重程度推导（红→重要紧急 … 绿→普通）。
@@ -621,10 +703,22 @@ class Defect {
         _ => '',
       };
 
+  /// 发现时间的规范时间戳（epoch ms）。给同步层 / 后端用；[ts] 文本解析失败返回 0。
+  int get tsMs => msFromTsText(ts);
+
+  /// 回复时间的规范时间戳（epoch ms）；未回复返回 null。
+  int? get replyTsMs => replyTs == null ? null : msFromTsText(replyTs);
+
+  /// 设计师处置时间的规范时间戳（epoch ms）；未处置返回 null。
+  int? get designerTsMs => designerTs == null ? null : msFromTsText(designerTs);
+
   /// 复制并覆盖字段（处置 / 回复 / 人工修订等局部更新用；仅传需改的字段，null 保持原值）。
   ///
   /// 2026-09-18 扩展：补齐人工可编辑字段（`part`/`category`/`severity`/`note`/`respUnit`/
   /// `importance`/`photoPath`/`photos`/`sourceCaptureIdx`），供「详情页人工改分类 / 严重程度 / 描述」使用。
+  ///
+  /// 注意：`copyWith` **不会**自动递增 [sync] 版本；同步层在写库时显式传
+  /// `sync: d.sync.touch()`。
   Defect copyWith({
     DefectStatus? status,
     String? part,
@@ -633,13 +727,20 @@ class Defect {
     String? note,
     String? resp,
     String? respUnit,
+    String? respUserId,
+    String? reporterId,
+    double? lat,
+    double? lng,
     String? building,
     DefectImportance? importance,
     String? photoPath,
+    String? photoHash,
+    String? watermarkSerial,
     List<String>? photos,
     int? sourceCaptureIdx,
     String? reply,
     String? replyBy,
+    String? replyById,
     String? replyTs,
     String? replyPhotoPath,
     String? closeNote,
@@ -648,10 +749,13 @@ class Defect {
     String? designerAction,
     String? designerNote,
     String? designerBy,
+    String? designerById,
     String? designerTs,
+    SyncMeta? sync,
   }) =>
       Defect(
         id: id,
+        projectId: projectId,
         part: part ?? this.part,
         type: type,
         category: category ?? this.category,
@@ -662,9 +766,13 @@ class Defect {
         ts: ts,
         gps: gps,
         alt: alt,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
         resp: resp ?? this.resp,
         respUnit: respUnit ?? this.respUnit,
+        respUserId: respUserId ?? this.respUserId,
         reporter: reporter,
+        reporterId: reporterId ?? this.reporterId,
         tags: tags,
         note: note ?? this.note,
         seed: seed,
@@ -672,6 +780,8 @@ class Defect {
         worldX: worldX,
         worldY: worldY,
         photoPath: photoPath ?? this.photoPath,
+        photoHash: photoHash ?? this.photoHash,
+        watermarkSerial: watermarkSerial ?? this.watermarkSerial,
         photos: photos ?? this.photos,
         sourceCaptureId: sourceCaptureId,
         sourceCaptureIdx: sourceCaptureIdx ?? this.sourceCaptureIdx,
@@ -679,6 +789,7 @@ class Defect {
         building: building ?? this.building,
         reply: reply ?? this.reply,
         replyBy: replyBy ?? this.replyBy,
+        replyById: replyById ?? this.replyById,
         replyTs: replyTs ?? this.replyTs,
         replyPhotoPath: replyPhotoPath ?? this.replyPhotoPath,
         closeNote: closeNote ?? this.closeNote,
@@ -687,7 +798,9 @@ class Defect {
         designerAction: designerAction ?? this.designerAction,
         designerNote: designerNote ?? this.designerNote,
         designerBy: designerBy ?? this.designerBy,
+        designerById: designerById ?? this.designerById,
         designerTs: designerTs ?? this.designerTs,
+        sync: sync ?? this.sync,
       );
 
   /// 楼栋分组名（未标注楼栋时回退到空串，由渲染端归到「其他」）。
@@ -800,6 +913,283 @@ class VlDefect {
         desc: map['desc']?.toString(),
         suggestion: map['suggestion']?.toString(),
       );
+}
+
+/// 拍照验收记录里的一条 AI 缺陷条目（`stored_vision_results` 文档元素的一部分）。
+///
+/// 与 [VlDefect] 的关系：字段相同（name/severity/conf/desc/suggestion），
+/// 额外多一个流转状态 [status]（是否已转入问题清单）。
+/// **存储形态与 [VlDefect.toJson] 平铺一致**（多一个 `status` 键），
+/// 因此历史数据可直接读回，不需要迁移。
+class CaptureDefectItem {
+  /// 未转入问题清单。
+  static const String statusPending = 'pending';
+
+  /// 已转入问题清单（问题清单里已生成对应 [Defect]）。
+  static const String statusConverted = 'converted';
+
+  final String name;
+  final DefectSeverity severity;
+  final double conf;
+
+  /// 缺陷描述（真实模型返回；mock 阶段为空）。
+  final String? desc;
+
+  /// AI 整改建议。
+  final String? suggestion;
+
+  /// 流转状态：[statusPending] / [statusConverted]。
+  final String status;
+
+  const CaptureDefectItem({
+    required this.name,
+    required this.severity,
+    required this.conf,
+    this.desc,
+    this.suggestion,
+    this.status = statusPending,
+  });
+
+  /// 由 AI 识别结果构造（默认未转入）。
+  factory CaptureDefectItem.fromVlDefect(VlDefect v, {String status = statusPending}) =>
+      CaptureDefectItem(
+        name: v.name,
+        severity: v.severity,
+        conf: v.conf,
+        desc: v.desc,
+        suggestion: v.suggestion,
+        status: status,
+      );
+
+  /// 还原为 AI 识别结果（用于「转入问题清单」时构造 [Defect]）。
+  VlDefect toVlDefect() => VlDefect(
+        name: name,
+        severity: severity,
+        conf: conf,
+        desc: desc,
+        suggestion: suggestion,
+      );
+
+  bool get isConverted => status == statusConverted;
+
+  CaptureDefectItem copyWith({
+    String? name,
+    DefectSeverity? severity,
+    double? conf,
+    String? desc,
+    String? suggestion,
+    String? status,
+  }) =>
+      CaptureDefectItem(
+        name: name ?? this.name,
+        severity: severity ?? this.severity,
+        conf: conf ?? this.conf,
+        desc: desc ?? this.desc,
+        suggestion: suggestion ?? this.suggestion,
+        status: status ?? this.status,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'severity': severity.name,
+        'conf': conf,
+        'desc': desc,
+        'suggestion': suggestion,
+        'status': status,
+      };
+
+  /// 旧数据缺字段一律给默认值（`severity` 缺失回落 orange，与历史行为一致）。
+  factory CaptureDefectItem.fromJson(Map<String, dynamic> m) => CaptureDefectItem(
+        name: m['name']?.toString() ?? '',
+        severity: DefectSeverity.values.firstWhere(
+          (s) => s.name == m['severity'],
+          orElse: () => DefectSeverity.orange,
+        ),
+        conf: (m['conf'] as num?)?.toDouble() ?? 0.0,
+        desc: m['desc']?.toString(),
+        suggestion: m['suggestion']?.toString(),
+        status: m['status']?.toString() ?? statusPending,
+      );
+}
+
+/// 一条拍照验收记录（`LocalStorage` 文档 `stored_vision_results` 的元素）。
+///
+/// 这是**唯一**的落库形态定义：写入方用 [toJson]，读取方用 [fromJson]，
+/// 不再散落「裸 Map 约定」。对应后端 `captures` 表
+/// （`project_id` / `drawing_id` / `floor` / `anchor` / `photo_file_id` /
+/// `ai_result` / `confirmed_result` / `reporter_id`）。
+///
+/// 与后端语义对照：
+/// - [defects] 是 AI 原始识别结果（后端 `ai_result`），
+///   条目上的 [CaptureDefectItem.status] 是**人工确认/转入**的结果
+///   （后端 `confirmed_result` 的一部分）；
+/// - [photo] 是本地相对路径；上传对象存储后后端只保留 `photo_file_id`。
+class CaptureRecord {
+  /// 记录 id（历史数据为 `microsecondsSinceEpoch` 字符串）。
+  final String id;
+
+  /// 所属项目 id（旧数据为空串，转入问题清单时可用当前项目兜底）。
+  final String projectId;
+
+  /// 所属图纸 key（图纸打点来源）。
+  final String drawingKey;
+
+  /// 图纸坐标 X（mm）；[drawingKey] 非空且已校准时才有意义。
+  final double? worldX;
+
+  /// 图纸坐标 Y（mm）。
+  final double? worldY;
+
+  /// 记录时间（展示文本，`yyyy-MM-dd HH:mm:ss`）。
+  final String ts;
+
+  /// 部位（锚点标签）。
+  final String anchor;
+
+  /// 楼层。
+  final String floor;
+
+  /// AI 识别到的缺陷条目（含各自的转入状态）。
+  final List<CaptureDefectItem> defects;
+
+  /// 用户手写的问题描述。
+  final String note;
+
+  /// 水印照片的本地相对路径；无照片为 null。
+  final String? photo;
+
+  /// GPS 文本（水印同款，如 `22.5936°N 113.9798°E`）。
+  final String gps;
+
+  /// 海拔文本（如 `海拔 18.2m`）。
+  final String alt;
+
+  /// 记录人（展示用姓名）。
+  final String reporter;
+
+  /// 同步元数据。
+  final SyncMeta sync;
+
+  const CaptureRecord({
+    required this.id,
+    this.projectId = '',
+    this.drawingKey = '',
+    this.worldX,
+    this.worldY,
+    required this.ts,
+    this.anchor = '',
+    this.floor = '',
+    this.defects = const [],
+    this.note = '',
+    this.photo,
+    this.gps = '',
+    this.alt = '',
+    this.reporter = '',
+    this.sync = const SyncMeta(),
+  });
+
+  /// AI 缺陷条数（历史 JSON 里的 `count` 字段由此派生，不再单独存储）。
+  int get count => defects.length;
+
+  /// 是否识别到 AI 缺陷（未识别到也留痕，用于「仅 AI」筛选）。
+  bool get hasDefects => defects.isNotEmpty;
+
+  /// 未转入问题清单的条目数。
+  int get pendingCount => defects.where((d) => !d.isConverted).length;
+
+  /// 记录时间的规范时间戳（epoch ms）。给同步层 / 后端用。
+  int get tsMs => msFromTsText(ts);
+
+  CaptureRecord copyWith({
+    String? projectId,
+    String? drawingKey,
+    double? worldX,
+    double? worldY,
+    String? ts,
+    String? anchor,
+    String? floor,
+    List<CaptureDefectItem>? defects,
+    String? note,
+    String? photo,
+    String? gps,
+    String? alt,
+    String? reporter,
+    SyncMeta? sync,
+  }) =>
+      CaptureRecord(
+        id: id,
+        projectId: projectId ?? this.projectId,
+        drawingKey: drawingKey ?? this.drawingKey,
+        worldX: worldX ?? this.worldX,
+        worldY: worldY ?? this.worldY,
+        ts: ts ?? this.ts,
+        anchor: anchor ?? this.anchor,
+        floor: floor ?? this.floor,
+        defects: defects ?? this.defects,
+        note: note ?? this.note,
+        photo: photo ?? this.photo,
+        gps: gps ?? this.gps,
+        alt: alt ?? this.alt,
+        reporter: reporter ?? this.reporter,
+        sync: sync ?? this.sync,
+      );
+
+  /// 覆盖指定条目的流转状态（转入问题清单成功后调用）。
+  CaptureRecord withDefectStatus(int idx, String status) {
+    if (idx < 0 || idx >= defects.length) return this;
+    return copyWith(
+      defects: [
+        for (var i = 0; i < defects.length; i++)
+          i == idx ? defects[i].copyWith(status: status) : defects[i],
+      ],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'projectId': projectId,
+        'drawingKey': drawingKey,
+        'worldX': worldX,
+        'worldY': worldY,
+        'ts': ts,
+        'anchor': anchor,
+        'floor': floor,
+        'count': count,
+        'defects': defects.map((d) => d.toJson()).toList(),
+        'note': note,
+        'photo': photo,
+        'gps': gps,
+        'alt': alt,
+        'reporter': reporter,
+        ...sync.toJson(),
+      };
+
+  /// 旧数据读取一律给默认值，缺字段不抛错。
+  factory CaptureRecord.fromJson(Map<String, dynamic> m) => CaptureRecord(
+        id: m['id']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
+        drawingKey: m['drawingKey']?.toString() ?? '',
+        worldX: (m['worldX'] as num?)?.toDouble(),
+        worldY: (m['worldY'] as num?)?.toDouble(),
+        ts: m['ts']?.toString() ?? '',
+        anchor: m['anchor']?.toString() ?? '',
+        floor: m['floor']?.toString() ?? '',
+        defects: (m['defects'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => CaptureDefectItem.fromJson(e.cast<String, dynamic>()))
+            .toList(),
+        note: m['note']?.toString() ?? '',
+        photo: _emptyToNull(m['photo']),
+        gps: m['gps']?.toString() ?? '',
+        alt: m['alt']?.toString() ?? '',
+        reporter: m['reporter']?.toString() ?? '',
+        sync: SyncMeta.fromJson(m),
+      );
+
+  static String? _emptyToNull(dynamic v) {
+    final s = v?.toString();
+    return (s == null || s.isEmpty) ? null : s;
+  }
 }
 
 /// 拍照量尺校对：一张照片内对某一构件，实测尺寸 vs 图纸标注尺寸的比对。
@@ -1046,6 +1436,9 @@ class MeasureSession {
   final PhotoCalib? photoCalib; // 照片侧标定（可空）
   final List<MeasureItem> items;
   final int updatedAt; // 毫秒时间戳
+
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
   const MeasureSession({
     required this.id,
     required this.projectKey,
@@ -1056,6 +1449,7 @@ class MeasureSession {
     this.photoCalib,
     this.items = const [],
     this.updatedAt = 0,
+    this.sync = const SyncMeta(),
   });
 
   MeasureSession copyWith({
@@ -1068,6 +1462,7 @@ class MeasureSession {
     bool clearPhotoCalib = false,
     List<MeasureItem>? items,
     int? updatedAt,
+    SyncMeta? sync,
   }) =>
       MeasureSession(
         id: id,
@@ -1079,6 +1474,7 @@ class MeasureSession {
         photoCalib: clearPhotoCalib ? null : (photoCalib ?? this.photoCalib),
         items: items ?? this.items,
         updatedAt: updatedAt ?? this.updatedAt,
+        sync: sync ?? this.sync,
       );
 
   int get passCount => items.where((e) => e.pass(tolMm, tolPct)).length;
@@ -1102,6 +1498,7 @@ class MeasureSession {
                 })
             .toList(),
         'updatedAt': updatedAt,
+        ...sync.toJson(),
       };
 
   factory MeasureSession.fromJson(Map<String, dynamic> m) {
@@ -1125,6 +1522,7 @@ class MeasureSession {
               ))
           .toList(),
       updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
+      sync: SyncMeta.fromJson(m),
     );
   }
 }
@@ -1378,6 +1776,9 @@ class PatrolPlan {
   final List<PatrolPoint> points;
   final double? totalKm; // 手动填写的兜底里程（图纸未校准时用）；校准后自动算
   final int updatedAt;
+
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
   const PatrolPlan({
     required this.id,
     required this.projectId,
@@ -1387,6 +1788,7 @@ class PatrolPlan {
     required this.points,
     this.totalKm,
     this.updatedAt = 0,
+    this.sync = const SyncMeta(),
   });
 
   /// 检查点下标（指向 [points]）。
@@ -1401,6 +1803,7 @@ class PatrolPlan {
     List<PatrolPoint>? points,
     double? totalKm,
     int? updatedAt,
+    SyncMeta? sync,
   }) =>
       PatrolPlan(
         id: id,
@@ -1411,6 +1814,7 @@ class PatrolPlan {
         points: points ?? this.points,
         totalKm: totalKm ?? this.totalKm,
         updatedAt: updatedAt ?? this.updatedAt,
+        sync: sync ?? this.sync,
       );
 
   Map<String, dynamic> toJson() => {
@@ -1422,6 +1826,7 @@ class PatrolPlan {
         'points': points.map((p) => p.toJson()).toList(),
         'totalKm': totalKm,
         'updatedAt': updatedAt,
+        ...sync.toJson(),
       };
 
   /// 旧数据读取一律给默认值，缺字段不抛错。
@@ -1436,6 +1841,7 @@ class PatrolPlan {
             .toList(),
         totalKm: (m['totalKm'] as num?)?.toDouble(),
         updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
+        sync: SyncMeta.fromJson(m),
       );
 }
 
@@ -1480,6 +1886,9 @@ class PatrolRecord {
   final List<CheckIn> checkins;
   // 任务2：路线检查点总数（达成率分母，= 对应 PatrolPlan.checkpointIdxs.length）。
   final int checkpointTotal;
+
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
   const PatrolRecord({
     required this.id,
     required this.planId,
@@ -1494,6 +1903,7 @@ class PatrolRecord {
     this.track = const [],
     this.checkins = const [],
     this.checkpointTotal = 0,
+    this.sync = const SyncMeta(),
   });
 
   Map<String, dynamic> toJson() => {
@@ -1510,6 +1920,7 @@ class PatrolRecord {
         'track': track,
         'checkins': checkins.map((c) => c.toJson()).toList(),
         'checkpointTotal': checkpointTotal,
+        ...sync.toJson(),
       };
 
   /// 旧数据读取一律给默认值，缺字段不抛错。
@@ -1534,6 +1945,7 @@ class PatrolRecord {
             .map(CheckIn.fromJson)
             .toList(),
         checkpointTotal: (m['checkpointTotal'] as num? ?? 0).toInt(),
+        sync: SyncMeta.fromJson(m),
       );
 }
 
@@ -1717,6 +2129,9 @@ class RoomScanRecord {
   final String? drawingKey; // 核尺场景关联图纸
   final List<MeasureItem> checks; // 与图纸对照判定（复用 MeasureItem）
   final String? note;
+
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
   const RoomScanRecord({
     required this.id,
     required this.projectKey,
@@ -1730,6 +2145,7 @@ class RoomScanRecord {
     this.drawingKey,
     this.checks = const [],
     this.note,
+    this.sync = const SyncMeta(),
   });
 
   /// 几何派生的只读值（不入库）
@@ -1748,6 +2164,7 @@ class RoomScanRecord {
     String? drawingKey,
     List<MeasureItem>? checks,
     String? note,
+    SyncMeta? sync,
   }) =>
       RoomScanRecord(
         id: id,
@@ -1762,6 +2179,7 @@ class RoomScanRecord {
         drawingKey: drawingKey ?? this.drawingKey,
         checks: checks ?? this.checks,
         note: note ?? this.note,
+        sync: sync ?? this.sync,
       );
 
   Map<String, dynamic> toJson() => {
@@ -1777,6 +2195,7 @@ class RoomScanRecord {
         'drawingKey': drawingKey,
         'checks': checks.map((c) => c.toJson()).toList(),
         'note': note,
+        ...sync.toJson(),
       };
 
   factory RoomScanRecord.fromJson(Map<String, dynamic> m) => RoomScanRecord(
@@ -1796,6 +2215,7 @@ class RoomScanRecord {
             .map((e) => MeasureItem.fromJson(e as Map<String, dynamic>))
             .toList(),
         note: m['note']?.toString(),
+        sync: SyncMeta.fromJson(m),
       );
 }
 

@@ -72,6 +72,7 @@ void main() {
     final d0 = dy7Defects.first;
     final defect = Defect(
       id: 'photo-defect',
+      projectId: d0.projectId,
       part: '${d0.part}（带照片）',
       type: d0.type,
       category: d0.category,

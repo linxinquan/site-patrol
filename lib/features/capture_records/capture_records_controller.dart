@@ -58,6 +58,9 @@ class CaptureRecordsNotifier
   final LocalStorage _storage;
 
   /// 与 `capture_page.dart` 的 `_storageKey` 保持一致。
+  ///
+  /// 文档是一个 JSON 数组，每个元素的结构由 [CaptureRecord.toJson] 唯一定义
+  /// （本类内部仍以 Map 承载，便于就地改写 `defects[i].status`；形态不变）。
   static const String storageKey = 'stored_vision_results';
 
   Future<void> reload() async {
@@ -266,8 +269,12 @@ int _tsOf(Map<String, dynamic> e) => recordTsMillis(e);
 
 /// 转入问题清单的 Defect 构造：从一条拍照验收 entry + 其 AI 缺陷条目，构造可写入问题库的 Defect。
 ///
+/// 入参仍是**存储态 Map**（`CaptureRecord.toJson()` 的结构），
+/// 内部统一经 [CaptureRecord] / [CaptureDefectItem] 解析，避免各调用点各自 spelunking。
+///
 /// - `id` = `${captureId}#$idx`（保证唯一 + 可追溯回验收记录）
-/// - `type` 取 `vlDefect.name`；`severity` 从字符串解析，解析失败回落到 orange
+/// - `projectId` 取 `capture.projectId`，为空时用 [projectIdOverride]（旧数据兜底）
+/// - `type` 取 `vlDefect.name`；`severity` 由 [CaptureDefectItem] 解析，失败回落 orange
 /// - `status` = draft，`seed` = 'capture_convert'
 /// - `reporter` = `capture.reporter`（旧数据缺失时回落 '验收记录'）
 /// - `tags` = ['验收转工单', '验收#${captureId}']
@@ -285,56 +292,45 @@ Defect buildDefectFromCaptureDefect({
   required Map<String, dynamic> vlDefect,
   required int idx,
   String? captureIdOverride,
+  String? projectIdOverride,
 }) {
-  final captureId = captureIdOverride ?? capture['id']?.toString() ?? '';
-  final anchor = capture['anchor']?.toString() ?? '';
-  final floor = capture['floor']?.toString() ?? '';
-  final ts = capture['ts']?.toString() ?? '';
-  final note = capture['note']?.toString() ?? '';
-  final photo = capture['photo']?.toString();
-  final desc = vlDefect['desc']?.toString();
-  final suggestion = (vlDefect['suggestion']?.toString() ?? '').trim();
-  final gps = capture['gps']?.toString() ?? '';
-  final alt = capture['alt']?.toString() ?? '';
-  final reporter = capture['reporter']?.toString() ?? '';
-  final drawingKey = capture['drawingKey']?.toString();
-  final worldX = (capture['worldX'] as num?)?.toDouble();
-  final worldY = (capture['worldY'] as num?)?.toDouble();
+  final record = CaptureRecord.fromJson(capture);
+  final item = CaptureDefectItem.fromJson(vlDefect);
+  final captureId = captureIdOverride ?? record.id;
+  // 旧记录没有 projectId：用调用方提供的「当前项目」兜底，避免缺陷丢失项目归属。
+  final projectId = (projectIdOverride ?? '').isNotEmpty
+      ? projectIdOverride!
+      : record.projectId;
+  final desc = item.desc;
+  final suggestion = (item.suggestion ?? '').trim();
 
   return Defect(
     id: '$captureId#$idx',
-    part: anchor.isEmpty ? '验收点' : anchor,
-    type: vlDefect['name']?.toString() ?? '未分类',
+    projectId: projectId,
+    part: record.anchor.isEmpty ? '验收点' : record.anchor,
+    type: item.name.isEmpty ? '未分类' : item.name,
     category: DefectCategory.other,
-    severity: _parseSeverityString(vlDefect['severity']?.toString()),
+    severity: item.severity,
     status: DefectStatus.draft,
-    anchor: anchor,
-    floor: floor,
-    ts: ts,
-    gps: gps,
-    alt: alt,
+    anchor: record.anchor,
+    floor: record.floor,
+    ts: record.ts,
+    gps: record.gps,
+    alt: record.alt,
     resp: '',
-    reporter: reporter.isEmpty ? '验收记录' : reporter,
+    reporter: record.reporter.isEmpty ? '验收记录' : record.reporter,
     tags: ['验收转工单', '验收#$captureId'],
-    note: desc == null || desc.isEmpty ? note : '$note｜$desc',
+    note: desc == null || desc.isEmpty ? record.note : '${record.note}｜$desc',
     seed: 'capture_convert',
     suggestion: suggestion.isEmpty ? null : suggestion,
-    drawingKey: drawingKey,
-    worldX: worldX,
-    worldY: worldY,
-    photos: photo == null || photo.isEmpty ? const [] : [photo],
-    photoPath: photo == null || photo.isEmpty ? null : photo,
+    drawingKey: record.drawingKey.isEmpty ? null : record.drawingKey,
+    worldX: record.worldX,
+    worldY: record.worldY,
+    photos: record.photo == null ? const [] : [record.photo!],
+    photoPath: record.photo,
     sourceCaptureId: captureId,
     // 与 sourceCaptureId 成对：反查「该验收记录第 idx 条 AI 缺陷」的整改/销项状态（DV-19 回流）。
     sourceCaptureIdx: idx,
-  );
-}
-
-/// 解析 severity 字符串（'red'/'orange'/'yellow'/'green'）为枚举；解析失败回落到 orange。
-DefectSeverity _parseSeverityString(String? s) {
-  if (s == null) return DefectSeverity.orange;
-  return DefectSeverity.values.firstWhere(
-    (v) => v.name == s,
-    orElse: () => DefectSeverity.orange,
+    sync: SyncMeta.create(),
   );
 }

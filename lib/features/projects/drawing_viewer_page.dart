@@ -851,6 +851,7 @@ class _ViewerState extends ConsumerState<_Viewer> {
     final now = DateTime.now();
     final defect = Defect(
       id: '${widget.d.key}_${now.millisecondsSinceEpoch}',
+      projectId: ref.read(activeProjectIdProvider),
       part: '${widget.d.title}·缺陷点',
       type: '待分类',
       category: DefectCategory.other,

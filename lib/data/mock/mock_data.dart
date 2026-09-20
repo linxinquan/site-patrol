@@ -530,6 +530,7 @@ const Map<String, List<PhotoAnchor>> photoAnchors = {
 const List<Defect> defects = [
   Defect(
       id: 'd1',
+      projectId: 'nkf',
       part: '西楼1F门诊大厅墙面空鼓',
       type: '空鼓',
       category: DefectCategory.decoration,
@@ -553,6 +554,7 @@ const List<Defect> defects = [
           '1）空鼓范围画线标记并全部剔除至密实基层；2）基层清理湿润后用同标号砂浆修复；3）养护期满逐块敲击复验，严禁边角虚贴。'),
   Defect(
       id: 'd2',
+      projectId: 'nkf',
       part: '东楼4F标准层病房渗漏',
       type: '渗漏',
       category: DefectCategory.water,
@@ -577,6 +579,7 @@ const List<Defect> defects = [
       completion: '已完成'),
   Defect(
       id: 'd3',
+      projectId: 'nkf',
       part: '感染楼1F 防火墙洞口偏差',
       type: '洞口偏差',
       category: DefectCategory.architecture,
@@ -601,6 +604,7 @@ const List<Defect> defects = [
       closeNote: '顾问复核：偏差在允许范围内，同意销项'),
   Defect(
       id: 'd4',
+      projectId: 'nkf',
       part: '西楼B1地下车库顶棚裂缝',
       type: '裂缝',
       category: DefectCategory.structure,
@@ -628,6 +632,7 @@ const List<Defect> defects = [
           '1）裂缝性质判定：报设计出具加固方案（结构性）；2）沿缝注浆+碳纤维布加固；3）处理后委托第三方检测，报告报监理备案。'),
   Defect(
       id: 'd5',
+      projectId: 'nkf',
       part: '连廊1F屋面女儿墙泛水开裂',
       type: '开裂',
       category: DefectCategory.architecture,
@@ -650,6 +655,7 @@ const List<Defect> defects = [
       closeNote: '需先确认泛水节点做法，待设计出具节点详图'),
   Defect(
       id: 'd6',
+      projectId: 'nkf',
       part: '东楼1F门诊大厅地砖空鼓',
       type: '空鼓',
       category: DefectCategory.decoration,
@@ -1015,6 +1021,7 @@ const Map<String, Drawing> dy7Drawings = {
 const List<Defect> dy7Defects = [
   Defect(
       id: 'dy7_1',
+      projectId: 'tencent-dy04-7',
       part: 'B1-轴交A-F/4-7 顶板裂缝',
       type: '裂缝',
       category: DefectCategory.structure,
@@ -1037,6 +1044,7 @@ const List<Defect> dy7Defects = [
       closeNote: '需先出加固方案并经设计确认'),
   Defect(
       id: 'dy7_2',
+      projectId: 'tencent-dy04-7',
       part: 'B1-电梯井 渗漏',
       type: '渗漏',
       category: DefectCategory.water,
@@ -1060,6 +1068,7 @@ const List<Defect> dy7Defects = [
       completion: '进行中'),
   Defect(
       id: 'dy7_3',
+      projectId: 'tencent-dy04-7',
       part: '1-1剖面 楼板钢筋外露',
       type: '钢筋外露',
       category: DefectCategory.structure,
@@ -1082,6 +1091,7 @@ const List<Defect> dy7Defects = [
       closeNote: '钢筋除锈后需报隐蔽验收'),
   Defect(
       id: 'dy7_4',
+      projectId: 'tencent-dy04-7',
       part: '墙身详图 防水层破损',
       type: '防水破损',
       category: DefectCategory.architecture,
@@ -1105,6 +1115,7 @@ const List<Defect> dy7Defects = [
       completion: '已完成'),
   Defect(
       id: 'dy7_5',
+      projectId: 'tencent-dy04-7',
       part: '楼梯详图 踏步高度偏差',
       type: '尺寸偏差',
       category: DefectCategory.decoration,
@@ -1128,6 +1139,7 @@ const List<Defect> dy7Defects = [
       completion: '进行中'),
   Defect(
       id: 'dy7_6',
+      projectId: 'tencent-dy04-7',
       part: '门窗详图 框体安装偏位',
       type: '安装偏位',
       category: DefectCategory.decoration,

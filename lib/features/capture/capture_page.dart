@@ -837,40 +837,42 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     final ts = '${now.year}-${_two(now.month)}-${_two(now.day)} '
         '${_two(now.hour)}:${_two(now.minute)}:${_two(now.second)}';
     final note = _noteController.text.trim();
-    final entry = <String, dynamic>{
-      'id': now.microsecondsSinceEpoch.toString(),
-      'drawingKey': _drawingKey,
-      'worldX': _drawPointWorldX,
-      'worldY': _drawPointWorldY,
-      'ts': ts,
-      'anchor': _anchorLabel,
-      'floor': _floor,
-      'count': _defects.length,
-      'defects':
-          _defects.map((d) => {...d.toJson(), 'status': 'pending'}).toList(),
-      'note': note,
-      // 转入问题清单时会被透传到 Defect（见 buildDefectFromCaptureDefect）：
-      // 缺了它们，转入的记录就没有 GPS / 海拔 / 真实记录人。
-      'gps': _location.gpsText,
-      'alt': '海拔 ${_location.altitude.toStringAsFixed(1)}m',
-      'reporter': _currentUser,
-    };
-    // 跨端统一把压缩照片落盘（JSON 不支持二进制，故 entry 只记相对路径）：
+    // 跨端统一把压缩照片落盘（JSON 不支持二进制，故记录里只记相对路径）：
     // - 移动端/桌面：写入应用目录的真实文件，可长期保存；
     // - Web（演示实现）：写入内存 Map，当前会话内可读（刷新即丢——Web 演示特性），
-    //   但 entry 也能拿到 photo 字段，验收记录页可展示，且「拍照 → 导出报告」
+    //   但记录里也能拿到 photo 字段，验收记录页可展示，且「拍照 → 导出报告」
     //   链路内缺陷照片能被报告读取内嵌。
     String? photoRel;
     if (_shotPhoto != null) {
       photoRel = 'photos/${ts.replaceAll(RegExp(r'[:\s]'), '-')}.jpg';
       try {
         await LocalStorage.instance.writeFile(photoRel, _shotPhoto!);
-        entry['photo'] = photoRel;
       } catch (_) {
         // 写照片失败不应阻断结构化结果暂存。
         photoRel = null;
       }
     }
+    // 落库形态由 [CaptureRecord] 唯一决定（不再手写裸 Map）：
+    // toJson() 即 `stored_vision_results` 文档的元素结构，读写两侧共用同一模型。
+    final entry = CaptureRecord(
+      id: now.microsecondsSinceEpoch.toString(),
+      projectId: ref.read(activeProjectIdProvider),
+      drawingKey: _drawingKey,
+      worldX: _drawPointWorldX,
+      worldY: _drawPointWorldY,
+      ts: ts,
+      anchor: _anchorLabel,
+      floor: _floor,
+      defects: [for (final d in _defects) CaptureDefectItem.fromVlDefect(d)],
+      note: note,
+      photo: photoRel,
+      // 转入问题清单时会被透传到 Defect（见 buildDefectFromCaptureDefect）：
+      // 缺了它们，转入的记录就没有 GPS / 海拔 / 真实记录人。
+      gps: _location.gpsText,
+      alt: '海拔 ${_location.altitude.toStringAsFixed(1)}m',
+      reporter: _currentUser,
+      sync: SyncMeta.create(),
+    ).toJson();
     // 保存**只写验收记录**，不再自动生成问题记录（2026-09-18 起改为一事一录）：
     // 原设计「一次拍照聚合为一条 Defect」会让同一张照片在问题清单里留下 1 条聚合条，
     // 用户在验收记录里「转入」时又生成 N 条逐条记录 → 报告统计虚高、清单重复。

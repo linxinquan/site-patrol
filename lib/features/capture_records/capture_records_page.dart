@@ -250,6 +250,8 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         .map((m) => m.cast<String, dynamic>())
         .toList();
     final captureId = entry['id']?.toString() ?? '';
+    // 旧记录可能没有 projectId：用当前项目兜底，保证转入的缺陷有项目归属。
+    final projectId = ref.read(activeProjectIdProvider);
 
     try {
       for (final idx in idxs) {
@@ -258,6 +260,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
           capture: entry,
           vlDefect: defectsRaw[idx],
           idx: idx,
+          projectIdOverride: projectId,
         );
         await repo.addDefect(defect);
       }
@@ -291,7 +294,8 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
   /// 按描述转入（DV-16）：AI 未识别到缺陷时，用手写的问题描述生成 1 条问题记录。
   /// 以 `sourceCaptureIdx = -1` 标记，与逐条转入（0..n）区分；id 稳定 → 重复点击幂等。
   Future<bool> _onConvertNote(Map<String, dynamic> entry) async {
-    final note = (entry['note'] as String? ?? '').trim();
+    final record = CaptureRecord.fromJson(entry);
+    final note = record.note.trim();
     if (note.isEmpty) {
       if (mounted) {
         AppSnack.show(context, '请先在验收记录里填写问题描述',
@@ -303,36 +307,37 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
     if (repo is MockRepository) {
       repo.currentIs7 = ref.read(is7DongProjectProvider);
     }
-    final captureId = entry['id']?.toString() ?? '';
-    final anchor = entry['anchor']?.toString() ?? '';
-    final photo = entry['photo']?.toString();
-    final reporter = entry['reporter']?.toString() ?? '';
+    final captureId = record.id;
+    final projectId = ref.read(activeProjectIdProvider);
     final firstLine = note.split('\n').first.trim();
     try {
       await repo.addDefect(Defect(
         id: '$captureId#note',
-        part: anchor.isEmpty ? '验收点' : anchor,
+        projectId:
+            projectId.isNotEmpty ? projectId : record.projectId,
+        part: record.anchor.isEmpty ? '验收点' : record.anchor,
         type: firstLine.length > 20 ? firstLine.substring(0, 20) : firstLine,
         category: DefectCategory.other,
         severity: DefectSeverity.orange,
         status: DefectStatus.draft,
-        anchor: anchor,
-        floor: entry['floor']?.toString() ?? '',
-        ts: entry['ts']?.toString() ?? '',
-        gps: entry['gps']?.toString() ?? '',
-        alt: entry['alt']?.toString() ?? '',
+        anchor: record.anchor,
+        floor: record.floor,
+        ts: record.ts,
+        gps: record.gps,
+        alt: record.alt,
         resp: '',
-        reporter: reporter.isEmpty ? '验收记录' : reporter,
+        reporter: record.reporter.isEmpty ? '验收记录' : record.reporter,
         tags: ['验收转工单', '验收#$captureId'],
         note: note,
         seed: 'capture_convert',
-        drawingKey: entry['drawingKey']?.toString(),
-        worldX: (entry['worldX'] as num?)?.toDouble(),
-        worldY: (entry['worldY'] as num?)?.toDouble(),
-        photos: photo == null || photo.isEmpty ? const [] : [photo],
-        photoPath: photo == null || photo.isEmpty ? null : photo,
+        drawingKey: record.drawingKey.isEmpty ? null : record.drawingKey,
+        worldX: record.worldX,
+        worldY: record.worldY,
+        photos: record.photo == null ? const [] : [record.photo!],
+        photoPath: record.photo,
         sourceCaptureId: captureId,
         sourceCaptureIdx: -1,
+        sync: SyncMeta.create(),
       ));
       ref.invalidate(defectsProvider);
     } catch (e) {

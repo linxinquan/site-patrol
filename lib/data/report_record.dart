@@ -1,3 +1,5 @@
+import 'sync_meta.dart';
+
 /// 一份**已生成**的巡场报告归档记录（「巡场报告」页的列表项）。
 ///
 /// 只保存元数据（标题 / 周期 / 格式 / 统计 / 巡场小结），**不保存报告正文**：
@@ -35,6 +37,9 @@ class ReportRecord {
   /// 导出时填写的巡场小结（可空）。
   final String note;
 
+  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  final SyncMeta sync;
+
   const ReportRecord({
     required this.id,
     required this.projectId,
@@ -49,6 +54,7 @@ class ReportRecord {
     this.doneCount = 0,
     this.urgentCount = 0,
     this.note = '',
+    this.sync = const SyncMeta(),
   });
 
   DateTime get createdAtTime => DateTime.fromMillisecondsSinceEpoch(createdAt);
@@ -57,6 +63,7 @@ class ReportRecord {
     String? id,
     List<String>? formats,
     int? createdAt,
+    SyncMeta? sync,
   }) =>
       ReportRecord(
         id: id ?? this.id,
@@ -72,6 +79,7 @@ class ReportRecord {
         doneCount: doneCount,
         urgentCount: urgentCount,
         note: note,
+        sync: sync ?? this.sync,
       );
 
   Map<String, dynamic> toJson() => {
@@ -88,6 +96,7 @@ class ReportRecord {
         'doneCount': doneCount,
         'urgentCount': urgentCount,
         'note': note,
+        ...sync.toJson(),
       };
 
   /// 旧数据读取缺字段一律给默认值，不抛错。
@@ -107,5 +116,6 @@ class ReportRecord {
         doneCount: (m['doneCount'] as num?)?.toInt() ?? 0,
         urgentCount: (m['urgentCount'] as num?)?.toInt() ?? 0,
         note: m['note'] as String? ?? '',
+        sync: SyncMeta.fromJson(m),
       );
 }

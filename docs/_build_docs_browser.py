@@ -22,6 +22,7 @@ ROOT = os.path.dirname(HERE)  # flutter_app/
 # ---------------------------------------------------------------- 分类规则
 # (分组名, scope, 匹配规则)  匹配规则为文件名集合 or 前缀元组
 ROOT_GROUPS = [
+    ("用户手册", "current", ["USER_WORKFLOW.md"]),
     ("总览", "current", ["README.md"]),
     ("现状与事实源", "current", ["FEATURE_INVENTORY.md"]),
     ("后端与配套服务", "current", [
@@ -750,7 +751,7 @@ function homeView(){
   h += '</ul>';
   if(S.filter !== 'archive'){
     h += '<h2 class="sec">关键入口</h2><ul class="recents">';
-    ['FEATURE_INVENTORY.md','BACKEND_ARCHITECTURE.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','docs/specs/CAPTURE_DEFECT_MAPPING.md','DESIGN_TOKENS.md']
+    ['USER_WORKFLOW.md','FEATURE_INVENTORY.md','BACKEND_ARCHITECTURE.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','docs/specs/CAPTURE_DEFECT_MAPPING.md','DESIGN_TOKENS.md']
       .forEach(p=>{
         const d = resolveDoc(p); if(!d) return;
         h += '<li data-doc="'+d.id+'"><div class="r1"><span class="t">'+esc(d.title)+'</span>'+

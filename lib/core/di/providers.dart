@@ -56,6 +56,21 @@ final is7DongProjectProvider = Provider<bool>((ref) {
   return p.id == tencentProject.id;
 });
 
+/// 当前生效的项目 id（写入业务数据时用它落 `projectId`）。
+///
+/// 与 [is7DongProjectProvider] 同口径：用户已手选则取其值，
+/// 否则回落项目列表首个——保证「新建记录」永远带得上项目归属，
+/// 而不是依赖 `currentProjectIdProvider` 可能为 null 的中间态。
+final activeProjectIdProvider = Provider<String>((ref) {
+  final id = ref.watch(currentProjectIdProvider);
+  if (id != null && id.isNotEmpty) return id;
+  final p = ref.watch(projectProvider).maybeWhen(
+        data: (p) => p,
+        orElse: () => allProjects.first,
+      );
+  return p.id;
+});
+
 /// 上传图纸 → 动态 Floor（图纸库列表展示；分组「我的上传」）。
 Floor _uploadedToFloor(UploadedDrawing u) => Floor(
       key: 'up_${u.key}',
@@ -315,12 +330,19 @@ void refreshDefects(Ref ref) {
 /// 缺陷列表筛选状态（null = 全部）。
 final defectFilterProvider = StateProvider<DefectStatus?>((ref) => null);
 
+/// 验收记录使用的存储实现（默认全局单例；单测可 override 注入内存实现）。
+final captureRecordsStorageProvider =
+    Provider<LocalStorage>((ref) => LocalStorage.instance);
+
 /// 验收记录（拍照验收历史）。来源：`stored_vision_results` LocalStorage 文档，
 /// 按当前项目图纸 key 集合过滤 + ts 倒序。删除/转入问题清单时自动写回文档。
 /// 二次筛选（时间窗口/楼层/AI 仅）由消费者调用 [applyRecordsFilter]。
 final captureRecordsProvider = StateNotifierProvider<
     CaptureRecordsNotifier, List<Map<String, dynamic>>>(
-  (ref) => CaptureRecordsNotifier(ref),
+  (ref) => CaptureRecordsNotifier(
+    ref,
+    storage: ref.read(captureRecordsStorageProvider),
+  ),
 );
 
 /// 验收记录筛选状态（时间窗口 + 楼层 + AI 仅）。
