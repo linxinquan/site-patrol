@@ -5,16 +5,19 @@ import '../../shared/widgets/nav_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:app_settings/app_settings.dart';
 
 import '../../core/ar/ar_measure_service.dart';
+import '../../core/di/providers.dart';
 import '../../core/storage/ar_scale_calibration.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/storage/measure_threshold_store.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/ids.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/mm_format.dart';
 import '../../shared/widgets/app_dialog.dart';
@@ -24,15 +27,15 @@ import '../../shared/widgets/app_snack.dart';
 ///
 /// 交互：进入即连续测量 → 单击采点A(蓝) → 再单击采点B(红)+连线 → 自动出距离 →
 /// 保留上一组视觉，下次单击开新组；支持多点测量，可删除单条后批量保存到会话。
-class ArMeasurePage extends StatefulWidget {
+class ArMeasurePage extends ConsumerStatefulWidget {
   final MeasureArgs args;
   const ArMeasurePage({super.key, required this.args});
 
   @override
-  State<ArMeasurePage> createState() => _ArMeasurePageState();
+  ConsumerState<ArMeasurePage> createState() => _ArMeasurePageState();
 }
 
-class _ArMeasurePageState extends State<ArMeasurePage> {
+class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
   static const _viewType = 'ar_measure_view';
   static const _viewId = 0;
 
@@ -443,10 +446,13 @@ class _ArMeasurePageState extends State<ArMeasurePage> {
     var s =
         await MeasureStore.load(widget.args.projectKey, widget.args.drawingKey);
     s ??= MeasureSession(
-      id: '${widget.args.projectKey}_${widget.args.drawingKey}_ar',
+      id: newId(),
       projectKey: widget.args.projectKey,
       drawingKey: widget.args.drawingKey,
+      // 绑定当前发布版本；若已存在会话，copyWith 会保留原版本。
+      drawingVersionId: publishedVersionIdOf(ref, widget.args.drawingKey),
       floor: widget.args.floor,
+      sync: SyncMeta.create(),
     );
     final items = [
       for (var i = 0; i < _readings.length; i++)

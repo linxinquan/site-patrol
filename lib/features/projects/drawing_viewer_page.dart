@@ -13,6 +13,7 @@ import '../../core/di/providers.dart';
 import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/utils/cad_coord.dart';
+import '../../core/utils/ids.dart';
 import '../../core/utils/open_web.dart';
 import '../../core/cad/axis_calibration.dart';
 import '../../core/cad/axis_auto_calibration.dart';
@@ -850,8 +851,9 @@ class _ViewerState extends ConsumerState<_Viewer> {
   void _createDefectFromPick(CadAnnotation ann, Offset world) {
     final now = DateTime.now();
     final defect = Defect(
-      id: '${widget.d.key}_${now.millisecondsSinceEpoch}',
+      id: newId(),
       projectId: ref.read(activeProjectIdProvider),
+      drawingVersionId: widget.d.publishedVersionId,
       part: '${widget.d.title}·缺陷点',
       type: '待分类',
       category: DefectCategory.other,

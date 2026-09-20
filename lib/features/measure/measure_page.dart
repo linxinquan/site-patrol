@@ -23,6 +23,7 @@ import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/engineering_naming.dart';
+import '../../core/utils/ids.dart';
 import '../../core/utils/homography.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/measure_stats.dart';
@@ -207,7 +208,11 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
   Future<void> _loadCalibration() async {
     setState(() => _calibLoading = true);
     final store = CadCalibrationStore(LocalStorage.instance);
-    final m = await store.readCalibration(_drawingKey);
+    // 校准绑版本：只认「当前发布版本」的校准（改版后旧校准失效，需重新校准）。
+    final m = await store.readCalibration(
+      _drawingKey,
+      versionId: publishedVersionIdOf(ref, _drawingKey),
+    );
     if (m != null && m.useAffine) {
       _mapper = m;
       _imageSize = Size(m.viewWidth, m.viewHeight);
@@ -225,12 +230,14 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       setState(() {
         _session = s ??
             MeasureSession(
-              id: '${_projectKey}_${_drawingKey}_${DateTime.now().millisecondsSinceEpoch}',
+              id: newId(),
               projectKey: _projectKey,
               drawingKey: _drawingKey,
+              drawingVersionId: publishedVersionIdOf(ref, _drawingKey),
               floor: widget.args.floor,
               tolMm: 15,
               tolPct: 2,
+              sync: SyncMeta.create(),
             );
         _tolMmCtl.text = fmtNumTrim(_session!.tolMm);
         _tolPctCtl.text = fmtNumTrim(_session!.tolPct);

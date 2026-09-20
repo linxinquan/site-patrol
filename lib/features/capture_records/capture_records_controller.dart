@@ -324,6 +324,8 @@ Defect buildDefectFromCaptureDefect({
     seed: 'capture_convert',
     suggestion: suggestion.isEmpty ? null : suggestion,
     drawingKey: record.drawingKey.isEmpty ? null : record.drawingKey,
+    // 坐标绑版本：从验收记录继承底图版本。
+    drawingVersionId: record.drawingVersionId,
     worldX: record.worldX,
     worldY: record.worldY,
     photos: record.photo == null ? const [] : [record.photo!],

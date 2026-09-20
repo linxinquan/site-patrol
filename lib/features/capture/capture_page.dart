@@ -15,6 +15,7 @@ import '../../core/utils/mm_format.dart';
 import 'package:app_settings/app_settings.dart';
 
 import '../../core/theme/design_tokens.dart';
+import '../../core/utils/ids.dart';
 import '../../core/utils/image_compress.dart';
 import '../../core/utils/photo_watermark.dart';
 import '../../core/storage/local_storage.dart';
@@ -890,9 +891,11 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     // 落库形态由 [CaptureRecord] 唯一决定（不再手写裸 Map）：
     // toJson() 即 `stored_vision_results` 文档的元素结构，读写两侧共用同一模型。
     final entry = CaptureRecord(
-      id: now.microsecondsSinceEpoch.toString(),
+      id: newId(),
       projectId: ref.read(activeProjectIdProvider),
       drawingKey: _drawingKey,
+      // 坐标绑版本：打点/拍照记录必须记住底图版本，否则改版后静默错位。
+      drawingVersionId: _drawing?.publishedVersionId ?? '',
       worldX: _drawPointWorldX,
       worldY: _drawPointWorldY,
       ts: ts,

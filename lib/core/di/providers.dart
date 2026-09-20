@@ -154,11 +154,28 @@ final calibrationLibraryProvider = Provider<CalibrationLibrary>((ref) {
 final cadCalibrationMapProvider =
     StateProvider<Map<String, CadCoordMapper>>((ref) => {});
 
+/// 解析某图纸「当前发布版本」id。
+///
+/// 用途：① 新建业务记录时写 `drawingVersionId`（坐标绑版本）；
+/// ② 校准按版本分档存取。
+/// 图纸表未就绪、或图纸尚未版本化（预置演示图）时返回空串 = 未版本化。
+String publishedVersionIdOf(WidgetRef ref, String drawingKey) {
+  final drawings = ref.read(drawingsProvider).maybeWhen(
+        data: (m) => m,
+        orElse: () => const <String, Drawing>{},
+      );
+  return drawings[drawingKey]?.publishedVersionId ?? '';
+}
+
 /// 加载指定图纸的校准映射（从本地存储读，供图纸页坐标换算）。
-/// 返回 null 表示该图纸尚未校准。
+/// 返回 null 表示该图纸（在当前版本下）尚未校准。
+///
+/// **自动按当前发布版本取校准**：图纸改版后旧版本的校准不再套用（需重新校准），
+/// 避免旧坐标静默错位。
 Future<CadCoordMapper?> loadCadCalibration(WidgetRef ref, String drawingKey) async {
+  final versionId = publishedVersionIdOf(ref, drawingKey);
   final store = ref.read(cadCalibrationStoreProvider);
-  final mapper = await store.readCalibration(drawingKey);
+  final mapper = await store.readCalibration(drawingKey, versionId: versionId);
   if (mapper != null) {
     final map = {...ref.read(cadCalibrationMapProvider), drawingKey: mapper};
     ref.read(cadCalibrationMapProvider.notifier).state = map;
@@ -170,27 +187,31 @@ Future<CadCoordMapper?> loadCadCalibration(WidgetRef ref, String drawingKey) asy
 /// [rawJson] 为浏览器导出的原始 JSON 文本（内置演示坐标系可传 null）。
 Future<void> saveCadCalibration(WidgetRef ref, String drawingKey,
     CadCoordMapper mapper, [String? rawJson]) async {
+  final versionId = publishedVersionIdOf(ref, drawingKey);
   final map = {...ref.read(cadCalibrationMapProvider), drawingKey: mapper};
   ref.read(cadCalibrationMapProvider.notifier).state = map;
   final store = ref.read(cadCalibrationStoreProvider);
-  await store.saveCalibration(drawingKey, mapper);
+  await store.saveCalibration(drawingKey, mapper, versionId: versionId);
   if (rawJson != null) {
-    await store.saveRawJson(drawingKey, rawJson);
-    await ref.read(calibrationLibraryProvider).upsert(drawingKey, mapper, rawJson);
+    await store.saveRawJson(drawingKey, rawJson, versionId: versionId);
+    await ref
+        .read(calibrationLibraryProvider)
+        .upsert(drawingKey, mapper, rawJson, drawingVersionId: versionId);
   } else {
     // 内置演示坐标系：从库中移除，避免下次自动套用演示值。
-    await store.deleteRawJson(drawingKey);
+    await store.deleteRawJson(drawingKey, versionId: versionId);
     await ref.read(calibrationLibraryProvider).remove(drawingKey);
   }
 }
 
-/// 删除指定图纸的校准映射（内存 + 本地 + 校准库同步移除）。
+/// 删除指定图纸（当前版本）的校准映射（内存 + 本地 + 校准库同步移除）。
 Future<void> deleteCadCalibration(WidgetRef ref, String drawingKey) async {
+  final versionId = publishedVersionIdOf(ref, drawingKey);
   final map = {...ref.read(cadCalibrationMapProvider)}..remove(drawingKey);
   ref.read(cadCalibrationMapProvider.notifier).state = map;
   final store = ref.read(cadCalibrationStoreProvider);
-  await store.deleteCalibration(drawingKey);
-  await store.deleteRawJson(drawingKey);
+  await store.deleteCalibration(drawingKey, versionId: versionId);
+  await store.deleteRawJson(drawingKey, versionId: versionId);
   await ref.read(calibrationLibraryProvider).remove(drawingKey);
 }
 
@@ -205,7 +226,16 @@ final speechRecognizerProvider = Provider<SpeechRecognizer>((ref) {
 /// 启动期调用：把校准库清单中所有已校准图纸的坐标映射一次性灌入内存，
 /// 使后续打开任意图纸自动套用，无需逐张加载或手动粘贴。
 Future<void> applyCalibrationLibrary(WidgetRef ref) async {
-  final all = await ref.read(calibrationLibraryProvider).buildAll();
+  // 按「当前发布版本」校验清单：校准版本与当前版本不一致的条目跳过（需重校）。
+  final drawings = ref.read(drawingsProvider).maybeWhen(
+        data: (m) => m,
+        orElse: () => const <String, Drawing>{},
+      );
+  final all = await ref.read(calibrationLibraryProvider).buildAll(
+        currentVersions: {
+          for (final e in drawings.entries) e.key: e.value.publishedVersionId,
+        },
+      );
   final current = {...ref.read(cadCalibrationMapProvider), ...all};
   ref.read(cadCalibrationMapProvider.notifier).state = current;
 }
@@ -222,9 +252,11 @@ Future<void> seedDefaultCalibrations(WidgetRef ref) async {
   for (final d in [...drawings.values, ...dy7Drawings.values]) {
     final mapper = builtinCalibrationFor(d);
     if (mapper == null) continue;
-    final existing = await store.readCalibration(d.key);
+    final existing =
+        await store.readCalibration(d.key, versionId: d.publishedVersionId);
     if (existing == null) {
-      await store.saveCalibration(d.key, mapper);
+      await store.saveCalibration(d.key, mapper,
+          versionId: d.publishedVersionId);
     }
     // 无论是否已持久化，都把内置种子灌入内存 map（确保不打开图纸查看页也能读到）。
     final map = {

@@ -19,6 +19,7 @@ import '../../shared/widgets/app_bottom_sheet.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/storage/patrol_record_store.dart';
+import '../../core/utils/ids.dart';
 
 /// 巡场状态机。
 enum _PatrolStatus { idle, running, paused, finished }
@@ -476,10 +477,12 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     _recordSaved = true;
     final now = DateTime.now().millisecondsSinceEpoch;
     final record = PatrolRecord(
-      id: 'rec_$now',
+      id: newId(),
       planId: plan.id,
       projectId: plan.projectId,
       drawingKey: plan.drawingKey,
+      // 沿路线继承版本：本次巡场的坐标与判定都基于该版本。
+      drawingVersionId: plan.drawingVersionId,
       name: plan.name,
       startedAt: start.millisecondsSinceEpoch,
       finishedAt: now,
@@ -489,6 +492,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       checkins: List.of(_checkins),
       checkpointTotal: plan.checkpointIdxs.length,
       track: List.of(_track),
+      sync: SyncMeta.create(),
     );
     try {
       final existing = await PatrolRecordStore.list(plan.projectId);

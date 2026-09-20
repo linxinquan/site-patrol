@@ -331,6 +331,7 @@ class _CaptureRecordsPageState extends ConsumerState<CaptureRecordsPage> {
         note: note,
         seed: 'capture_convert',
         drawingKey: record.drawingKey.isEmpty ? null : record.drawingKey,
+        drawingVersionId: record.drawingVersionId,
         worldX: record.worldX,
         worldY: record.worldY,
         photos: record.photo == null ? const [] : [record.photo!],

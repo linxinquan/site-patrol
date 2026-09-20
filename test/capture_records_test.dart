@@ -190,7 +190,9 @@ void main() {
   group('buildDefectFromCaptureDefect 转工单映射', () {
     final capture = {
       'id': 'cap_001',
+      'projectId': 'nkf',
       'drawingKey': 'dy04_7_B05',
+      'drawingVersionId': 'dv1',
       'worldX': 100.0,
       'worldY': 200.0,
       'anchor': '西楼1F-左病房翼',
@@ -223,14 +225,15 @@ void main() {
       expect(d.photos, ['capture/cap_001.jpg']);
       expect(d.sourceCaptureId, 'cap_001');
       expect(d.drawingKey, 'dy04_7_B05');
+      expect(d.drawingVersionId, 'dv1');
       expect(d.worldX, 100.0);
       expect(d.worldY, 200.0);
       expect(d.category, DefectCategory.other);
       expect(d.note, '现场观察｜空鼓约 0.4㎡');
       // 项目归属：从 capture.projectId 透传（旧数据缺失时由 override 兜底，见下）。
       expect(d.projectId, 'nkf');
-      // 同步元数据：转入的问题清单条目应带 clientUuid 以便后端幂等。
-      expect(d.sync.clientUuid, isNotEmpty);
+      // 同步元数据：转入的问题清单条目应带 clientId（ULID）以便后端幂等。
+      expect(d.sync.clientId, isNotEmpty);
       expect(d.sync.isNew, isFalse);
     });
 
@@ -278,6 +281,7 @@ void main() {
         id: 'cap_1',
         projectId: 'nkf',
         drawingKey: 'dy04_7_B05',
+        drawingVersionId: 'ver_1',
         worldX: 1,
         worldY: 2,
         ts: '2026-08-08 14:32:11',
@@ -298,6 +302,7 @@ void main() {
       expect((j['defects'] as List).first['status'], 'pending');
       expect(j['photo'], 'photos/a.jpg');
       expect(j['projectId'], 'nkf');
+      expect(j['drawingVersionId'], 'ver_1');
       // ts 是展示文本，规范时间戳由 tsMs 派生（给同步层/后端）。
       expect(record.tsMs, isNot(0));
     });
@@ -331,22 +336,21 @@ void main() {
           CaptureDefectItem.statusPending);
     });
 
-    test('SyncMeta 平铺进顶层，且 clientUuid 为 UUID v4', () {
+    test('SyncMeta 平铺进顶层，且 clientId 为 ULID', () {
       final meta = SyncMeta.create(createdBy: 'u1', nowMs: 1700000000000);
       final j = meta.toJson();
       expect(j['version'], 1);
       expect(j['createdAtMs'], 1700000000000);
       expect(j['createdBy'], 'u1');
+      expect(j['clientId'], meta.clientId);
       expect(
-        RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-'
-                r'[0-9a-f]{12}$')
-            .hasMatch(meta.clientUuid),
+        RegExp(r'^[0-9A-HJKMNP-TV-Z]{26}$').hasMatch(meta.clientId),
         isTrue,
-        reason: 'clientUuid 必须是 UUID v4：${meta.clientUuid}',
+        reason: 'clientId 必须是 26 位 Crockford Base32（ULID）：${meta.clientId}',
       );
       // 二次读取等价（默认值补齐）。
       final back = SyncMeta.fromJson(j);
-      expect(back.clientUuid, meta.clientUuid);
+      expect(back.clientId, meta.clientId);
       expect(back.version, 1);
       // touch：版本 +1 且刷新 updatedAt。
       final touched = meta.touch(nowMs: 1700000001000);

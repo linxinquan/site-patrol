@@ -20,6 +20,12 @@ int msFromTsText(String? text) {
   return DateTime.tryParse(iso)?.millisecondsSinceEpoch ?? 0;
 }
 
+/// 容错取 double（非数值 → 0）。
+///
+/// 写成**顶层函数**是必要的：类内若存在名为 `num` 的字段（如 [Hotspot]），
+/// 会在类作用域内遮蔽 `num` 类型，导致 `as num?` 无法编译。
+double _asDouble(dynamic v) => v is num ? v.toDouble() : 0;
+
 enum DefectStatus { draft, doing, done, reject }
 
 extension DefectStatusX on DefectStatus {
@@ -150,61 +156,292 @@ extension DefectSeverityX on DefectSeverity {
   }
 }
 
-/// 项目参与方（甲方 / 设计院 / 监理 / 咨询 / PMO 等）。
-class Party {
-  final String role; // 角色，如 "甲方（业主方）"、"设计院（LDI）" 等
-  final String org; // 单位全称，如 "腾讯科技（深圳）有限公司"
-  final String contact; // 代表/对接人，如 "林心荃"
-  final String title; // 代表职务，如 "业主代表"
-  const Party({
-    required this.role,
-    required this.org,
-    required this.contact,
-    required this.title,
+/// 组织 / 单位（A1 后台录入，客户端只读）。
+///
+/// 第一版只需 4~6 条（本院 / 监理 / 施工 / 总包 / 甲方），**不做部门树**。
+/// [type] 用字符串 code 而非 enum —— 缺陷分类、单位类型这类带「设计院专属语义」
+/// 的枚举必须在数据里可扩展，否则将来做平民化产品要迁移。
+class Org {
+  /// 建议的单位类型取值（非穷举，数据里可扩展）。
+  static const String typeOwner = 'owner'; // 甲方 / 业主
+  static const String typeDesign = 'design'; // 设计院（LDI）
+  static const String typeSupervision = 'supervision'; // 监理 / 全过程咨询
+  static const String typeContractor = 'contractor'; // 施工 / 总包
+  static const String typeConsulting = 'consulting'; // 第三方咨询 / PMO
+  static const String typeOther = 'other';
+
+  final String id; // ULID / 服务端下发
+  final String name; // 全称，如「深圳市建筑设计研究总院」
+  final String shortName; // 简称，如「深总院」（水印 / 清单用短名）
+  final String type; // 见上方 type* 常量
+  final int sort;
+  const Org({
+    required this.id,
+    required this.name,
+    this.shortName = '',
+    this.type = typeOther,
+    this.sort = 0,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'shortName': shortName,
+        'type': type,
+        'sort': sort,
+      };
+
+  factory Org.fromJson(Map<String, dynamic> m) => Org(
+        id: m['id']?.toString() ?? '',
+        name: m['name']?.toString() ?? '',
+        shortName: m['shortName']?.toString() ?? '',
+        type: m['type']?.toString() ?? typeOther,
+        sort: (m['sort'] as num?)?.toInt() ?? 0,
+      );
 }
 
-/// 系统用户（参与方代表）。头像点击可切换当前用户。
+/// 项目成员关系（A2 用户账号 + B6 项目成员与角色）。
+///
+/// 承载两件事：① App 端「登录后能看到哪些项目」的唯一依据；
+/// ② 权限边界的挂载点。权限判定**只认权限点，不认角色**——
+/// 角色是数据（可后台新增而不发版），代码只硬编码 [permissions] 里的权限点。
+class Membership {
+  /// 系统预置角色 code（业务角色名单确定后由后台添加，客户端不写死判断）。
+  static const String roleProjectManager = 'project_manager';
+  static const String roleSiteEngineer = 'site_engineer';
+  static const String roleDisciplineLead = 'discipline_lead';
+  static const String roleViewer = 'viewer';
+
+  /// 稳定权限点（业务动作）——代码只判断这些，不判断角色。
+  static const String permDefectCreate = 'defect.create';
+  static const String permDefectReply = 'defect.reply';
+  static const String permDefectClose = 'defect.close';
+  static const String permDefectAssign = 'defect.assign';
+  static const String permPatrolRun = 'patrol.run';
+  static const String permMeasureWrite = 'measure.write';
+  static const String permReportExport = 'report.export';
+  static const String permDrawingManage = 'drawing.manage';
+  static const String permMemberManage = 'member.manage';
+
+  /// 成员状态。
+  static const String statusActive = 'active'; // 已加入
+  static const String statusInvited = 'invited'; // 已邀请未接受
+  static const String statusDisabled = 'disabled'; // 已停用
+
+  final String id;
+  final String userId; // → User.id
+  final String projectId; // → Project.id
+  final String roleCode; // 见上方 role* 常量
+  final String roleName; // 展示冗余（角色名由后台维护）
+  final List<String> permissions; // 见上方 perm* 常量
+  final String status; // 见上方 status* 常量
+
+  /// 同步元数据（可写实体）。
+  final SyncMeta sync;
+  const Membership({
+    required this.id,
+    required this.userId,
+    required this.projectId,
+    this.roleCode = roleViewer,
+    this.roleName = '',
+    this.permissions = const [],
+    this.status = statusActive,
+    this.sync = const SyncMeta(),
+  });
+
+  /// 是否拥有某个权限点。
+  bool can(String permission) => permissions.contains(permission);
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'userId': userId,
+        'projectId': projectId,
+        'roleCode': roleCode,
+        'roleName': roleName,
+        'permissions': permissions,
+        'status': status,
+        ...sync.toJson(),
+      };
+
+  factory Membership.fromJson(Map<String, dynamic> m) => Membership(
+        id: m['id']?.toString() ?? '',
+        userId: m['userId']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
+        roleCode: m['roleCode']?.toString() ?? roleViewer,
+        roleName: m['roleName']?.toString() ?? '',
+        permissions:
+            (m['permissions'] as List?)?.whereType<String>().toList() ?? const [],
+        status: m['status']?.toString() ?? statusActive,
+        sync: SyncMeta.fromJson(m),
+      );
+}
+
+/// 项目参与方（甲方 / 设计院 / 监理 / 咨询 / PMO 等）。
+///
+/// **内嵌于 [Project.parties]**（随项目一起落库，无独立同步元数据）。
+/// 它只是「展示用通讯录」；权限边界走 [Membership]，两者不要混。
+class Party {
+  final String id; // ULID（便于后台按条维护）
+  final String role; // 角色名，如 "甲方（业主方）"——自由文本，可扩展
+  final String orgId; // → Org.id
+  final String org; // 单位全称（展示冗余，渲染端不必 join）
+  final String contact; // 对接人姓名（展示冗余）
+  final String contactUserId; // → User.id（空串 = 未关联账号）
+  final String title; // 对接人职务，如 "业主代表"
+  const Party({
+    this.id = '',
+    required this.role,
+    this.orgId = '',
+    required this.org,
+    required this.contact,
+    this.contactUserId = '',
+    required this.title,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'role': role,
+        'orgId': orgId,
+        'org': org,
+        'contact': contact,
+        'contactUserId': contactUserId,
+        'title': title,
+      };
+
+  factory Party.fromJson(Map<String, dynamic> m) => Party(
+        id: m['id']?.toString() ?? '',
+        role: m['role']?.toString() ?? '',
+        orgId: m['orgId']?.toString() ?? '',
+        org: m['org']?.toString() ?? '',
+        contact: m['contact']?.toString() ?? '',
+        contactUserId: m['contactUserId']?.toString() ?? '',
+        title: m['title']?.toString() ?? '',
+      );
+}
+
+/// 系统用户（参与方代表）。
+///
+/// 档案类：由后台建号下发，客户端只读（头像切换/身份展示）。
+/// [role] 是**展示用**的岗位描述；真正的权限看 [Membership.permissions]。
 class User {
+  /// 账号状态。
+  static const String statusActive = 'active';
+  static const String statusInvited = 'invited';
+  static const String statusDisabled = 'disabled';
+
   final String id;
   final String name; // 姓名，如 "欧阳嘉"
-  final String org; // 单位，如 "Arcadis（凯迪思）"
-  final String role; // 角色，如 "全过程咨询 / PMO"
-  final String avatar; // assets 头像路径
+  final String orgId; // → Org.id
+  final String org; // 单位（展示冗余），如 "Arcadis（凯迪思）"
+  final String role; // 岗位描述（展示用），如 "全过程咨询 / PMO"
+  final String avatar; // 头像路径（assets 或对象存储 key）
+  final String phone;
+  final String email;
+  final String status; // 见上方 status* 常量
   const User({
     required this.id,
     required this.name,
+    this.orgId = '',
     required this.org,
     required this.role,
     required this.avatar,
+    this.phone = '',
+    this.email = '',
+    this.status = statusActive,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'orgId': orgId,
+        'org': org,
+        'role': role,
+        'avatar': avatar,
+        'phone': phone,
+        'email': email,
+        'status': status,
+      };
+
+  factory User.fromJson(Map<String, dynamic> m) => User(
+        id: m['id']?.toString() ?? '',
+        name: m['name']?.toString() ?? '',
+        orgId: m['orgId']?.toString() ?? '',
+        org: m['org']?.toString() ?? '',
+        role: m['role']?.toString() ?? '',
+        avatar: m['avatar']?.toString() ?? '',
+        phone: m['phone']?.toString() ?? '',
+        email: m['email']?.toString() ?? '',
+        status: m['status']?.toString() ?? statusActive,
+      );
 }
 
-/// 项目施工进度节点（关键里程碑）。
-/// 用户后续会提供真实进度资料替换 mock 数据。
+/// 项目施工进度节点（关键里程碑，B4 后台录入）。
+///
+/// 它同时是**施工进度回填的框架**：施工方按节点提交 [ProgressEntry]（C4）。
+/// `date` 语义固定为「计划日期」（不改名，避免波及首页时间轴与 mock）；
+/// 实际完成看 [actualDate]。
 class Milestone {
+  final String id; // ULID（ProgressEntry 按它回填）
   final String name; // 节点名称，如 "主体结构封顶"
-  final String date; // 计划/完成日期，如 "2026-05-30"
+  final String date; // 计划日期，如 "2026-05-30"
+  final String actualDate; // 实际完成日期；空串 = 未完成
   final bool done; // 是否已完成
   final bool current; // 是否为当前进行中的节点（高亮）
   const Milestone({
+    this.id = '',
     required this.name,
     required this.date,
+    this.actualDate = '',
     this.done = false,
     this.current = false,
   });
+
+  /// 是否实质完成：显式标记 或 已填实际完成日期。
+  bool get isDone => done || actualDate.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'date': date,
+        'actualDate': actualDate,
+        'done': done,
+        'current': current,
+      };
+
+  /// `done` 缺省时由 [actualDate] 推导（后台只填计划 + 实际日期即可）。
+  factory Milestone.fromJson(Map<String, dynamic> m) {
+    final actual = m['actualDate']?.toString() ?? '';
+    return Milestone(
+      id: m['id']?.toString() ?? '',
+      name: m['name']?.toString() ?? '',
+      date: m['date']?.toString() ?? '',
+      actualDate: actual,
+      done: m.containsKey('done')
+          ? m['done'] == true
+          : actual.isNotEmpty,
+      current: m['current'] == true,
+    );
+  }
 }
 
+/// 项目（B1 基本信息 + B2 地理位置）。
+///
+/// 档案类：由后台录入、客户端只读、全量拉取覆盖。
 class Project {
   final String id; // 项目唯一标识（多项目切换用）
   final String name;
   final String client;
-  final String location;
+  final String location; // 项目地址文本（展示 + 后台地理编码前的原始输入）
   final String status;
   final String siteArea;
   final String floorArea;
   final int beds;
   final String concept;
+
+  /// 项目坐标（B2）。**照片水印 GPS 的兜底来源**：
+  /// 优先设备定位 → 无信号时用项目坐标 → 再退化到手选附近定位点。
+  final double? lat;
+  final double? lng;
 
   /// 参与方列表（甲方 / 设计院 / 监理 / 咨询 / PMO）。
   final List<Party> parties;
@@ -221,9 +458,117 @@ class Project {
     required this.floorArea,
     required this.beds,
     required this.concept,
+    this.lat,
+    this.lng,
     this.parties = const [],
     this.milestones = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'client': client,
+        'location': location,
+        'status': status,
+        'siteArea': siteArea,
+        'floorArea': floorArea,
+        'beds': beds,
+        'concept': concept,
+        'lat': lat,
+        'lng': lng,
+        'parties': parties.map((p) => p.toJson()).toList(),
+        'milestones': milestones.map((m) => m.toJson()).toList(),
+      };
+
+  factory Project.fromJson(Map<String, dynamic> m) => Project(
+        id: m['id']?.toString() ?? '',
+        name: m['name']?.toString() ?? '',
+        client: m['client']?.toString() ?? '',
+        location: m['location']?.toString() ?? '',
+        status: m['status']?.toString() ?? '',
+        siteArea: m['siteArea']?.toString() ?? '',
+        floorArea: m['floorArea']?.toString() ?? '',
+        beds: (m['beds'] as num?)?.toInt() ?? 0,
+        concept: m['concept']?.toString() ?? '',
+        lat: (m['lat'] as num?)?.toDouble(),
+        lng: (m['lng'] as num?)?.toDouble(),
+        parties: (m['parties'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => Party.fromJson(e.cast<String, dynamic>()))
+            .toList(),
+        milestones: (m['milestones'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => Milestone.fromJson(e.cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+/// 一条施工进度回填（C4，施工方免登录填报）。
+///
+/// **一律标注「施工方自报」**（[source] 固定 [sourceContractor]）：
+/// 填报人身份不可证，报告里不得表述成设计院核实结论。
+class ProgressEntry {
+  /// 数据来源：施工方自报（唯一取值，保留字段以便将来接入监理复核）。
+  static const String sourceContractor = 'contractor';
+
+  /// 填报状态。
+  static const String statusNotStarted = 'not_started';
+  static const String statusInProgress = 'in_progress';
+  static const String statusDone = 'done';
+  static const String statusDelayed = 'delayed';
+
+  final String id; // ULID
+  final String projectId;
+  final String milestoneId; // → Milestone.id（B4 是回填框架）
+  final String status; // 见上方 status* 常量
+  final String date; // 填报日期 / 实际日期，`yyyy-MM-dd`
+  final String note;
+  final List<String> photos; // 现场照片本地相对路径（上传后为对象存储 key）
+  final String declaredBy; // 填报人姓名（免登录，仅姓名）
+
+  /// 数据来源，见 [sourceContractor]。
+  final String source;
+
+  /// 同步元数据（可写实体）。
+  final SyncMeta sync;
+  const ProgressEntry({
+    required this.id,
+    required this.projectId,
+    required this.milestoneId,
+    this.status = statusInProgress,
+    this.date = '',
+    this.note = '',
+    this.photos = const [],
+    this.declaredBy = '',
+    this.source = sourceContractor,
+    this.sync = const SyncMeta(),
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'projectId': projectId,
+        'milestoneId': milestoneId,
+        'status': status,
+        'date': date,
+        'note': note,
+        'photos': photos,
+        'declaredBy': declaredBy,
+        'source': source,
+        ...sync.toJson(),
+      };
+
+  factory ProgressEntry.fromJson(Map<String, dynamic> m) => ProgressEntry(
+        id: m['id']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
+        milestoneId: m['milestoneId']?.toString() ?? '',
+        status: m['status']?.toString() ?? statusInProgress,
+        date: m['date']?.toString() ?? '',
+        note: m['note']?.toString() ?? '',
+        photos: (m['photos'] as List?)?.whereType<String>().toList() ?? const [],
+        declaredBy: m['declaredBy']?.toString() ?? '',
+        source: m['source']?.toString() ?? sourceContractor,
+        sync: SyncMeta.fromJson(m),
+      );
 }
 
 /// 附近定位点（工程水印相机风格）：项目 / 地标 + 地址 + GPS + 海拔。
@@ -296,16 +641,23 @@ class SiteLocation {
       );
 }
 
+/// 楼层（B5 后台录入 / 由图名解析）。
+///
+/// 档案类：客户端只读。注意 [cached] / [progress] 是**客户端本地缓存态**
+/// （图纸是否已下载），不属于后台数据 —— 因此 [toJson] 有意**不输出**它们
+/// （缓存进度由 `floorCacheProvider` 单独管理）。
 class Floor {
   final String key;
+  final String projectId; // 所属项目（多项目隔离的必要条件）
   final String name;
   final int index;
-  final bool cached;
-  final int progress;
-  final String building;
-  final String floor;
+  final bool cached; // 本地缓存态，不入库
+  final int progress; // 本地缓存进度 0~100，不入库
+  final String building; // 楼栋，如「7栋」
+  final String floor; // 楼层号，如「B1」
   const Floor({
     required this.key,
+    this.projectId = '',
     required this.name,
     required this.index,
     required this.cached,
@@ -313,8 +665,33 @@ class Floor {
     required this.building,
     required this.floor,
   });
+
+  /// 仅输出后台字段（不含本地缓存态）。
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'projectId': projectId,
+        'name': name,
+        'index': index,
+        'building': building,
+        'floor': floor,
+      };
+
+  /// `cached` / `progress` 不入库，读回按「未缓存」处理（由 pageCacheProvider 覆盖）。
+  factory Floor.fromJson(Map<String, dynamic> m) => Floor(
+        key: m['key']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
+        name: m['name']?.toString() ?? '',
+        index: (m['index'] as num?)?.toInt() ?? 0,
+        cached: false,
+        progress: 0,
+        building: m['building']?.toString() ?? '',
+        floor: m['floor']?.toString() ?? '',
+      );
 }
 
+/// 图纸热点（底图上的可点区域）。
+///
+/// **内嵌于 [DrawingVersion.hotspots]**：热点是坐标，必须随版本走。
 class Hotspot {
   final int num;
   final String label;
@@ -328,32 +705,214 @@ class Hotspot {
     required this.x,
     required this.y,
   });
+
+  Map<String, dynamic> toJson() =>
+      {'num': num, 'label': label, 'target': target, 'x': x, 'y': y};
+
+  factory Hotspot.fromJson(Map<String, dynamic> m) {
+    // 注意：本类有名为 `num` 的字段，会在类作用域内遮蔽 `num` 类型，
+    // 因此这里不能写 `as num?`，改用顶层容错取值函数。
+    return Hotspot(
+      num: _asDouble(m['num']).toInt(),
+      label: m['label']?.toString() ?? '',
+      target: m['target']?.toString() ?? '',
+      x: _asDouble(m['x']),
+      y: _asDouble(m['y']),
+    );
+  }
 }
 
+/// 图纸（C1，版本身份）。
+///
+/// **版本化的核心约定**：本类只承载「图纸身份」与**当前发布版本的冗余快照**；
+/// 权威数据在 [DrawingVersion]（底图尺寸、热点、校准都随版本走）。
+/// 冗余字段（[src] / [w] / [h] / [hotspots]）由服务端按 `publishedVersionId`
+/// join 回填，客户端渲染代码可直接用，不必改。
 class Drawing {
-  final String key;
+  final String key; // 本地业务 key（后台建表时作为 external key）
+  final String projectId; // 所属项目（多项目隔离的必要条件）
   final String title;
-  final String crumb;
-  final String variant;
-  final String src; // assets 路径（PNG 图）
-  final double w;
-  final double h;
-  final List<Hotspot> hotspots;
+  final String crumb; // 面包屑，如「7栋 详图」
+  final String variant; // 图纸类型，如 detail / plan
+  final String discipline; // 专业，如 建筑 / 结构 / 机电（自由文本，可扩展）
+  final String src; // 冗余快照：当前发布版本底图（assets 路径或对象存储 key）
+  final double w; // 冗余快照：底图像素宽
+  final double h; // 冗余快照：底图像素高
+  final List<Hotspot> hotspots; // 冗余快照：当前发布版本热点
+
+  /// 当前发布版本（→ [DrawingVersion.id]）。
+  /// 空串 = 尚未版本化（预置演示图 / 后台未发布）。
+  final String publishedVersionId;
+  final int sort; // 列表排序
 
   /// 若为 CAD/OCF 图纸，标记对应 OCF 缓存 key（如 `dy04_7_B01`）。
-  /// 非空时图纸查看页走 CAD 渲染/占位逻辑，而非 Image.asset。
+  /// ⚠️ CAD 链路已判废案，待整体剥离。
   final String? cadOcfKey;
   const Drawing({
     required this.key,
+    this.projectId = '',
     required this.title,
     required this.crumb,
     required this.variant,
+    this.discipline = '',
     required this.src,
     required this.w,
     required this.h,
     required this.hotspots,
+    this.publishedVersionId = '',
+    this.sort = 0,
     this.cadOcfKey,
   });
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'projectId': projectId,
+        'title': title,
+        'crumb': crumb,
+        'variant': variant,
+        'discipline': discipline,
+        // 冗余快照也一并输出：后端可直接落库，客户端也能脱离版本表渲染。
+        'src': src,
+        'w': w,
+        'h': h,
+        'hotspots': hotspots.map((e) => e.toJson()).toList(),
+        'publishedVersionId': publishedVersionId,
+        'sort': sort,
+        'cadOcfKey': cadOcfKey,
+      };
+
+  factory Drawing.fromJson(Map<String, dynamic> m) => Drawing(
+        key: m['key']?.toString() ?? '',
+        projectId: m['projectId']?.toString() ?? '',
+        title: m['title']?.toString() ?? '',
+        crumb: m['crumb']?.toString() ?? '',
+        variant: m['variant']?.toString() ?? '',
+        discipline: m['discipline']?.toString() ?? '',
+        src: m['src']?.toString() ?? '',
+        w: (m['w'] as num?)?.toDouble() ?? 0,
+        h: (m['h'] as num?)?.toDouble() ?? 0,
+        hotspots: (m['hotspots'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => Hotspot.fromJson(e.cast<String, dynamic>()))
+            .toList(),
+        publishedVersionId: m['publishedVersionId']?.toString() ?? '',
+        sort: (m['sort'] as num?)?.toInt() ?? 0,
+        cadOcfKey: m['cadOcfKey']?.toString(),
+      );
+}
+
+/// 图纸版本（C1）——**本次改造的关键**。
+///
+/// 规则（与需求文档一致）：
+/// - 改版走「发布」动作：旧版本 [state] 置 `archived` 并锁只读；
+/// - **不做自动坐标迁移**（算法不可靠且不可解释），改版后提示驻场重锚；
+/// - 底图、尺寸、热点、校准**全部绑版本**（[Calibration.drawingVersionId]）。
+class DrawingVersion {
+  /// 版本状态。
+  static const String stateDraft = 'draft'; // 已上传未发布
+  static const String statePublished = 'published'; // 已发布（当前生效）
+  static const String stateArchived = 'archived'; // 已归档（旧版，只读）
+
+  final String id; // ULID
+  final String drawingKey; // → Drawing.key
+  final String version; // 版本号，**必填**，如 'V1.0'
+  final String versionDate; // 版本日期，`yyyy-MM-dd`
+  final String state; // 见上方 state* 常量
+  final String baseImagePath; // 底图（本地相对路径 / 对象存储 key）
+  final double width; // 底图像素宽（权威）
+  final double height; // 底图像素高（权威）
+  final String? bounds; // CAD 坐标范围 'xmin,ymin,xmax,ymax'（mm）
+  final List<Hotspot> hotspots; // 热点随版本走（坐标）
+  final int publishedAtMs; // 发布时间（epoch ms）
+  final String? publishedBy; // 发布人 → User.id
+  const DrawingVersion({
+    required this.id,
+    required this.drawingKey,
+    required this.version,
+    this.versionDate = '',
+    this.state = stateDraft,
+    this.baseImagePath = '',
+    this.width = 0,
+    this.height = 0,
+    this.bounds,
+    this.hotspots = const [],
+    this.publishedAtMs = 0,
+    this.publishedBy,
+  });
+
+  bool get isPublished => state == statePublished;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'drawingKey': drawingKey,
+        'version': version,
+        'versionDate': versionDate,
+        'state': state,
+        'baseImagePath': baseImagePath,
+        'width': width,
+        'height': height,
+        'bounds': bounds,
+        'hotspots': hotspots.map((e) => e.toJson()).toList(),
+        'publishedAtMs': publishedAtMs,
+        'publishedBy': publishedBy,
+      };
+
+  factory DrawingVersion.fromJson(Map<String, dynamic> m) => DrawingVersion(
+        id: m['id']?.toString() ?? '',
+        drawingKey: m['drawingKey']?.toString() ?? '',
+        version: m['version']?.toString() ?? '',
+        versionDate: m['versionDate']?.toString() ?? '',
+        state: m['state']?.toString() ?? stateDraft,
+        baseImagePath: m['baseImagePath']?.toString() ?? '',
+        width: (m['width'] as num?)?.toDouble() ?? 0,
+        height: (m['height'] as num?)?.toDouble() ?? 0,
+        bounds: m['bounds']?.toString(),
+        hotspots: (m['hotspots'] as List? ?? const [])
+            .whereType<Map>()
+            .map((e) => Hotspot.fromJson(e.cast<String, dynamic>()))
+            .toList(),
+        publishedAtMs: (m['publishedAtMs'] as num?)?.toInt() ?? 0,
+        publishedBy: m['publishedBy']?.toString(),
+      );
+}
+
+/// 图纸坐标校准（C2）——**必须绑版本**。
+///
+/// [map] 是仿射系数（`viewWidth` / `viewHeight` / `a`..`f`），
+/// 由 `CadCoordMapper.fromCalibrationMap` 解析；[raw] 保留浏览器导出的原始 JSON，
+/// 便于下次打开校准弹窗预填。
+///
+/// ⚠️ 与 [PhotoCalib] 区分：本类是**图纸级**（像素 ↔ 毫米世界坐标），
+/// [PhotoCalib] 是**照片级**（照片内参考物标定）。
+class Calibration {
+  final String drawingKey; // → Drawing.key
+  final String drawingVersionId; // ⚠️ 坐标绑版本
+  final String? raw; // 浏览器原始校准 JSON（可空）
+  final Map<String, dynamic> map; // 仿射系数
+  final int updatedAtMs;
+  const Calibration({
+    required this.drawingKey,
+    this.drawingVersionId = '',
+    this.raw,
+    this.map = const {},
+    this.updatedAtMs = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
+        'raw': raw,
+        'map': map,
+        'updatedAtMs': updatedAtMs,
+      };
+
+  factory Calibration.fromJson(Map<String, dynamic> m) => Calibration(
+        drawingKey: m['drawingKey']?.toString() ?? '',
+        drawingVersionId: m['drawingVersionId']?.toString() ?? '',
+        raw: m['raw']?.toString(),
+        map: (m['map'] as Map?)?.cast<String, dynamic>() ?? const {},
+        updatedAtMs: (m['updatedAtMs'] as num?)?.toInt() ?? 0,
+      );
 }
 
 class AnchorPhoto {
@@ -436,6 +995,12 @@ class Defect {
   /// 所属图纸 key（CAD 打点来源，可为空）。
   final String? drawingKey;
 
+  /// 所属图纸版本（→ [DrawingVersion.id]）。
+  ///
+  /// **坐标绑版本**：空串表示该记录产生于版本化之前（历史/演示数据），
+  /// 无法保证 [worldX]/[worldY] 指向正确的图面位置。
+  final String drawingVersionId;
+
   /// 图纸坐标 X（mm，CAD 打点换算，用于图纸上回溯定位）。
   final double? worldX;
 
@@ -512,7 +1077,7 @@ class Defect {
   /// 设计师处置时间（格式同 [ts]）。
   final String? designerTs;
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（clientId / version / 时间戳 / 软删）。
   final SyncMeta sync;
 
   const Defect({
@@ -539,6 +1104,7 @@ class Defect {
     required this.note,
     required this.seed,
     this.drawingKey,
+    this.drawingVersionId = '',
     this.worldX,
     this.worldY,
     this.photos = const [],
@@ -590,6 +1156,7 @@ class Defect {
         'note': note,
         'seed': seed,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'worldX': worldX,
         'worldY': worldY,
         'photoPath': photoPath,
@@ -649,6 +1216,7 @@ class Defect {
         note: m['note']?.toString() ?? '',
         seed: m['seed']?.toString() ?? 'capture',
         drawingKey: m['drawingKey']?.toString(),
+        drawingVersionId: m['drawingVersionId']?.toString() ?? '',
         worldX: (m['worldX'] as num?)?.toDouble(),
         worldY: (m['worldY'] as num?)?.toDouble(),
         photoPath: m['photoPath']?.toString(),
@@ -777,6 +1345,7 @@ class Defect {
         note: note ?? this.note,
         seed: seed,
         drawingKey: drawingKey,
+        drawingVersionId: drawingVersionId,
         worldX: worldX,
         worldY: worldY,
         photoPath: photoPath ?? this.photoPath,
@@ -1034,6 +1603,9 @@ class CaptureRecord {
   /// 所属图纸 key（图纸打点来源）。
   final String drawingKey;
 
+  /// 所属图纸版本（→ [DrawingVersion.id]）；空串 = 未版本化。
+  final String drawingVersionId;
+
   /// 图纸坐标 X（mm）；[drawingKey] 非空且已校准时才有意义。
   final double? worldX;
 
@@ -1074,6 +1646,7 @@ class CaptureRecord {
     required this.id,
     this.projectId = '',
     this.drawingKey = '',
+    this.drawingVersionId = '',
     this.worldX,
     this.worldY,
     required this.ts,
@@ -1103,6 +1676,7 @@ class CaptureRecord {
   CaptureRecord copyWith({
     String? projectId,
     String? drawingKey,
+    String? drawingVersionId,
     double? worldX,
     double? worldY,
     String? ts,
@@ -1120,6 +1694,7 @@ class CaptureRecord {
         id: id,
         projectId: projectId ?? this.projectId,
         drawingKey: drawingKey ?? this.drawingKey,
+        drawingVersionId: drawingVersionId ?? this.drawingVersionId,
         worldX: worldX ?? this.worldX,
         worldY: worldY ?? this.worldY,
         ts: ts ?? this.ts,
@@ -1149,6 +1724,7 @@ class CaptureRecord {
         'id': id,
         'projectId': projectId,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'worldX': worldX,
         'worldY': worldY,
         'ts': ts,
@@ -1169,6 +1745,7 @@ class CaptureRecord {
         id: m['id']?.toString() ?? '',
         projectId: m['projectId']?.toString() ?? '',
         drawingKey: m['drawingKey']?.toString() ?? '',
+        drawingVersionId: m['drawingVersionId']?.toString() ?? '',
         worldX: (m['worldX'] as num?)?.toDouble(),
         worldY: (m['worldY'] as num?)?.toDouble(),
         ts: m['ts']?.toString() ?? '',
@@ -1430,6 +2007,9 @@ class MeasureSession {
   final String id;
   final String projectKey;
   final String drawingKey;
+
+  /// 所属图纸版本（→ [DrawingVersion.id]）；空串 = 未版本化。
+  final String drawingVersionId;
   final String floor;
   final double tolMm; // 容差 mm
   final double tolPct; // 容差 %
@@ -1437,12 +2017,13 @@ class MeasureSession {
   final List<MeasureItem> items;
   final int updatedAt; // 毫秒时间戳
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（clientId / version / 时间戳 / 软删）。
   final SyncMeta sync;
   const MeasureSession({
     required this.id,
     required this.projectKey,
     required this.drawingKey,
+    this.drawingVersionId = '',
     required this.floor,
     this.tolMm = 15,
     this.tolPct = 2,
@@ -1455,6 +2036,7 @@ class MeasureSession {
   MeasureSession copyWith({
     String? projectKey,
     String? drawingKey,
+    String? drawingVersionId,
     String? floor,
     double? tolMm,
     double? tolPct,
@@ -1468,6 +2050,7 @@ class MeasureSession {
         id: id,
         projectKey: projectKey ?? this.projectKey,
         drawingKey: drawingKey ?? this.drawingKey,
+        drawingVersionId: drawingVersionId ?? this.drawingVersionId,
         floor: floor ?? this.floor,
         tolMm: tolMm ?? this.tolMm,
         tolPct: tolPct ?? this.tolPct,
@@ -1484,6 +2067,7 @@ class MeasureSession {
         'id': id,
         'projectKey': projectKey,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'floor': floor,
         'tolMm': tolMm,
         'tolPct': tolPct,
@@ -1507,6 +2091,7 @@ class MeasureSession {
       id: m['id'] as String? ?? '',
       projectKey: m['projectKey'] as String? ?? '',
       drawingKey: m['drawingKey'] as String? ?? '',
+      drawingVersionId: m['drawingVersionId'] as String? ?? '',
       floor: m['floor'] as String? ?? '',
       tolMm: (m['tolMm'] as num? ?? 15).toDouble(),
       tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
@@ -1771,18 +2356,22 @@ class PatrolPlan {
   final String id;
   final String projectId;
   final String drawingKey;
+
+  /// 所属图纸版本（→ [DrawingVersion.id]）；空串 = 未版本化。
+  final String drawingVersionId;
   final String name; // 如 "B1 地下车库巡场路线"
   final String floor; // 如 "B1"
   final List<PatrolPoint> points;
   final double? totalKm; // 手动填写的兜底里程（图纸未校准时用）；校准后自动算
   final int updatedAt;
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（clientId / version / 时间戳 / 软删）。
   final SyncMeta sync;
   const PatrolPlan({
     required this.id,
     required this.projectId,
     required this.drawingKey,
+    this.drawingVersionId = '',
     required this.name,
     required this.floor,
     required this.points,
@@ -1798,6 +2387,7 @@ class PatrolPlan {
       ];
 
   PatrolPlan copyWith({
+    String? drawingVersionId,
     String? name,
     String? floor,
     List<PatrolPoint>? points,
@@ -1809,6 +2399,7 @@ class PatrolPlan {
         id: id,
         projectId: projectId,
         drawingKey: drawingKey,
+        drawingVersionId: drawingVersionId ?? this.drawingVersionId,
         name: name ?? this.name,
         floor: floor ?? this.floor,
         points: points ?? this.points,
@@ -1821,6 +2412,7 @@ class PatrolPlan {
         'id': id,
         'projectId': projectId,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'name': name,
         'floor': floor,
         'points': points.map((p) => p.toJson()).toList(),
@@ -1834,6 +2426,7 @@ class PatrolPlan {
         id: m['id'] as String? ?? '',
         projectId: m['projectId'] as String? ?? '',
         drawingKey: m['drawingKey'] as String? ?? '',
+        drawingVersionId: m['drawingVersionId'] as String? ?? '',
         name: m['name'] as String? ?? '',
         floor: m['floor'] as String? ?? '',
         points: (m['points'] as List? ?? [])
@@ -1875,6 +2468,9 @@ class PatrolRecord {
   final String planId;
   final String projectId;
   final String drawingKey;
+
+  /// 所属图纸版本（→ [DrawingVersion.id]）；空串 = 未版本化。
+  final String drawingVersionId;
   final String name;
   final int startedAt; // ms
   final int finishedAt; // ms
@@ -1887,13 +2483,14 @@ class PatrolRecord {
   // 任务2：路线检查点总数（达成率分母，= 对应 PatrolPlan.checkpointIdxs.length）。
   final int checkpointTotal;
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（clientId / version / 时间戳 / 软删）。
   final SyncMeta sync;
   const PatrolRecord({
     required this.id,
     required this.planId,
     required this.projectId,
     required this.drawingKey,
+    this.drawingVersionId = '',
     required this.name,
     required this.startedAt,
     required this.finishedAt,
@@ -1911,6 +2508,7 @@ class PatrolRecord {
         'planId': planId,
         'projectId': projectId,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'name': name,
         'startedAt': startedAt,
         'finishedAt': finishedAt,
@@ -1929,6 +2527,7 @@ class PatrolRecord {
         planId: m['planId'] as String? ?? '',
         projectId: m['projectId'] as String? ?? '',
         drawingKey: m['drawingKey'] as String? ?? '',
+        drawingVersionId: m['drawingVersionId'] as String? ?? '',
         name: m['name'] as String? ?? '',
         startedAt: (m['startedAt'] as num? ?? 0).toInt(),
         finishedAt: (m['finishedAt'] as num? ?? 0).toInt(),
@@ -2127,10 +2726,13 @@ class RoomScanRecord {
   final double? closureDeltaMm;
   final double? netHeightMm; // 净高 mm
   final String? drawingKey; // 核尺场景关联图纸
+
+  /// 核尺所用图纸的版本（→ [DrawingVersion.id]）；空串 = 未版本化。
+  final String drawingVersionId;
   final List<MeasureItem> checks; // 与图纸对照判定（复用 MeasureItem）
   final String? note;
 
-  /// 同步元数据（clientUuid / version / 时间戳 / 软删）。
+  /// 同步元数据（clientId / version / 时间戳 / 软删）。
   final SyncMeta sync;
   const RoomScanRecord({
     required this.id,
@@ -2143,6 +2745,7 @@ class RoomScanRecord {
     this.closureDeltaMm,
     this.netHeightMm,
     this.drawingKey,
+    this.drawingVersionId = '',
     this.checks = const [],
     this.note,
     this.sync = const SyncMeta(),
@@ -2162,6 +2765,7 @@ class RoomScanRecord {
     double? closureDeltaMm,
     double? netHeightMm,
     String? drawingKey,
+    String? drawingVersionId,
     List<MeasureItem>? checks,
     String? note,
     SyncMeta? sync,
@@ -2177,6 +2781,7 @@ class RoomScanRecord {
         closureDeltaMm: closureDeltaMm ?? this.closureDeltaMm,
         netHeightMm: netHeightMm ?? this.netHeightMm,
         drawingKey: drawingKey ?? this.drawingKey,
+        drawingVersionId: drawingVersionId ?? this.drawingVersionId,
         checks: checks ?? this.checks,
         note: note ?? this.note,
         sync: sync ?? this.sync,
@@ -2193,6 +2798,7 @@ class RoomScanRecord {
         'closureDeltaMm': closureDeltaMm,
         'netHeightMm': netHeightMm,
         'drawingKey': drawingKey,
+        'drawingVersionId': drawingVersionId,
         'checks': checks.map((c) => c.toJson()).toList(),
         'note': note,
         ...sync.toJson(),
@@ -2211,6 +2817,7 @@ class RoomScanRecord {
         closureDeltaMm: (m['closureDeltaMm'] as num?)?.toDouble(),
         netHeightMm: (m['netHeightMm'] as num?)?.toDouble(),
         drawingKey: m['drawingKey']?.toString(),
+        drawingVersionId: m['drawingVersionId']?.toString() ?? '',
         checks: (m['checks'] as List? ?? [])
             .map((e) => MeasureItem.fromJson(e as Map<String, dynamic>))
             .toList(),

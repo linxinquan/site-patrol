@@ -11,6 +11,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/cad/wall_lines.dart';
 import '../../core/storage/patrol_plan_store.dart';
 import '../../core/utils/cad_coord.dart';
+import '../../core/utils/ids.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../shared/widgets/app_snack.dart';
@@ -412,14 +413,17 @@ class _PatrolEditorPageState extends ConsumerState<PatrolEditorPage> {
     }
 
     final plan = PatrolPlan(
-      id: widget.args.planId ?? 'plan_${DateTime.now().millisecondsSinceEpoch}',
+      id: widget.args.planId ?? newId(),
       projectId: _projectId,
       drawingKey: _drawingKey,
+      // 路线点坐标基于该图纸版本；改版后需重新规划/校准。
+      drawingVersionId: publishedVersionIdOf(ref, _drawingKey),
       name: name,
       floor: floor,
       points: List.of(_points),
       totalKm: totalKm,
       updatedAt: DateTime.now().millisecondsSinceEpoch,
+      sync: SyncMeta.create(),
     );
 
     // 覆盖写当前项目全部路线（编辑已有计划时替换同 id）。

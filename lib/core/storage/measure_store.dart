@@ -7,6 +7,11 @@ import '../../data/models.dart';
 ///
 /// 存储键范式：`measure:<projectKey>:<drawingKey>` → JSON（目前按图纸唯一会话）。
 /// 设计见 docs/archive/MEASURE_FEATURE_PLAN.md §3「数据持久化」。
+///
+/// 序列化**直接复用 [MeasureSession.toJson] / [MeasureSession.fromJson]**：
+/// 原先此处另写了一份内联序列化，漏掉了 `sync`（同步元数据）——
+/// 而落库实际走的是本类，导致同步元数据在存取过程中被丢弃。
+/// 统一到模型后，「落库形态由模型唯一决定」这条约定才真正成立。
 class MeasureStore {
   const MeasureStore._();
 
@@ -22,7 +27,7 @@ class MeasureStore {
     if (raw == null || raw.isEmpty) return null;
     try {
       final m = jsonDecode(raw) as Map<String, dynamic>;
-      return _fromJson(m);
+      return MeasureSession.fromJson(m);
     } catch (_) {
       return null;
     }
@@ -30,52 +35,6 @@ class MeasureStore {
 
   static Future<void> save(MeasureSession s) async {
     await LocalStorage.instance
-        .writeDoc(_key(s.projectKey, s.drawingKey), jsonEncode(_toJson(s)));
-  }
-
-  static Map<String, dynamic> _toJson(MeasureSession s) => {
-        'id': s.id,
-        'projectKey': s.projectKey,
-        'drawingKey': s.drawingKey,
-        'floor': s.floor,
-        'tolMm': s.tolMm,
-        'tolPct': s.tolPct,
-        'photoCalib': s.photoCalib?.toJson(),
-        'items': s.items
-            .map((e) => {
-                  'name': e.name,
-                  'drawingMm': e.drawingMm,
-                  'photoMm': e.photoMm,
-                  'source': e.source,
-                  // 误差带必须落库：否则报告端拿不到 ±mm，也无法做「误差>容差/3
-                  // 不给判定」的门控（此前这里漏写，属缺陷）。
-                  if (e.errorMm != null) 'errorMm': e.errorMm,
-                })
-            .toList(),
-        'updatedAt': s.updatedAt,
-      };
-
-  static MeasureSession _fromJson(Map<String, dynamic> m) {
-    final calib = m['photoCalib'] as Map<String, dynamic>?;
-    return MeasureSession(
-      id: m['id'] as String,
-      projectKey: m['projectKey'] as String,
-      drawingKey: m['drawingKey'] as String,
-      floor: m['floor'] as String? ?? '',
-      tolMm: (m['tolMm'] as num? ?? 5).toDouble(),
-      tolPct: (m['tolPct'] as num? ?? 2).toDouble(),
-      photoCalib: calib == null ? null : PhotoCalib.fromJson(calib),
-      items: (m['items'] as List? ?? [])
-          .map((e) => (e as Map<String, dynamic>))
-          .map((e) => MeasureItem(
-            name: e['name'] as String? ?? '',
-            drawingMm: (e['drawingMm'] as num? ?? 0).toDouble(),
-            photoMm: (e['photoMm'] as num? ?? 0).toDouble(),
-            source: e['source'] as String? ?? 'photo',
-            errorMm: (e['errorMm'] as num?)?.toDouble(),
-          ))
-          .toList(),
-      updatedAt: (m['updatedAt'] as num? ?? 0).toInt(),
-    );
+        .writeDoc(_key(s.projectKey, s.drawingKey), jsonEncode(s.toJson()));
   }
 }

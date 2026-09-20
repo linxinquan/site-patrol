@@ -7,6 +7,7 @@ import '../../core/theme/design_tokens.dart';
 import '../../core/room/room_geometry.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/storage/room_scan_store.dart';
+import '../../core/utils/ids.dart';
 import '../../core/utils/mm_format.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_button.dart';
@@ -345,7 +346,7 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       if (s != null) checks = s.items;
     }
     final record = RoomScanRecord(
-      id: 'room_$now',
+      id: newId(),
       projectKey: projectKey,
       name: _nameCtl.text.trim().isEmpty ? '房间' : _nameCtl.text.trim(),
       roomUse: _roomUse,
@@ -355,7 +356,10 @@ class _RoomDrawPageState extends ConsumerState<RoomDrawPage> {
       closureDeltaMm: delta,
       netHeightMm: double.tryParse(_netHeightCtl.text),
       drawingKey: dk,
+      // 核尺结论绑版本：图纸改版后旧判定不再可比。
+      drawingVersionId: dk == null ? '' : publishedVersionIdOf(ref, dk),
       checks: checks,
+      sync: SyncMeta.create(),
     );
     await RoomScanStore.save(projectKey, record);
     await refreshRoomScans(ref, projectKey);
