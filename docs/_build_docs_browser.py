@@ -3,12 +3,18 @@
 生成 docs/index.html —— 蓝图落地 · 文档中心（离线单文件文档浏览器）
 
 用法：
-    python docs/_build_docs_browser.py
+    python flutter_app/docs/_build_docs_browser.py      # 仓库根目录下
+    python docs/_build_docs_browser.py                  # 或先 cd flutter_app
 
-说明：
-    - 扫描 flutter_app 根目录 *.md + docs/**/*.md，按分类嵌入 index.html
-    - 产物完全离线可用（双击即可打开），也支持通过本地静态服务器自动读取最新内容
-    - 文档有增删/改名后，重新跑一次本脚本即可
+扫描范围（目录驱动，**文档有增删改后重跑一次即可，无需改本脚本**）：
+    flutter_app/*.md              → 现行文档，按 ROOT_GROUPS 归组
+    flutter_app/docs/<子目录>/*.md → 每个子目录自动成为一个分类 + 一个筛选 chip
+    flutter_app/docs/*.md         → 「文档 · 未归类」
+    flutter_app/server/*.md       → 现行文档
+  · docs/archive/ 例外：按文件名前缀细分成 6 组（见 ARCHIVE_GROUPS）
+  · docs/ 下新增文件夹（如 todo/）会自动出现，分类名默认取目录名；
+    想换中文名就登记到 DOC_FOLDERS
+  · 跑完会打印分类统计、无 H1 标题的文档、以及落到「其他」组的漏登记文件
 """
 import base64
 import json
@@ -20,14 +26,18 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)  # flutter_app/
 
 # ---------------------------------------------------------------- 分类规则
-# (分组名, scope, 匹配规则)  匹配规则为文件名集合 or 前缀元组
+# 设计原则（2026-09-21 重构）：**目录驱动，新增文件夹无需改脚本**。
+#   · flutter_app 根目录的 *.md          → 现行文档，按 ROOT_GROUPS 归组
+#   · docs/<任意子目录>/*.md             → 该子目录自成一个分类 + 一个筛选 chip
+#   · 未在 DOC_FOLDERS 登记的子目录       → 分类名/标签直接用目录名兜底
+#   · docs/archive/                      → 例外：按文件名前缀细分成 6 组
+#
+# (分组名, scope, 文件名集合)
 ROOT_GROUPS = [
     ("用户手册", "current", ["USER_WORKFLOW.md"]),
     ("总览", "current", ["README.md"]),
     ("现状与事实源", "current", ["FEATURE_INVENTORY.md"]),
     ("后端与配套服务", "current", [
-        "BACKEND_ARCHITECTURE.md",
-        "AUTH_STORAGE_DESIGN.md",
         "AI_VISION_INTEGRATION.md",
         "DXF_CALIBRATION_README.md",
     ]),
@@ -41,9 +51,17 @@ ROOT_GROUPS = [
     ]),
 ]
 
-SPEC_GROUP = ("流程规格", "spec")
-
-# 归档按前缀归组，顺序即展示顺序
+# docs/ 子目录 → (分类名, 筛选标签)
+# 【筛选键 = 目录名本身】，所以没登记的子目录会自动兜底成 (目录名, 目录名)
+DOC_FOLDERS = {
+    "specs": ("流程规格", "规格"),
+    "todo": ("待办 · 待落地", "待办"),
+}
+# docs/ 顶层散放的 md（不属于任何子目录）
+DOCS_MISC = ("文档 · 未归类", "散篇")
+MISC_SCOPE = "docsmisc"
+# 归档目录例外处理（按前缀细分组）
+ARCHIVE_DIR = "archive"
 ARCHIVE_GROUPS = [
     ("归档 · 开发日志", ("DEVELOPMENT_LOG_", "ARCHIVE_")),
     ("归档 · 巡场", ("PATROL_",)),
@@ -53,28 +71,68 @@ ARCHIVE_GROUPS = [
     ("归档 · 任务交接与上下文", ("PASTE_", "CODEBUDDY_", "SESSION_CONTEXT", "TASK_DASHBOARD")),
 ]
 
+# 筛选 chip 的展示顺序（未登记的目录落在 MISC 与 archive 之间）
+SCOPE_PREF = ["current", "specs", "todo", MISC_SCOPE, ARCHIVE_DIR]
+
+
+def doc_folder(rel):
+    """docs/xxx/yyy.md → 'xxx'；docs/yyy.md 或根目录文件 → None"""
+    parts = rel.split("/")
+    if len(parts) >= 3 and parts[0] == "docs":
+        return parts[1]
+    return None
+
 
 def scope_of(rel):
-    if "/archive/" in rel:
-        return "archive"
-    if "/specs/" in rel:
-        return "spec"
+    if rel.startswith("docs/"):
+        return doc_folder(rel) or MISC_SCOPE
     return "current"
 
 
+def folder_meta(folder):
+    """子目录 → (分类名, 筛选标签)，未登记则用目录名兜底"""
+    return DOC_FOLDERS.get(folder, (folder, folder))
+
+
+def scope_label(scope):
+    if scope == "current":
+        return "现行"
+    if scope == MISC_SCOPE:
+        return DOCS_MISC[1]
+    if scope == ARCHIVE_DIR:
+        return "归档"
+    return folder_meta(scope)[1]
+
+
 def group_of(rel, base):
-    scope = scope_of(rel)
-    if scope == "spec":
-        return SPEC_GROUP[0]
-    if scope == "archive":
+    folder = doc_folder(rel)
+    if folder == ARCHIVE_DIR:
         for name, prefixes in ARCHIVE_GROUPS:
             if base.startswith(prefixes):
                 return name
         return "归档 · 其他"
+    if folder:
+        return folder_meta(folder)[0]
+    if rel.startswith("docs/"):
+        return DOCS_MISC[0]
     for name, _s, names in ROOT_GROUPS:
         if base in names:
             return name
     return "根目录 · 其他"
+
+
+def scope_meta(docs):
+    """产出筛选 chip 列表：[{k,label,n}]，只含实际有文档的分类，按 SCOPE_PREF 排序"""
+    uniq = {}
+    for d in docs:
+        uniq[d["scope"]] = d["scopeLabel"]
+
+    def rank(k):
+        return SCOPE_PREF.index(k) if k in SCOPE_PREF else 3.5
+
+    keys = sorted(uniq, key=lambda k: (rank(k), k))
+    return [{"k": k, "label": uniq[k],
+             "n": sum(1 for d in docs if d["scope"] == k)} for k in keys]
 
 
 def lead_of(text):
@@ -118,25 +176,27 @@ def date_from_name(base):
     return None
 
 
+SCAN_TOP = {"docs", "server"}   # 只扫这些顶层目录；docs 下任意子目录自动纳入
+
+
 def collect():
     docs = []
     paths = []
     for dirpath, dirnames, filenames in os.walk(ROOT):
-        dirnames[:] = [
-            d for d in dirnames
-            if d not in {".git", ".dart_tool", "build", "node_modules", ".idea",
-                         ".codebuddy", "ios", "android", "windows", "linux", "macos",
-                         "web", ".plugin_symlinks"}
-        ]
-        if os.path.abspath(dirpath) == os.path.abspath(ROOT):
-            # 根目录只取 *.md
-            for fn in sorted(filenames):
-                if fn.lower().endswith(".md"):
-                    paths.append(os.path.join(dirpath, fn))
-        elif os.path.basename(dirpath) in ("docs", "archive", "specs", "server"):
-            for fn in sorted(filenames):
-                if fn.lower().endswith(".md"):
-                    paths.append(os.path.join(dirpath, fn))
+        rel_dir = os.path.relpath(dirpath, ROOT).replace("\\", "/")
+        if rel_dir == ".":
+            # 仓库根：只收 *.md，且只往下进 docs / server
+            dirnames[:] = [d for d in dirnames if d in SCAN_TOP]
+        elif rel_dir == "server" or rel_dir.startswith("docs"):
+            # docs 下任意深度的子目录都纳入（新增文件夹无需改脚本）
+            dirnames[:] = [d for d in dirnames
+                           if not d.startswith(".") and d not in {"build", "node_modules", "_tmp"}]
+        else:
+            dirnames[:] = []
+            continue
+        for fn in sorted(filenames):
+            if fn.lower().endswith(".md"):
+                paths.append(os.path.join(dirpath, fn))
 
     for p in paths:
         rel = os.path.relpath(p, ROOT).replace("\\", "/")
@@ -180,6 +240,7 @@ def collect():
             "title": title,
             "group": group_of(rel, base),
             "scope": scope,
+            "scopeLabel": scope_label(scope),
             "date": fdate or mdate,
             "mtime": mdate,
             "size": st.st_size,
@@ -194,7 +255,14 @@ def collect():
     idx = 0
     for name, _s, _n in ROOT_GROUPS:
         order.setdefault(name, idx); idx += 1
-    order.setdefault(SPEC_GROUP[0], idx); idx += 1
+    # docs 各子目录：登记过的按登记顺序，其余按目录名排序
+    for folder in DOC_FOLDERS:
+        order.setdefault(folder_meta(folder)[0], idx); idx += 1
+    others = sorted({doc_folder(d["id"]) for d in docs if doc_folder(d["id"])}
+                    - {ARCHIVE_DIR} - set(DOC_FOLDERS))
+    for folder in others:
+        order.setdefault(folder_meta(folder)[0], idx); idx += 1
+    order.setdefault(DOCS_MISC[0], idx); idx += 1
     for name, _p in ARCHIVE_GROUPS:
         order.setdefault(name, idx); idx += 1
     order["根目录 · 其他"] = idx; idx += 1
@@ -241,6 +309,8 @@ code,pre,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,
    padding:3px 10px;font-size:11.5px;cursor:pointer;user-select:none}
 .chip:hover{border-color:#cfd6e0}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chip .cn{font-style:normal;margin-left:5px;font-size:10.5px;opacity:.55}
+.chip.on .cn{opacity:.85}
 .tree{overflow-y:auto;flex:1;padding:0 8px 28px;min-height:0}
 .tree::-webkit-scrollbar,.content::-webkit-scrollbar,.toc::-webkit-scrollbar{width:9px}
 .tree::-webkit-scrollbar-thumb,.content::-webkit-scrollbar-thumb,.toc::-webkit-scrollbar-thumb{
@@ -715,19 +785,18 @@ function buildSidebar(){
 
 /* ============================ 渲染 ============================ */
 function homeView(){
-  const cur = DOCS.filter(d=>d.scope==='current'), spec = DOCS.filter(d=>d.scope==='spec'), arc = DOCS.filter(d=>d.scope==='archive');
   const chars = DOCS.reduce((a,d)=>a+d.chars,0);
   const pool = DOCS.filter(passFilter);
   const recent = pool.slice().sort((a,b)=> (b.date<a.date?-1:1)).slice(0,7);
-  const title = S.filter==='archive' ? '最近归档的文档'
-              : S.filter==='spec' ? '全部流程规格'
-              : '最近更新的现行文档';
+  const scopes = META.scopes || [];
+  const labelOf = k => { const s = scopes.find(x=>x.k===k); return s ? s.label : k; };
+  const title = S.filter==='all' ? '最近更新的文档' : '全部「'+labelOf(S.filter)+'」';
   let h = '<div class="hero"><h2>蓝图落地 · 文档中心</h2>'+
-    '<p class="lead">设计-施工一体化数字管控平台 ｜ Flutter 客户端 + 后端网关的全部设计与生产文档。左侧按「现行 / 规格 / 归档」分类，支持全文搜索。</p>'+
+    '<p class="lead">设计-施工一体化数字管控平台 ｜ Flutter 客户端 + 后端网关的全部设计与生产文档。左侧按「'+
+      scopes.map(s=>s.label).join(' / ')+'」分类，支持全文搜索。</p>'+
     '<div class="cards">'+
-      '<div class="card accent"><div class="n">'+cur.length+'</div><div class="l">现行文档（根目录）</div></div>'+
-      '<div class="card accent"><div class="n">'+spec.length+'</div><div class="l">功能流程规格</div></div>'+
-      '<div class="card"><div class="n">'+arc.length+'</div><div class="l">已归档</div></div>'+
+      scopes.map(s=>'<div class="card'+(s.k==='current'?' accent':'')+'"><div class="n">'+s.n+'</div>'+
+        '<div class="l">'+esc(s.label)+'</div></div>').join('')+
       '<div class="card"><div class="n">'+fmtChars(chars)+'</div><div class="l">总字数（字符）</div></div>'+
     '</div>';
   /* 刷新命令：文档一变这个页面就该重新生成，命令放在最显眼处 */
@@ -749,9 +818,9 @@ function homeView(){
       '<div class="d">'+esc(d.lead||'')+'</div></li>';
   });
   h += '</ul>';
-  if(S.filter !== 'archive'){
+  if(S.filter === 'all'){
     h += '<h2 class="sec">关键入口</h2><ul class="recents">';
-    ['USER_WORKFLOW.md','FEATURE_INVENTORY.md','BACKEND_ARCHITECTURE.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','docs/specs/CAPTURE_DEFECT_MAPPING.md','DESIGN_TOKENS.md']
+    ['USER_WORKFLOW.md','FEATURE_INVENTORY.md','docs/todo/蓝图落地_数据与录入入口（团队说明）.md','docs/todo/蓝图落地_管理后台产品设计.md','docs/todo/BACKEND_ARCHITECTURE.md','docs/todo/蓝图落地_后端技术选型参考（讨论稿）.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','DESIGN_TOKENS.md']
       .forEach(p=>{
         const d = resolveDoc(p); if(!d) return;
         h += '<li data-doc="'+d.id+'"><div class="r1"><span class="t">'+esc(d.title)+'</span>'+
@@ -762,7 +831,7 @@ function homeView(){
   h += '<div class="hints"><b>快捷键</b>　<kbd>/</kbd> 聚焦搜索　<kbd>Esc</kbd> 清空/返回　<kbd>←</kbd> <kbd>→</kbd> 上一篇/下一篇<br>'+
     '<b>小技巧</b>　正文里的 <code class="ic">行内代码</code> 点击即复制；写法为 <code class="ic">xxx.md</code> 的跨文档引用会变成可点击跳转。<br>'+
     '<b>数据来源</b>　本页内嵌了 '+DOCS.length+' 篇 Markdown 快照（'+META.built+' 生成），双击即可离线打开；文档更新后按上方那条命令重新生成即可刷新本页。</div>';
-  h += '<div class="note">⚠️ 归档文档仅作历史溯源，结论可能已过期 —— 与本页「现行文档」冲突时，以 <b>FEATURE_INVENTORY.md</b> 与 <b>BACKEND_ARCHITECTURE.md</b> 为准。</div>';
+  h += '<div class="note">⚠️ 归档文档仅作历史溯源，结论可能已过期 —— 与本页「现行文档」冲突时，以 <b>FEATURE_INVENTORY.md</b> 与 <b>docs/todo/BACKEND_ARCHITECTURE.md</b> 为准。</div>';
   h += '</div>';
   return h;
 }
@@ -777,7 +846,8 @@ function docView(){
   if(!d) return '<div class="sres"><div class="sh">文档不存在，可能已被移动或改名。</div></div>';
   const r = renderMarkdown(stripLeadingH1(d.text));
   d._toc = r.toc;
-  const badge = d.scope==='archive' ? '<span style="color:#b45309">归档</span>' : (d.scope==='spec'?'<span style="color:#2c6bed">规格</span>':'<span style="color:#1a7f4b">现行</span>');
+  const badge = '<span style="color:'+(d.scope==='archive' ? '#b45309' : (d.scope==='current' ? '#1a7f4b' : '#2c6bed'))+'">'+
+    esc(d.scopeLabel || '')+'</span>';
   const mins = Math.max(1, Math.round(d.chars/550));
   return '<div class="progress"><i></i></div>'+
     '<div class="doc-h"><h1 class="doc-title">'+esc(d.title)+'</h1>'+
@@ -837,6 +907,7 @@ function render(){
   else { c.innerHTML = homeView(); }
   c.scrollTop = 0;
   $('#tocwrap').innerHTML = (S.view==='doc') ? tocView() : TOC_IDLE;
+  buildChips();
   buildSidebar();
   updateBar();
   bindContent();
@@ -958,13 +1029,18 @@ qi.addEventListener('keydown', e=>{
   }
 });
 $('#qclr').addEventListener('click', ()=>{ qi.value=''; S.q=''; $('#qclr').style.display='none'; route(); qi.focus(); });
-document.querySelectorAll('.chip').forEach(c=>{
-  c.addEventListener('click', ()=>{
-    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
-    c.classList.add('on');
-    S.filter = c.getAttribute('data-f');
-    render();
-  });
+/* 筛选 chip 完全由 META.scopes 生成：docs 下新增一个目录就自动多一个 chip */
+function buildChips(){
+  const box = $('#chips'); if(!box) return;
+  const items = [{k:'all', label:'全部', n:DOCS.length}].concat(META.scopes || []);
+  box.innerHTML = items.map(s=>
+    '<span class="chip'+(S.filter===s.k?' on':'')+'" data-f="'+esc(s.k)+'" title="'+s.n+' 篇">'+
+      esc(s.label)+'<i class="cn">'+s.n+'</i></span>').join('');
+}
+$('#chips').addEventListener('click', e=>{
+  const c = e.target.closest('.chip'); if(!c) return;
+  S.filter = c.getAttribute('data-f');
+  render();
 });
 $('#tree').addEventListener('click', e=>{
   const gh = e.target.closest('.gh');
@@ -1025,12 +1101,7 @@ HTML = r"""<!DOCTYPE html>
       <input id="q" placeholder="搜索标题 / 正文（按 / 聚焦）" autocomplete="off">
       <button class="clr" id="qclr" title="清空">✕</button>
     </div>
-    <div class="chips">
-      <span class="chip on" data-f="all">全部</span>
-      <span class="chip" data-f="current">现行</span>
-      <span class="chip" data-f="spec">规格</span>
-      <span class="chip" data-f="archive">归档</span>
-    </div>
+    <div class="chips" id="chips"></div>
     <div class="tree" id="tree"></div>
   </aside>
   <div class="main" id="main">
@@ -1050,17 +1121,21 @@ HTML = r"""<!DOCTYPE html>
 
 
 def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     docs = collect()
     missing = [d["id"] for d in docs if not d["text"].strip()]
-    cur = sum(1 for d in docs if d["scope"] == "current")
-    spec = sum(1 for d in docs if d["scope"] == "spec")
-    arc = sum(1 for d in docs if d["scope"] == "archive")
+    scopes = scope_meta(docs)
 
     import datetime
     meta = {
         "built": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "total": len(docs), "current": cur, "spec": spec, "archive": arc,
+        "total": len(docs),
         "chars": sum(d["chars"] for d in docs),
+        "scopes": scopes,
     }
 
     data_json = json.dumps(docs, ensure_ascii=False, separators=(",", ":"))
@@ -1079,7 +1154,7 @@ def main():
         f.write(out)
 
     print("生成:", dst)
-    print("  文档 %d 篇（现行 %d / 规格 %d / 归档 %d）" % (len(docs), cur, spec, arc))
+    print("  文档 %d 篇（%s）" % (len(docs), " / ".join("%s %d" % (s["label"], s["n"]) for s in scopes)))
     print("  正文字符 %s" % format(meta["chars"], ","))
     print("  产物大小 %.0f KB" % (len(out.encode("utf-8")) / 1024))
     if missing:
@@ -1087,6 +1162,27 @@ def main():
     for d in docs:
         if not d["title"] or d["title"] == d["base"]:
             print("  · 无 H1 标题，回退用文件名:", d["path"])
+
+    groups = {}
+    for d in docs:
+        groups[d["group"]] = groups.get(d["group"], 0) + 1
+    print("  分类 %d 组:" % len(groups))
+    for name, n in groups.items():
+        print("      %-24s %d" % (name, n))
+
+    loose = [d["path"] for d in docs if "其他" in d["group"]]
+    if loose:
+        print("  ! 未归类（建议补进 ROOT_GROUPS / DOC_FOLDERS）:")
+        for p in loose:
+            print("      -", p)
+
+    # 反向检查：ROOT_GROUPS 里登记了但文件已不在（改名/搬家/删除）→ 提醒同步
+    bases = {d["base"] for d in docs}
+    for name, _s, names in ROOT_GROUPS:
+        gone = [n for n in names if n not in bases]
+        if gone:
+            print("  · 「%s」里登记的这些文件已不存在，可从 ROOT_GROUPS 删掉: %s"
+                  % (name, ", ".join(gone)))
 
 
 if __name__ == "__main__":

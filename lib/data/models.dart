@@ -11,7 +11,7 @@
 /// |---|---|---|---|
 /// | 认证授权 | `models/auth.dart` | `UserSession` `AuthTokens` `LoginResult` `AuthProfile` `PermissionScope` | `/auth/*` 接口；其中 **`PermissionScope` / `LoginResult` / `AuthProfile` 是派生视图与响应载体，不落表** |
 /// | 账号与组织 | `models/account.dart` | `Org` `Discipline` `User` `Membership` | `orgs` / `disciplines` / `users` / `memberships` |
-/// | 项目档案 | `models/project.dart` | `Project` `Party` `Milestone` `Floor` `SiteLocation` `ProgressEntry` | `projects` / `floors` / `site_locations` / `progress_entries` |
+/// | 项目档案 | `models/project.dart` | `Project` `Party` `Milestone` `SiteLocation` `ProgressEntry`；`Floor` 为**派生**（图纸名解析，不入库） | `projects` / `site_locations` / `progress_entries`（**无 `floors` 表**） |
 /// | 缺陷 | `models/defect.dart` | `Defect` + 4 个分级枚举 | `defects` / `defect_events` |
 /// | 图纸与版本 | `models/drawing.dart` | `Drawing` `DrawingVersion` `Calibration` `Hotspot` | `drawings` / `drawing_versions` |
 /// | 拍照验收 | `models/capture.dart` | `CaptureRecord` `CaptureDefectItem` `VlDefect` | `captures` |

@@ -294,8 +294,8 @@ void main() {
     });
   });
 
-  group('C4 ProgressEntry（施工方自报）', () {
-    test('往返：source 固定 contractor、photos/declaredBy 保留', () {
+  group('C4 ProgressEntry（填报身份：admin 后台录入 / contractor 施工方自报）', () {
+    test('往返：默认 admin（v1 后台录入），photos/declaredBy 保留', () {
       const e = ProgressEntry(
         id: 'pe1',
         projectId: 'p1',
@@ -304,14 +304,28 @@ void main() {
         date: '2026-09-20',
         note: '已完成 3 层风管',
         photos: ['photos/a.jpg'],
-        declaredBy: '施工方 张三',
+        declaredBy: '项目负责人 李工',
       );
       final back = ProgressEntry.fromJson(e.toJson());
-      expect(back.source, ProgressEntry.sourceContractor);
+      expect(back.source, ProgressEntry.sourceAdmin);
       expect(back.status, ProgressEntry.statusInProgress);
       expect(back.photos, ['photos/a.jpg']);
-      expect(back.declaredBy, '施工方 张三');
-      // source 缺失也回落 contractor（一律标注自报）。
+      expect(back.declaredBy, '项目负责人 李工');
+    });
+
+    test('显式 contractor（v1.2 施工方自报）原样往返', () {
+      const c = ProgressEntry(
+        id: 'pe2',
+        projectId: 'p1',
+        milestoneId: 'ms1',
+        declaredBy: '施工方 张三',
+        source: ProgressEntry.sourceContractor,
+      );
+      expect(ProgressEntry.fromJson(c.toJson()).source,
+          ProgressEntry.sourceContractor);
+    });
+
+    test('旧数据缺 source → 回落 contractor（历史语义，与构造默认值不同）', () {
       expect(ProgressEntry.fromJson(const {'id': 'x'}).source,
           ProgressEntry.sourceContractor);
     });

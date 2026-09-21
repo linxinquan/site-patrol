@@ -212,7 +212,7 @@
 | 10.5 | 视觉服务 `POST /api/vision`（外挂 Express，`120.24.240.129:3000`，qwen3.8-max） | ✅ | `vision_service.dart:84-183` |
 | 10.6 | CAD 服务（浩辰云图 `:8800` + 本地 ODA/ezdxf） | ⛔ | `cad_service.dart`；`server/ocf_server.py` 正在清理（本次已删 141 行） |
 | 10.7 | 量尺落库服务 `measure_server.py`（`:8820`，从未上线） | 🔴 | `server/measure_server.py`；且 Flutter 默认 host 指向 `:3000`（**端口不一致**） |
-| 10.8 | 后端重建方案（FastAPI + PostgreSQL + Redis + COS，离线优先 + SyncEngine/outbox） | ⛔ | `BACKEND_ARCHITECTURE.md`（2026-09-17 设计定稿，**待实施**） |
+| 10.8 | 后端重建方案（Node 22+TS 或 Python/FastAPI（语言待定）+ PostgreSQL 16 + Redis 7 + 阿里云 OSS，离线优先 + SyncEngine/outbox） | ⛔ | `docs/todo/BACKEND_ARCHITECTURE.md`（**v2.4 · 2026-09-21** 内容定稿，待实施） |
 
 **客户端实际请求的外部地址（技术债：3 个硬编码 host）**
 
@@ -268,7 +268,7 @@
 4. **"想到就加"的实锤**：首页快捷操作曾达 **9 个入口**（图纸管理 / 问题清单 / 语音记录 / 图层索引 / PDF 原稿 / 量房…），现被砍到 **5 个**；天气模块（模型 + provider + banner）整块删除；语音记录独立页删除。**收敛正在进行，但没有文档记录"为什么砍"**，易被下一轮重复加回。
 5. **精度口径不统一**：拍照量尺 / AR 已接入项目级门槛，**量房核尺写死 15mm/2%**，同一份报告里两种判定口径并存。
 6. **巡场三处"半接线"**：GPS 只算里程不上图、`issueCount` 恒 0、历史轨迹读写字段不一致（轨迹退化到原点）。
-7. **文档与代码互相打脸**：`BACKEND_ARCHITECTURE.md` 称 `remote_repository.dart`「已删除」——实际仍在；称天气已拆成 `server/weather_server.py`——**该文件不存在**；`capture_page.dart` 类注释称相机已注释——**实际已接真机相机**。
+7. **文档与代码互相打脸的 3 处已清零（2026-09-21）**：~~`BACKEND_ARCHITECTURE.md` 称 `remote_repository.dart`「已删除」~~（实为**仍在**，空壳）；~~称天气已拆成 `server/weather_server.py`~~（**该文件不存在**，天气链路已从客户端与服务端整体移除）；~~`capture_page.dart` 类注释称相机已注释~~（现注释即「移动端真实相机 / Web 相册选图」）。三处已随 `BACKEND_ARCHITECTURE.md` v2.4 修正。
 8. **平台能力矩阵先天不齐**（同一功能各端可用性不同，需在验收标准里写清）：
    - AR 量尺：仅 iOS 真机
    - 矢量看图 / DWG 上传：仅 Web

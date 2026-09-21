@@ -2896,6 +2896,17 @@ class _CapturePageState extends ConsumerState<CapturePage> {
     );
   }
 
+  // TODO(C6 附近定位点): 这里目前**只读** `mock_data.dart` 里写死的 5 条常量，
+  //  没有任何写入路径 —— 后端 `site_locations` 表与客户端 `SiteLocation`
+  //  （已带 `sync` / `projectId` / `isProjectScoped`）都已就绪，缺的是客户端三件事：
+  //    ① 按项目读取的 store + provider（替换 `siteLocations` 常量）；
+  //    ② 「新增 / 编辑定位点」入口（项目成员可填，`projectId` = 当前项目，
+  //       `sync` 用 `SyncMeta.create()`）；跨项目公共地标才留空 `projectId`；
+  //    ③ 去重（同名 / 坐标过近时提示复用）。
+  //  取址优先级不变：设备定位 → 项目坐标(B2) → 手选点位（故它不构成位置证据）。
+  //  后端接口见 `BACKEND_ARCHITECTURE.md` §13：GET /projects/{id}/site-locations、
+  //  POST/PATCH /site-locations/{id}；表结构见 §7.3。
+
   /// 打开「附近定位」选择器：列出所有定位点（含 GPS / 地址 / 距离），
   /// 用户选择后切换 [_location]；仅在拍摄前可调，切换后下次拍照烧录即采用新定位
   /// （拍完后白卡为只读，本方法不再有入口，照片定位随之锁定）。

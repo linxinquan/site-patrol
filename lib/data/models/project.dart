@@ -4,15 +4,17 @@
 /// - **B 类项目档案**：[Project]（B1 基本信息 + B2 地理位置）、[Party]（B3 五方参与方）、
 ///   [Milestone]（B4 里程碑）、[Floor]（B5 楼层）；
 /// - **现场辅助**：[SiteLocation]（附近定位点 = 水印 GPS 的兜底来源）；
-/// - **C4 回填**：[ProgressEntry]（施工进度回填，施工方免登录填报）。
+/// - **进度回填**：[ProgressEntry]（按 B4 里程碑节点回填施工进度）。
 ///
 /// 账号与组织（`Org` / `Discipline` / `User` / `Membership`）已拆到
 /// `models/account.dart`——本文件**不再包含账号侧数据**。
 ///
-/// 除 [ProgressEntry] 外均为**服务端维护、客户端只读**（走全量拉取覆盖，
-/// 不带 [SyncMeta] 增量元数据）；[ProgressEntry] 是客户端可写实体，故带 `sync`。
+/// **客户端可写**（故带 `sync`）：[SiteLocation]（附近定位点，项目内用户自己填）、
+/// [ProgressEntry]（进度回填）；其余为**服务端维护、客户端只读**，走全量拉取覆盖，
+/// 不带 [SyncMeta] 增量元数据。
 ///
-/// 后端对应表：`projects` / `floors` / `site_locations` / `progress_entries`。
+/// 后端对应表：`projects` / `site_locations` / `progress_entries`。
+/// **楼层不单独建表**：[Floor] 是图纸（图名）解析出的标签，随 `drawings` 走。
 library;
 
 import 'dart:math' as math;
@@ -191,12 +193,21 @@ class Project {
       );
 }
 
-/// 一条施工进度回填（C4，施工方免登录填报）。
+/// 一条施工进度回填（C4）。
 ///
-/// **一律标注「施工方自报」**（[source] 固定 [sourceContractor]）：
-/// 填报人身份不可证，报告里不得表述成设计院核实结论。
+/// ## 填报身份决定标注（[source]）
+///
+/// - [sourceAdmin]：**管理员 / 项目负责人在后台录入** —— 身份可信，第一版走这条；
+/// - [sourceContractor]：**施工方免登录自报**（分享页，v1.2 起）—— 填报人身份不可证，
+///   报告里**不得**表述成设计院核实结论。
+///
+/// ⚠️ 两者**不能混标**：后台代录的数据若标成 `contractor`，报告就会凭空多出
+/// 一条「施工方自报」的免责声明；反之则把不可证的身份说成可信。
 class ProgressEntry {
-  /// 数据来源：施工方自报（唯一取值，保留字段以便将来接入监理复核）。
+  /// 数据来源：后台录入（管理员 / 项目负责人，身份可信）。
+  static const String sourceAdmin = 'admin';
+
+  /// 数据来源：施工方自报（免登录分享页，v1.2 起；保留字段以便将来接入监理复核）。
   static const String sourceContractor = 'contractor';
 
   /// 填报状态。
@@ -228,7 +239,10 @@ class ProgressEntry {
     this.note = '',
     this.photos = const [],
     this.declaredBy = '',
-    this.source = sourceContractor,
+    // 默认 [sourceAdmin]：第一版只有「后台录入」这一条写入路径，漏传更可能是后台漏标，
+    // 而默认成 contractor 会把可信数据凭空标成「施工方自报」。
+    // v1.2 的免登录页**必须显式传** [sourceContractor]。
+    this.source = sourceAdmin,
     this.sync = const SyncMeta(),
   });
 
@@ -254,6 +268,8 @@ class ProgressEntry {
         note: m['note']?.toString() ?? '',
         photos: (m['photos'] as List?)?.whereType<String>().toList() ?? const [],
         declaredBy: m['declaredBy']?.toString() ?? '',
+        // 与构造默认值**有意不同**：缺字段的历史数据（v2.3 之前）只有「施工方自报」一种
+        // 语义，兜底按 contractor 解读；新写入方一律显式传值，不吃这个兜底。
         source: m['source']?.toString() ?? sourceContractor,
         sync: SyncMeta.fromJson(m),
       );
@@ -261,6 +277,22 @@ class ProgressEntry {
 
 /// 附近定位点（工程水印相机风格）：项目 / 地标 + 地址 + GPS + 海拔。
 /// 用户在拍照前可从附近定位点列表中选择一个作为水印定位信息。
+///
+/// ## 谁录、怎么归类
+///
+/// **由项目内的用户自己在 App 里填**（拍照页「附近定位」），因此本类是
+/// **客户端可写实体**，带 [sync]（`clientId` 作幂等键、软删用 `deletedAtMs`）。
+/// 对应后端 `site_locations` 表（列同 [toJson] + 公共列）。
+///
+/// ## [projectId] 的语义（决定「谁能看到」）
+///
+/// | 取值 | 含义 |
+/// |---|---|
+/// | 非空 | **项目专属点位**，只有该项目的成员看得到（常规情况） |
+/// | `null` | **跨项目公共地标**（前海湾、宝安中心…），全院共用 |
+///
+/// 拍照时的取址优先级是：**设备定位 → 项目坐标（B2）→ 手选附近定位点**，
+/// 所以本类只是无信号时的兜底来源，不构成位置证据。
 class SiteLocation {
   final String id;
 
@@ -279,8 +311,11 @@ class SiteLocation {
   /// 海拔（m）。
   final double altitude;
 
-  /// 关联项目 id（可空）。
+  /// 关联项目 id；`null` = 跨项目公共地标，非空 = 项目专属点位。
   final String? projectId;
+
+  /// 同步元数据（客户端可写实体）。
+  final SyncMeta sync;
   const SiteLocation({
     required this.id,
     required this.name,
@@ -289,7 +324,31 @@ class SiteLocation {
     required this.lng,
     required this.altitude,
     this.projectId,
+    this.sync = const SyncMeta(),
   });
+
+  /// 是否项目专属点位（`false` = 跨项目公共地标）。
+  bool get isProjectScoped => (projectId ?? '').isNotEmpty;
+
+  SiteLocation copyWith({
+    String? name,
+    String? address,
+    double? lat,
+    double? lng,
+    double? altitude,
+    String? projectId,
+    SyncMeta? sync,
+  }) =>
+      SiteLocation(
+        id: id,
+        name: name ?? this.name,
+        address: address ?? this.address,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
+        altitude: altitude ?? this.altitude,
+        projectId: projectId ?? this.projectId,
+        sync: sync ?? this.sync,
+      );
 
   /// 水印显示用的 GPS 文本（与 CAD 模块纬度在前一致）。
   String get gpsText =>
@@ -316,6 +375,7 @@ class SiteLocation {
         'lng': lng,
         'altitude': altitude,
         'projectId': projectId,
+        ...sync.toJson(),
       };
 
   factory SiteLocation.fromJson(Map<String, dynamic> j) => SiteLocation(
@@ -326,6 +386,7 @@ class SiteLocation {
         lng: (j['lng'] as num?)?.toDouble() ?? 0,
         altitude: (j['altitude'] as num?)?.toDouble() ?? 0,
         projectId: j['projectId'] as String?,
+        sync: SyncMeta.fromJson(j),
       );
 }
 
