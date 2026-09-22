@@ -22,12 +22,16 @@ import '../../core/storage/measure_threshold_store.dart';
 import '../../core/storage/measure_store.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/camera_pick.dart';
+import '../../core/utils/diagram_export.dart';
+import '../../core/utils/dim_draw.dart';
 import '../../core/utils/engineering_naming.dart';
 import '../../core/utils/ids.dart';
 import '../../core/utils/homography.dart';
 import '../../core/utils/measure_math.dart';
 import '../../core/utils/measure_stats.dart';
 import '../../core/utils/mm_format.dart';
+import '../../core/utils/save_to_gallery.dart';
+import 'widgets/area_volume_sheet.dart';
 import '../../core/utils/anchor_objects.dart';
 import '../../data/models.dart';
 import '../../data/vision_service.dart';
@@ -374,10 +378,22 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     // 实测值：有单应标定走透视校正，否则回退两点比例法。
     final photoMm = photoMeasuredMmAuto(calib, pa.dx, pa.dy, pb.dx, pb.dy);
 
+    // 记录照片上的两个端点（归一化）→ 导出测量图时把标注画回照片
+    final size = _photoSize;
+    final photoPts = size == null
+        ? null
+        : <double>[
+            pa.dx / size.width,
+            pa.dy / size.height,
+            pb.dx / size.width,
+            pb.dy / size.height,
+          ];
+
     final item = MeasureItem(
       name: _nameCtl.text.trim().isEmpty ? '未命名' : _nameCtl.text.trim(),
       drawingMm: drawingMm,
       photoMm: photoMm,
+      photoPts: photoPts,
     );
     setState(() {
       _session = _session!.copyWith(items: [..._session!.items, item]);
@@ -445,6 +461,92 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
     });
     _persist();
     AppSnack.show(context, '已清除标定，请重新标定（AI 识别网格 / 手动点选网格 / 参考物两点）');
+  }
+
+  // ——— 面积 / 体积（由已测边长组合）———
+
+  /// 打开面积/体积弹层，结果作为一条**不参与合格判定**的记录入清单。
+  Future<void> _openAreaVolume() async {
+    final items = _session?.items ?? const <MeasureItem>[];
+    final r = await showAreaVolumeSheet(context, candidates: items);
+    if (r == null || !mounted) return;
+    setState(() {
+      _session = _session!.copyWith(items: [..._session!.items, r.item]);
+    });
+    await _persist();
+    if (mounted) showCalcAddedSnack(context, r.item);
+  }
+
+  // ——— 导出测量图（照片 + 工程样式尺寸标注 + 图签）———
+
+  /// 导出「测量图」PNG。
+  ///
+  /// 平台行为（走 `exportReportFile`）：
+  /// - Web：浏览器直接下载；
+  /// - iOS / Android：拉起系统分享面板 → 选「存储图像」即存入相册；
+  /// - 桌面：落盘到下载目录。
+  Future<void> _exportMeasureDiagram() async {
+    final photo = _photoBytes;
+    final size = _photoSize;
+    if (photo == null || size == null) {
+      AppSnack.show(context, '请先拍/选照片', kind: AppSnackKind.muted);
+      return;
+    }
+    final items = _session?.items ?? const <MeasureItem>[];
+    final dims = <DiagramDim>[];
+    for (final it in items) {
+      final p = it.photoPts;
+      if (p == null || p.length != 4) continue;
+      dims.add((
+        a: Offset(p[0] * size.width, p[1] * size.height),
+        b: Offset(p[2] * size.width, p[3] * size.height),
+        // 制图习惯：数字只写数值，单位在图签统一标注 mm
+        text: fmtMm(it.photoMm),
+      ));
+    }
+    if (dims.isEmpty) {
+      AppSnack.show(
+        context,
+        '暂无可导出的标注：请先量取尺寸（旧数据没有端点坐标，重新量一次即可）',
+        kind: AppSnackKind.muted,
+      );
+      return;
+    }
+    final calib = _session?.photoCalib;
+    final png = await renderMeasureDiagramPng(
+      photoBytes: photo,
+      dims: dims,
+      title: '现场测量图',
+      subtitle: [
+        '图纸 $_drawingKey',
+        '尺寸单位：mm',
+        '${dims.length} 项实测',
+        if (calib?.hasHomography ?? false) '标定：网格单应（已透视校正）',
+        '生成 ${DateTime.now().toString().substring(0, 16)}',
+      ].join('   |   '),
+    );
+    if (!mounted) return;
+    if (png == null) {
+      AppSnack.show(context, '照片解码失败，无法导出', kind: AppSnackKind.danger);
+      return;
+    }
+    final safeKey = _drawingKey.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final name = '测量图_${safeKey}_$stamp.png';
+    // 移动端优先「一键直存相册」；失败或 Web/桌面回退下载/分享。
+    final d = await deliverImage(
+      png,
+      filename: name,
+      name: '测量图_${safeKey}_$stamp',
+    );
+    if (!mounted) return;
+    AppSnack.show(
+      context,
+      d.message,
+      kind: d.savedToGallery
+          ? AppSnackKind.success
+          : (d.fellBack ? AppSnackKind.muted : AppSnackKind.danger),
+    );
   }
 
   // ——— 模数网格单应标定（透视校正主路径）———
@@ -817,6 +919,8 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
       photoMm: mm,
       source: 'ai',
       errorMm: err,
+      // AI 目标端点本身就是归一化坐标，直接作为导出标注的几何
+      photoPts: [t.p1.dx, t.p1.dy, t.p2.dx, t.p2.dy],
     );
     setState(() {
       _session = _session!.copyWith(items: [..._session!.items, item]);
@@ -1168,6 +1272,32 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
           // ④ 校对清单
           _sectionTitle('③ 校对清单', total == 0 ? '暂无' : '合格 $pass / $total'),
           const SizedBox(height: AppTokens.space2),
+          if (_session!.items.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppTokens.space2),
+              child: Column(
+                children: [
+                  // 面积/体积（量尺宝式模式）：由已测边长组合
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _openAreaVolume,
+                      icon: const Icon(MingCuteIcons.cubeLine, size: 18),
+                      label: const Text('算面积 / 体积（选已测边长）'),
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space2),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _exportMeasureDiagram,
+                      icon: const Icon(MingCuteIcons.picLine, size: 18),
+                      label: const Text('导出测量图（图上标注尺寸）'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           _itemList(tolMm, tolPct),
         ],
       ),
@@ -1977,9 +2107,12 @@ class _MeasurePageState extends ConsumerState<MeasurePage> {
 }
 
 /// 悬浮缩放工具条（量尺页 / 拍照验收页复用）。
-/// P1-3：照片上的参考线覆盖层。
+/// P1-3：照片上的参考线覆盖层（工程制图样式）。
 ///
-/// 橙线 = 参考物两端（中点标注像素跨度），红线 = 被测两点（中点标注实测 mm）。
+/// - **被测尺寸（红）**：`drawLinearDimension` —— 尺寸界线 + 尺寸线 +
+///   端点 45° 斜线 + 尺寸数字（带白色描边），符合制图习惯；
+/// - **参考物（橙）**：虚线 + 端点方块 + 像素跨度标注（这是标定依据，不是被测尺寸，
+///   所以不套尺寸线样式，避免与正式尺寸混淆）。
 class _MeasureLinePainter extends CustomPainter {
   const _MeasureLinePainter({
     required this.refPts,
@@ -1991,19 +2124,26 @@ class _MeasureLinePainter extends CustomPainter {
   final List<Offset> pickPts;
   final double? measuredMm;
 
-  void _line(Canvas canvas, List<Offset> pts, Color color, String? label) {
-    if (pts.length < 2) return;
-    canvas.drawLine(
-      pts[0],
-      pts[1],
-      Paint()
-        ..color = color
-        ..strokeWidth = 2.5
-        ..strokeCap = StrokeCap.round,
-    );
+  /// 参考物标定线：虚线 + 两端小方块 + 标签。
+  void _refLine(Canvas canvas, Color color, String? label) {
+    if (refPts.length < 2) return;
+    final a = refPts[0], b = refPts[1];
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    drawDashedLine(canvas, a, b, paint, dash: 8, gap: 5);
+    for (final p in [a, b]) {
+      canvas.drawRect(
+        Rect.fromCenter(center: p, width: 7, height: 7),
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6,
+      );
+    }
     if (label == null) return;
-    final mid =
-        Offset((pts[0].dx + pts[1].dx) / 2, (pts[0].dy + pts[1].dy) / 2);
+    final mid = (a + b) / 2;
     final tp = TextPainter(
       text: TextSpan(
         text: label,
@@ -2016,25 +2156,41 @@ class _MeasureLinePainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height - 6));
+    tp.paint(canvas, Offset(mid.dx - tp.width / 2, mid.dy - tp.height - 8));
   }
 
   @override
   void paint(Canvas canvas, Size size) {
-    _line(
+    _refLine(
       canvas,
-      refPts,
       Colors.orange,
       refPts.length == 2
-          ? '跨度 ${(refPts[1] - refPts[0]).distance.toStringAsFixed(0)} px'
+          ? '参考物 ${(refPts[1] - refPts[0]).distance.toStringAsFixed(0)} px'
           : null,
     );
-    _line(
-      canvas,
-      pickPts,
-      Colors.red,
-      measuredMm != null ? '${fmtMm(measuredMm!)} mm' : null,
-    );
+    // 被测尺寸：工程制图样式（数字按制图习惯只写数值，单位在页面上统一标注 mm）
+    if (pickPts.length == 2 && measuredMm != null) {
+      drawLinearDimension(
+        canvas,
+        a: pickPts[0],
+        b: pickPts[1],
+        text: fmtMm(measuredMm!),
+        color: const Color(0xFFE0342B),
+        fontSize: 13,
+        strokeWidth: 1.6,
+        extLine: 7,
+        tickLen: 7,
+      );
+    } else if (pickPts.length == 2) {
+      canvas.drawLine(
+        pickPts[0],
+        pickPts[1],
+        Paint()
+          ..color = const Color(0xFFE0342B)
+          ..strokeWidth = 2.0
+          ..strokeCap = StrokeCap.round,
+      );
+    }
   }
 
   @override
@@ -2079,16 +2235,39 @@ class _TargetOverlayPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final it in items) {
-      final color = it.accepted ? _done : _pending;
-      final p = Paint()
-        ..color = color
-        ..strokeWidth = it.accepted ? 2.2 : 1.8
-        ..strokeCap = StrokeCap.round;
+      // 已采纳 → 正式尺寸标注（工程样式：尺寸界线 + 45° 端点线 + 数字）
       if (it.accepted) {
-        canvas.drawLine(it.a, it.b, p);
-      } else {
-        _dashed(canvas, it.a, it.b, p);
+        if (it.label.isNotEmpty) {
+          drawLinearDimension(
+            canvas,
+            a: it.a,
+            b: it.b,
+            text: it.label,
+            color: _done,
+            fontSize: 12,
+            strokeWidth: 1.8,
+            extLine: 7,
+            tickLen: 7,
+          );
+        } else {
+          canvas.drawLine(
+            it.a,
+            it.b,
+            Paint()
+              ..color = _done
+              ..strokeWidth = 2.2
+              ..strokeCap = StrokeCap.round,
+          );
+        }
+        continue;
       }
+
+      // 待采纳 → 虚线候选线（胶囊标签，与正式标注在视觉上区分开）
+      final p = Paint()
+        ..color = _pending
+        ..strokeWidth = 1.8
+        ..strokeCap = StrokeCap.round;
+      _dashed(canvas, it.a, it.b, p);
       _tick(canvas, it.a, it.b, p);
 
       if (it.label.isEmpty) continue;
@@ -2100,7 +2279,7 @@ class _TargetOverlayPainter extends CustomPainter {
             color: Colors.white,
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            backgroundColor: color.withValues(alpha: 0.92),
+            backgroundColor: _pending.withValues(alpha: 0.92),
           ),
         ),
         textDirection: TextDirection.ltr,

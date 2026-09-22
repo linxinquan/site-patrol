@@ -11,8 +11,10 @@ import 'mm_format.dart';
 ({int n, double mean, double median, double min, double max, double sd})
     deviationTrend(List<MeasureItem> items) {
   final devs = <double>[
+    // 仅线性尺寸参与偏差统计：面积/体积项（unit≠mm）与未填图纸尺寸的项
+    // 混进来会把单位不同、口径不同的数放一起算分布，结论必然失真。
     for (final e in items)
-      if (e.drawingMm > 0) e.deviation,
+      if (e.unit == 'mm' && e.drawingMm > 0) e.deviation,
   ];
   if (devs.isEmpty) {
     return (n: 0, mean: 0, median: 0, min: 0, max: 0, sd: 0);
@@ -36,8 +38,9 @@ import 'mm_format.dart';
 /// 判据（保守）：样本 ≥3 且同号比例 ≥ 80%，或 |中位| 明显大于标准差而集中。
 String biasHint(List<MeasureItem> items) {
   final devs = <double>[
+    // 与 deviationTrend 同口径：只统计线性尺寸
     for (final e in items)
-      if (e.drawingMm > 0) e.deviation,
+      if (e.unit == 'mm' && e.drawingMm > 0) e.deviation,
   ];
   if (devs.length < 3) return '';
   final pos = devs.where((d) => d > 0).length;

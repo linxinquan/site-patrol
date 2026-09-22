@@ -6,6 +6,22 @@ import UIKit
 /// 采集模式：0=暂停 1=连续测量
 enum CaptureMode: Int { case paused = 0, continuous = 1 }
 
+/// 命中类型（吸附来源）：决定 Dart 侧的"已吸附：…"提示与后续吸附策略。
+///
+/// - plane：命中平面（地面/墙面）
+/// - edge：命中**平面边界线**（墙根/墙角线、物体边界）——施工量尺最常用的锚点
+/// - corner：命中**平面角点**（两面墙交角、柱角）——比边线更稳，优先吸附
+/// - feature：命中**特征点**（无平面几何时的物体边界点云）
+/// - depth：深度图兜底（无 raycast 命中）
+enum SnapKind: String {
+    case plane, edge, corner, feature, depth
+}
+
+/// 吸附阈值（mm）：命中点离平面边界/角点超过它就"不吸附"，
+/// 避免把用户本意落在面中间的点强行拉到边缘上。
+private let kSnapDistanceMm = 30.0
+private let kCornerRatio = 0.12
+
 class ArMeasureView: NSObject, FlutterPlatformView {
     private let sceneView: ARSCNView
     private let channel: FlutterMethodChannel
@@ -15,6 +31,7 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     private var nodeA: SCNNode?
     private var nodeB: SCNNode?
     private var lineNode: SCNNode?
+    private var labelNode: SCNNode?
 
     init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
         sceneView = ARSCNView(frame: frame)
@@ -108,28 +125,115 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         nodeA?.removeFromParentNode(); nodeA = nil
         nodeB?.removeFromParentNode(); nodeB = nil
         lineNode?.removeFromParentNode(); lineNode = nil
+        labelNode?.removeFromParentNode(); labelNode = nil
+    }
+
+    // MARK: - 命中与吸附
+    /// 命中并**吸附**：raycast 已对齐平面 → 平面边界/角点 → 特征点 → 深度图兜底。
+    ///
+    /// 施工量尺里用户要的是"墙根线/墙角点"这类**边界**，而 libre 命中点往往落在
+    /// 面中间；这里在命中后把点投影到最近的平面边界（阈值 [kSnapDistanceMm]），
+    /// 靠近顶点则吸附为角点。这样连续量墙长/开间不会因为手抖而每次差几厘米。
+    private func hitSnapped(at point: CGPoint) -> (pos: simd_float3, kind: SnapKind, snapMm: Double)? {
+        // ① 已有平面几何：精确命中该平面
+        if let q = sceneView.raycastQuery(from: point,
+                                          allowing: .existingPlaneGeometry,
+                                          alignment: .any),
+           let r = sceneView.session.raycast(q).first {
+            let p = simd_make_float3(r.worldTransform.columns.3)
+            if let s = snapToPlaneBoundary(p) { return s }
+            return (p, .plane, 0)
+        }
+        // ② 估计平面（扫描初期，平面还没成型）
+        if let q = sceneView.raycastQuery(from: point,
+                                          allowing: .estimatedPlane,
+                                          alignment: .any),
+           let r = sceneView.session.raycast(q).first {
+            let p = simd_make_float3(r.worldTransform.columns.3)
+            if let s = snapToPlaneBoundary(p) { return s }
+            return (p, .plane, 0)
+        }
+        // ③ 特征点（物体边界点云）：无平面时的"吸附物体边界"来源
+        let hits = sceneView.hitTest(point, types: [.featurePoint,
+                                                    .estimatedVerticalPlane,
+                                                    .existingPlaneUsingExtent])
+        if let f = hits.first {
+            return (simd_make_float3(f.worldTransform.columns.3), .feature, 0)
+        }
+        // ④ 深度图兜底
+        if let p = worldPositionFromDepth(at: point) { return (p, .depth, 0) }
+        return nil
+    }
+
+    /// 把命中点吸附到最近的**平面边界线/角点**；不满足阈值返回 nil（保持原命中点）。
+    private func snapToPlaneBoundary(_ p: simd_float3)
+        -> (pos: simd_float3, kind: SnapKind, snapMm: Double)? {
+        guard let frame = sceneView.session.currentFrame else { return nil }
+        var best: (simd_float3, SnapKind, Double)?
+        for anchor in frame.anchors {
+            guard let plane = anchor as? ARPlaneAnchor else { continue }
+            let local = plane.geometry.boundaryVertices
+            guard local.count >= 2 else { continue }
+            let verts: [simd_float3] = local.map { v in
+                let w = anchor.transform * simd_float4(v, 1)
+                return simd_make_float3(w.x, w.y, w.z)
+            }
+            for i in 0..<verts.count {
+                let a = verts[i]
+                let b = verts[(i + 1) % verts.count]
+                let (proj, t) = Self.closestPointOnSegment(p, a, b)
+                let d = Double(simd_distance(p, proj) * 1000.0)
+                if d > kSnapDistanceMm { continue }
+                // 靠近线段端点（t→0/1）视为角点：两侧墙的交角，最稳的量尺基准
+                let isCorner = t < kCornerRatio || t > 1 - kCornerRatio
+                let kind: SnapKind = isCorner ? .corner : .edge
+                if best == nil || d < best!.2 {
+                    best = (proj, kind, d)
+                }
+            }
+        }
+        guard let b = best else { return nil }
+        return (b.0, b.1, b.2)
+    }
+
+    /// 点到线段的最近点与参数 t（0=起点，1=终点）。
+    private static func closestPointOnSegment(_ p: simd_float3, _ a: simd_float3, _ b: simd_float3)
+        -> (simd_float3, Double) {
+        let ab = b - a
+        let len2 = simd_length_squared(ab)
+        if len2 < 1e-9 { return (a, 0) }
+        let t = Double(simd_dot(p - a, ab) / len2)
+        let tc = max(0.0, min(1.0, t))
+        return (a + ab * Float(tc), t)
     }
 
     // MARK: - 点击处理（连续测量：A/B 循环）
     @objc private func handleTap(_ g: UITapGestureRecognizer) {
         guard mode != .paused else { return }
         let p = g.location(in: sceneView)
-        guard let world = worldPosition(at: p) else {
+        guard let hit = hitSnapped(at: p) else {
             channel.invokeMethod("onError", arguments: "未能命中有效深度，请靠近目标/调整角度后重试")
             return
         }
+        let world = hit.pos
         if pointA == nil {
-            // 新一轮：先清掉上一组的 B 球与连线（A 球会被新 A 覆盖）
+            // 新一轮：先清掉上一组的 B 标记与连线（A 标记会被新 A 覆盖）
             nodeB?.removeFromParentNode(); nodeB = nil
             lineNode?.removeFromParentNode(); lineNode = nil
+            labelNode?.removeFromParentNode(); labelNode = nil
             pointA = world
-            placeSphere(world, color: UIColor.systemBlue, slot: 0)
-            channel.invokeMethod("onPointA", arguments: true)
+            placeMarker(world, slot: 0, snapped: hit.kind != .depth)
+            channel.invokeMethod("onPointA", arguments: [
+                "snap": hit.kind.rawValue,
+                "edgeMm": hit.snapMm,
+            ])
         } else {
             let a = pointA!
-            placeSphere(world, color: UIColor.systemRed, slot: 1)
+            placeMarker(world, slot: 1, snapped: hit.kind != .depth)
             drawLine(a, world)
             let mm = simd_distance(a, world) * 1000.0
+            // 线与标注样式：与 Dart 侧 measure_style 同一口径（m + 3 位小数）。
+            drawLabel(Self.lengthText(mm), at: (a + world) / 2)
             // 距相机的深度（mm）：LiDAR 有效区间约 0.3~5m，超过则误差迅速放大，
             // 由 Dart 侧做最佳区间提示与超量程拒绝（见 ar_measure_page 的门控）。
             let cam = sceneView.session.currentFrame?.camera.transform.columns.3
@@ -145,9 +249,19 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                 "bx": world.x, "by": world.y, "bz": world.z,
                 "depthA": depthA, "depthB": depthB,
                 "depthMm": (depthA + depthB) / 2.0,
+                "snapB": hit.kind.rawValue,
+                "edgeMmB": hit.snapMm,
             ])
             pointA = nil; pointB = nil // 本组结束，等待下一次单击开新组（视觉保留）
         }
+    }
+
+    /// 长度文案：≥1m 用 m + 3 位小数，否则 mm 取整（与 Dart `fmtLengthText` 一致）。
+    private static func lengthText(_ mm: Double) -> String {
+        if abs(mm) >= 1000.0 {
+            return String(format: "%.3fm", mm / 1000.0)
+        }
+        return String(format: "%.0fmm", mm)
     }
 
     @objc private func handleLongPress(_ g: UILongPressGestureRecognizer) {
@@ -156,20 +270,12 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         channel.invokeMethod("onCleared", arguments: true)
     }
 
-    // MARK: - 命中：raycast 优先，深度图兜底
+    // MARK: - 深度图兜底（raycast 全部落空时使用）
     // 数学部分对照 Apple 官方 ARFrame.displayTransform + 内参反投影
     // （WWDC20-10611 / 论坛 thread/709872）：视图点 → displayTransform(逆) →
     // 图像归一化坐标 → ×imageResolution 得像素坐标 → 内参反投影到相机系 →
     // 乘 frame.camera.transform 到世界系。
-    private func worldPosition(at point: CGPoint) -> simd_float3? {
-        // ① raycast（LiDAR 增强下纯色墙面也可命中）
-        if let q = sceneView.raycastQuery(from: point,
-                                          allowing: .estimatedPlane,
-                                          alignment: .any),
-           let r = sceneView.session.raycast(q).first {
-            return simd_make_float3(r.worldTransform.columns.3)
-        }
-        // ② 深度图采样兜底
+    private func worldPositionFromDepth(at point: CGPoint) -> simd_float3? {
         guard let frame = sceneView.session.currentFrame else { return nil }
         guard let depthData = frame.smoothedSceneDepth ?? frame.sceneDepth else { return nil }
         let viewport = sceneView.bounds.size
@@ -230,26 +336,52 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         return simd_float3(world.x, world.y, world.z)
     }
 
-    // MARK: - 场景可视化
-    private func placeSphere(_ world: simd_float3, color: UIColor, slot: Int) {
-        if slot == 0 { nodeA?.removeFromParentNode() }
-        else { nodeB?.removeFromParentNode() }
-        let sphere = SCNSphere(radius: 0.008)
-        sphere.firstMaterial?.diffuse.contents = color
-        let node = SCNNode(geometry: sphere)
+    // MARK: - 场景可视化（样式对齐参考样张：明黄线 + 方块端点 + 文字标注）
+    /// 端点标记：**方形**薄片（空心观感由白底+黄边构成），恒面向相机。
+    ///
+    /// 参考样张的端点是"空心方块"而非圆点；吸附命中时用实心黄块区分
+    /// （用户能一眼看出这个点是吸到边界上的）。
+    private func placeMarker(_ world: simd_float3, slot: Int, snapped: Bool) {
+        if slot == 0 { nodeA?.removeFromParentNode() } else { nodeB?.removeFromParentNode() }
+        let side: CGFloat = 0.016
+        let plane = SCNPlane(width: side, height: side)
+        let mat = SCNMaterial()
+        mat.diffuse.contents = snapped ? UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
+                                       : UIColor.white
+        mat.emission.contents = mat.diffuse.contents
+        mat.isDoubleSided = true
+        // 空心方块：白底 + 黄描边（用 image 不方便，这里用两层薄片近似）
+        plane.firstMaterial = mat
+        let node = SCNNode(geometry: plane)
         node.position = SCNVector3(world)
+        // 恒面向相机（billboard），避免侧看变成一条线
+        node.constraints = [SCNBillboardConstraint()]
         sceneView.scene.rootNode.addChildNode(node)
+        if !snapped {
+            let border = SCNPlane(width: side * 1.35, height: side * 1.35)
+            let bm = SCNMaterial()
+            bm.diffuse.contents = UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
+            bm.emission.contents = bm.diffuse.contents
+            bm.isDoubleSided = true
+            border.firstMaterial = bm
+            let bn = SCNNode(geometry: border)
+            bn.position = SCNVector3(0, 0, -0.002)
+            bn.constraints = [SCNBillboardConstraint()]
+            node.addChildNode(bn)
+        }
         if slot == 0 { nodeA = node } else { nodeB = node }
     }
 
+    /// 尺寸线：明黄细圆柱（与 Dart 侧 [kMeasureYellow] 同色）。
     private func drawLine(_ a: simd_float3, _ b: simd_float3) {
         lineNode?.removeFromParentNode()
         let v = b - a
         let len = simd_length(v)
         guard len > 1e-4 else { return }
         let mid = (a + b) / 2
-        let cyl = SCNCylinder(radius: 0.003, height: CGFloat(len))
-        cyl.firstMaterial?.diffuse.contents = UIColor.systemGreen
+        let cyl = SCNCylinder(radius: 0.0018, height: CGFloat(len))
+        cyl.firstMaterial?.diffuse.contents = UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
+        cyl.firstMaterial?.emission.contents = cyl.firstMaterial?.diffuse.contents
         let node = SCNNode(geometry: cyl)
         node.position = SCNVector3(mid)
         // 圆柱默认沿 Y 轴 → 旋转到 AB 方向
@@ -257,6 +389,29 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                                           to: simd_normalize(v))
         sceneView.scene.rootNode.addChildNode(node)
         lineNode = node
+    }
+
+    /// 尺寸文字标注（挂在线中点上方，恒面向相机）。
+    private func drawLabel(_ text: String, at world: simd_float3) {
+        labelNode?.removeFromParentNode(); labelNode = nil
+        let t = SCNText(string: text, extrusionDepth: 0.0)
+        t.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
+        t.flatness = 0.2
+        let mat = SCNMaterial()
+        mat.diffuse.contents = UIColor.white
+        mat.emission.contents = UIColor.white
+        t.firstMaterial = mat
+        let node = SCNNode(geometry: t)
+        // SCNText 以左下角为原点 → 居中并按毫米尺度缩小
+        let scale: Float = 0.0016
+        node.scale = SCNVector3(scale, scale, scale)
+        let (minB, maxB) = node.boundingBox
+        node.pivot = SCNMatrix4MakeTranslation((minB.x + maxB.x) / 2,
+                                               (minB.y + maxB.y) / 2, 0)
+        node.position = SCNVector3(world.x, world.y + 0.012, world.z)
+        node.constraints = [SCNBillboardConstraint()]
+        sceneView.scene.rootNode.addChildNode(node)
+        labelNode = node
     }
 }
 

@@ -154,3 +154,121 @@ double spreadHalfRange(List<double> xs) {
 /// 误差不可估计（0 或 null）或过大 → 不建议给合格/超差结论，应标"复核"。
 bool canJudgeByError(double? errorMm, double tolMm) =>
     errorMm != null && errorMm > 0 && errorMm <= tolMm / 3;
+
+// ==================== 离群读数剔除（AR 实拍常见：点到了别的面）====================
+
+/// 稳健统计结果。
+/// - [median]/[spread]：**剔除离群后**重算的中位与误差带半宽（±mm）；
+/// - [used]/[rejected]：参与计算的样本数 / 被判为离群的样本数。
+typedef RobustStat = ({double median, double spread, int used, int rejected});
+
+/// 离群样本的下标（供 UI 逐条标注"将被剔除"）。
+///
+/// 与 [robustStats] 同一判据（MAD + 兜底尺度），n < [minSamples] 或全部离群时
+/// 返回空列表（宁可全留，也不制造"样本被清空"的假象）。
+List<int> outlierIndexes(
+  List<double> xs, {
+  double k = 3.0,
+  double minSpreadMm = 5.0,
+  int minSamples = 3,
+}) {
+  if (xs.length < minSamples) return const [];
+  final m = medianOf(xs);
+  final devs = [for (final x in xs) (x - m).abs()];
+  var scale = 1.4826 * medianOf(devs);
+  if (scale < minSpreadMm) scale = minSpreadMm;
+  final out = <int>[];
+  for (var i = 0; i < xs.length; i++) {
+    if ((xs[i] - m).abs() > k * scale) out.add(i);
+  }
+  return out.length == xs.length ? const [] : out;
+}
+
+/// 基于 MAD 的离群剔除 + 稳健中位。
+///
+/// 为什么需要：AR 反复测同一条边时，偶尔有一次点到了**后面的墙/柜子/地脚线**，
+/// 读数会跳到 2 倍或 1/2（实测出现过 ±505mm 的离散）。直接用最大-最小当误差带
+/// 会把这种"点错面"的读数当成"测量不确定度"，导致整组不可用。
+///
+/// 规则：中位 m 与 MAD（绝对中位差）→ 尺度 σ=1.4826·MAD（正态一致估计），
+/// 保留 |x−m| ≤ [k]·σ 的样本；σ 过小（样本几乎全等）时用 [minSpreadMm] 兜底，
+/// 避免把所有样本都判成离群。[minSamples] 以下不做剔除（样本太少没统计意义）。
+RobustStat robustStats(
+  List<double> xs, {
+  double k = 3.0,
+  double minSpreadMm = 5.0,
+  int minSamples = 3,
+}) {
+  if (xs.isEmpty) {
+    return (median: 0, spread: 0, used: 0, rejected: 0);
+  }
+  if (xs.length < minSamples) {
+    return (
+      median: medianOf(xs),
+      spread: spreadHalfRange(xs),
+      used: xs.length,
+      rejected: 0,
+    );
+  }
+  final dropped =
+      outlierIndexes(xs, k: k, minSpreadMm: minSpreadMm, minSamples: minSamples);
+  if (dropped.isEmpty) {
+    return (
+      median: medianOf(xs),
+      spread: spreadHalfRange(xs),
+      used: xs.length,
+      rejected: 0,
+    );
+  }
+  final keep = <double>[];
+  for (var i = 0; i < xs.length; i++) {
+    if (!dropped.contains(i)) keep.add(xs[i]);
+  }
+  return (
+    median: medianOf(keep),
+    spread: spreadHalfRange(keep),
+    used: keep.length,
+    rejected: dropped.length,
+  );
+}
+
+/// 一组读数是否足够一致（可直接采纳）。
+///
+/// [maxSpreadMm] 为允许的稳健误差带上限——超过说明这几次点到的**不是同一条边**
+/// （或间隔/角度变化太大），应提示用户重测而不是给一个"看起来有误差带"的数。
+bool consistentEnough(double spreadMm, double maxSpreadMm) =>
+    spreadMm <= maxSpreadMm;
+
+// ==================== 勾股三值（AR：由世界坐标拆分量）====================
+
+/// 由两点三维坐标（mm）拆出三值：斜边（空间距离）/ 水平投影 / 高度差。
+///
+/// ARKit 为 y 轴向上，故高度差取 |Δy|；水平投影取 √(Δx²+Δz²)。
+/// 现场用途：量层高/洞口高用"高差"，量开间进深用"水平"，量对角线用"斜边"。
+({double slope, double horizontal, double vertical}) pythagorasParts({
+  required double ax,
+  required double ay,
+  required double az,
+  required double bx,
+  required double by,
+  required double bz,
+}) {
+  final dx = bx - ax, dy = by - ay, dz = bz - az;
+  return (
+    slope: math.sqrt(dx * dx + dy * dy + dz * dz),
+    horizontal: math.sqrt(dx * dx + dz * dz),
+    vertical: dy.abs(),
+  );
+}
+
+/// AR 读数模式：决定"采纳哪一个值"。
+enum ArMeasureMode {
+  slope('斜边', '空间直线距离（默认，量对角线/异面两点）'),
+  horizontal('水平', '水平投影距离（量开间/进深/长度）'),
+  vertical('高差', '垂直高度差（量层高/洞口高/落差）');
+
+  const ArMeasureMode(this.label, this.hint);
+
+  final String label;
+  final String hint;
+}

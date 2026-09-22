@@ -19,9 +19,12 @@ import '../../data/models.dart';
 import '../../core/utils/camera_pick.dart';
 import '../../core/utils/ids.dart';
 import '../../core/utils/measure_math.dart';
+import '../../core/utils/measure_modes.dart';
+import '../../core/utils/measure_style.dart';
 import '../../core/utils/mm_format.dart';
 import '../../shared/widgets/app_dialog.dart';
 import '../../shared/widgets/app_snack.dart';
+import 'widgets/area_volume_sheet.dart';
 
 /// AR 量尺（LiDAR，iPhone 12 Pro+）。
 ///
@@ -41,12 +44,42 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
 
   late final ArMeasureService _svc;
 
-  /// 同一被测边的重复采样读数（mm）：对同一条边多测几次，
-  /// 采纳时取稳健中位为读数、离散半宽为 ±误差带，提高判定可信度。
-  final List<double> _samples = [];
+  /// 同一被测边的重复采样（三值）：采纳时按当前模式取稳健中位为读数、
+  /// 离散半宽为 ±误差带，并**剔除离群读数**（实拍常见：点到了后面的墙/柜子）。
+  final List<({double slope, double horizontal, double vertical})> _samples = [];
+
+  /// 读数模式：斜边（默认）/ 水平 / 高差。
+  ArMeasureMode _mode = ArMeasureMode.slope;
+
+  /// 采纳一致性门槛（±mm）：稳健误差带超过它就拒绝采纳，提示重测。
+  /// 30mm 是经验值——超过基本可判定"这几次点到的不是同一条边"。
+  static const double _adoptMaxSpreadMm = 30;
+
+  /// 当前模式下各样本的读数值。
+  List<double> get _sampleValues => [for (final s in _samples) _valueOf(s)];
+
+  double _valueOf(({double slope, double horizontal, double vertical}) s) {
+    switch (_mode) {
+      case ArMeasureMode.slope:
+        return s.slope;
+      case ArMeasureMode.horizontal:
+        return s.horizontal;
+      case ArMeasureMode.vertical:
+        return s.vertical;
+    }
+  }
+
+  /// 当前组的稳健统计（含离群剔除）。
+  RobustStat get _stat => robustStats(_sampleValues);
 
   /// 已采纳的读数组（每组 = 中位值 + 误差带半宽），逐组写为一条 MeasureItem。
   final List<({double mm, double errMm})> _readings = [];
+
+  /// 由已采纳读数组合出的**面积/体积**记录（unit = m2 / m3）。
+  ///
+  /// 单列一份：它们不是"一条边长"，混进 [_readings] 会让"读数 N"的序号与
+  /// 中位数统计口径错乱；保存时与线性读数一起写入会话。
+  final List<MeasureItem> _calcItems = [];
 
   /// Web 预览专用：点击窗口后记录 A/B 点与待采纳结果，方便浏览器里验收交互。
   Offset? _previewPointA;
@@ -54,6 +87,59 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
   ({double mm, double errMm})? _previewPendingReading;
   final List<({double mm, double errMm})> _previewReadings = [];
   bool _previewPaused = false;
+
+  /// 最近一次**吸附**结果（原生真机 / Web 预览共用同一条提示口径）。
+  ///
+  /// 真机：ARKit raycast 命中平面/平面边界/特征点后由原生上报；
+  /// Web：由 [snapToPreviewGuides] 对取景辅助线吸附。null = 未吸附。
+  String? _snapHint;
+  Offset? _previewSnapPoint;
+
+  /// 最近一次面积/体积组合的因子（Web 预览按参考样式画出尺寸胶囊与面域）。
+  List<MeasureItem> _lastCalcFactors = const [];
+
+  // —— 几何模式（直线 / 面积 / 体积）：连续测量 + 自动成面/成体 ——
+  /// 当前几何模式：直线模式每采纳一条边就是一条记录；
+  /// 面积/体积模式**连续量 2/3 条边后自动生成**面积/体积（参考样张的做法）。
+  ArGeometryMode _geoMode = ArGeometryMode.line;
+
+  /// 面积模式的边累加器（长 → 宽）。
+  final FaceBuilder _areaBuilder = FaceBuilder(isVolume: false);
+
+  /// 体积模式的边累加器（长 → 宽 → 高）。
+  final FaceBuilder _volumeBuilder = FaceBuilder(isVolume: true);
+
+  FaceBuilder get _activeBuilder =>
+      _geoMode.isVolume ? _volumeBuilder : _areaBuilder;
+
+  /// 当前模式下"已量了几条边 / 共几条"。
+  String get _geoProgress {
+    if (!_geoMode.isFace) return '';
+    return '${_geoMode.label}模式 ${_activeBuilder.got}/${_activeBuilder.need}：'
+        '${_activeBuilder.progressText()}';
+  }
+
+  /// 最近一次产出的面积/体积项（决定图上画面域还是立方体）。
+  ///
+  /// 只认**最后一个**：否则先量面积再量体积时，面域与立方体会同时叠在图上
+  /// （两者各自独立判空就会这样），观感与读数都会互相干扰。
+  MeasureItem? get _lastCalcItem =>
+      _calcItems.isEmpty ? null : _calcItems.last;
+
+  /// 最近一次面积结果（m²）：仅当最后产出的是面积才返回，否则 null。
+  double? get _lastCalcAreaM2 =>
+      _lastCalcItem?.unit == 'm2' ? _lastCalcItem!.photoMm : null;
+
+  /// 最近一次体积结果（m³）：仅当最后产出的是体积才返回，否则 null。
+  double? get _lastCalcVolumeM3 =>
+      _lastCalcItem?.unit == 'm3' ? _lastCalcItem!.photoMm : null;
+
+  /// 最后一个产出项需要的因子条数（面积 2 / 体积 3 / 无 0）。
+  int get _lastCalcNeeds {
+    final last = _lastCalcItem;
+    if (last == null) return 0;
+    return last.unit == 'm3' ? 3 : 2;
+  }
 
   bool _supported = false;
   bool _paused = false;
@@ -102,10 +188,12 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     return null;
   }
 
-  /// 校正模式下按钮上的实时 k 预览（真值 / 当前采样中位）。
+  /// 校正模式下按钮上的实时 k 预览（真值 / 当前采样**斜边**中位）。
+  ///
+  /// 校正用的是原始斜边长（系统偏差与显示模式无关），故这里不跟随 [_mode]。
   String get _calibKPreview {
     final ref = double.tryParse(_calibRefCtl.text.trim()) ?? 0;
-    final m = medianOf(_samples);
+    final m = medianOf([for (final s in _samples) s.slope]);
     if (ref <= 0 || m <= 0) return '—';
     return (ref / m).toStringAsFixed(4);
   }
@@ -169,22 +257,63 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
         );
         return;
       }
+      // 三值拆分：原生同时上报两端世界坐标，可直接算水平投影与高度差。
+      final ax = (args['ax'] as num?)?.toDouble();
+      final ay = (args['ay'] as num?)?.toDouble();
+      final az = (args['az'] as num?)?.toDouble();
+      final bx = (args['bx'] as num?)?.toDouble();
+      final by = (args['by'] as num?)?.toDouble();
+      final bz = (args['bz'] as num?)?.toDouble();
+      final parts = (ax != null &&
+              ay != null &&
+              az != null &&
+              bx != null &&
+              by != null &&
+              bz != null)
+          ? pythagorasParts(
+              ax: ax, ay: ay, az: az, bx: bx, by: by, bz: bz)
+          // 无坐标（旧原生）→ 退化为只有斜边可用
+          : (slope: raw, horizontal: raw, vertical: 0.0);
       setState(() {
-        // 采样保存**原始读数**（校正模式要用原始值算 k），显示时才乘 k。
-        _samples.add(raw);
+        // 采样保存**原始值**（校正模式要用原始斜边算 k），显示时才乘 k。
+        _samples.add(parts);
         _lastDepthMm = depth;
+        // B 点吸附结果（原生上报时）：命中物体边界/角点 → 提示已吸附。
+        final snapB = args['snapB']?.toString();
+        if (snapB != null) {
+          _snapHint = snapLabel(
+            snapB,
+            edgeMm: (args['edgeMmB'] as num?)?.toDouble(),
+          );
+        }
         _hint = _calibMode
             ? '校正采样第 ${_samples.length} 次：对已知长度重复测，≥2 次后点「完成校正」'
-            : '第 ${_samples.length} 次读数'
+            : '第 ${_samples.length} 次读数（${_mode.label} '
+                '${fmtMm(_valueOf(parts))} mm）'
                 '${_depthOk ? '' : '（当前超出最佳区间，误差偏大）'}，满意后点「采纳本组」';
       });
     } else if (call.method == 'onPointA') {
-      if (mounted) setState(() => _hint = '已采点A，请再点一次');
+      // 原生可带上吸附结果（{snap, edgeMm}）：命中平面边界/角点时提示已吸附。
+      final args = call.arguments;
+      final snap = args is Map ? args['snap']?.toString() : null;
+      if (mounted) {
+        setState(() {
+          _hint = '已采点A，请再点一次';
+          _snapHint = snap == null
+              ? null
+              : snapLabel(
+                  snap,
+                  edgeMm: (args is Map ? args['edgeMm'] as num? : null)
+                      ?.toDouble(),
+                );
+        });
+      }
     } else if (call.method == 'onCleared') {
       if (mounted) {
         setState(() {
           _samples.clear();
           _lastDepthMm = null;
+          _snapHint = null;
           _hint = '已清除本组采样，重新对目标边采点（A→B）';
         });
       }
@@ -245,19 +374,80 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
   ///
   /// 读数与误差带都会乘上尺度系数 k（若有校正）——k 修正的是**系统偏差**，
   /// 而 ±误差带仍是**重复性**，两者含义不同，UI 文案分开表述。
+  /// 把一条已采纳的边喂给面积/体积累加器；满则生成面积/体积并提示。
+  ///
+  /// 返回 true 表示已生成面/体（调用方据此更新提示语）。
+  bool _feedGeometry(MeasureItem edge) {
+    if (!_geoMode.isFace) return false;
+    final builder = _activeBuilder;
+    final labels = edgeLabels(isVolume: _geoMode.isVolume);
+    final produced = builder.add(edge);
+    if (produced == null) {
+      // 未满（或量级异常被丢弃）：给出"下一条量什么"的明确指引
+      final idx = builder.got - 1;
+      final gotLabel = idx >= 0 && idx < labels.length ? labels[idx] : '';
+      AppSnack.show(
+        context,
+        builder.got == 0
+            ? '${_geoMode.label}：这一段读数异常已丢弃，请重新量「${labels[0]}」'
+            : '已采纳「$gotLabel」'
+                '${(edge.photoMm / 1000).toStringAsFixed(3)}m'
+                '（${builder.got}/${builder.need}）：'
+                '继续量「${builder.currentLabel}」',
+        kind: AppSnackKind.success,
+      );
+      return false;
+    }
+    setState(() {
+      _calcItems.add(produced.item);
+      _lastCalcFactors = produced.factors;
+    });
+    AppSnack.show(
+      context,
+      '已生成 ${produced.item.name}（可继续量下一个${_geoMode.label}）',
+      kind: AppSnackKind.success,
+    );
+    return true;
+  }
+
   void _adoptSamples() {
     if (_samples.length < 2) {
       AppSnack.show(context, '请对同一条边至少测 2 次再采纳', kind: AppSnackKind.muted);
       return;
     }
+    final st = _stat;
+    // 一致性门控：误差带超过门槛 = 这几次点到的不是同一条边 → 拒绝采纳。
+    // 直接给一个"带 ±误差带"的错数，比不给数更危险（会被当判定依据）。
+    if (!consistentEnough(st.spread, _adoptMaxSpreadMm)) {
+      AppSnack.show(
+        context,
+        '读数不一致（稳健 ±${fmtMm(st.spread)}mm > ±${fmtMm(_adoptMaxSpreadMm)}mm）：'
+        '多半是几次点到了不同的面（后墙/柜子/地脚线）。请对准同一条边重测，'
+        '必要时放大后再点',
+        kind: AppSnackKind.danger,
+      );
+      return;
+    }
+    final mm = _corrected(st.median);
+    final errMm = st.spread * _k;
+    final dropped = st.rejected;
     setState(() {
-      _readings.add((
-        mm: _corrected(medianOf(_samples)),
-        errMm: spreadHalfRange(_samples) * _k,
-      ));
+      _readings.add((mm: mm, errMm: errMm));
       _samples.clear();
-      _hint = '已采纳一组，可继续测下一条边；全部测完点「保存」';
+      _hint = dropped > 0
+          ? '已采纳一组（${_mode.label}，剔除 $dropped 个离群读数）；继续测下一条边'
+          : '已采纳一组（${_mode.label}）；继续测下一条边，全部测完点「保存」';
     });
+    // 面积/体积模式：连续量够边数就自动出面/成体（不打断连续测量）
+    if (_geoMode.isFace) {
+      _feedGeometry(MeasureItem(
+        name: 'AR-${_readings.length}',
+        drawingMm: double.tryParse(_drawingCtl.text) ?? 0,
+        photoMm: mm,
+        source: 'ar_lidar',
+        errorMm: errMm,
+      ));
+    }
   }
 
   /// Web 预览采纳：只写入预览列表，不落真实存储，便于继续调 UI。
@@ -270,6 +460,17 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
       _previewPointB = null;
       _previewPendingReading = null;
     });
+    if (_geoMode.isFace) {
+      // 面/体模式：连续采纳即自动累加，够数出面/成体
+      _feedGeometry(MeasureItem(
+        name: 'AR-${_previewReadings.length}',
+        drawingMm: 0,
+        photoMm: pending.mm,
+        source: 'ar_lidar',
+        errorMm: pending.errMm,
+      ));
+      return;
+    }
     AppSnack.show(
       context,
       '已采纳并自动保存到预览结果',
@@ -285,6 +486,10 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
       _previewPointB = null;
       _previewPendingReading = null;
       _previewReadings.clear();
+      _previewSnapPoint = null;
+      _snapHint = null;
+      _calcItems.clear();
+      _lastCalcFactors = const [];
     });
   }
 
@@ -295,11 +500,17 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     final height = constraints.maxHeight;
     if (width <= 0 || height <= 0) return;
     final local = details.localPosition;
+    // 吸附：靠近取景辅助线（井字格/中心）即被吸走——与真机"吸附物体边界"
+    // 的交互与提示口径一致（真机由 ARKit raycast + 平面边界求最近点实现）。
+    final snapped =
+        snapToPreviewGuides(local, Size(width, height));
     final point = Offset(
-      (local.dx / width).clamp(0.0, 1.0),
-      (local.dy / height).clamp(0.0, 1.0),
+      (snapped.point.dx / width).clamp(0.0, 1.0),
+      (snapped.point.dy / height).clamp(0.0, 1.0),
     );
     setState(() {
+      _previewSnapPoint = snapped.point;
+      _snapHint = snapped.kind == null ? null : '已吸附：${snapped.kind}';
       if (_previewPointA == null || _previewPointB != null) {
         _previewPointA = point;
         _previewPointB = null;
@@ -397,7 +608,7 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     }
     final c = ArScaleCalibration(
       refMm: ref,
-      measuredMm: medianOf(_samples),
+      measuredMm: medianOf([for (final s in _samples) s.slope]),
       samples: _samples.length,
       ts: DateTime.now().millisecondsSinceEpoch,
     );
@@ -436,9 +647,50 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     });
   }
 
-  /// 批量保存：把已采纳的读数组全部写入会话（带误差带）。
+  /// 打开面积/体积弹层：用已采纳的读数作为候选边长（量尺宝式测量模式）。
+  ///
+  /// Web 预览模式用 [_previewReadings] 作候选，保证浏览器里也能完整走通并核对样式。
+  Future<void> _openAreaVolume({bool isPreview = false}) async {
+    final src = isPreview ? _previewReadings : _readings;
+    final cands = [
+      for (var i = 0; i < src.length; i++)
+        MeasureItem(
+          name: 'AR-${i + 1}',
+          drawingMm: 0,
+          photoMm: src[i].mm,
+          source: 'ar_lidar',
+          errorMm: src[i].errMm,
+        ),
+    ];
+    final r = await showAreaVolumeSheet(context, candidates: cands);
+    if (r == null || !mounted) return;
+    setState(() {
+      _calcItems.add(r.item);
+      _lastCalcFactors = r.factors;
+    });
+    showCalcAddedSnack(context, r.item);
+  }
+
+  /// 吸附类型 → 用户可读文案（真机与 Web 预览共用）。
+  static String snapLabel(String kind, {double? edgeMm}) {
+    switch (kind) {
+      case 'corner':
+        return '已吸附：墙角/角点';
+      case 'edge':
+        return '已吸附：物体边界'
+            '${edgeMm != null && edgeMm > 0 ? '（±${fmtMm(edgeMm)}mm）' : ''}';
+      case 'plane':
+        return '已吸附：平面';
+      case 'feature':
+        return '已吸附：特征点';
+      default:
+        return '已吸附：$kind';
+    }
+  }
+
+  /// 批量保存：把已采纳的读数组 + 面积/体积项全部写入会话（带误差带）。
   Future<void> _saveAll() async {
-    if (_readings.isEmpty) {
+    if (_readings.isEmpty && _calcItems.isEmpty) {
       AppSnack.show(context, '暂无已采纳的测量结果', kind: AppSnackKind.danger);
       return;
     }
@@ -463,6 +715,8 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
           source: 'ar_lidar',
           errorMm: _readings[i].errMm,
         ),
+      // 面积/体积项一并落库（不带图纸对照，报告里显示为"未判定"）
+      ..._calcItems,
     ];
     await MeasureStore.save(s.copyWith(items: [...s.items, ...items]));
     if (mounted) {
@@ -650,6 +904,20 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
                       pointA: _previewPointA,
                       pointB: _previewPointB,
                       pendingReading: _previewPendingReading,
+                      snapPoint: _previewSnapPoint,
+                      snapLabelText: _snapHint,
+                      areaM2: _lastCalcAreaM2,
+                      volumeM3: _lastCalcVolumeM3,
+                      // 因子必须与"最后一个产出项"匹配：条数不符就不画
+                      // （例如用户删掉了清单里的项，避免用旧因子画出错几何）
+                      calcFactorsMm: _lastCalcFactors.length == _lastCalcNeeds
+                          ? [for (final f in _lastCalcFactors) f.photoMm]
+                          : const <double>[],
+                      // 面/体模式：把已量到的边长与进度画出来（连续测量的关键反馈）
+                      pendingEdgeMm: _geoMode.isFace &&
+                              _activeBuilder.edges.isNotEmpty
+                          ? _activeBuilder.edges.last.photoMm
+                          : null,
                     ),
                   ),
                 ),
@@ -708,14 +976,16 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
 
   /// 测量摘要卡：保持同一位置和样式，Web 仅替换展示数据。
   Widget _buildViewportSummaryCard({required bool isPreview}) {
-    final currentText =
-        isPreview ? '本次 2980 mm' : '本次 ${fmtMm(_corrected(_samples.last))} mm';
+    final st = _stat;
+    final currentText = isPreview
+        ? '本次 2980 mm'
+        : '本次 ${fmtMm(_corrected(_valueOf(_samples.last)))} mm';
     final groupText = isPreview
         ? '本组中位 2980 mm（重复性 ±8 mm，n=3）'
         : (_samples.length >= 2
-            ? '本组中位 ${fmtMm(_corrected(medianOf(_samples)))} mm'
-                '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)} mm，'
-                'n=${_samples.length}）'
+            ? '本组中位 ${fmtMm(_corrected(st.median))} mm'
+                '（重复性 ±${fmtMm(st.spread * _k)} mm，'
+                'n=${st.used}${st.rejected > 0 ? '，已剔除 ${st.rejected} 个离群' : ''}）'
             : null);
     return Container(
       decoration: BoxDecoration(
@@ -784,6 +1054,27 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 几何模式：直线 / 面积 / 体积（面积体积模式为**连续测量**，够边数自动出面/成体）
+        _buildGeometryModeSelector(),
+        // 勾股三值模式：决定采纳哪一个读数（斜边/水平/高差）
+        if (!isPreview) _buildModeSelector(),
+        if (!isPreview && _samples.isNotEmpty) _buildSampleList(),
+        // 面积/体积：**直线模式**下提供手动组合入口；
+        // 面积/体积模式下改为连续测量自动生成（见 _feedGeometry），不再需要手动选边。
+        if (_geoMode == ArGeometryMode.line &&
+            (isPreview ? _previewReadings.isNotEmpty : _readings.isNotEmpty))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openAreaVolume(isPreview: isPreview),
+                icon: const Icon(MingCuteIcons.cubeLine, size: 18),
+                label: const Text('手动组合面积 / 体积（选已测边长）'),
+              ),
+            ),
+          ),
+        if (!isPreview && _calcItems.isNotEmpty) _buildCalcList(),
         SizedBox(
           width: double.infinity,
           child: _buildPrimaryActionButton(isPreview: isPreview),
@@ -794,6 +1085,209 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     );
   }
 
+  /// 读数模式选择（勾股三值）：斜边 / 水平 / 高差。
+  ///
+  /// 现场对应关系：量层高或洞口高 → 高差；量开间/进深 → 水平；量对角线 → 斜边。
+  /// 几何模式选择：直线 / 面积 / 体积（+ 当前进度）。
+  ///
+  /// 面/体模式下"采纳本组"会把读数作为 长/宽[/高] 累加，够数即自动生成，
+  /// 中途不需要再进弹层挑边——这是参考样张的连续测量做法。
+  Widget _buildGeometryModeSelector() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              for (var i = 0; i < ArGeometryMode.values.length; i++) ...[
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() {
+                      _geoMode = ArGeometryMode.values[i];
+                      // 切模式清空半成品，避免把"长"当"宽"用
+                      _areaBuilder.reset();
+                      _volumeBuilder.reset();
+                    }),
+                    child: Container(
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _geoMode == ArGeometryMode.values[i]
+                            ? kMeasureYellow
+                            : Colors.white12,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        ArGeometryMode.values[i].label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _geoMode == ArGeometryMode.values[i]
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: _geoMode == ArGeometryMode.values[i]
+                              ? kMeasureInk
+                              : Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (i != ArGeometryMode.values.length - 1)
+                  const SizedBox(width: 8),
+              ],
+            ],
+          ),
+          if (_geoMode.isFace) ...[
+            const SizedBox(height: 6),
+            Text(
+              '$_geoProgress（量够 ${_geoMode.edgeCount} 条边自动生成'
+              '${_geoMode.label}）',
+              style: const TextStyle(fontSize: 11, color: Colors.white60),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildModeSelector() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < ArMeasureMode.values.length; i++) ...[
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _mode = ArMeasureMode.values[i]),
+                child: Container(
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _mode == ArMeasureMode.values[i]
+                        ? AppTokens.accent
+                        : Colors.white12,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    ArMeasureMode.values[i].label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: _mode == ArMeasureMode.values[i]
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: _mode == ArMeasureMode.values[i]
+                          ? AppTokens.onAccent
+                          : Colors.white70,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (i != ArMeasureMode.values.length - 1)
+              const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 面积/体积结果列表（明确标注"不参与合格判定"，避免被当尺寸看）。
+  Widget _buildCalcList() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('面积/体积（不参与合格判定）',
+              style: TextStyle(color: Colors.white70, fontSize: 11)),
+          for (var i = 0; i < _calcItems.length; i++)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_calcItems[i].name}'
+                    '${_calcItems[i].errorMm != null ? '  ±${_calcItems[i].errorMm!.toStringAsFixed(2)}' : ''}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => setState(() {
+                    _calcItems.removeAt(i);
+                    // 因子与已删项不再对应 → 清掉，避免图上用过时因子画出错几何
+                    _lastCalcFactors = const [];
+                  }),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Text('删',
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 样本明细：逐条列出（离群点标黄提示"将被剔除"），并支持单条删除。
+  ///
+  /// 实测痛点：一次点到后面的墙/柜子会让整组"误差带"爆到几百毫米。
+  /// 让用户看见每次读数并手动删掉明显错误的那次，比只给一个中位数有用。
+  Widget _buildSampleList() {
+    final values = _sampleValues;
+    final dropped = outlierIndexes(values);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '本组 ${_samples.length} 次读数（${_mode.label}）'
+            '${dropped.isEmpty ? '' : ' · 标记 ${dropped.length} 个离群（采纳时自动剔除）'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+          for (var i = 0; i < _samples.length; i++)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '第 ${i + 1} 次：'
+                    '${fmtMm(_corrected(values[i]))} mm'
+                    '${dropped.contains(i) ? '   ← 离群' : ''}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: dropped.contains(i)
+                          ? Colors.orangeAccent
+                          : Colors.white,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => setState(() => _samples.removeAt(i)),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Text('删',
+                        style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
   /// 主按钮文案统一走一处，避免 Web 和真机的按钮高度、字重、图标错位。
   Widget _buildPrimaryActionButton({required bool isPreview}) {
     final enabled = isPreview
@@ -801,10 +1295,17 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
         : (_calibMode
             ? (_supported && _samples.length >= 2)
             : (_supported && _samples.length >= 2));
+    // 面/体模式：按钮带上"这是第几条边"，让连续测量有明确节奏
+    final faceTag = _geoMode.isFace
+        ? '［${_activeBuilder.currentLabel} ${_activeBuilder.got + 1}/'
+            '${_activeBuilder.need}］'
+        : '';
     final label = isPreview
         ? (_previewPendingReading == null
-            ? '点击窗口选择 A 点和 B 点'
-            : '采纳本组 → ${fmtMm(_previewPendingReading!.mm)} mm'
+            ? (_geoMode.isFace
+                ? '点两点量「${_activeBuilder.currentLabel}」'
+                : '点击窗口选择 A 点和 B 点')
+            : '采纳本组$faceTag → ${fmtMm(_previewPendingReading!.mm)} mm'
                 '（重复性 ±${fmtMm(_previewPendingReading!.errMm)}）')
         : (_calibMode
             ? (_samples.length < 2
@@ -812,8 +1313,8 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
                 : '完成校正 → k=$_calibKPreview')
             : (_samples.length < 2
                 ? '采纳本组（同边再测 ${2 - _samples.length} 次可启用）'
-                : '采纳本组 → ${fmtMm(_corrected(medianOf(_samples)))} mm'
-                    '（重复性 ±${fmtMm(spreadHalfRange(_samples) * _k)}）'));
+                : '采纳本组$faceTag → ${fmtMm(_corrected(_stat.median))} mm'
+                    '（${_mode.label}，重复性 ±${fmtMm(_stat.spread * _k)}）'));
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Container(
@@ -1299,73 +1800,61 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
   }
 }
 
-/// Web 预览的取景辅助线：只用于展示 AR 量尺界面结构，不参与真实测距。
+/// Web 预览的叠加层：**按参考样式绘制**（明黄尺寸线 + 空心方块端点 + 胶囊标注），
+/// 并复现吸附提示、面积面域与体积线框三种标注形态，方便浏览器里核对观感。
+///
+/// 说明：这里的几何是"示意"（取景辅助线 + 点击点），数值来自真实读数/组合结果；
+/// 真机上的线、端点、标注由原生 `ArMeasureView.swift` 按同一套样式绘制。
 class _ArPreviewGuidePainter extends CustomPainter {
   final Offset? pointA;
   final Offset? pointB;
   final ({double mm, double errMm})? pendingReading;
+  final Offset? snapPoint;
+  final String? snapLabelText;
+  /// 最近一次面积（m²）/体积（m³）结果；null = 无。
+  final double? areaM2;
+  final double? volumeM3;
+  /// 面积/体积的因子边长（mm），用于画边缘尺寸胶囊。
+  final List<double> calcFactorsMm;
+  /// 面/体模式**已量到的最后一条边**（mm）：画成一条已确认的尺寸线。
+  final double? pendingEdgeMm;
 
   _ArPreviewGuidePainter({
     this.pointA,
     this.pointB,
     this.pendingReading,
+    this.snapPoint,
+    this.snapLabelText,
+    this.areaM2,
+    this.volumeM3,
+    this.calcFactorsMm = const [],
+    this.pendingEdgeMm,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Web 预览模式只保留对布局有帮助的辅助线，不再叠加多余说明内容。
+    // 取景辅助线（浅灰）——吸附的"素材"，靠近即被吸走。
     final gridPaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.18)
+      ..color = Colors.black.withValues(alpha: 0.14)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final guidePaint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.24)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final accentPaint = Paint()
-      ..color = AppTokens.brand.withValues(alpha: 0.9)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final pointPaintA = Paint()
-      ..color = AppTokens.brand
-      ..style = PaintingStyle.fill;
-    final pointPaintB = Paint()
-      ..color = const Color(0xFFFF6B57)
-      ..style = PaintingStyle.fill;
-    final linePaint = Paint()
-      ..color = const Color(0xFF111111)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-
-    // 相机常用井字格辅助线：横竖各两条，帮助用户判断取景与水平。
+      ..strokeWidth = 1.1;
     final thirdWidth = size.width / 3;
     final thirdHeight = size.height / 3;
     for (var i = 1; i <= 2; i++) {
-      final dx = thirdWidth * i;
-      final dy = thirdHeight * i;
-      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), gridPaint);
-      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), gridPaint);
+      canvas.drawLine(Offset(thirdWidth * i, 0),
+          Offset(thirdWidth * i, size.height), gridPaint);
+      canvas.drawLine(Offset(0, thirdHeight * i),
+          Offset(size.width, thirdHeight * i), gridPaint);
     }
-
+    // 准星（中心十字，暗色）——不抢黄线的视觉焦点。
     final center = size.center(Offset.zero);
-    canvas.drawLine(
-      Offset(center.dx - 28, center.dy),
-      Offset(center.dx + 28, center.dy),
-      accentPaint,
-    );
-    canvas.drawLine(
-      Offset(center.dx, center.dy - 28),
-      Offset(center.dx, center.dy + 28),
-      accentPaint,
-    );
-    canvas.drawCircle(
-      center,
-      6,
-      Paint()
-        ..color = AppTokens.brand.withValues(alpha: 0.92)
-        ..style = PaintingStyle.fill,
-    );
-    canvas.drawCircle(center, 20, guidePaint);
+    final cross = Paint()
+      ..color = Colors.black.withValues(alpha: 0.3)
+      ..strokeWidth = 1.4;
+    canvas.drawLine(Offset(center.dx - 22, center.dy),
+        Offset(center.dx + 22, center.dy), cross);
+    canvas.drawLine(Offset(center.dx, center.dy - 22),
+        Offset(center.dx, center.dy + 22), cross);
 
     final a = pointA == null
         ? null
@@ -1373,95 +1862,115 @@ class _ArPreviewGuidePainter extends CustomPainter {
     final b = pointB == null
         ? null
         : Offset(pointB!.dx * size.width, pointB!.dy * size.height);
-    if (a != null) {
-      canvas.drawCircle(a, 8, pointPaintA);
-      _paintPointTag(canvas, a, 'A', pointPaintA.color);
+
+    // —— 面积：半透明黄面域 + 对角线虚线 + 边尺寸胶囊 + 中央大字 ——
+    // 几何按**真实长宽比例**合成（预览无 AR 空间坐标，比例仍来自实测读数）
+    if (areaM2 != null && calcFactorsMm.length >= 2) {
+      final r = synthFaceRect(size, calcFactorsMm[0], calcFactorsMm[1]);
+      final poly = [r.topLeft, r.topRight, r.bottomRight, r.bottomLeft];
+      paintAreaFace(canvas, poly, fmtAreaText(areaM2!));
+      // 长在下边、宽在左边（竖排），与参考样张一致
+      paintCapsuleLabel(
+        canvas,
+        Offset(r.center.dx, r.bottom + 4),
+        fmtLengthText(calcFactorsMm[0]),
+      );
+      paintCapsuleLabel(
+        canvas,
+        Offset(r.left - 4, r.center.dy),
+        fmtLengthText(calcFactorsMm[1]),
+        vertical: true,
+      );
     }
-    if (a != null && b != null) {
-      canvas.drawLine(a, b, linePaint);
-      canvas.drawCircle(b, 8, pointPaintB);
-      _paintPointTag(canvas, b, 'B', pointPaintB.color);
-      if (pendingReading != null) {
-        _paintDistanceTag(
+
+    // —— 体积：黄立方体线框（可见边实线/隐藏边虚线）+ 三边胶囊 + 中央大字 ——
+    if (volumeM3 != null && calcFactorsMm.length >= 3) {
+      final g = synthVolumeGeometry(
+        size,
+        calcFactorsMm[0],
+        calcFactorsMm[1],
+        calcFactorsMm[2],
+      );
+      if (g.base.length == 4) {
+        paintVolumeWire(
           canvas,
-          (a + b) / 2,
-          '${fmtMm(pendingReading!.mm)} mm',
+          g.base,
+          g.rise,
+          hLabel: fmtLengthText(calcFactorsMm[2]),
+          centerText: fmtVolumeText(volumeM3!),
+        );
+        // 长（近底边）、宽（右侧边）标注
+        paintCapsuleLabel(
+          canvas,
+          Offset((g.base[0].dx + g.base[1].dx) / 2, g.base[0].dy + 16),
+          fmtLengthText(calcFactorsMm[0]),
+        );
+        paintCapsuleLabel(
+          canvas,
+          Offset((g.base[1].dx + g.base[2].dx) / 2, (g.base[1].dy + g.base[2].dy) / 2),
+          fmtLengthText(calcFactorsMm[1]),
+          fontSize: 11,
         );
       }
     }
-  }
 
-  void _paintPointTag(Canvas canvas, Offset center, String label, Color color) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
+    // —— 尺寸线（参考样式：黄线 + 空心方块端点 + 胶囊）——
+    if (areaM2 == null && volumeM3 == null) {
+      // 面/体模式：已量到的边长画成一条尺寸线（表示"这一段已确认"）
+      if (pendingEdgeMm != null) {
+        final y = size.height * 0.62;
+        paintDimLine(
+          canvas,
+          Offset(size.width * 0.16, y),
+          Offset(size.width * 0.84, y),
+          fmtLengthText(pendingEdgeMm!),
+        );
+      } else if (a != null && b != null) {
+        final vertical = (b.dy - a.dy).abs() > (b.dx - a.dx).abs() * 2;
+        paintDimLine(
+          canvas,
+          a,
+          b,
+          pendingReading == null ? '' : fmtLengthText(pendingReading!.mm),
+          vertical: vertical,
+        );
+      } else if (a != null) {
+        // 只有 A 点：画一个空心方块标记起点（不带 A/B 字母，与参考一致）
+        paintDimLine(canvas, a, a, '', lineWidth: 1);
+      }
+    }
+    // 面/体进度只留在底部面板文案里，图上不再叠加进度胶囊——
+    // 否则与尺寸胶囊互相遮挡（参考样张的画布上也只有几何与尺寸标注）。
+
+    // —— 吸附提示：吸附点画实心黄方块 + 下方胶囊文案 ——
+    if (snapPoint != null) {
+      canvas.drawRect(
+        Rect.fromCenter(center: snapPoint!, width: 9, height: 9),
+        Paint()..color = kMeasureYellow,
+      );
+      if (snapLabelText != null) {
+        paintCapsuleLabel(
+          canvas,
+          Offset(snapPoint!.dx + 60, snapPoint!.dy + 22),
+          snapLabelText!,
           fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final tagRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(center.dx, center.dy - 20),
-        width: 22,
-        height: 18,
-      ),
-      const Radius.circular(6),
-    );
-    canvas.drawRRect(
-      tagRect,
-      Paint()
-        ..color = color.withValues(alpha: 0.9)
-        ..style = PaintingStyle.fill,
-    );
-    tp.paint(
-      canvas,
-      Offset(center.dx - tp.width / 2, center.dy - 20 - tp.height / 2),
-    );
-  }
-
-  void _paintDistanceTag(Canvas canvas, Offset center, String label) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Colors.white,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    const paddingX = 10.0;
-    const paddingY = 6.0;
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(center.dx, center.dy - 18),
-        width: tp.width + paddingX * 2,
-        height: tp.height + paddingY * 2,
-      ),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      rect,
-      Paint()
-        ..color = const Color(0xCC111111)
-        ..style = PaintingStyle.fill,
-    );
-    tp.paint(
-      canvas,
-      Offset(center.dx - tp.width / 2, center.dy - 18 - tp.height / 2),
-    );
+          accent: kMeasureYellow,
+        );
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant _ArPreviewGuidePainter oldDelegate) =>
       oldDelegate.pointA != pointA ||
       oldDelegate.pointB != pointB ||
-      oldDelegate.pendingReading != pendingReading;
+      oldDelegate.pendingReading != pendingReading ||
+      oldDelegate.snapPoint != snapPoint ||
+      oldDelegate.snapLabelText != snapLabelText ||
+      oldDelegate.areaM2 != areaM2 ||
+      oldDelegate.volumeM3 != volumeM3 ||
+      oldDelegate.calcFactorsMm != calcFactorsMm ||
+      oldDelegate.pendingEdgeMm != pendingEdgeMm;
 }
 
 /// AR量尺页底部操作按钮：统一为 48 高度，一主两次，和当前 App 操作风格保持一致。

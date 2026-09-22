@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/di/providers.dart';
 import '../../core/room/room_geometry.dart';
 import '../../core/storage/room_scan_store.dart';
+import '../../core/utils/diagram_export.dart';
+import '../../core/utils/save_to_gallery.dart';
 import '../../core/utils/mm_format.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/app_snack.dart';
@@ -46,6 +48,40 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
     await RoomScanStore.save(_projectKey, r);
     await refreshRoomScans(ref, _projectKey);
     if (mounted) setState(() => _record = r);
+  }
+
+  /// 导出「户型测量图」PNG（轮廓 + 墙段尺寸 + 洞口 + 面积/闭合差 + 图签）。
+  ///
+  /// 平台行为（`exportReportFile`）：Web 下载；iOS/Android 系统分享面板
+  /// （选「存储图像」存入相册）；桌面落盘。
+  Future<void> _exportDiagram(RoomScanRecord r) async {
+    final png = await renderRoomDiagramPng(
+      record: r,
+      projectName: _projectKey,
+      dateText: DateTime.now().toString().substring(0, 16),
+    );
+    if (!mounted) return;
+    if (png.isEmpty) {
+      AppSnack.show(context, '生成户型图失败', kind: AppSnackKind.danger);
+      return;
+    }
+    final safeName = r.name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final name = '户型图_${safeName}_$stamp.png';
+    // 移动端优先「一键直存相册」；失败或 Web/桌面回退下载/分享。
+    final d = await deliverImage(
+      png,
+      filename: name,
+      name: '户型图_${safeName}_$stamp',
+    );
+    if (!mounted) return;
+    AppSnack.show(
+      context,
+      d.message,
+      kind: d.savedToGallery
+          ? AppSnackKind.success
+          : (d.fellBack ? AppSnackKind.muted : AppSnackKind.danger),
+    );
   }
 
   Future<void> _editWall(RoomScanRecord r, int i) async {
@@ -102,6 +138,11 @@ class _RoomDetailPageState extends ConsumerState<RoomDetailPage> {
         actions: r == null
             ? null
             : [
+                TextButton.icon(
+                  onPressed: () => _exportDiagram(r),
+                  icon: const Icon(MingCuteIcons.picLine, size: 18),
+                  label: const Text('导出图'),
+                ),
                 TextButton.icon(
                   onPressed: () => context.push('/room-compare',
                       extra: RoomScanArgs(

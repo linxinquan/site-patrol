@@ -187,14 +187,31 @@ class MeasureItem {
   final String source;
 
   /// 测量误差带半宽（±mm）。LiDAR/AR 等有误差来源时填写；
-  /// 旧数据 / 手动录入为 null = 误差未知（不参与判定门控，pass() 逻辑不变）。
+  /// 旧数据 / 手动录入为 null = 误差无关（不参与判定门控，pass() 逻辑不变）。
   final double? errorMm;
+
+  /// 该量尺项在照片上的两个端点（**归一化 0~1**，顺序 `[ax, ay, bx, by]`）。
+  ///
+  /// 用途：**导出测量图**时把尺寸标注画回照片上。存归一化值而非像素值，
+  /// 导出时按原图尺寸还原，不受拍照分辨率影响。
+  /// 旧数据/手动录入为 null → 导出时不画该条的标注（不阻断导出）。
+  final List<double>? photoPts;
+
+  /// 数值单位：`mm`（线性尺寸，默认）| `m2`（面积）| `m3`（体积）。
+  ///
+  /// 为什么要有它：面积/体积也走同一条清单与报告管线和同一套文案，
+  /// 若不带单位，`12.50 ㎡` 会被当 mm 取整成 `13`，报告会出错。
+  /// 旧数据无该字段 → 按 `mm` 处理（向后兼容）。
+  final String unit;
+
   const MeasureItem({
     required this.name,
     required this.drawingMm,
     required this.photoMm,
     this.source = 'photo',
     this.errorMm,
+    this.photoPts,
+    this.unit = 'mm',
   });
 
   /// 偏差 = 照片实测 - 图纸（mm）
@@ -218,13 +235,17 @@ class MeasureItem {
           double? drawingMm,
           double? photoMm,
           String? source,
-          double? errorMm}) =>
+          double? errorMm,
+          List<double>? photoPts,
+          String? unit}) =>
       MeasureItem(
         name: name ?? this.name,
         drawingMm: drawingMm ?? this.drawingMm,
         photoMm: photoMm ?? this.photoMm,
         source: source ?? this.source,
         errorMm: errorMm ?? this.errorMm,
+        photoPts: photoPts ?? this.photoPts,
+        unit: unit ?? this.unit,
       );
 
   Map<String, dynamic> toJson() => {
@@ -233,17 +254,32 @@ class MeasureItem {
         'photoMm': photoMm,
         'source': source,
         if (errorMm != null) 'errorMm': errorMm,
+        if (photoPts != null) 'photoPts': photoPts,
+        if (unit != 'mm') 'unit': unit,
       };
 
   /// 字段名与 `MeasureSession` 既有内联序列化保持一致（name/drawingMm/photoMm/source），
-  /// 新增 `errorMm` 缺省为 null，旧数据不抛异常。
+  /// 新增 `errorMm`/`photoPts`/`unit` 缺省为 null / 'mm'，旧数据不抛异常。
   factory MeasureItem.fromJson(Map<String, dynamic> m) => MeasureItem(
         name: m['name']?.toString() ?? '',
         drawingMm: (m['drawingMm'] as num? ?? 0).toDouble(),
         photoMm: (m['photoMm'] as num? ?? 0).toDouble(),
         source: m['source']?.toString() ?? 'photo',
         errorMm: (m['errorMm'] as num?)?.toDouble(),
+        photoPts: _parsePhotoPts(m['photoPts']),
+        unit: m['unit']?.toString() ?? 'mm',
       );
+
+  /// 容错解析照片端点（需 4 个数值）；脏数据 → null，不抛异常。
+  static List<double>? _parsePhotoPts(dynamic raw) {
+    if (raw is! List || raw.length != 4) return null;
+    final out = <double>[];
+    for (final v in raw) {
+      if (v is! num) return null;
+      out.add(v.toDouble());
+    }
+    return out;
+  }
 }
 
 /// 一次测量会话（可持久化）。
