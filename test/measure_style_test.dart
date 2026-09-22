@@ -27,34 +27,9 @@ void main() {
     });
   });
 
-  group('Web 预览吸附（真机吸附的交互与文案预演）', () {
-    const size = Size(300, 400);
-
-    test('靠近画面中心 → 吸附到中心交点', () {
-      final r = snapToPreviewGuides(const Offset(152, 202), size);
-      expect(r.kind, '中心交点');
-      expect(r.point, const Offset(150, 200));
-    });
-
-    test('只靠近竖网格线 → 吸附到该竖线（纵坐标不动）', () {
-      final r = snapToPreviewGuides(const Offset(103, 310), size);
-      expect(r.kind, '竖网格线');
-      expect(r.point, const Offset(100, 310));
-    });
-
-    test('同时靠近横竖网格线 → 吸附为网格交点', () {
-      final r = snapToPreviewGuides(const Offset(102, 138), size);
-      expect(r.kind, '网格交点');
-      expect(r.point, const Offset(100, 133.33333333333334));
-    });
-
-    test('离辅助线太远 → 不吸附（返回原始点、无提示）', () {
-      const p = Offset(40, 60);
-      final r = snapToPreviewGuides(p, size);
-      expect(r.kind, isNull);
-      expect(r.point, p);
-    });
-  });
+  // 注：Web 预览的"模拟吸附"已按产品决策移除——网格线不是物体边界，
+  // 模拟吸附并提示"已吸附：网格交点"会让用户误以为识别到了真实边界。
+  // 真实吸附由原生 ARKit raycast + 平面边界求最近点实现（ArMeasureView.swift）。
 
   group('绘制健壮性（空标签 / 退化几何不抛异常）', () {
     test('尺寸线 / 胶囊 / 面域 / 体积线框均可安全绘制', () {

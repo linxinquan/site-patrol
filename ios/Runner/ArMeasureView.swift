@@ -32,6 +32,8 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     private var nodeB: SCNNode?
     private var lineNode: SCNNode?
     private var labelNode: SCNNode?
+    /// 已画出的面/体（半透明几何 + 边缘线），clearAreaVolume 或下次绘制时替换。
+    private var faceNode: SCNNode?
 
     init(frame: CGRect, viewId: Int64, messenger: FlutterBinaryMessenger) {
         sceneView = ARSCNView(frame: frame)
@@ -80,6 +82,42 @@ class ArMeasureView: NSObject, FlutterPlatformView {
             clearPicks(); result(true)
         case "stopSession":
             sceneView.session.pause(); result(true)
+        case "showArea":
+            // 画一个面域（半透明填充 + 边缘线 + 中央文字），corners 为 4 角世界坐标（米）
+            guard
+                let args = call.arguments as? [String: Any],
+                let raw = args["corners"] as? [[Double]],
+                raw.count == 4,
+                raw.allSatisfy({ $0.count >= 3 })
+            else { result(false); return }
+            let c = raw.map { simd_float3(Float($0[0]), Float($0[1]), Float($0[2])) }
+            showArea(corners: c, label: (args["label"] as? String) ?? "")
+            result(true)
+        case "showVolume":
+            // 画一个体积（半透明体 + 边缘线 + 中央文字）：origin + 三条边向量（米）
+            guard
+                let args = call.arguments as? [String: Any],
+                let o = args["origin"] as? [Double], o.count >= 3,
+                let w = args["w"] as? [Double], w.count >= 3,
+                let d = args["d"] as? [Double], d.count >= 3,
+                let h = args["h"] as? [Double], h.count >= 3
+            else { result(false); return }
+            showVolume(
+                origin: simd_float3(Float(o[0]), Float(o[1]), Float(o[2])),
+                w: simd_float3(Float(w[0]), Float(w[1]), Float(w[2])),
+                d: simd_float3(Float(d[0]), Float(d[1]), Float(d[2])),
+                h: simd_float3(Float(h[0]), Float(h[1]), Float(h[2])),
+                label: (args["label"] as? String) ?? "")
+            result(true)
+        case "clearAreaVolume":
+            clearAreaVolume(); result(true)
+        case "snapPicture":
+            // 相机画面 + 当前 AR 标注层合成一张 PNG（base64 回传，Dart 负责存相册）
+            if let png = sceneView.snapshot().pngData() {
+                result(png.base64EncodedString())
+            } else {
+                result(FlutterMethodNotImplemented)
+            }
         default:
             result(FlutterMethodNotImplemented)
         }
@@ -389,6 +427,94 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                                           to: simd_normalize(v))
         sceneView.scene.rootNode.addChildNode(node)
         lineNode = node
+    }
+
+    /// 统一黄色（与 Dart `kMeasureYellow` 同口径）。
+    private func measureYellow() -> UIColor {
+        UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
+    }
+
+    /// 给某个父节点添加一条黄色边缘圆柱（不影响测量线）。
+    private func addEdge(_ a: simd_float3, _ b: simd_float3, to parent: SCNNode) {
+        let v = b - a
+        let len = simd_length(v)
+        guard len > 1e-4 else { return }
+        let cyl = SCNCylinder(radius: 0.0018, height: CGFloat(len))
+        cyl.firstMaterial?.diffuse.contents = measureYellow()
+        cyl.firstMaterial?.emission.contents = measureYellow()
+        let node = SCNNode(geometry: cyl)
+        node.position = SCNVector3((a + b) / 2)
+        node.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
+                                          to: simd_normalize(v))
+        parent.addChildNode(node)
+    }
+
+    /// 画一个面域：半透明黄填充 + 4 条边缘线 + 中央文字。
+    private func showArea(corners c: [simd_float3], label: String) {
+        clearAreaVolume()
+        let parent = SCNNode()
+        // 半透明填充（两个三角形）
+        let source = SCNGeometrySource(vertices: c.map { SCNVector3($0) })
+        let element = SCNGeometryElement(indices: [UInt32(0), 1, 2, 0, 2, 3],
+                                         primitiveType: .triangles)
+        let geo = SCNGeometry(sources: [source], elements: [element])
+        let mat = SCNMaterial()
+        mat.diffuse.contents = measureYellow().withAlphaComponent(0.22)
+        mat.isDoubleSided = true
+        geo.materials = [mat]
+        parent.addChildNode(SCNNode(geometry: geo))
+        // 边缘线
+        for i in 0..<4 { addEdge(c[i], c[(i + 1) % 4], to: parent) }
+        sceneView.scene.rootNode.addChildNode(parent)
+        faceNode = parent
+        drawLabel(label, at: (c[0] + c[2]) / 2)
+    }
+
+    /// 画一个体积：半透明黄体 + 12 条边缘线 + 中央文字。
+    private func showVolume(origin: simd_float3, w: simd_float3, d: simd_float3,
+                            h: simd_float3, label: String) {
+        clearAreaVolume()
+        let parent = SCNNode()
+        // 八个角点
+        let o = origin
+        let p = [
+            o, o + w, o + w + d, o + d,                   // 底面
+            o + h, o + h + w, o + h + w + d, o + h + d,     // 顶面
+        ]
+        // 半透明体：SCNBox 轴对齐 → 按基向量定向（w→x, h→y, d→z，保证右手系）
+        let wl = simd_length(w), hl = simd_length(h), dl = simd_length(d)
+        if wl > 1e-4 && hl > 1e-4 && dl > 1e-4 {
+            let x = simd_normalize(w)
+            let y = simd_normalize(h)
+            var z = simd_normalize(d)
+            if simd_dot(simd_cross(x, y), z) < 0 { z = -z }
+            let box = SCNBox(width: CGFloat(wl), height: CGFloat(hl),
+                             length: CGFloat(dl), chamferRadius: 0)
+            let mat = SCNMaterial()
+            mat.diffuse.contents = measureYellow().withAlphaComponent(0.18)
+            mat.isDoubleSided = true
+            box.materials = [mat]
+            let node = SCNNode(geometry: box)
+            node.simdOrientation = simd_quatf(simd_float3x3(columns: (x, y, z)))
+            node.position = SCNVector3(o + (w + h + d) / 2)
+            parent.addChildNode(node)
+        }
+        // 12 条边缘线
+        let edges: [(Int, Int)] = [
+            (0, 1), (1, 2), (2, 3), (3, 0),
+            (4, 5), (5, 6), (6, 7), (7, 4),
+            (0, 4), (1, 5), (2, 6), (3, 7),
+        ]
+        for (i, j) in edges { addEdge(p[i], p[j], to: parent) }
+        sceneView.scene.rootNode.addChildNode(parent)
+        faceNode = parent
+        drawLabel(label, at: o + (w + h + d) / 2)
+    }
+
+    /// 清除已画的面/体。
+    private func clearAreaVolume() {
+        faceNode?.removeFromParentNode()
+        faceNode = nil
     }
 
     /// 尺寸文字标注（挂在线中点上方，恒面向相机）。

@@ -261,6 +261,60 @@ bool consistentEnough(double spreadMm, double maxSpreadMm) =>
   );
 }
 
+/// 一条边的世界坐标端点（米）：来自 ARKit 命中的两点。
+typedef EdgeGeom = ({
+  double ax,
+  double ay,
+  double az,
+  double bx,
+  double by,
+  double bz,
+});
+
+/// 由两条边的世界端点求**面域四角**（共享角点优先）。
+///
+/// 量开间 + 进深时，两边通常共用一个墙角：检测到共享角点（端点距离 ≤ [tolM]）
+/// 就以它为原点铺矩形；找不到就以第一条边为底边、第二条边为"另一条方向"平移
+/// （所见即所得，几何仅用于可视化，数值仍来自实测边长）。
+List<({double x, double y, double z})> faceCorners(EdgeGeom e1, EdgeGeom e2,
+    {double tolM = 0.08}) {
+  double dist(
+          ({double x, double y, double z}) a, ({double x, double y, double z}) b) =>
+      math.sqrt(math.pow(a.x - b.x, 2) +
+          math.pow(a.y - b.y, 2) +
+          math.pow(a.z - b.z, 2));
+  final e1a = (x: e1.ax, y: e1.ay, z: e1.az);
+  final e1b = (x: e1.bx, y: e1.by, z: e1.bz);
+  final e2a = (x: e2.ax, y: e2.ay, z: e2.az);
+  final e2b = (x: e2.bx, y: e2.by, z: e2.bz);
+  // 四种端点配对里找共享角点
+  for (final (s1, f1, s2, f2) in [
+    (e1a, e1b, e2a, e2b),
+    (e1a, e1b, e2b, e2a),
+    (e1b, e1a, e2a, e2b),
+    (e1b, e1a, e2b, e2a),
+  ]) {
+    if (dist(s1, s2) <= tolM) {
+      final far1 = f1;
+      final far2 = f2;
+      final fourth = (
+        x: far1.x + (far2.x - s1.x),
+        y: far1.y + (far2.y - s1.y),
+        z: far1.z + (far2.z - s1.z),
+      );
+      return [s1, far1, fourth, far2];
+    }
+  }
+  // 无共享角点：以 e1 为底边，沿 e2 的方向平移
+  final dx = e2b.x - e2a.x, dy = e2b.y - e2a.y, dz = e2b.z - e2a.z;
+  return [
+    e1a,
+    e1b,
+    (x: e1b.x + dx, y: e1b.y + dy, z: e1b.z + dz),
+    (x: e1a.x + dx, y: e1a.y + dy, z: e1a.z + dz),
+  ];
+}
+
 /// AR 读数模式：决定"采纳哪一个值"。
 enum ArMeasureMode {
   slope('斜边', '空间直线距离（默认，量对角线/异面两点）'),

@@ -1,8 +1,9 @@
-import 'dart:ui' show Offset, Size;
+import 'dart:ui' show Size;
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:gongdi_app/core/utils/measure_labels.dart';
+import 'package:gongdi_app/core/utils/measure_math.dart';
 import 'package:gongdi_app/core/utils/measure_modes.dart';
 import 'package:gongdi_app/core/utils/measure_stats.dart';
 import 'package:gongdi_app/core/utils/measure_style.dart';
@@ -186,6 +187,56 @@ void main() {
       expect(g.base.length, 4);
       expect(g.rise.dy < 0, isTrue, reason: '高度方向在屏幕上向上');
       expect(synthVolumeGeometry(size, 0, 1, 1).base, isEmpty);
+    });
+  });
+
+  group('面域四角推导（faceCorners，真机原生绘制用）', () {
+    EdgeGeom edge(
+      double ax, double ay, double az,
+      double bx, double by, double bz,
+    ) =>
+        (ax: ax, ay: ay, az: az, bx: bx, by: by, bz: bz);
+
+    test('共享墙角：以公共角点为原点铺矩形', () {
+      // 开间（东向 4m）+ 进深（南向 2m），共角点在原点
+      final e1 = edge(0, 0, 0, 4, 0, 0);
+      final e2 = edge(0, 0, 0, 0, 0, -2);
+      final c = faceCorners(e1, e2);
+      expect(c.length, 4);
+      expect(c[0], (x: 0.0, y: 0.0, z: 0.0));
+      expect(c[1], (x: 4.0, y: 0.0, z: 0.0));
+      // 第四角 = far1 + (far2 - shared) = (4,0,0) + (0,0,-2)
+      expect(c[2], (x: 4.0, y: 0.0, z: -2.0));
+      expect(c[3], (x: 0.0, y: 0.0, z: -2.0));
+    });
+
+    test('共享墙角（方向相反配对）也能识别', () {
+      final e1 = edge(4, 0, 0, 0, 0, 0); // 反向：B 在原点
+      final e2 = edge(0, 0, 0, 0, 0, -2);
+      final c = faceCorners(e1, e2);
+      expect(c[0], (x: 0.0, y: 0.0, z: 0.0));
+      expect(c[1], (x: 4.0, y: 0.0, z: 0.0));
+      expect(c[3], (x: 0.0, y: 0.0, z: -2.0));
+    });
+
+    test('无共享角点：以第一条边为底边、第二条边方向平移', () {
+      final e1 = edge(0, 0, 0, 4, 0, 0);
+      final e2 = edge(1, 0, 0, 1, 0, -3); // 与 e1 无公共端点
+      final c = faceCorners(e1, e2);
+      expect(c[0], (x: 0.0, y: 0.0, z: 0.0));
+      expect(c[1], (x: 4.0, y: 0.0, z: 0.0));
+      expect(c[2], (x: 4.0, y: 0.0, z: -3.0));
+      expect(c[3], (x: 0.0, y: 0.0, z: -3.0));
+    });
+
+    test('共享角点阈值外（>8cm）走平移分支', () {
+      final e1 = edge(0, 0, 0, 4, 0, 0);
+      final e2 = edge(0.2, 0, 0, 0.2, 0, -2); // 最近端点距 0.2m > 0.08m
+      final c = faceCorners(e1, e2);
+      // 平移分支：以 e1 为底边，四角 = e1 的两端 + 沿 e2 方向平移
+      expect(c[0], (x: 0.0, y: 0.0, z: 0.0));
+      expect(c[1], (x: 4.0, y: 0.0, z: 0.0));
+      expect(c[2], (x: 4.0, y: 0.0, z: -2.0));
     });
   });
 
