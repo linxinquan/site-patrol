@@ -68,6 +68,7 @@ void paintDimLine(
   double lineWidth = 2.4,
   double tick = 11,
   bool vertical = false,
+  String? fontFamily,
 }) {
   final stroke = Paint()
     ..color = kMeasureYellow
@@ -83,6 +84,7 @@ void paintDimLine(
     (a + b) / 2,
     label,
     vertical: vertical,
+    fontFamily: fontFamily,
   );
 }
 
@@ -113,6 +115,7 @@ void paintCapsuleLabel(
   Color accent = kMeasureYellow,
   Color bg = kMeasureCapsuleBg,
   double fontSize = 13,
+  String? fontFamily,
 }) {
   final tp = TextPainter(
     text: TextSpan(
@@ -120,6 +123,7 @@ void paintCapsuleLabel(
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
+        fontFamily: fontFamily,
         color: const Color(0xFFFFFFFF),
       ),
     ),
@@ -151,7 +155,8 @@ void paintCapsuleLabel(
 }
 
 /// 面积叠加：半透明黄面域 + 实线外框 + **虚线对角线** + 中央大字。
-void paintAreaFace(Canvas canvas, List<Offset> poly, String centerText) {
+void paintAreaFace(Canvas canvas, List<Offset> poly, String centerText,
+    {String? fontFamily}) {
   if (poly.length < 3) return;
   final path = Path()..addPolygon(poly, true);
   canvas.drawPath(path, Paint()..color = kMeasureFill..style = PaintingStyle.fill);
@@ -166,9 +171,10 @@ void paintAreaFace(Canvas canvas, List<Offset> poly, String centerText) {
   final dash = Paint()
     ..color = kMeasureYellow.withValues(alpha: 0.85)
     ..strokeWidth = 1.4;
-  _dashedLine(canvas, poly[0], poly[2], dash);
-  if (poly.length >= 4) _dashedLine(canvas, poly[1], poly[3], dash);
-  _paintCenterText(canvas, path.getBounds().center, centerText);
+  paintDashedLine(canvas, poly[0], poly[2], dash);
+  if (poly.length >= 4) paintDashedLine(canvas, poly[1], poly[3], dash);
+  _paintCenterText(canvas, path.getBounds().center, centerText,
+      fontFamily: fontFamily);
 }
 
 /// 体积叠加：**可见边实线 + 隐藏边虚线** + 高尺寸胶囊 + 中央大字。
@@ -184,6 +190,7 @@ void paintVolumeWire(
   Offset rise, {
   required String hLabel,
   required String centerText,
+  String? fontFamily,
 }) {
   if (base.length < 4) return;
   final top = [for (final p in base) p + rise];
@@ -200,31 +207,32 @@ void paintVolumeWire(
   canvas.drawLine(base[0], base[1], solid);
   canvas.drawLine(base[1], base[2], solid);
   canvas.drawLine(base[3], base[0], solid);
-  _dashedLine(canvas, base[2], base[3], dash);
+  paintDashedLine(canvas, base[2], base[3], dash);
   // 竖边：近左 / 近右 / 远左可见；远右（隐藏）虚线
   canvas.drawLine(base[0], top[0], solid);
   canvas.drawLine(base[1], top[1], solid);
   canvas.drawLine(base[3], top[3], solid);
-  _dashedLine(canvas, base[2], top[2], dash);
+  paintDashedLine(canvas, base[2], top[2], dash);
   // 顶面：与底面对应
   canvas.drawLine(top[0], top[1], solid);
   canvas.drawLine(top[1], top[2], solid);
   canvas.drawLine(top[3], top[0], solid);
-  _dashedLine(canvas, top[2], top[3], dash);
+  paintDashedLine(canvas, top[2], top[3], dash);
 
   // 竖向尺寸（高）标注在近左竖边旁（参考样张：竖排胶囊）
-  paintCapsuleLabel(canvas, (base[0] + top[0]) / 2, hLabel, vertical: true);
+  paintCapsuleLabel(canvas, (base[0] + top[0]) / 2, hLabel,
+      vertical: true, fontFamily: fontFamily);
   // 中央大字（体心投影处）
   final center = Offset(
     (base[0].dx + base[2].dx) / 2,
     (base[0].dy + base[2].dy) / 2 + rise.dy / 2,
   );
-  _paintCenterText(canvas, center, centerText);
+  _paintCenterText(canvas, center, centerText, fontFamily: fontFamily);
 }
 
 /// 中央大字（参考样式：深墨色、字重中等、压在面上）。
 void _paintCenterText(Canvas canvas, Offset center, String text,
-    {double fontSize = 30}) {
+    {double fontSize = 30, String? fontFamily}) {
   if (text.isEmpty) return;
   final tp = TextPainter(
     text: TextSpan(
@@ -232,6 +240,7 @@ void _paintCenterText(Canvas canvas, Offset center, String text,
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
+        fontFamily: fontFamily,
         color: kMeasureInk,
       ),
     ),
@@ -240,7 +249,7 @@ void _paintCenterText(Canvas canvas, Offset center, String text,
   tp.paint(canvas, Offset(center.dx - tp.width / 2, center.dy - tp.height / 2));
 }
 
-void _dashedLine(Canvas canvas, Offset a, Offset b, Paint p,
+void paintDashedLine(Canvas canvas, Offset a, Offset b, Paint p,
     {double dash = 12, double gap = 9}) {
   final total = (b - a).distance;
   if (total < 1) return;
