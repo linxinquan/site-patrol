@@ -20,7 +20,10 @@ permissions:
 jobs:
   build-ios:
     name: Build unsigned IPA
-    runs-on: macos-14
+    # macos-15 自带 Xcode 16（Swift 6）。必须用新版 Xcode：app_settings 9.0.0 的
+    # SPM 清单声明了 swift-tools-version 6.0，而 Xcode 15（Swift 5.10）会在
+    # "resolve package dependencies" 阶段直接失败。
+    runs-on: macos-15
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -31,6 +34,11 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Setup Xcode (latest stable)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
 
       - name: Flutter pub get
         run: flutter pub get
