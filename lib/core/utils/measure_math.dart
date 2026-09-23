@@ -261,6 +261,29 @@ bool consistentEnough(double spreadMm, double maxSpreadMm) =>
   );
 }
 
+/// 由 AR 原生上报的**世界坐标端点（米）**拆出三值（mm）。
+///
+/// ARKit 的世界坐标以**米**为单位（见 [EdgeGeom]），而 [pythagorasParts]
+/// 约定输入 mm：单位换算必须在这里一次做对。漏乘 1000 会让 0.7m 变成 0.7，
+/// 经 `fmtMm` 取整后显示成 `1mm`——真机 AR量尺踩过的坑（原生尺寸线画的是
+/// 700mm，界面读数却是 1mm），故单独抽成函数并加单测锁死。
+({double slope, double horizontal, double vertical}) partsFromWorldMeters({
+  required double ax,
+  required double ay,
+  required double az,
+  required double bx,
+  required double by,
+  required double bz,
+}) =>
+    pythagorasParts(
+      ax: ax * 1000,
+      ay: ay * 1000,
+      az: az * 1000,
+      bx: bx * 1000,
+      by: by * 1000,
+      bz: bz * 1000,
+    );
+
 /// 一条边的世界坐标端点（米）：来自 ARKit 命中的两点。
 typedef EdgeGeom = ({
   double ax,
@@ -319,10 +342,46 @@ List<({double x, double y, double z})> faceCorners(EdgeGeom e1, EdgeGeom e2,
 enum ArMeasureMode {
   slope('斜边', '空间直线距离（默认，量对角线/异面两点）'),
   horizontal('水平', '水平投影距离（量开间/进深/长度）'),
-  vertical('高差', '垂直高度差（量层高/洞口高/落差）');
+  vertical('高差', '垂直高度差（量层高/洞口高/落差）'),
+  heightSum('高度和', '分段累加竖直高度：量一段、举高再量一段，读数自动相加');
 
   const ArMeasureMode(this.label, this.hint);
 
   final String label;
   final String hint;
+
+  /// 是否需要在采纳时累加（高度和特有；其余模式一段即一个读数）。
+  bool get accumulates => this == ArMeasureMode.heightSum;
+}
+
+/// 「高度和」累加器：把若干**竖直段**累加成总高。
+///
+/// 现场用途：目标高过手机单次能覆盖的范围（高处管线、层高复核），
+/// 或中间被遮挡时——地面→手机量一段、手机→目标再量一段，两段之和即总高。
+/// 单段读数仍各自入列（可追溯），本累加器只负责给出"和"。
+class HeightSum {
+  double _mm = 0;
+  double _errMm = 0;
+  int _segments = 0;
+
+  double get mm => _mm;
+  double get errMm => _errMm;
+  int get segments => _segments;
+
+  /// 至少两段才有"和"的意义（一段就是它自己）。
+  bool get ready => _segments >= 2;
+
+  /// 累加一段；非正读数视为误点，直接忽略（不污染和值）。
+  void add(double mm, double errMm) {
+    if (mm <= 0) return;
+    _mm += mm;
+    _errMm += errMm;
+    _segments++;
+  }
+
+  void reset() {
+    _mm = 0;
+    _errMm = 0;
+    _segments = 0;
+  }
 }

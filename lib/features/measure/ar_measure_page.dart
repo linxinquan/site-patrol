@@ -60,6 +60,9 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
   /// 当前模式下各样本的读数值。
   List<double> get _sampleValues => [for (final s in _samples) _valueOf(s)];
 
+  /// 「高度和」累加器：只在 [ArMeasureMode.heightSum] 下累加，其余模式恒为 0 段。
+  final HeightSum _heightSum = HeightSum();
+
   double _valueOf(({double slope, double horizontal, double vertical}) s) {
     switch (_mode) {
       case ArMeasureMode.slope:
@@ -67,6 +70,9 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
       case ArMeasureMode.horizontal:
         return s.horizontal;
       case ArMeasureMode.vertical:
+        return s.vertical;
+      case ArMeasureMode.heightSum:
+        // 每段先按"竖直"取值；"和"由采纳时的 [_heightSum] 累加给出
         return s.vertical;
     }
   }
@@ -255,8 +261,10 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
           bx != null &&
           by != null &&
           bz != null;
+      // 原生上报的 ax…bz 是 ARKit **世界坐标（米）**，须由 partsFromWorldMeters
+      // 统一换算成 mm（漏换算会让 0.7m 显示成 `1mm`）。
       final parts = hasGeom
-          ? pythagorasParts(
+          ? partsFromWorldMeters(
               ax: ax, ay: ay, az: az, bx: bx, by: by, bz: bz)
           // 无坐标（旧原生）→ 退化为只有斜边可用
           : (slope: raw, horizontal: raw, vertical: 0.0);
@@ -412,14 +420,18 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     final last = _edgeGeom.sublist(_edgeGeom.length - n);
     if (last.any((e) => e == null)) return;
     final g = [for (final e in last) e!];
+    // 边长胶囊文案：与图上其它标注同口径（≥1m 用 m + 3 位小数）
+    final edgeLabels = [for (final f in factors) fmtLengthText(f.photoMm)];
     try {
       if (isVolume) {
+        // 中央大字用**数值**（如 `8.000m³`），不是记录名——参考样张的观感
         await _svc.showVolume(
           origin: [g[0].ax, g[0].ay, g[0].az],
           w: [g[0].bx - g[0].ax, g[0].by - g[0].ay, g[0].bz - g[0].az],
           d: [g[1].bx - g[1].ax, g[1].by - g[1].ay, g[1].bz - g[1].az],
           h: [g[2].bx - g[2].ax, g[2].by - g[2].ay, g[2].bz - g[2].az],
-          label: item.name,
+          label: fmtVolumeText(item.photoMm),
+          edgeLabels: edgeLabels,
         );
       } else {
         final corners = faceCorners(g[0], g[1]);
@@ -430,7 +442,8 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
             [corners[2].x, corners[2].y, corners[2].z],
             [corners[3].x, corners[3].y, corners[3].z],
           ],
-          label: item.name,
+          label: fmtAreaText(item.photoMm),
+          edgeLabels: edgeLabels,
         );
       }
     } catch (_) {
@@ -464,9 +477,15 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
       _edgeGeom.add(_lastSampleGeom); // 记录该边的世界端点（面/体原生绘制用）
       _lastSampleGeom = null;
       _samples.clear();
-      _hint = dropped > 0
-          ? '已采纳一组（${_mode.label}，剔除 $dropped 个离群读数）；继续测下一条边'
-          : '已采纳一组（${_mode.label}）；继续测下一条边，全部测完点「保存」';
+      // 高度和：每采纳一段就累加；段的明细仍在 _readings 里可追溯
+      if (_mode.accumulates) _heightSum.add(mm, errMm);
+      _hint = _mode.accumulates
+          ? '已累加第 ${_heightSum.segments} 段（${fmtMm(mm)}mm）→ '
+              '高度和 ${fmtMm(_heightSum.mm)}mm'
+              '${_heightSum.ready ? '；继续量下一段会自动相加' : '（再量一段即得总高）'}'
+          : (dropped > 0
+              ? '已采纳一组（${_mode.label}，剔除 $dropped 个离群读数）；继续测下一条边'
+              : '已采纳一组（${_mode.label}）；继续测下一条边，全部测完点「保存」');
     });
     // 面积/体积模式：连续量够边数就自动出面/成体（不打断连续测量）
     if (_geoMode.isFace) {
@@ -517,6 +536,7 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
       _previewPendingReading = null;
       _previewReadings.clear();
       _calcItems.clear();
+      _heightSum.reset();
     });
   }
 
@@ -736,6 +756,17 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
           photoMm: _readings[i].mm,
           source: 'ar_lidar',
           errorMm: _readings[i].errMm,
+        ),
+      // 高度和：只在真的累加过（≥2 段）时落一条独立记录。
+      // drawingMm 固定 0 —— 它是多段之和，没有对应的图纸对照口径。
+      if (_heightSum.ready)
+        MeasureItem(
+          name: '高度和 ${fmtMm(_heightSum.mm)}mm'
+              '（${_heightSum.segments} 段累加）',
+          drawingMm: 0,
+          photoMm: _heightSum.mm,
+          source: 'ar_lidar',
+          errorMm: _heightSum.errMm,
         ),
       // 面积/体积项一并落库（不带图纸对照，报告里显示为"未判定"）
       ..._calcItems,
@@ -1025,7 +1056,10 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
     final st = _stat;
     final currentText = isPreview
         ? '本次 2980 mm'
-        : '本次 ${fmtMm(_corrected(_valueOf(_samples.last)))} mm';
+        : (_mode.accumulates && _heightSum.segments > 0
+            ? '高度和 ${fmtMm(_corrected(_heightSum.mm))} mm'
+                '（${_heightSum.segments} 段累加）'
+            : '本次 ${fmtMm(_corrected(_valueOf(_samples.last)))} mm');
     final groupText = isPreview
         ? '本组中位 2980 mm（重复性 ±8 mm，n=3）'
         : (_samples.length >= 2
@@ -1104,7 +1138,6 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
         _buildGeometryModeSelector(),
         // 勾股三值模式：决定采纳哪一个读数（斜边/水平/高差）
         if (!isPreview) _buildModeSelector(),
-        if (!isPreview && _samples.isNotEmpty) _buildSampleList(),
         // 面积/体积：**直线模式**下提供手动组合入口；
         // 面积/体积模式下改为连续测量自动生成（见 _feedGeometry），不再需要手动选边。
         if (_geoMode == ArGeometryMode.line &&
@@ -1127,6 +1160,12 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
         ),
         const SizedBox(height: 8),
         _buildActionButtonsRow(isPreview: isPreview),
+        // 采样明细放在**主操作之后**：列表会随采样次数变长，若插在「采纳本组」
+        // 之前会把主按钮顶出首屏，真机上得先滚动才能采纳（真机踩过）。
+        if (!isPreview && _samples.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildSampleList(),
+        ],
       ],
     );
   }
@@ -1205,7 +1244,11 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
           for (var i = 0; i < ArMeasureMode.values.length; i++) ...[
             Expanded(
               child: GestureDetector(
-                onTap: () => setState(() => _mode = ArMeasureMode.values[i]),
+                onTap: () => setState(() {
+                  _mode = ArMeasureMode.values[i];
+                  // 换读数模式就是换语义：高度和的累加不跨模式延续
+                  _heightSum.reset();
+                }),
                 child: Container(
                   height: 34,
                   alignment: Alignment.center,
@@ -1471,6 +1514,7 @@ class _ArMeasurePageState extends ConsumerState<ArMeasurePage> {
                       _readings.clear();
                       _edgeGeom.clear();
                       _calcItems.clear();
+                      _heightSum.reset();
                       _hint = '对目标边采点：点一次=A，再点=B 出距离';
                     });
                   }

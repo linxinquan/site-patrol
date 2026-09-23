@@ -30,7 +30,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     private var pointB: simd_float3?
     private var nodeA: SCNNode?
     private var nodeB: SCNNode?
-    private var lineNode: SCNNode?
+    /// 当前尺寸线（斜边实线 + 勾股直角边虚线 + 两端方块）的父节点。
+    private var dimNode: SCNNode?
+    /// 当前尺寸线的**胶囊**读数标签（深底 + 黄描边 + 白字）。
     private var labelNode: SCNNode?
     /// 已画出的面/体（半透明几何 + 边缘线），clearAreaVolume 或下次绘制时替换。
     private var faceNode: SCNNode?
@@ -83,7 +85,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         case "stopSession":
             sceneView.session.pause(); result(true)
         case "showArea":
-            // 画一个面域（半透明填充 + 边缘线 + 中央文字），corners 为 4 角世界坐标（米）
+            // 画一个面域（半透明填充 + 外框 + 对角虚线 + 边长胶囊 + 中央面积大字）。
+            // corners 为 4 角世界坐标（米）；label 是中央大字（如 `6.250m²`）；
+            // edgeLabels 是相邻两边的尺寸文案（如 ["2.500m", "2.500m"]）。
             guard
                 let args = call.arguments as? [String: Any],
                 let raw = args["corners"] as? [[Double]],
@@ -91,10 +95,13 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                 raw.allSatisfy({ $0.count >= 3 })
             else { result(false); return }
             let c = raw.map { simd_float3(Float($0[0]), Float($0[1]), Float($0[2])) }
-            showArea(corners: c, label: (args["label"] as? String) ?? "")
+            showArea(corners: c,
+                     label: (args["label"] as? String) ?? "",
+                     edgeLabels: (args["edgeLabels"] as? [String]) ?? [])
             result(true)
         case "showVolume":
-            // 画一个体积（半透明体 + 边缘线 + 中央文字）：origin + 三条边向量（米）
+            // 画一个体积（半透明体 + 可见边实线/隐藏边虚线 + 三边胶囊 + 中央体积大字）：
+            // origin + 三条边向量（长/宽/高，米）；label 如 `8.000m³`。
             guard
                 let args = call.arguments as? [String: Any],
                 let o = args["origin"] as? [Double], o.count >= 3,
@@ -107,7 +114,8 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                 w: simd_float3(Float(w[0]), Float(w[1]), Float(w[2])),
                 d: simd_float3(Float(d[0]), Float(d[1]), Float(d[2])),
                 h: simd_float3(Float(h[0]), Float(h[1]), Float(h[2])),
-                label: (args["label"] as? String) ?? "")
+                label: (args["label"] as? String) ?? "",
+                edgeLabels: (args["edgeLabels"] as? [String]) ?? [])
             result(true)
         case "clearAreaVolume":
             clearAreaVolume(); result(true)
@@ -162,8 +170,7 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         pointA = nil; pointB = nil
         nodeA?.removeFromParentNode(); nodeA = nil
         nodeB?.removeFromParentNode(); nodeB = nil
-        lineNode?.removeFromParentNode(); lineNode = nil
-        labelNode?.removeFromParentNode(); labelNode = nil
+        clearDimension()
     }
 
     // MARK: - 命中与吸附
@@ -255,23 +262,21 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         }
         let world = hit.pos
         if pointA == nil {
-            // 新一轮：先清掉上一组的 B 标记与连线（A 标记会被新 A 覆盖）
+            // 新一轮：先清掉上一组的连线与标记（A 标记会被新 A 覆盖）
             nodeB?.removeFromParentNode(); nodeB = nil
-            lineNode?.removeFromParentNode(); lineNode = nil
-            labelNode?.removeFromParentNode(); labelNode = nil
+            clearDimension()
             pointA = world
-            placeMarker(world, slot: 0, snapped: hit.kind != .depth)
+            // 先给 A 一个空心方块反馈（尺寸线等第二次点击才画）
+            placeMarker(world, slot: 0)
             channel.invokeMethod("onPointA", arguments: [
                 "snap": hit.kind.rawValue,
                 "edgeMm": hit.snapMm,
             ])
         } else {
             let a = pointA!
-            placeMarker(world, slot: 1, snapped: hit.kind != .depth)
-            drawLine(a, world)
             let mm = simd_distance(a, world) * 1000.0
-            // 线与标注样式：与 Dart 侧 measure_style 同一口径（m + 3 位小数）。
-            drawLabel(Self.lengthText(mm), at: (a + world) / 2)
+            // 尺寸线 + 勾股直角三角形（斜边实线 / 直角边虚线）+ 中点胶囊读数
+            drawDimension(a, world, text: Self.lengthText(mm))
             // 距相机的深度（mm）：LiDAR 有效区间约 0.3~5m，超过则误差迅速放大，
             // 由 Dart 侧做最佳区间提示与超量程拒绝（见 ar_measure_page 的门控）。
             let cam = sceneView.session.currentFrame?.camera.transform.columns.3
@@ -375,58 +380,72 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     }
 
     // MARK: - 场景可视化（样式对齐参考样张：明黄线 + 方块端点 + 文字标注）
-    /// 端点标记：**方形**薄片（空心观感由白底+黄边构成），恒面向相机。
+    /// 端点标记：**空心方块**（黄底薄片 + 白芯），恒面向相机。
     ///
-    /// 参考样张的端点是"空心方块"而非圆点；吸附命中时用实心黄块区分
-    /// （用户能一眼看出这个点是吸到边界上的）。
-    private func placeMarker(_ world: simd_float3, slot: Int, snapped: Bool) {
+    /// 参考样张两端都是这种方块，且不随吸附状态变形——吸附结果已由 Dart 侧
+    /// 的「已吸附：…」提示条表达，图上再变一次反而让人以为测的不是同一条边。
+    private func placeMarker(_ world: simd_float3, slot: Int) {
         if slot == 0 { nodeA?.removeFromParentNode() } else { nodeB?.removeFromParentNode() }
         let side: CGFloat = 0.016
-        let plane = SCNPlane(width: side, height: side)
-        let mat = SCNMaterial()
-        mat.diffuse.contents = snapped ? UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
-                                       : UIColor.white
-        mat.emission.contents = mat.diffuse.contents
-        mat.isDoubleSided = true
-        // 空心方块：白底 + 黄描边（用 image 不方便，这里用两层薄片近似）
-        plane.firstMaterial = mat
-        let node = SCNNode(geometry: plane)
+        let node = SCNNode()
+        let border = SCNPlane(width: side * 1.35, height: side * 1.35)
+        let bm = SCNMaterial()
+        bm.diffuse.contents = measureYellow()
+        bm.emission.contents = measureYellow()
+        bm.isDoubleSided = true
+        border.firstMaterial = bm
+        node.addChildNode(SCNNode(geometry: border))
+        // 白芯压在黄底之上（billboard 后 +Z 朝相机），留出黄边 → 空心观感
+        let inner = SCNPlane(width: side, height: side)
+        let im = SCNMaterial()
+        im.diffuse.contents = UIColor.white
+        im.emission.contents = UIColor.white
+        im.isDoubleSided = true
+        inner.firstMaterial = im
+        let ic = SCNNode(geometry: inner)
+        ic.position = SCNVector3(0, 0, 0.0008)
+        node.addChildNode(ic)
         node.position = SCNVector3(world)
         // 恒面向相机（billboard），避免侧看变成一条线
         node.constraints = [SCNBillboardConstraint()]
         sceneView.scene.rootNode.addChildNode(node)
-        if !snapped {
-            let border = SCNPlane(width: side * 1.35, height: side * 1.35)
-            let bm = SCNMaterial()
-            bm.diffuse.contents = UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
-            bm.emission.contents = bm.diffuse.contents
-            bm.isDoubleSided = true
-            border.firstMaterial = bm
-            let bn = SCNNode(geometry: border)
-            bn.position = SCNVector3(0, 0, -0.002)
-            bn.constraints = [SCNBillboardConstraint()]
-            node.addChildNode(bn)
-        }
         if slot == 0 { nodeA = node } else { nodeB = node }
     }
 
-    /// 尺寸线：明黄细圆柱（与 Dart 侧 [kMeasureYellow] 同色）。
-    private func drawLine(_ a: simd_float3, _ b: simd_float3) {
-        lineNode?.removeFromParentNode()
+    /// 尺寸线：A→B **实线** + 两端**空心方块** + 中点**胶囊读数**，
+    /// 并叠加**勾股直角三角形**的两条直角边（虚线）——对齐参考样张"勾股测量"。
+    ///
+    /// 直角边来自把 B 投影到 A 所在水平面：A→C 是水平投影、C→B 是高度差。
+    /// 现场意义：用户一眼能看出这条斜边"水平走了多少、高了多少"，
+    /// 也能直接判断当前读数（斜边/水平/高差）对应的是哪一段。
+    private func drawDimension(_ a: simd_float3, _ b: simd_float3, text: String) {
+        clearDimension()
+        let parent = SCNNode()
+        addEdge(a, b, to: parent)                       // 斜边（实线）
+        let c = simd_float3(b.x, a.y, b.z)              // B 在 A 高度面上的投影
+        if simd_length(simd_float3(b.x - a.x, 0, b.z - a.z)) > 0.02 {
+            addDashedEdge(a, c, to: parent)             // 水平投影（虚线）
+        }
+        if abs(b.y - a.y) > 0.02 {
+            addDashedEdge(c, b, to: parent)             // 高度差（虚线）
+        }
+        sceneView.scene.rootNode.addChildNode(parent)
+        dimNode = parent
+        placeMarker(a, slot: 0)
+        placeMarker(b, slot: 1)
+        // 中点胶囊：线偏竖直时竖排（对齐参考样张的竖排标注）
         let v = b - a
-        let len = simd_length(v)
-        guard len > 1e-4 else { return }
-        let mid = (a + b) / 2
-        let cyl = SCNCylinder(radius: 0.0018, height: CGFloat(len))
-        cyl.firstMaterial?.diffuse.contents = UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0)
-        cyl.firstMaterial?.emission.contents = cyl.firstMaterial?.diffuse.contents
-        let node = SCNNode(geometry: cyl)
-        node.position = SCNVector3(mid)
-        // 圆柱默认沿 Y 轴 → 旋转到 AB 方向
-        node.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
-                                          to: simd_normalize(v))
-        sceneView.scene.rootNode.addChildNode(node)
-        lineNode = node
+        let vertical = abs(v.y) > simd_length(simd_float3(v.x, 0, v.z))
+        let label = makeCapsuleNode(text, vertical: vertical)
+        label.position = SCNVector3((a + b) / 2)
+        sceneView.scene.rootNode.addChildNode(label)
+        labelNode = label
+    }
+
+    /// 清掉当前尺寸线（斜边 + 直角边 + 两端方块 + 胶囊）。
+    private func clearDimension() {
+        dimNode?.removeFromParentNode(); dimNode = nil
+        labelNode?.removeFromParentNode(); labelNode = nil
     }
 
     /// 统一黄色（与 Dart `kMeasureYellow` 同口径）。
@@ -449,8 +468,45 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         parent.addChildNode(node)
     }
 
-    /// 画一个面域：半透明黄填充 + 4 条边缘线 + 中央文字。
-    private func showArea(corners c: [simd_float3], label: String) {
+    /// 虚线边：SceneKit 没有原生虚线，用一串小圆柱拼（观感对齐 Dart `_dashedLine`）。
+    private func addDashedEdge(_ a: simd_float3, _ b: simd_float3, to parent: SCNNode,
+                               dash: Float = 0.022, gap: Float = 0.016) {
+        let v = b - a
+        let len = simd_length(v)
+        guard len > 1e-4 else { return }
+        let dir = v / len
+        let mat = SCNMaterial()
+        mat.diffuse.contents = measureYellow()
+        mat.emission.contents = measureYellow()
+        var t: Float = 0
+        while t < len {
+            let seg = min(dash, len - t)
+            if seg > 1e-4 {
+                let cyl = SCNCylinder(radius: 0.0014, height: CGFloat(seg))
+                cyl.firstMaterial = mat
+                let n = SCNNode(geometry: cyl)
+                n.position = SCNVector3(a + dir * (t + seg / 2))
+                n.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0), to: dir)
+                parent.addChildNode(n)
+            }
+            t += seg + gap
+        }
+    }
+
+    /// 在某条边的中点挂一个尺寸胶囊（方向按边的主方向：偏竖直则竖排）。
+    private func addEdgeLabel(_ a: simd_float3, _ b: simd_float3, text: String,
+                              to parent: SCNNode) {
+        guard !text.isEmpty else { return }
+        let v = b - a
+        let vertical = abs(v.y) > simd_length(simd_float3(v.x, 0, v.z))
+        let node = makeCapsuleNode(text, vertical: vertical)
+        node.position = SCNVector3((a + b) / 2)
+        parent.addChildNode(node)
+    }
+
+    /// 画一个面域：半透明黄填充 + 实线外框 + **两条对角虚线** + 两条边长胶囊
+    /// + 中央面积大字（对齐参考样张"面积测量"）。
+    private func showArea(corners c: [simd_float3], label: String, edgeLabels: [String]) {
         clearAreaVolume()
         let parent = SCNNode()
         // 半透明填充（两个三角形）
@@ -459,20 +515,32 @@ class ArMeasureView: NSObject, FlutterPlatformView {
                                          primitiveType: .triangles)
         let geo = SCNGeometry(sources: [source], elements: [element])
         let mat = SCNMaterial()
-        mat.diffuse.contents = measureYellow().withAlphaComponent(0.22)
+        mat.diffuse.contents = measureYellow().withAlphaComponent(0.28)
         mat.isDoubleSided = true
         geo.materials = [mat]
         parent.addChildNode(SCNNode(geometry: geo))
-        // 边缘线
+        // 外框实线 + 两条对角虚线（参考样张用对角线"填满"面的观感）
         for i in 0..<4 { addEdge(c[i], c[(i + 1) % 4], to: parent) }
+        addDashedEdge(c[0], c[2], to: parent)
+        addDashedEdge(c[1], c[3], to: parent)
+        // 相邻两条边的尺寸胶囊（长 / 宽）
+        if edgeLabels.count >= 2 {
+            addEdgeLabel(c[0], c[1], text: edgeLabels[0], to: parent)
+            addEdgeLabel(c[1], c[2], text: edgeLabels[1], to: parent)
+        }
         sceneView.scene.rootNode.addChildNode(parent)
         faceNode = parent
-        drawLabel(label, at: (c[0] + c[2]) / 2)
+        // 中央面积大字：字号跟随面域短边，远近观感都协调
+        let shortSide = min(simd_distance(c[0], c[1]), simd_distance(c[1], c[2]))
+        let big = makeCenterTextNode(label, heightMeters: max(0.05, shortSide * 0.09))
+        big.position = SCNVector3((c[0] + c[2]) / 2)
+        parent.addChildNode(big)
     }
 
-    /// 画一个体积：半透明黄体 + 12 条边缘线 + 中央文字。
+    /// 画一个体积：半透明黄体 + **可见边实线 / 隐藏边虚线** + 三边尺寸胶囊
+    /// + 中央体积大字（对齐参考样张"体积测量"）。
     private func showVolume(origin: simd_float3, w: simd_float3, d: simd_float3,
-                            h: simd_float3, label: String) {
+                            h: simd_float3, label: String, edgeLabels: [String]) {
         clearAreaVolume()
         let parent = SCNNode()
         // 八个角点
@@ -491,7 +559,7 @@ class ArMeasureView: NSObject, FlutterPlatformView {
             let box = SCNBox(width: CGFloat(wl), height: CGFloat(hl),
                              length: CGFloat(dl), chamferRadius: 0)
             let mat = SCNMaterial()
-            mat.diffuse.contents = measureYellow().withAlphaComponent(0.18)
+            mat.diffuse.contents = measureYellow().withAlphaComponent(0.22)
             mat.isDoubleSided = true
             box.materials = [mat]
             let node = SCNNode(geometry: box)
@@ -499,16 +567,56 @@ class ArMeasureView: NSObject, FlutterPlatformView {
             node.position = SCNVector3(o + (w + h + d) / 2)
             parent.addChildNode(node)
         }
-        // 12 条边缘线
+        // 12 条边：离相机最远的那个角所连的 3 条边 = 被遮挡的隐藏边（虚线）。
+        // 参考样张里"看不见的边"若画成实线，会让人误判轮廓。
         let edges: [(Int, Int)] = [
             (0, 1), (1, 2), (2, 3), (3, 0),
             (4, 5), (5, 6), (6, 7), (7, 4),
             (0, 4), (1, 5), (2, 6), (3, 7),
         ]
-        for (i, j) in edges { addEdge(p[i], p[j], to: parent) }
+        let hidden = hiddenEdgeIndexes(corners: p)
+        for (k, e) in edges.enumerated() {
+            if hidden.contains(k) {
+                addDashedEdge(p[e.0], p[e.1], to: parent)
+            } else {
+                addEdge(p[e.0], p[e.1], to: parent)
+            }
+        }
+        // 三边尺寸胶囊：长（底前边）/ 宽（底右边）/ 高（竖边，竖排）
+        if edgeLabels.count >= 3 {
+            addEdgeLabel(p[0], p[1], text: edgeLabels[0], to: parent)
+            addEdgeLabel(p[1], p[2], text: edgeLabels[1], to: parent)
+            addEdgeLabel(p[0], p[4], text: edgeLabels[2], to: parent)
+        }
         sceneView.scene.rootNode.addChildNode(parent)
         faceNode = parent
-        drawLabel(label, at: o + (w + h + d) / 2)
+        // 中央体积大字
+        let shortest = min(wl, min(hl, dl))
+        let big = makeCenterTextNode(label, heightMeters: max(0.05, shortest * 0.09))
+        big.position = SCNVector3(o + (w + h + d) / 2)
+        parent.addChildNode(big)
+    }
+
+    /// 凸立方体的"隐藏边"：离相机最远的那个角所连的 3 条边。
+    ///
+    /// 凸体在正交投影下被遮挡的顶点就是离相机最远的顶点，据此判断虚线边，
+    /// 不必做深度缓冲分析。
+    private func hiddenEdgeIndexes(corners p: [simd_float3]) -> Set<Int> {
+        // 与 showVolume 里 edges 的下标一一对应（角 → 相邻 3 条边）
+        let cornerEdges: [[Int]] = [
+            [0, 3, 8], [0, 1, 9], [1, 2, 10], [2, 3, 11],
+            [4, 7, 8], [4, 5, 9], [5, 6, 10], [6, 7, 11],
+        ]
+        guard p.count == 8 else { return [] }
+        let cam = sceneView.session.currentFrame?.camera.transform.columns.3
+        let camPos = simd_float3(cam?.x ?? 0, cam?.y ?? 0, cam?.z ?? 0)
+        var farIndex = 0
+        var farDistance: Float = -1
+        for (i, pt) in p.enumerated() {
+            let d = simd_distance(camPos, pt)
+            if d > farDistance { farDistance = d; farIndex = i }
+        }
+        return Set(cornerEdges[farIndex])
     }
 
     /// 清除已画的面/体。
@@ -517,27 +625,88 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         faceNode = nil
     }
 
-    /// 尺寸文字标注（挂在线中点上方，恒面向相机）。
-    private func drawLabel(_ text: String, at world: simd_float3) {
-        labelNode?.removeFromParentNode(); labelNode = nil
-        let t = SCNText(string: text, extrusionDepth: 0.0)
-        t.font = UIFont.systemFont(ofSize: 12, weight: .semibold)
-        t.flatness = 0.2
+    // MARK: - 标注贴图（胶囊 / 中央大字）
+    /// 世界尺寸系数：贴图像素 → 米（沿用 SCNText 时代的观感标定）。
+    private static let kLabelScale: Float = 0.0016
+
+    /// 胶囊标签节点（深底 + 黄描边 + 白字，与 Dart `paintCapsuleLabel` 同口径）。
+    private func makeCapsuleNode(_ text: String, vertical: Bool) -> SCNNode {
+        Self.planeNode(Self.capsuleImage(text, vertical: vertical),
+                       scale: Self.kLabelScale)
+    }
+
+    /// 中央大字节点（深墨色、透明底）：压在黄色填充上仍然清楚。
+    ///
+    /// [heightMeters] 由面/体的短边推出，保证远近观感一致——固定世界字号在
+    /// 近距离会小到看不清。
+    private func makeCenterTextNode(_ text: String, heightMeters: Float) -> SCNNode {
+        let img = Self.textImage(text, fontSize: 44,
+                                 color: UIColor(red: 0.106, green: 0.106,
+                                                blue: 0.106, alpha: 1.0))
+        let scale = heightMeters / Float(max(img.size.height, 1))
+        return Self.planeNode(img, scale: scale)
+    }
+
+    /// 把贴图包成 billboard 平面节点；标注不写/不读深度缓冲，保证始终可读。
+    private static func planeNode(_ img: UIImage, scale: Float) -> SCNNode {
+        let w = max(Float(img.size.width) * scale, 0.001)
+        let h = max(Float(img.size.height) * scale, 0.001)
+        let plane = SCNPlane(width: CGFloat(w), height: CGFloat(h))
         let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor.white
-        mat.emission.contents = UIColor.white
-        t.firstMaterial = mat
-        let node = SCNNode(geometry: t)
-        // SCNText 以左下角为原点 → 居中并按毫米尺度缩小
-        let scale: Float = 0.0016
-        node.scale = SCNVector3(scale, scale, scale)
-        let (minB, maxB) = node.boundingBox
-        node.pivot = SCNMatrix4MakeTranslation((minB.x + maxB.x) / 2,
-                                               (minB.y + maxB.y) / 2, 0)
-        node.position = SCNVector3(world.x, world.y + 0.012, world.z)
+        mat.diffuse.contents = img
+        mat.emission.contents = img
+        mat.isDoubleSided = true
+        mat.transparencyMode = .aPreMultiplied
+        mat.writesToDepthBuffer = false
+        mat.readsFromDepthBuffer = false
+        plane.firstMaterial = mat
+        let node = SCNNode(geometry: plane)
         node.constraints = [SCNBillboardConstraint()]
-        sceneView.scene.rootNode.addChildNode(node)
-        labelNode = node
+        return node
+    }
+
+    /// 生成胶囊贴图；[vertical] = true 时整体旋转 90°（竖边标注）。
+    private static func capsuleImage(_ text: String, vertical: Bool) -> UIImage {
+        let str = NSAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: UIColor.white,
+        ])
+        let ts = str.size()
+        let padX: CGFloat = 9, padY: CGFloat = 5
+        let w = ceil(ts.width) + padX * 2
+        let h = ceil(ts.height) + padY * 2
+        let base = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { _ in
+            let rect = CGRect(x: 0, y: 0, width: w, height: h)
+            let path = UIBezierPath(roundedRect: rect, cornerRadius: h / 2)
+            UIColor(red: 0.06, green: 0.06, blue: 0.06, alpha: 0.9).setFill()
+            path.fill()
+            UIColor(red: 1.0, green: 0.77, blue: 0.0, alpha: 1.0).setStroke()
+            path.lineWidth = 1.6
+            path.stroke()
+            str.draw(at: CGPoint(x: padX, y: padY))
+        }
+        guard vertical else { return base }
+        return UIGraphicsImageRenderer(size: CGSize(width: h, height: w)).image { ctx in
+            let c = ctx.cgContext
+            c.translateBy(x: h / 2, y: w / 2)
+            c.rotate(by: .pi / 2)
+            base.draw(in: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
+        }
+    }
+
+    /// 生成"透明底 + 单色文字"贴图（面积/体积中央大字）。
+    private static func textImage(_ text: String, fontSize: CGFloat,
+                                  color: UIColor) -> UIImage {
+        let str = NSAttributedString(string: text, attributes: [
+            .font: UIFont.systemFont(ofSize: fontSize, weight: .semibold),
+            .foregroundColor: color,
+        ])
+        let ts = str.size()
+        let pad: CGFloat = 6
+        let size = CGSize(width: ceil(ts.width) + pad * 2, height: ceil(ts.height) + pad * 2)
+        return UIGraphicsImageRenderer(size: size).image { _ in
+            str.draw(at: CGPoint(x: pad, y: pad))
+        }
     }
 }
 

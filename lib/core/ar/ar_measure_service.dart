@@ -28,27 +28,33 @@ class ArMeasureService {
 
   // ——— 面积/体积绘制（把面/体画到真实空间，见 ArMeasureView.swift）———
 
-  /// 在真实空间画一个面域（半透明填充 + 边缘线 + 中央大字）。
+  /// 在真实空间画一个面域（半透明填充 + 外框 + 对角虚线 + 边长胶囊 + 中央大字）。
   ///
   /// [corners] 为 4 个角的世界坐标（米），顺序：A → B → C → D。
+  /// [label] 是**中央大字**（数值文案，如 `6.250m²`），不是记录名；
+  /// [edgeLabels] 是相邻两条边的尺寸文案（如 `['2.500m', '2.500m']`）。
   Future<void> showArea({
     required List<List<double>> corners,
     required String label,
+    List<String> edgeLabels = const [],
   }) async =>
       channel.invokeMethod('showArea', {
         'corners': corners,
         'label': label,
+        'edgeLabels': edgeLabels,
       });
 
-  /// 在真实空间画一个体积（半透明体 + 边缘线 + 中央大字）。
+  /// 在真实空间画一个体积（半透明体 + 可见边实线/隐藏边虚线 + 三边胶囊 + 中央大字）。
   ///
   /// [origin] 为底面一角（米）；[w]/[d]/[h] 为三条边向量（长/宽/高，米）。
+  /// [label] 是**中央大字**（如 `8.000m³`）；[edgeLabels] 是三条边的尺寸文案。
   Future<void> showVolume({
     required List<double> origin,
     required List<double> w,
     required List<double> d,
     required List<double> h,
     required String label,
+    List<String> edgeLabels = const [],
   }) async =>
       channel.invokeMethod('showVolume', {
         'origin': origin,
@@ -56,6 +62,7 @@ class ArMeasureService {
         'd': d,
         'h': h,
         'label': label,
+        'edgeLabels': edgeLabels,
       });
 
   /// 清除已画的面/体。

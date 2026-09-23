@@ -95,9 +95,14 @@ void main() {
     });
 
     test('模式枚举齐全且带中文名（UI 直接消费）', () {
-      expect(ArMeasureMode.values.length, 3);
+      expect(ArMeasureMode.values.length, 4);
       expect(ArMeasureMode.values.map((m) => m.label).toList(),
-          ['斜边', '水平', '高差']);
+          ['斜边', '水平', '高差', '高度和']);
+      // 只有"高度和"是累加模式（其余模式一段即一个读数）
+      expect(
+        ArMeasureMode.values.where((m) => m.accumulates).toList(),
+        [ArMeasureMode.heightSum],
+      );
     });
   });
 
