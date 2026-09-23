@@ -230,7 +230,39 @@ class _HomePageState extends ConsumerState<HomePage>
             data: (fs) => OfflineBar.home(fs.length),
             orElse: () => OfflineBar.home(_mockDataFloors.length),
           ),
+
+          // —— 版本信息：构建脚本注入版本/commit/构建时间，便于核对手机装的是不是最新包 ——
+          const _VersionFooter(),
         ],
+      ),
+    );
+  }
+}
+
+// 构建信息展示：由 scripts 构建脚本的 --dart-define 注入；
+// 直接跑 flutter build 时为空，组件自动隐藏。
+class _VersionFooter extends StatelessWidget {
+  const _VersionFooter();
+
+  static const _version = String.fromEnvironment('VERSION_NAME', defaultValue: '');
+  static const _commit = String.fromEnvironment('GIT_COMMIT', defaultValue: '');
+  static const _buildTime = String.fromEnvironment('BUILD_TIME', defaultValue: '');
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = [
+      if (_version.isNotEmpty) 'v$_version',
+      if (_commit.isNotEmpty) _commit,
+      if (_buildTime.isNotEmpty) _buildTime,
+    ];
+    if (parts.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AppTokens.space4),
+      child: Center(
+        child: Text(
+          parts.join(' · '),
+          style: const TextStyle(fontSize: 11, color: AppTokens.fg2),
+        ),
       ),
     );
   }
