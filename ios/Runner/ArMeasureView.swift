@@ -274,7 +274,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
             ])
         } else {
             let a = pointA!
-            let mm = simd_distance(a, world) * 1000.0
+            // 显式转 Double：lengthText 与 Flutter 的 channel 都按 Double 接收，
+            // 直接留 Float 会报 "cannot convert value of type 'Float' to 'Double'"。
+            let mm = Double(simd_distance(a, world)) * 1000.0
             // 尺寸线 + 勾股直角三角形（斜边实线 / 直角边虚线）+ 中点胶囊读数
             drawDimension(a, world, text: Self.lengthText(mm))
             // 距相机的深度（mm）：LiDAR 有效区间约 0.3~5m，超过则误差迅速放大，
@@ -656,7 +658,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
         mat.diffuse.contents = img
         mat.emission.contents = img
         mat.isDoubleSided = true
-        mat.transparencyMode = .aPreMultiplied
+        // SceneKit 的 SCNTransparencyMode 只有 aOne / rgbZero / singleLayer /
+        // dualLayer / default，并没有 aPreMultiplied（那是别的图形框架的枚举）。
+        // 贴图自带 alpha，保持默认的 aOne 即可正确混合。
         mat.writesToDepthBuffer = false
         mat.readsFromDepthBuffer = false
         plane.firstMaterial = mat
