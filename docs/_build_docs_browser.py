@@ -820,7 +820,7 @@ function homeView(){
   h += '</ul>';
   if(S.filter === 'all'){
     h += '<h2 class="sec">关键入口</h2><ul class="recents">';
-    ['USER_WORKFLOW.md','FEATURE_INVENTORY.md','docs/todo/蓝图落地_数据与录入入口（团队说明）.md','docs/todo/蓝图落地_管理后台产品设计.md','docs/todo/BACKEND_ARCHITECTURE.md','docs/todo/蓝图落地_后端技术选型参考（讨论稿）.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','DESIGN_TOKENS.md']
+    ['USER_WORKFLOW.md','FEATURE_INVENTORY.md','docs/todo/蓝图落地_数据与录入入口（团队说明）.md','docs/todo/蓝图落地_后端操作界面设计.md','docs/todo/BACKEND_ARCHITECTURE.md','docs/todo/蓝图落地_后端技术选型（定稿）.md','docs/specs/CAPTURE_FLOW.md','docs/specs/DEFECTS_FLOW.md','DESIGN_TOKENS.md']
       .forEach(p=>{
         const d = resolveDoc(p); if(!d) return;
         h += '<li data-doc="'+d.id+'"><div class="r1"><span class="t">'+esc(d.title)+'</span>'+
