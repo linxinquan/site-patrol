@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/cad/geo_calibration.dart';
+import '../../../core/utils/geo_calib_solver.dart';
 import '../../../core/utils/geo_project.dart';
 
 /// 图纸**地理配准**表单：把现场 GPS 经纬度落到这张图纸的像素上。
 ///
-/// 现场怎么填（方案①）：
-/// 1. 拿手机定位（或问总工/BIM）拿到**图纸左上角**那个点的真实经纬度；
-/// 2. 选图纸幅面（A0~A4）与比例尺（如 1:100）；
-/// 3. 系统按 `米/像素 = 纸面宽(m) × 比例尺分母 / 底图像素宽` 自动换算，
-///    并显示这张图覆盖的实地范围，确认量级无误后保存。
+/// 两种填法：
+/// - **自动校准（零输入，推荐先试）**：走完一圈巡场后，用「规划路线 + 本次 GPS
+///   轨迹」自动反解出比例与锚点。精度受 GPS 民用精度限制（比例误差 1~4%），
+///   适合判断路线走向，**不能用来量尺寸**。
+/// - **手工填（更准）**：填图纸左上角的真实经纬度 + 选幅面/比例尺。
+///   比例尺来自图纸本身，精度高于自动估算。
 ///
 /// 配准一次长期复用；底图改版（换图纸）后需重新配准。
 /// 返回 `true` 表示配准有变更（调用方需刷新轨迹像素化缓存）。
@@ -21,6 +23,12 @@ Future<bool?> showGeoCalibrationSheet(
   required double pixelWidth,
   required String drawingTitle,
   GeoCalibration? current,
+
+  /// 自动校准用的规划路线（图纸**像素**坐标）。为空则不显示「自动校准」。
+  List<PixelPoint> autoRoute = const [],
+
+  /// 自动校准用的 GPS 轨迹（经纬度，时间顺序）。为空则不显示「自动校准」。
+  List<GeoPoint> autoFixes = const [],
 }) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -33,6 +41,8 @@ Future<bool?> showGeoCalibrationSheet(
       pixelWidth: pixelWidth,
       drawingTitle: drawingTitle,
       current: current,
+      autoRoute: autoRoute,
+      autoFixes: autoFixes,
     ),
   );
 }
@@ -45,6 +55,8 @@ class _GeoCalibrationSheet extends StatefulWidget {
     required this.pixelWidth,
     required this.drawingTitle,
     this.current,
+    this.autoRoute = const [],
+    this.autoFixes = const [],
   });
 
   final GeoCalibrationLibrary library;
@@ -53,6 +65,10 @@ class _GeoCalibrationSheet extends StatefulWidget {
   final double pixelWidth;
   final String drawingTitle;
   final GeoCalibration? current;
+
+  /// 自动校准用的规划路线（图纸像素坐标）与 GPS 轨迹（经纬度）。
+  final List<PixelPoint> autoRoute;
+  final List<GeoPoint> autoFixes;
 
   @override
   State<_GeoCalibrationSheet> createState() => _GeoCalibrationSheetState();
@@ -64,6 +80,47 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
   String _paper = 'A0';
   int _scale = 100;
   String? _error;
+
+  /// 自动校准的解算结果（非空 = 已算出，可一键采用）。
+  GeoCalibSolution? _auto;
+
+  /// 自动校准的失败原因（数据不足 / 残差过大）。
+  String? _autoHint;
+
+  /// 由规划路线 + GPS 轨迹反解配准。
+  ///
+  /// 精度受 GPS 民用精度限制，比例误差通常 1~4%；残差超过 8m 视为不可信，
+  /// 提示改用手工填（比例尺来自图纸，更准）。
+  void _runAuto() {
+    final sol = solveGeoCalibrationFromRoute(
+      route: widget.autoRoute,
+      fixes: widget.autoFixes,
+    );
+    if (sol == null) {
+      setState(() {
+        _auto = null;
+        _autoHint = '自动校准失败：轨迹点太少，或路线/GPS 几乎没有位移'
+            '（请走完一圈、路线不要太短）';
+      });
+      return;
+    }
+    if (!sol.reliable) {
+      setState(() {
+        _auto = null;
+        _autoHint = '自动校准可信度不足'
+            '（匹配 ${sol.matched} 点 / 残差 ${sol.residualM.toStringAsFixed(1)}m）'
+            '，建议改用下方手工填';
+      });
+      return;
+    }
+    setState(() {
+      _auto = sol;
+      _autoHint = null;
+      // 把解算值回填进表单，让用户能直接看到并微调
+      _latCtl.text = sol.originLat.toStringAsFixed(6);
+      _lngCtl.text = sol.originLng.toStringAsFixed(6);
+    });
+  }
 
   @override
   void initState() {
@@ -163,6 +220,62 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
                 style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
               ),
               const SizedBox(height: 14),
+              // —— 自动校准（零输入）：走完一圈后由规划路线 + GPS 轨迹反解 ——
+              if (widget.autoRoute.length >= 3 && widget.autoFixes.length >= 3)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _auto == null ? const Color(0xFFEFF6FF) : const Color(0xFFEAF7EE),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text('自动校准（推荐先试）',
+                                style: TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600)),
+                          ),
+                          if (_auto == null)
+                            TextButton(
+                              onPressed: _runAuto,
+                              child: const Text('一键反解'),
+                            )
+                          else
+                            TextButton(
+                              onPressed: _runAuto,
+                              child: const Text('重新反解'),
+                            ),
+                        ],
+                      ),
+                      if (_auto == null && _autoHint == null)
+                        const Text(
+                          '用本次巡场的「规划路线 + GPS 轨迹」自动算出比例与锚点，'
+                          '无需手填。精度受 GPS 影响（比例误差约 1~4%）。',
+                          style: TextStyle(fontSize: 11, height: 1.4, color: Colors.black54),
+                        ),
+                      if (_auto != null)
+                        Text(
+                          '已反解：米/像素 ≈ ${_auto!.metersPerPixel.toStringAsExponential(3)}，'
+                          '匹配 ${_auto!.matched} 点，残差 ${_auto!.residualM.toStringAsFixed(1)}m。'
+                          '已回填到下方，可直接保存或微调。',
+                          style: const TextStyle(fontSize: 11, height: 1.4),
+                        ),
+                      if (_autoHint != null)
+                        Text(_autoHint!,
+                            style: const TextStyle(
+                                fontSize: 11, height: 1.4, color: Color(0xFFB26A00))),
+                    ],
+                  ),
+                ),
+              if (widget.autoRoute.length >= 3 && widget.autoFixes.length >= 3)
+                const SizedBox(height: 14),
+              const Text('手工填写（或用上方自动校准结果）',
+                  style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(

@@ -22,6 +22,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/storage/patrol_record_store.dart';
 import '../../core/utils/ids.dart';
+import '../../core/utils/geo_calib_solver.dart';
 
 /// 巡场状态机。
 enum _PatrolStatus { idle, running, paused, finished }
@@ -658,6 +659,25 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     final key = plan?.drawingKey ?? '';
     if (key.isEmpty) return;
     final drawing = ref.read(drawingsProvider).valueOrNull?[key];
+    // 自动校准的原料：规划路线（0~100 相对坐标 → 底图像素）+ 一条真实 GPS 轨迹。
+    // 取"最近一条含经纬度的历史记录"；若本次巡场刚结束，也一并纳入候选。
+    final pw = drawing?.w ?? 0;
+    final ph = drawing?.h ?? 0;
+    final autoRoute = <PixelPoint>[
+      for (final p in _plan?.points ?? const <PatrolPoint>[])
+        (x: p.dx / 100.0 * pw, y: p.dy / 100.0 * ph),
+    ];
+    final autoFixes = <GeoPoint>[];
+    for (final r in _historyRecords) {
+      for (final m in r.track) {
+        final lat = m['lat'];
+        final lng = m['lng'];
+        if (lat != null && lng != null) {
+          autoFixes.add((lat: lat, lng: lng));
+        }
+      }
+      if (autoFixes.length >= 3) break; // 用最近一条就够，混入多条反而对不齐
+    }
     final changed = await showGeoCalibrationSheet(
       sheetCtx,
       library: ref.read(geoCalibrationLibraryProvider),
@@ -666,6 +686,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       pixelWidth: drawing?.w ?? 0,
       drawingTitle: drawing?.title ?? plan?.name ?? key,
       current: _geoCalib,
+      autoRoute: autoRoute,
+      autoFixes: autoFixes,
     );
     if (changed == true) await _loadGeoCalib();
   }
