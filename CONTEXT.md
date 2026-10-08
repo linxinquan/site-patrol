@@ -26,6 +26,8 @@
 | **「高度和」模式**（09-23） | `measure_math.dart`（`HeightSum`）、`ar_measure_page.dart` | 分段累加竖直高度：量一段、举高再量一段自动求和（≥2 段才落库一条独立记录）；切换读数模式/清除会重置累加器 |
 | **iOS 云端构建+发布**（09-23） | `.github/workflows/ios-release.yml`、`codemagic.yaml` | 推 `v*` tag 自动建 Release 并附无签名 IPA（约 68MB，仓库 PUBLIC 免登录下载）；`gh workflow run` 手动触发只出 artifact |
 | **电脑端样式效果图**（09-23） | `tools/ar_style_preview.dart` | `flutter test tools/ar_style_preview.dart` → `build/ar_style_preview/*.png`；复用同一套样式库离屏渲染 4 种形态，用于在电脑上核对观感（几何是示意，非真实 AR 坐标） |
+| **真机验证通过项**（10-08） | v0.1.0 侧载实测 | 读数单位（不再 1mm）、面域+对角虚线+中央大字、边长胶囊（横/竖）、`已吸附：物体边界（±11mm）`、四个读数模式（含高度和）、「采纳本组」首屏可见 —— 全部符合预期 |
+| **胶囊残留修复**（10-08） | `ArMeasureView.swift` | 面/体生成时**未撤掉上一条直线的读数胶囊**，与面域自己的边长胶囊混在一起 ⟹ 出现"多出胶囊、数值与面积记录对不上"。修法：`showArea`/`showVolume` 里加 `clearDimension()`，并给面/体节点命名 + `clearAreaVolume()` 按名兜底清理 |
 
 ### 产品决策（容易回退错，必读）
 - **Web 预览不画"样张式"面域/立方体/模拟吸附**：那些是需要 AR 空间坐标或真实场景的标注，预览里只能是合成示意——画出来会**误导用户**以为 App 已识别房间形状/边界。预览只画用户真实点出的几何 + 数值（在清单），并带"演示界面·非实测"角标。真机上由原生按真实命中绘制。
