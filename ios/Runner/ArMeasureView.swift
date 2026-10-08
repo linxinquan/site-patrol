@@ -510,7 +510,12 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     /// + 中央面积大字（对齐参考样张"面积测量"）。
     private func showArea(corners c: [simd_float3], label: String, edgeLabels: [String]) {
         clearAreaVolume()
+        // 面域自带全部标注（外框 + 对角虚线 + 两条边长胶囊 + 面积大字），上一条
+        // **直线**的读数胶囊必须一并撤掉，否则它会和边长胶囊混在一起，看着像
+        // "多出胶囊、数值还和面积记录对不上"（实测踩过）。
+        clearDimension()
         let parent = SCNNode()
+        parent.name = "measure.area"
         // 半透明填充（两个三角形）
         let source = SCNGeometrySource(vertices: c.map { SCNVector3($0) })
         let element = SCNGeometryElement(indices: [UInt32(0), 1, 2, 0, 2, 3],
@@ -544,7 +549,9 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     private func showVolume(origin: simd_float3, w: simd_float3, d: simd_float3,
                             h: simd_float3, label: String, edgeLabels: [String]) {
         clearAreaVolume()
+        clearDimension() // 同 showArea：撤掉上一条直线的读数胶囊
         let parent = SCNNode()
+        parent.name = "measure.volume"
         // 八个角点
         let o = origin
         let p = [
@@ -625,6 +632,12 @@ class ArMeasureView: NSObject, FlutterPlatformView {
     private func clearAreaVolume() {
         faceNode?.removeFromParentNode()
         faceNode = nil
+        // 兜底：按名字清掉场景里所有面/体标注节点。万一某条绘制路径漏掉了
+        // faceNode 引用，旧面域就会留在画面上变成"残留"，这里兜住。
+        for node in sceneView.scene.rootNode.childNodes
+        where node.name == "measure.area" || node.name == "measure.volume" {
+            node.removeFromParentNode()
+        }
     }
 
     // MARK: - 标注贴图（胶囊 / 中央大字）
