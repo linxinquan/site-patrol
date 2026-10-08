@@ -11,6 +11,8 @@ import '../../shared/widgets/nav_icon_button.dart';
 import '../../core/theme/design_tokens.dart';
 import '../../core/di/providers.dart';
 import '../../core/cad/wall_lines.dart';
+import '../../core/cad/geo_calibration.dart';
+import 'widgets/geo_calibration_sheet.dart';
 import '../../data/models.dart';
 import '../../shared/widgets/drawing_image.dart';
 import '../../utils/geo.dart';
@@ -20,7 +22,6 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/storage/patrol_record_store.dart';
 import '../../core/utils/ids.dart';
-import '../../core/utils/geo_project.dart';
 
 /// 巡场状态机。
 enum _PatrolStatus { idle, running, paused, finished }
@@ -148,6 +149,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         // 重置已像素化缓存，下一帧重算。
         _historyPxCached = false;
       });
+      // 配准是异步读取（本地 store），必须在 setState 闭包外调用。
+      await _loadGeoCalib();
     } catch (_) {
       // 项目/计划读取异常：置空，走空态提示。
       if (!mounted) return;
@@ -160,9 +163,32 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
 
   // 历史记录缓存（未按当前底图像素缩放），到 _buildPatrolBody 里首次绘制时完成像素化。
   List<PatrolRecord> _historyRecords = const [];
+
+  /// 本图纸的**地理配准**（经纬度→图纸像素）。null = 未配准 ⟹ 真实 GPS 轨迹不画。
+  GeoCalibration? _geoCalib;
   bool _historyPxCached = false;
   double _historyPxW = 0;
   double _historyPxH = 0;
+
+  /// 读取本图纸的**地理配准**（离线 store）；未登记 / 参数不完整 → null。
+  ///
+  /// 配准只影响一件事：把现场采集的真实 GPS 经纬度换算成图纸像素，从而让历史
+  /// 轨迹能落到图上。没有它，GPS 段会被**跳过**（而不是像以前那样被当成 (0,0)
+  /// 堆在图纸左上角）。
+  Future<void> _loadGeoCalib() async {
+    final key = _plan?.drawingKey ?? '';
+    GeoCalibration? c;
+    if (key.isNotEmpty) {
+      c = await loadGeoCalibration(ref, key);
+      if (c != null && !c.ready) c = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _geoCalib = c;
+      // 配准变了，历史轨迹的像素化结果必须作废重算
+      _historyPxCached = false;
+    });
+  }
 
   /// 把历史记录按当前底图实际像素尺寸换算为绝对坐标，并按时间倒序分配冷→暖色。
   /// 仅对 _visibleHistoryIdxs 集合中的记录做像素化（其它默认不画，避免底图被杂色淹没）。
@@ -194,10 +220,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     final n = _historyRecords.length;
     // 地理配准：把真实 GPS 经纬度投影成图纸像素。图纸未配准时**不画**真实轨迹
     // ——宁可空着，也不用假坐标在图上乱画误导现场。
-    final planKey = _plan?.drawingKey ?? '';
-    final drawing = planKey.isEmpty
-        ? null
-        : ref.read(drawingsProvider).valueOrNull?[planKey];
+    final geo = _geoCalib;
     for (var j = 0; j < visibleSorted.length; j++) {
       final i = visibleSorted[j];
       if (i < 0 || i >= n) continue;
@@ -208,15 +231,9 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
         final lat = m['lat'];
         final lng = m['lng'];
         if (lat != null && lng != null) {
-          // ① 现场采集的真实 GPS 点：经纬度 → 图纸像素
-          if (drawing == null || !drawing.geoReady) continue;
-          final p = latLngToDrawingPixel(
-            lat: lat,
-            lng: lng,
-            originLat: drawing.geoOriginLat,
-            originLng: drawing.geoOriginLng,
-            metersPerPixel: drawing.geoMetersPerPixel,
-          );
+          // ① 现场采集的真实 GPS 点：经纬度 → 图纸像素（需图纸已配准）
+          if (geo == null || !geo.ready) continue;
+          final p = geo.project(lat, lng);
           if (p != null) pts.add(p);
           continue;
         }
@@ -594,6 +611,65 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     );
   }
 
+  /// 历史面板顶部的**图纸配准状态条**：未配准时明确告诉用户"真实 GPS 轨迹画不出来"，
+  /// 并给一个就近的「去配准」入口（配置要填经纬度，不该让用户自己到处找）。
+  Widget _buildGeoCalibBar(BuildContext sheetCtx) {
+    final plan = _plan;
+    final key = plan?.drawingKey ?? '';
+    if (key.isEmpty) return const SizedBox.shrink();
+    final ready = _geoCalib != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
+        decoration: BoxDecoration(
+          color: ready ? const Color(0xFFEAF7EE) : const Color(0xFFFFF6E5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline,
+                size: 16,
+                color: ready
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFFB26A00)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                ready
+                    ? '图纸已配准：真实 GPS 轨迹按经纬度落到图上'
+                    : '图纸未配准：真实 GPS 轨迹无法显示到图上（规划路线不受影响）',
+                style: const TextStyle(fontSize: 12, height: 1.4),
+              ),
+            ),
+            TextButton(
+              onPressed: () => _openGeoCalibration(sheetCtx),
+              child: Text(ready ? '修改' : '去配准'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 打开配准表单；保存后刷新配准与轨迹像素化缓存。
+  Future<void> _openGeoCalibration(BuildContext sheetCtx) async {
+    final plan = _plan;
+    final key = plan?.drawingKey ?? '';
+    if (key.isEmpty) return;
+    final drawing = ref.read(drawingsProvider).valueOrNull?[key];
+    final changed = await showGeoCalibrationSheet(
+      sheetCtx,
+      library: ref.read(geoCalibrationLibraryProvider),
+      drawingKey: key,
+      drawingVersionId: drawing?.publishedVersionId ?? '',
+      pixelWidth: drawing?.w ?? 0,
+      drawingTitle: drawing?.title ?? plan?.name ?? key,
+      current: _geoCalib,
+    );
+    if (changed == true) await _loadGeoCalib();
+  }
+
   void _showHistory() {
     if (_historyRecords.isEmpty) {
       AppSnack.show(context, '暂无历史巡场轨迹', kind: AppSnackKind.muted);
@@ -602,17 +678,25 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     AppBottomSheet.show<void>(
       context: context,
       title: '历史巡场轨迹',
-      body: (ctx) => _HistorySheet(
-        records: _historyRecords,
-        initiallyVisible: _visibleHistoryIdxs,
-        onChanged: (visible) {
-          if (!mounted) return;
-          setState(() {
-            _visibleHistoryIdxs = visible;
-            // 像素化缓存失效，下一帧按新可见集合重算。
-            _historyPxCached = false;
-          });
-        },
+      body: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildGeoCalibBar(ctx),
+          Flexible(
+            child: _HistorySheet(
+              records: _historyRecords,
+              initiallyVisible: _visibleHistoryIdxs,
+              onChanged: (visible) {
+                if (!mounted) return;
+                setState(() {
+                  _visibleHistoryIdxs = visible;
+                  // 像素化缓存失效，下一帧按新可见集合重算。
+                  _historyPxCached = false;
+                });
+              },
+            ),
+          ),
+        ],
       ),
     ).then((_) {
       if (!mounted) return;

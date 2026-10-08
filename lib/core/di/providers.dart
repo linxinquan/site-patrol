@@ -10,6 +10,7 @@ import '../../data/repository/remote_repository.dart';
 import '../../data/cad_service.dart';
 import '../../core/env/env.dart';
 import '../../core/cad/cad_calibration.dart';
+import '../../core/cad/geo_calibration.dart';
 import '../../core/utils/cad_coord.dart';
 import '../../core/utils/speech_recognizer.dart';
 import '../../core/storage/local_storage.dart';
@@ -147,6 +148,29 @@ final cadCalibrationStoreProvider = Provider<CadCalibrationStore>((ref) {
 final calibrationLibraryProvider = Provider<CalibrationLibrary>((ref) {
   return CalibrationLibrary(LocalStorage.instance);
 });
+
+/// 图纸**地理配准**库（把现场 GPS 经纬度落到图纸像素上）。
+final geoCalibrationLibraryProvider = Provider<GeoCalibrationLibrary>((ref) {
+  return GeoCalibrationLibrary(LocalStorage.instance);
+});
+
+/// 读某图纸的地理配准；未登记 / key 为空返回 null。
+Future<GeoCalibration?> loadGeoCalibration(WidgetRef ref, String drawingKey) async {
+  if (drawingKey.isEmpty) return null;
+  try {
+    return await ref.read(geoCalibrationLibraryProvider).read(drawingKey);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 写某图纸的地理配准。
+Future<void> saveGeoCalibration(WidgetRef ref, GeoCalibration c) =>
+    ref.read(geoCalibrationLibraryProvider).upsert(c);
+
+/// 清除某图纸的地理配准（底图改版失效 / 填错重来）。
+Future<void> clearGeoCalibration(WidgetRef ref, String drawingKey) =>
+    ref.read(geoCalibrationLibraryProvider).remove(drawingKey);
 
 /// 各图纸的坐标校准映射（内存缓存，key = drawingKey）。
 /// 由图纸页在加载时通过 [loadCadCalibration] 填充；校准后通过 [saveCadCalibration] 更新。
