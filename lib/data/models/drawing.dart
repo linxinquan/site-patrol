@@ -76,6 +76,19 @@ class Drawing {
   /// 若为 CAD/OCF 图纸，标记对应 OCF 缓存 key（如 `dy04_7_B01`）。
   /// ⚠️ CAD 链路已判废案，待整体剥离。
   final String? cadOcfKey;
+
+  // ——— 地理配准（把现场 GPS 轨迹落到图纸上）———
+  // 权威数据在 [DrawingVersion]（校准随版本走）；这里是与 w/h/hotspots 同构的
+  // **冗余快照**，供客户端直接渲染（DrawingVersion 目前客户端尚无读取路径）。
+  /// 图纸左上角像素 (0,0) 对应的真实纬度（度）。
+  final double geoOriginLat;
+
+  /// 图纸左上角像素 (0,0) 对应的真实经度（度）。
+  final double geoOriginLng;
+
+  /// 图纸比例（米/像素）：由图纸比例尺换算，见 `geo_project.metersPerPixelFromScale`。
+  final double geoMetersPerPixel;
+
   const Drawing({
     required this.key,
     this.projectId = '',
@@ -90,7 +103,18 @@ class Drawing {
     this.publishedVersionId = '',
     this.sort = 0,
     this.cadOcfKey,
+    this.geoOriginLat = 0,
+    this.geoOriginLng = 0,
+    this.geoMetersPerPixel = 0,
   });
+
+  /// 是否已地理配准：锚点经纬度 + 米/像素三者齐备且取值合理。
+  ///
+  /// 未配准时，真实 GPS 轨迹**不会**画到图上——宁可空着，也不用假坐标误导现场。
+  bool get geoReady =>
+      geoOriginLat.abs() > 1e-9 &&
+      geoOriginLng.abs() > 1e-9 &&
+      geoMetersPerPixel > 0;
 
   Map<String, dynamic> toJson() => {
         'key': key,
@@ -107,6 +131,9 @@ class Drawing {
         'publishedVersionId': publishedVersionId,
         'sort': sort,
         'cadOcfKey': cadOcfKey,
+        'geoOriginLat': geoOriginLat,
+        'geoOriginLng': geoOriginLng,
+        'geoMetersPerPixel': geoMetersPerPixel,
       };
 
   factory Drawing.fromJson(Map<String, dynamic> m) => Drawing(
@@ -126,6 +153,9 @@ class Drawing {
         publishedVersionId: m['publishedVersionId']?.toString() ?? '',
         sort: (m['sort'] as num?)?.toInt() ?? 0,
         cadOcfKey: m['cadOcfKey']?.toString(),
+        geoOriginLat: (m['geoOriginLat'] as num?)?.toDouble() ?? 0,
+        geoOriginLng: (m['geoOriginLng'] as num?)?.toDouble() ?? 0,
+        geoMetersPerPixel: (m['geoMetersPerPixel'] as num?)?.toDouble() ?? 0,
       );
 }
 
@@ -153,6 +183,24 @@ class DrawingVersion {
   final List<Hotspot> hotspots; // 热点随版本走（坐标）
   final int publishedAtMs; // 发布时间（epoch ms）
   final String? publishedBy; // 发布人 → User.id
+
+  // ——— 地理配准（把现场 GPS 轨迹落到图纸上）———
+  /// 图纸左上角像素（0,0）对应的真实纬度（度）。
+  ///
+  /// 与 [geoOriginLng]、[geoMetersPerPixel] 一起构成「锚点 + 比例」，
+  /// 即可把经纬度投影成图纸像素。三者缺一即视为未配准（见 [geoReady]），
+  /// 此时真实 GPS 轨迹**不画**到图上——宁可空着，也不用假坐标误导现场。
+  final double geoOriginLat;
+
+  /// 图纸左上角像素（0,0）对应的真实经度（度）。
+  final double geoOriginLng;
+
+  /// 图纸比例：每像素对应多少米（米/像素）。
+  ///
+  /// 由图纸比例尺换算：`米/像素 = 图纸物理宽度(m) / 底图像素宽`。
+  /// 例：1:100 的 A0 图（1189mm 宽）在 3000px 底图上 ≈ 0.0396 m/px。
+  final double geoMetersPerPixel;
+
   const DrawingVersion({
     required this.id,
     required this.drawingKey,
@@ -166,9 +214,18 @@ class DrawingVersion {
     this.hotspots = const [],
     this.publishedAtMs = 0,
     this.publishedBy,
+    this.geoOriginLat = 0,
+    this.geoOriginLng = 0,
+    this.geoMetersPerPixel = 0,
   });
 
   bool get isPublished => state == statePublished;
+
+  /// 是否已地理配准：锚点经纬度 + 米/像素三者齐备且取值合理。
+  bool get geoReady =>
+      geoOriginLat.abs() > 1e-9 &&
+      geoOriginLng.abs() > 1e-9 &&
+      geoMetersPerPixel > 0;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -183,6 +240,9 @@ class DrawingVersion {
         'hotspots': hotspots.map((e) => e.toJson()).toList(),
         'publishedAtMs': publishedAtMs,
         'publishedBy': publishedBy,
+        'geoOriginLat': geoOriginLat,
+        'geoOriginLng': geoOriginLng,
+        'geoMetersPerPixel': geoMetersPerPixel,
       };
 
   factory DrawingVersion.fromJson(Map<String, dynamic> m) => DrawingVersion(
@@ -201,6 +261,9 @@ class DrawingVersion {
             .toList(),
         publishedAtMs: (m['publishedAtMs'] as num?)?.toInt() ?? 0,
         publishedBy: m['publishedBy']?.toString(),
+        geoOriginLat: (m['geoOriginLat'] as num?)?.toDouble() ?? 0,
+        geoOriginLng: (m['geoOriginLng'] as num?)?.toDouble() ?? 0,
+        geoMetersPerPixel: (m['geoMetersPerPixel'] as num?)?.toDouble() ?? 0,
       );
 }
 

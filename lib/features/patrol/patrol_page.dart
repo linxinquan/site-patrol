@@ -20,6 +20,7 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_snack.dart';
 import '../../core/storage/patrol_record_store.dart';
 import '../../core/utils/ids.dart';
+import '../../core/utils/geo_project.dart';
 
 /// 巡场状态机。
 enum _PatrolStatus { idle, running, paused, finished }
@@ -191,6 +192,12 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     // 按时间顺序遍历（i=0 最旧，i=N-1 最新），便于分配冷→暖。
     final visibleSorted = _visibleHistoryIdxs.toList()..sort();
     final n = _historyRecords.length;
+    // 地理配准：把真实 GPS 经纬度投影成图纸像素。图纸未配准时**不画**真实轨迹
+    // ——宁可空着，也不用假坐标在图上乱画误导现场。
+    final planKey = _plan?.drawingKey ?? '';
+    final drawing = planKey.isEmpty
+        ? null
+        : ref.read(drawingsProvider).valueOrNull?[planKey];
     for (var j = 0; j < visibleSorted.length; j++) {
       final i = visibleSorted[j];
       if (i < 0 || i >= n) continue;
@@ -198,13 +205,22 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       if (r.track.isEmpty) continue;
       final pts = <Offset>[];
       for (final m in r.track) {
-        // 轨迹点有两种来源，必须区分：
-        // ① `x`/`y` = 0~100 的**图纸相对坐标**（规划/演示数据）→ 可直接叠加；
-        // ② `lat`/`lng` = 现场采集的**真实 GPS 经纬度** → 图纸尚无地理配准
-        //    （缺原点经纬度与米/像素比例尺），无法落到图上。
-        // 旧实现对缺字段一律当 0 处理，整条真实轨迹因此堆在原点、看着像"轨迹丢了"。
-        // 现在缺坐标的点直接跳过：真实 GPS 轨迹本轮不画（等图纸配准功能补齐），
-        // 至少不用错误数据误导现场。
+        final lat = m['lat'];
+        final lng = m['lng'];
+        if (lat != null && lng != null) {
+          // ① 现场采集的真实 GPS 点：经纬度 → 图纸像素
+          if (drawing == null || !drawing.geoReady) continue;
+          final p = latLngToDrawingPixel(
+            lat: lat,
+            lng: lng,
+            originLat: drawing.geoOriginLat,
+            originLng: drawing.geoOriginLng,
+            metersPerPixel: drawing.geoMetersPerPixel,
+          );
+          if (p != null) pts.add(p);
+          continue;
+        }
+        // ② 规划/演示数据：0~100 的图纸相对坐标
         final x = m['x'];
         final y = m['y'];
         if (x == null || y == null) continue;
