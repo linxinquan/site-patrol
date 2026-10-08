@@ -7,9 +7,14 @@ import 'repository.dart';
 
 /// 真实后端实现。后端就绪后由 DI（ENV=prod）注入。
 ///
-/// 测量落库走轻量 Python 服务（server/measure_server.py，默认端口 8820）：
+/// 测量落库走轻量 Python 服务（`server/measure_server.py`）：
 ///   POST /api/measurements  ·  GET /api/measurements?projectKey=&drawingKey=
-/// host 可通过 --dart-define=MEASURE_HOST=http://host:port 覆盖，默认与视觉服务同一云服务器。
+///
+/// host 解析顺序（原先注释写"默认端口 8820"但代码是 3000，容易误导维护者）：
+/// - 线上默认 = 云服务器 **:3000**（与视觉服务同端口），可用 `MEASURE_HOST` 覆盖；
+/// - 本地跑 `measure_server.py` 时它监听 **:8820**，必须显式传
+///   `--dart-define=MEASURE_HOST=http://localhost:8820`。
+/// 注意：该服务目前尚未上线，线上调用会失败（见 FEATURE_INVENTORY 10.7）。
 class RemoteRepository implements Repository {
   static const String host = String.fromEnvironment(
     'MEASURE_HOST',

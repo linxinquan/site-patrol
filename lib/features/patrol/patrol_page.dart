@@ -62,6 +62,12 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
 
   // 任务2：本次巡场检查点打卡（一个点最多一次；完成时写入 PatrolRecord）。
   final List<CheckIn> _checkins = [];
+
+  /// 本次巡场发起的「标记问题」次数（进入标记流程即计一次）。
+  ///
+  /// 口径：标记会跳到拍照页完成，用户可能在拍照页取消，所以这里统计的是**发起次数**，
+  /// 不是"最终入库的问题数"。旧实现恒写 0，导致历史卡片上的问题数永远是 0。
+  int _markedIssueCount = 0;
   bool _recordSaved = false;
 
   // GPS 轨迹采集：`PatrolRecord.track` 字段已存在，此处补真实定位来源。
@@ -192,8 +198,16 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       if (r.track.isEmpty) continue;
       final pts = <Offset>[];
       for (final m in r.track) {
-        final x = (m['x'] ?? 0).toDouble();
-        final y = (m['y'] ?? 0).toDouble();
+        // 轨迹点有两种来源，必须区分：
+        // ① `x`/`y` = 0~100 的**图纸相对坐标**（规划/演示数据）→ 可直接叠加；
+        // ② `lat`/`lng` = 现场采集的**真实 GPS 经纬度** → 图纸尚无地理配准
+        //    （缺原点经纬度与米/像素比例尺），无法落到图上。
+        // 旧实现对缺字段一律当 0 处理，整条真实轨迹因此堆在原点、看着像"轨迹丢了"。
+        // 现在缺坐标的点直接跳过：真实 GPS 轨迹本轮不画（等图纸配准功能补齐），
+        // 至少不用错误数据误导现场。
+        final x = m['x'];
+        final y = m['y'];
+        if (x == null || y == null) continue;
         pts.add(Offset(x * pw / 100, y * ph / 100));
       }
       if (pts.length >= 2) {
@@ -394,6 +408,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       _pausedTotal = Duration.zero;
       _startedAt = null;
       _checkins.clear();
+      _markedIssueCount = 0;
       _recordSaved = false;
       _track.clear();
       _gpsKm = 0;
@@ -488,7 +503,7 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       finishedAt: now,
       distKm: _distKm,
       pointCount: _pointCount,
-      issueCount: 0,
+      issueCount: _markedIssueCount,
       checkins: List.of(_checkins),
       checkpointTotal: plan.checkpointIdxs.length,
       track: List.of(_track),
@@ -530,6 +545,8 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
   Future<void> _markIssue(Drawing drawing) async {
     final plan = _plan;
     if (plan == null) return;
+    // 发起即计数（是否最终入库取决于拍照页是否保存，口径见 _markedIssueCount）
+    _markedIssueCount++;
     final rel = _currentRel(); // 0~1
     // B05 演示校准已写入本地 store（见 providers.dart seedDefaultCalibrations）；
     // 内存映射缺该图时兜底从 store 加载，确保能带世界坐标 mm。
@@ -696,37 +713,42 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 离线提示胶囊（白底 / 红字红图标 / 胶囊圆角，宽度收缩包裹内容
-              // —— 内部 Text 勿用 Expanded，否则会撑满 Flexible 的可用宽导致胶囊变长）
-              Flexible(
-                fit: FlexFit.loose,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Icon(MingCuteIcons.wifiOffLine,
-                          size: 16, color: Color(0xFFFF4444)),
-                      const SizedBox(width: 4),
-                      Text('离线（工地信号弱，GPS仍记录）',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              height: AppTokens.heightCalibrated,
-                              leadingDistribution: TextLeadingDistribution.even,
-                              color: Color(0xFFFF4444))),
-                    ],
+              // 离线提示胶囊：**按实际状态显示**。旧实现无条件渲染 + 文案写死，
+              // 等于永远在喊"离线"，属于典型的"数据在骗人"。
+              // 判据用「定位不可用」（工地信号弱 / 室内 / 未授权都会拿不到定位）——
+              // 项目目前没有 connectivity_plus 依赖，先用这个近似信号；
+              // 若要精确的网络状态判断，需引入 connectivity_plus。
+              if (_gpsDenied)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(MingCuteIcons.wifiOffLine,
+                            size: 16, color: Color(0xFFFF4444)),
+                        const SizedBox(width: 4),
+                        Text('信号弱·定位不可用（里程按图纸估算）',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                height: AppTokens.heightCalibrated,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
+                                color: Color(0xFFFF4444))),
+                      ],
+                    ),
                   ),
                 ),
-              ),
               // 状态胶囊（随状态变化：配色/图标/宽）
               Container(
                 width: pillW,
