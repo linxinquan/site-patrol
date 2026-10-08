@@ -151,6 +151,105 @@ GeoPoint _anchorFromPair(PixelPoint p, GeoPoint g, double k) {
   );
 }
 
+/// 交叉校验结果：相邻打卡点对解出的**局部比例**与全局解算值的对比。
+class CrossCheckResult {
+  /// 参与校验的相邻点对数。
+  final int pairs;
+
+  /// 各点对局部比例的中位数（米/像素）。
+  final double medianMpp;
+
+  /// 局部比例的**离散度**（相对中位数的最大偏差，1 = 0%）。
+  ///
+  /// 这是关键指标：相邻两点间距通常只有十几米，而 GPS 端点误差有 3~5m，
+  /// 所以**单对局部比例本身误差可达 20%+，不能用来提精度**；
+  /// 但如果多对之间**彼此一致**（离散度小），说明 GPS 稳定、自动解算可信；
+  /// 反之离散度大 = GPS 在漂或配准有偏，此时应提示人工介入。
+  final double dispersion;
+
+  /// 与全局解算比例的中位相对偏差（1 = 0%）。
+  final double driftVsGlobal;
+
+  const CrossCheckResult({
+    required this.pairs,
+    required this.medianMpp,
+    required this.dispersion,
+    required this.driftVsGlobal,
+  });
+
+  /// 点对太少（<2 对）时无法交叉校验。
+  bool get enough => pairs >= 2;
+
+  /// 局部比例彼此是否一致（离散度 < 30%）。
+  bool get selfConsistent => dispersion < 0.30;
+
+  /// 与全局解算是否吻合（偏差 < 25%）。
+  bool get agreesWithGlobal => driftVsGlobal < 0.25;
+
+  /// 综合判定：局部彼此一致 **且** 与全局吻合，才认为这次解算可信。
+  bool get trustworthy => enough && selfConsistent && agreesWithGlobal;
+}
+
+/// 由「打卡点对」做交叉校验。
+///
+/// - [checkins] 每项需含 `pointIdx`（图纸路线点序号）与 GPS 经纬度
+/// - [route] 规划路线（图纸像素坐标）
+/// - [globalMpp] 自动解算得到的全局米/像素（用于对比）
+///
+/// 返回 null 表示打卡点不足（带 GPS 的点少于 2 个，或路线太短）。
+///
+/// 为什么不是"提精度"而是"验伪"：相邻打卡点间距通常十几米，GPS 端点误差 3~5m，
+/// 单对局部比例误差可达 20~30%；**局部越短越不准**。它的价值在于——
+/// 局部比例彼此是否一致（GPS 稳不稳）、与全局是否吻合（配准对不对）。
+CrossCheckResult? crossCheckByCheckins({
+  required List<({int pointIdx, double lat, double lng})> checkins,
+  required List<PixelPoint> route,
+  required double globalMpp,
+}) {
+  if (checkins.length < 2 || route.length < 2) return null;
+
+  // 局部比例 = 两点实地距离(haversine) / 两点图纸距离(像素)
+  final locals = <double>[];
+  for (var i = 1; i < checkins.length; i++) {
+    final a = checkins[i - 1];
+    final b = checkins[i];
+    if (a.pointIdx < 0 ||
+        a.pointIdx >= route.length ||
+        b.pointIdx < 0 ||
+        b.pointIdx >= route.length) {
+      continue; // 点序号越界（路线改过）→ 跳过
+    }
+    final pa = route[a.pointIdx];
+    final pb = route[b.pointIdx];
+    final dpx = math.sqrt(math.pow(pb.x - pa.x, 2) + math.pow(pb.y - pa.y, 2));
+    if (dpx < 1.0) continue; // 图纸距离太短，比例不可信
+    final dm = haversineMeters((lat: a.lat, lng: a.lng), (lat: b.lat, lng: b.lng));
+    if (dm < 2.0) continue; // 实地距离太短（GPS 没动）
+    locals.add(dm / dpx);
+  }
+  if (locals.isEmpty) return null;
+
+  locals.sort();
+  final median = locals[locals.length ~/ 2];
+  if (median <= 0) return null;
+
+  // 离散度：各局部比例相对中位数的最大偏差
+  var maxDev = 0.0;
+  for (final v in locals) {
+    final d = (v - median).abs() / median;
+    if (d > maxDev) maxDev = d;
+  }
+  // 与全局解算的中位偏差
+  final drift = (median - globalMpp).abs() / globalMpp;
+
+  return CrossCheckResult(
+    pairs: locals.length,
+    medianMpp: median,
+    dispersion: maxDev,
+    driftVsGlobal: drift,
+  );
+}
+
 /// 从规划路线 + GPS 轨迹自动反解地理配准。
 ///
 /// - [route] 规划路线（**图纸像素**坐标，顺序即行进方向）

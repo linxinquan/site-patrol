@@ -135,6 +135,70 @@ void main() {
     });
   });
 
+  group('crossCheckByCheckins（打卡点交叉校验）', () {
+    // 规划路线：沿 +x 每 100px 一个点，共 30 点
+    final route = <PixelPoint>[
+      for (var i = 0; i < 30; i++) (x: i * 100.0, y: 0.0),
+    ];
+
+    // 在 route[0]、route[10]、route[20] 打卡（带真 GPS）
+    // 路线沿 +x 延伸 ⟹ 实地位移应体现在**经度**上。
+    List<({int pointIdx, double lat, double lng})> mkFixes({
+      double noiseM = 0.0,
+      int seed = 3,
+    }) {
+      final rnd = math.Random(seed);
+      double j() => noiseM <= 0 ? 0 : (rnd.nextDouble() - 0.5) * 2 * noiseM;
+      return [
+        for (final idx in [0, 10, 20])
+          (
+            pointIdx: idx,
+            lat: trueLat + j() / kMetersPerDegreeLat,
+            lng: trueLng +
+                (route[idx].x * trueMpp + j()) / metersPerDegreeLng(trueLat),
+          ),
+      ];
+    }
+
+    test('无噪声：局部中位比例接近真值，与全局一致 → 可信', () {
+      final cc = crossCheckByCheckins(
+        checkins: mkFixes(),
+        route: route,
+        globalMpp: trueMpp,
+      );
+      expect(cc, isNotNull);
+      expect(cc!.pairs, 2);
+      expect(cc.medianMpp, closeTo(trueMpp, trueMpp * 0.01));
+      expect(cc.dispersion, lessThan(0.05));
+      expect(cc.driftVsGlobal, lessThan(0.05));
+      expect(cc.trustworthy, isTrue);
+    });
+
+    test('打卡点不足 2 个 → null', () {
+      expect(
+        crossCheckByCheckins(
+          checkins: [
+            (pointIdx: 0, lat: trueLat, lng: trueLng),
+          ],
+          route: route,
+          globalMpp: trueMpp,
+        ),
+        isNull,
+      );
+    });
+
+    test('全局比例明显偏离局部中位 → 判为不可信（漂移检出）', () {
+      final cc = crossCheckByCheckins(
+        checkins: mkFixes(),
+        route: route,
+        globalMpp: trueMpp * 2.0, // 人为制造 2 倍漂移
+      );
+      expect(cc, isNotNull);
+      expect(cc!.driftVsGlobal, greaterThan(0.25));
+      expect(cc.trustworthy, isFalse);
+    });
+  });
+
   group('haversineMeters', () {
     test('同一点距离为 0', () {
       expect(haversineMeters((lat: 22.5, lng: 114.0), (lat: 22.5, lng: 114.0)), 0);

@@ -516,6 +516,32 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
     });
     AppSnack.show(context, '已打卡 检查点${pos + 1}/共${plan.checkpointIdxs.length}',
         kind: AppSnackKind.brand);
+    // 打卡瞬间补录一次 GPS：与 pointIdx 组成"已知点对"，用于配准的交叉校验。
+    // 异步补录、不阻塞打卡；取不到就留空（CheckIn.lat/lng 可空，旧数据兼容）。
+    unawaited(_attachGpsToCheckIn(idx));
+  }
+
+  /// 给最近一次 [pointIdx] 的打卡补录 GPS 经纬度（失败静默，不影响主流程）。
+  Future<void> _attachGpsToCheckIn(int pointIdx) async {
+    try {
+      final p = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (var i = _checkins.length - 1; i >= 0; i--) {
+          if (_checkins[i].pointIdx == pointIdx && !_checkins[i].hasFix) {
+            _checkins[i] = _checkins[i].copyWith(
+              lat: p.latitude,
+              lng: p.longitude,
+            );
+            return;
+          }
+        }
+      });
+    } catch (_) {
+      // 定位不可用（未授权 / 室内无信号）→ 保持无 GPS，不打扰用户
+    }
   }
 
   /// 完成时把本次记录（含打卡）持久化，照 PatrolPlanStore 模式。
@@ -688,6 +714,11 @@ class _PatrolPageState extends ConsumerState<PatrolPage>
       current: _geoCalib,
       autoRoute: autoRoute,
       autoFixes: autoFixes,
+      // 交叉校验：本次/最近一次巡场里带 GPS 的打卡点（≥2 个才有意义）
+      checkinPoints: _checkins
+          .where((c) => c.hasFix)
+          .map((c) => (pointIdx: c.pointIdx, lat: c.lat!, lng: c.lng!))
+          .toList(),
     );
     if (changed == true) await _loadGeoCalib();
   }

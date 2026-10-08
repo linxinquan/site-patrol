@@ -29,6 +29,9 @@ Future<bool?> showGeoCalibrationSheet(
 
   /// 自动校准用的 GPS 轨迹（经纬度，时间顺序）。为空则不显示「自动校准」。
   List<GeoPoint> autoFixes = const [],
+
+  /// 交叉校验用的打卡点（图纸点序号 + GPS）。≥2 个才会做校验。
+  List<({int pointIdx, double lat, double lng})> checkinPoints = const [],
 }) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -43,6 +46,7 @@ Future<bool?> showGeoCalibrationSheet(
       current: current,
       autoRoute: autoRoute,
       autoFixes: autoFixes,
+      checkinPoints: checkinPoints,
     ),
   );
 }
@@ -57,6 +61,7 @@ class _GeoCalibrationSheet extends StatefulWidget {
     this.current,
     this.autoRoute = const [],
     this.autoFixes = const [],
+    this.checkinPoints = const [],
   });
 
   final GeoCalibrationLibrary library;
@@ -69,6 +74,9 @@ class _GeoCalibrationSheet extends StatefulWidget {
   /// 自动校准用的规划路线（图纸像素坐标）与 GPS 轨迹（经纬度）。
   final List<PixelPoint> autoRoute;
   final List<GeoPoint> autoFixes;
+
+  /// 交叉校验用的打卡点（图纸点序号 + GPS）。
+  final List<({int pointIdx, double lat, double lng})> checkinPoints;
 
   @override
   State<_GeoCalibrationSheet> createState() => _GeoCalibrationSheetState();
@@ -86,6 +94,23 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
 
   /// 自动校准的失败原因（数据不足 / 残差过大）。
   String? _autoHint;
+
+  /// 交叉校验结果（由相邻打卡点解出的局部比例 vs 全局解算值）。
+  CrossCheckResult? _cross;
+
+  /// 打卡时补录 GPS 的数量（用于提示"还差几个点才能交叉校验"）。
+  int get _checkinCount => widget.checkinPoints.length;
+
+  /// 做交叉校验并把结论并入提示。返回是否可信（仅用于展示，不阻断保存）。
+  void _runCross(double globalMpp) {
+    if (_checkinCount < 2) return;
+    final cc = crossCheckByCheckins(
+      checkins: widget.checkinPoints,
+      route: widget.autoRoute,
+      globalMpp: globalMpp,
+    );
+    setState(() => _cross = cc);
+  }
 
   /// 由规划路线 + GPS 轨迹反解配准。
   ///
@@ -120,6 +145,8 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
       _latCtl.text = sol.originLat.toStringAsFixed(6);
       _lngCtl.text = sol.originLng.toStringAsFixed(6);
     });
+    // 打卡点交叉校验（验伪，不是提精度）
+    _runCross(sol.metersPerPixel);
   }
 
   @override
@@ -175,6 +202,60 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
       metersPerPixel: mpp,
     ));
     if (mounted) Navigator.of(context).pop(true);
+  }
+
+  /// 交叉校验的展示行。三种情形：点数不足 / 校验通过 / 检出漂移。
+  ///
+  /// 措辞上刻意区分"验伪"与"提精度"：局部两点间距只有十几米，GPS 误差占比大，
+  /// 局部比例本身不准；它的一致性只用来判断**这次解算可不可信**。
+  Widget _buildCrossCheckRow() {
+    final cc = _cross;
+    if (cc == null) {
+      return Text(
+        _checkinCount < 2
+            ? '交叉校验：需 ≥2 个带 GPS 的打卡点（当前 ${_checkinCount} 个）。'
+                '打卡时会自动记录 GPS，下次打开即可校验。'
+            : '交叉校验：打卡点数据不足，无法校验。',
+        style: const TextStyle(fontSize: 11, height: 1.4, color: Colors.black45),
+      );
+    }
+    if (!cc.enough) {
+      return Text('交叉校验：有效点对 ${cc.pairs} 个，不足以校验。',
+          style: const TextStyle(fontSize: 11, height: 1.4, color: Colors.black45));
+    }
+    final ok = cc.trustworthy;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          ok ? '交叉校验通过' : '交叉校验未通过',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: ok ? const Color(0xFF2E7D32) : const Color(0xFFB26A00),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '相邻打卡点 ${cc.pairs} 对｜局部中位 ${cc.medianMpp.toStringAsExponential(2)} m/px'
+          '｜彼此离散 ${(cc.dispersion * 100).toStringAsFixed(0)}%'
+          '｜与全局偏差 ${(cc.driftVsGlobal * 100).toStringAsFixed(0)}%',
+          style: const TextStyle(fontSize: 11, height: 1.4),
+        ),
+        if (!ok)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              cc.agreesWithGlobal
+                  ? '提示：局部比例彼此不一致，GPS 可能在漂移，建议换开阔处重测。'
+                  : '提示：局部与全局差异大，自动解算可能不可靠，'
+                      '建议改用下方手工填（比例尺来自图纸，更准）。',
+              style: const TextStyle(
+                  fontSize: 11, height: 1.4, color: Color(0xFFB26A00)),
+            ),
+          ),
+      ],
+    );
   }
 
   Future<void> _clear() async {
@@ -268,6 +349,11 @@ class _GeoCalibrationSheetState extends State<_GeoCalibrationSheet> {
                         Text(_autoHint!,
                             style: const TextStyle(
                                 fontSize: 11, height: 1.4, color: Color(0xFFB26A00))),
+                      // —— 交叉校验：相邻打卡点的局部比例 vs 全局解算 ——
+                      if (_auto != null) ...[
+                        const SizedBox(height: 6),
+                        _buildCrossCheckRow(),
+                      ],
                     ],
                   ),
                 ),

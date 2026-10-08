@@ -133,23 +133,58 @@ class CheckIn {
   final int pointIdx; // 对应 PatrolPlan.points 下标
   final int tsMs; // 打卡时间（ms）
   final String? note; // 备注（可空）
-  const CheckIn({required this.pointIdx, required this.tsMs, this.note});
 
-  CheckIn copyWith({int? pointIdx, int? tsMs, String? note}) => CheckIn(
+  /// 打卡瞬间的 GPS 纬度（度）。可空：旧记录没有；定位不可用时也没有。
+  ///
+  /// 用途：与 [pointIdx]（图纸上的点序号）组成"已知点对"，用于**交叉校验**
+  /// 地理配准的自动解算结果是否可信（见 geo_calib_solver）。
+  final double? lat;
+
+  /// 打卡瞬间的 GPS 经度（度）。
+  final double? lng;
+
+  const CheckIn({
+    required this.pointIdx,
+    required this.tsMs,
+    this.note,
+    this.lat,
+    this.lng,
+  });
+
+  /// 打卡时是否带上了 GPS（可参与交叉校验）。
+  bool get hasFix => lat != null && lng != null;
+
+  CheckIn copyWith({
+    int? pointIdx,
+    int? tsMs,
+    String? note,
+    double? lat,
+    double? lng,
+  }) =>
+      CheckIn(
         pointIdx: pointIdx ?? this.pointIdx,
         tsMs: tsMs ?? this.tsMs,
         note: note ?? this.note,
+        lat: lat ?? this.lat,
+        lng: lng ?? this.lng,
       );
 
-  Map<String, dynamic> toJson() =>
-      {'pointIdx': pointIdx, 'tsMs': tsMs, 'note': note};
+  Map<String, dynamic> toJson() => {
+        'pointIdx': pointIdx,
+        'tsMs': tsMs,
+        'note': note,
+        'lat': lat,
+        'lng': lng,
+      };
 
   /// 旧数据读取缺字段一律给默认值，不抛错。
   factory CheckIn.fromJson(Map<String, dynamic> m) => CheckIn(
-        pointIdx: (m['pointIdx'] as num?)?.toInt() ?? 0,
-        tsMs: (m['tsMs'] as num?)?.toInt() ?? 0,
-        note: m['note'] as String?,
-      );
+    pointIdx: (m['pointIdx'] as num?)?.toInt() ?? 0,
+    tsMs: (m['tsMs'] as num?)?.toInt() ?? 0,
+    note: m['note'] as String?,
+    lat: (m['lat'] as num?)?.toDouble(),
+    lng: (m['lng'] as num?)?.toDouble(),
+  );
 }
 
 /// 一次巡场记录（⑦历史用）。
