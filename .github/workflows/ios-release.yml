@@ -4,7 +4,7 @@
 # 所以这里不需要证书与描述文件，仓库里也不必保存任何签名机密。
 #
 # 触发方式：
-#   1) 打 tag（如 v0.1.0）→ 构建 + 自动创建 Release 并附上 IPA
+#   1) 打 tag（如 v1.1.0）→ 构建 + 自动创建 Release 并附上 IPA
 #   2) 在 Actions 页面手动 Run workflow → 只在 Artifacts 里给 IPA（不建 Release）
 name: iOS Release (unsigned IPA)
 
@@ -44,7 +44,13 @@ jobs:
         run: flutter pub get
 
       - name: Build iOS (release, no codesign)
-        run: flutter build ios --release --no-codesign
+        run: |
+          VERSION_SPEC=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | tr -d '[:space:]')
+          VERSION_NAME="${VERSION_SPEC%%+*}"
+          flutter build ios --release --no-codesign \
+            --dart-define="VERSION_NAME=$VERSION_NAME" \
+            --dart-define="GIT_COMMIT=$(git rev-parse --short HEAD)" \
+            --dart-define="BUILD_TIME=$(TZ=Asia/Singapore date '+%Y-%m-%d %H:%M')"
 
       - name: Package unsigned IPA
         run: |
